@@ -1,0 +1,180 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { getCurrentPerson } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import {
+  setExamDate,
+  markStudying,
+  markExamPassed,
+  markExamFailed,
+  markGuideRead,
+} from "@/lib/actions/pipeline";
+import type { MilestoneKind } from "@/lib/db/types";
+import { MILESTONE_KINDS } from "@/lib/db/types";
+
+async function getRecruitForCurrent() {
+  const person = await getCurrentPerson();
+  if (!person) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recruit")
+    .select("id, person_id, phase, phase_step, bootcamp_started_at")
+    .eq("person_id", person.id)
+    .maybeSingle();
+  return data
+    ? {
+        ...data,
+        person,
+        supabase,
+      }
+    : null;
+}
+
+export async function setExamDateForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  const date = String(formData.get("examDate") ?? "");
+  if (!recruitId || !date) {
+    redirect("/portal?error=missing-fields");
+  }
+  const result = await setExamDate(recruitId, date);
+  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
+  redirect("/portal?ok=exam-scheduled");
+}
+
+export async function markStudyingForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  if (!recruitId) redirect("/portal?error=missing-fields");
+  const result = await markStudying(recruitId);
+  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
+  redirect("/portal?ok=studying");
+}
+
+export async function markExamPassedForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  if (!recruitId) redirect("/portal?error=missing-fields");
+  const result = await markExamPassed(recruitId);
+  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
+  redirect("/portal?ok=exam-passed");
+}
+
+export async function markExamFailedForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  if (!recruitId) redirect("/portal?error=missing-fields");
+  const result = await markExamFailed(recruitId);
+  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
+  redirect("/portal?failed=1");
+}
+
+export async function markGuideReadForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  if (!recruitId) redirect("/portal?error=missing-fields");
+  const result = await markGuideRead(recruitId);
+  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
+  redirect("/portal?ok=guide-read");
+}
+
+export async function recordCheckIn(formData: FormData) {
+  const ctx = await getRecruitForCurrent();
+  if (!ctx) redirect("/auth/signin");
+
+  const returnTo = String(formData.get("returnTo") ?? "/portal");
+  const today = new Date().toISOString().slice(0, 10);
+  const summary = String(formData.get("summary") ?? "").trim();
+  if (!summary) redirect(`${returnTo}?error=summary-required`);
+
+  const isBootcamp = ctx.phase === "bootcamp";
+  const pacing = isBootcamp
+    ? {
+        dials: numOr(formData.get("pacing_dials"), 0),
+        appts: numOr(formData.get("pacing_appts"), 0),
+        presentations: numOr(formData.get("pacing_presentations"), 0),
+        closes: numOr(formData.get("pacing_closes"), 0),
+      }
+    : null;
+  const actuals = isBootcamp
+    ? {
+        dials: numOr(formData.get("actual_dials"), 0),
+        appts: numOr(formData.get("actual_appts"), 0),
+        presentations: numOr(formData.get("actual_presentations"), 0),
+        closes: numOr(formData.get("actual_closes"), 0),
+      }
+    : null;
+
+  // Upsert: one per recruit per day.
+  const { error } = await ctx.supabase.from("check_in").upsert(
+    {
+      recruit_id: ctx.id,
+      check_in_date: today,
+      summary,
+      pacing,
+      actuals,
+    },
+    { onConflict: "recruit_id,check_in_date" },
+  );
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?ok=check-in`);
+}
+
+export async function markMilestone(formData: FormData) {
+  const ctx = await getRecruitForCurrent();
+  if (!ctx) redirect("/auth/signin");
+  const kind = String(formData.get("kind") ?? "") as MilestoneKind;
+  if (!MILESTONE_KINDS.includes(kind)) {
+    redirect("/portal?error=bad-milestone");
+  }
+  const { error } = await ctx.supabase.from("milestone").insert({
+    recruit_id: ctx.id,
+    kind,
+  });
+  if (error && !error.message.includes("duplicate")) {
+    redirect(`/portal?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath("/portal");
+  redirect(`/portal?milestone=${kind}`);
+}
+
+export async function addPolicySubmission(formData: FormData) {
+  const ctx = await getRecruitForCurrent();
+  if (!ctx) redirect("/auth/signin");
+  if (ctx.phase !== "bootcamp") redirect("/portal?error=not-in-bootcamp");
+
+  const submittedAt = String(formData.get("submittedAt") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (!submittedAt) redirect("/portal?error=date-required");
+
+  const { error } = await ctx.supabase.from("policy_submission").insert({
+    recruit_id: ctx.id,
+    submitted_at: submittedAt,
+    note,
+  });
+  if (error) redirect(`/portal?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/portal");
+  redirect("/portal?ok=policy");
+}
+
+export async function completeLesson(formData: FormData) {
+  const ctx = await getRecruitForCurrent();
+  if (!ctx) redirect("/auth/signin");
+  const returnTo = String(formData.get("returnTo") ?? "/portal");
+  const lessonId = String(formData.get("lessonId") ?? "");
+  if (!lessonId) redirect(`${returnTo}?error=missing-lesson`);
+
+  const { error } = await ctx.supabase
+    .from("lesson_completion")
+    .insert({ recruit_id: ctx.id, lesson_id: lessonId });
+  if (error && !error.message.includes("duplicate")) {
+    redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?ok=lesson`);
+}
+
+function numOr(v: FormDataEntryValue | null, fallback: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}

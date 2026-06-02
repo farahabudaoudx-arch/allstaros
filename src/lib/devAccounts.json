@@ -1,0 +1,29 @@
+[
+  {
+    "role": "recruit",
+    "email": "recruit@allstar.test",
+    "fullName": "Dev Recruit",
+    "is_builder": false,
+    "is_producer": false,
+    "label": "Recruit",
+    "description": "Recruit portal — licensing through bootcamp"
+  },
+  {
+    "role": "producer",
+    "email": "producer@allstar.test",
+    "fullName": "Dev Producer",
+    "is_builder": false,
+    "is_producer": true,
+    "label": "Producer",
+    "description": "Clients, leaderboard, training portal"
+  },
+  {
+    "role": "builder",
+    "email": "builder@allstar.test",
+    "fullName": "Dev Builder",
+    "is_builder": true,
+    "is_producer": true,
+    "label": "Builder",
+    "description": "Recruiting dashboard + producer tools (additive)"
+  }
+]

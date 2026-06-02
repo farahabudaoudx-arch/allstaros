@@ -1,26 +1,371 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: #050505;
+  --color-foreground: #f5f5f5;
+  --color-ink: #f5f5f5;
+  --color-subtle: #8a8a8a;
+  --color-mute: #5a5a5a;
+  --color-hairline: #1f1f1f;
+  --color-card: #0d0d0d;
+  --color-card-hi: #141414;
+  --color-accent: #f6c945;
+  --color-accent-soft: #c9a235;
+  --color-pos: #34d399;
+  --color-warn: #f97316;
+  --color-neg: #ef4444;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-background);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #000;
+}
+
+/* ----------------------------------------------------------------------------
+   Producer Analytics — ported from the LifeLeads analytics UI, recolored to
+   the All Star gold accent. All rules are scoped under .ll-analytics so the
+   LifeLeads class names (.card, .btn, .text-white, …) can be used verbatim by
+   the ported component without colliding with Tailwind utilities or OS tokens.
+---------------------------------------------------------------------------- */
+.ll-analytics {
+  --ink-0: #ffffff;
+  --ink-1: #f5f5f5;
+  --ink-2: #8a8a8a;
+  --ink-3: #5a5a5a;
+
+  --line-1: #1f1f1f;
+  --line-2: #2a2a2a;
+  --line-3: #3a3a3a;
+
+  --bg-inner: #0a0a0a;
+  --card-1: #0d0d0d;
+  --card-2: #141414;
+
+  --surface-faint: rgba(255, 255, 255, 0.02);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --surface-mid: rgba(255, 255, 255, 0.06);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+
+  --lime: #f6c945;
+  --mountain: #c9a235;
+  --lime-deep: #1a1400;
+
+  --nav-active-bg: #f6c945;
+  --nav-active-text: #050505;
+
+  --danger: #ef4444;
+  --warn: #f97316;
+
+  letter-spacing: -0.012em;
+}
+
+/* Type */
+.ll-analytics .display-mega {
+  font-size: clamp(3rem, 6vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+.ll-analytics .display-big {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.ll-analytics .display {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.ll-analytics .tnum {
+  font-variant-numeric: tabular-nums;
+}
+.ll-analytics .section-label {
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  letter-spacing: -0.005em;
+}
+.ll-analytics .text-white {
+  color: var(--ink-1) !important;
+}
+
+/* Cards */
+.ll-analytics .card {
+  background: var(--card-1);
+  border-radius: 22px;
+  position: relative;
+  border: 1px solid var(--line-1);
+}
+.ll-analytics .card-lime {
+  background: linear-gradient(180deg, var(--mountain), var(--lime));
+  border-radius: 22px;
+  color: var(--lime-deep);
+  position: relative;
+}
+
+/* Buttons */
+.ll-analytics .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ll-analytics .btn:active {
+  transform: translateY(1px);
+}
+.ll-analytics .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ll-analytics .btn-primary {
+  background: var(--lime);
+  color: var(--lime-deep);
+  box-shadow: 0 8px 30px -12px rgba(246, 201, 69, 0.5);
+}
+.ll-analytics .btn-primary:hover:not(:disabled) {
+  background: var(--mountain);
+}
+.ll-analytics .btn-pill {
+  background: var(--surface-soft);
+  border-color: var(--line-2);
+  color: var(--ink-1);
+}
+.ll-analytics .btn-pill:hover:not(:disabled) {
+  background: var(--surface-strong);
+}
+.ll-analytics .btn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line-2);
+  color: var(--ink-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.ll-analytics .btn-icon:hover {
+  background: var(--surface-strong);
+}
+.ll-analytics .btn-icon[data-active="true"] {
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
+/* Inputs */
+.ll-analytics .input {
+  width: 100%;
+  background: var(--surface-faint);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  color: var(--ink-1);
+  font-size: 0.95rem;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.ll-analytics .input::placeholder {
+  color: var(--ink-3);
+}
+.ll-analytics .input:focus {
+  outline: none;
+  border-color: var(--lime);
+  background: rgba(246, 201, 69, 0.04);
+}
+
+/* Tab pills */
+.ll-analytics .tab-pills {
+  display: inline-flex;
+  background: var(--surface-soft);
+  border: 1px solid var(--line-1);
+  border-radius: 999px;
+  padding: 4px;
+}
+.ll-analytics .tab-pills button {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.ll-analytics .tab-pills button:hover {
+  color: var(--ink-1);
+}
+.ll-analytics .tab-pills button[data-active="true"] {
+  background: var(--nav-active-bg);
+  color: var(--nav-active-text);
+  font-weight: 500;
+}
+
+/* Table */
+.ll-analytics .t-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.ll-analytics .t-table thead th {
+  text-align: left;
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  font-weight: 400;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line-1);
+}
+.ll-analytics .t-table tbody td {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--line-1);
+  font-size: 0.92rem;
+}
+.ll-analytics .t-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.ll-analytics .lead-row {
+  transition: background-color 0.12s;
+}
+.ll-analytics .lead-row:hover {
+  background: var(--surface-faint);
+}
+
+/* Field label (forms) */
+.ll-analytics .label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  margin-bottom: 0.4rem;
+  letter-spacing: -0.005em;
+}
+
+/* Soft inner surface used inside cards (quote rows, commission box) */
+.ll-analytics .card-soft {
+  background: var(--surface-soft);
+  border: 1px solid var(--line-1);
+}
+
+/* Avatar bubble (client initials) */
+.ll-analytics .avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line-2);
+  color: var(--ink-1);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ll-analytics .avatar-sm {
+  width: 34px;
+  height: 34px;
+  font-size: 0.8rem;
+}
+
+/* Status pills */
+.ll-analytics .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid var(--line-2);
+  background: var(--surface-faint);
+  color: var(--ink-2);
+}
+.ll-analytics .pill-lime {
+  border-color: rgba(246, 201, 69, 0.45);
+  background: rgba(246, 201, 69, 0.12);
+  color: var(--lime);
+}
+.ll-analytics .pill-warn {
+  border-color: rgba(249, 115, 22, 0.4);
+  background: rgba(249, 115, 22, 0.12);
+  color: #fdba74;
+}
+.ll-analytics .pill-danger {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+/* Hero KPI tile (client detail) */
+.ll-analytics .hero-stat {
+  background: var(--card-1);
+  border: 1px solid var(--line-1);
+  border-radius: 18px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.ll-analytics .hero-stat-label {
+  font-size: 0.74rem;
+  color: var(--ink-2);
+  letter-spacing: -0.005em;
+}
+.ll-analytics .hero-stat-value {
+  font-size: 1.9rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--ink-0);
+}
+.ll-analytics .hero-stat-sub {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+
+/* Header action button (client detail toolbar) */
+.ll-analytics .hbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--line-2);
+  background: var(--surface-soft);
+  color: var(--ink-1);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ll-analytics .hbtn:hover:not(:disabled) {
+  background: var(--surface-strong);
+}
+.ll-analytics .hbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ll-analytics .hbtn-accent {
+  border-color: rgba(246, 201, 69, 0.45);
+  background: rgba(246, 201, 69, 0.1);
+  color: var(--lime);
 }

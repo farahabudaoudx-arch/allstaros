@@ -1,0 +1,57 @@
+import { removeRecruitForm } from "@/lib/actions/flagging";
+import type { Recruit } from "@/lib/db/types";
+import { Input } from "@/components/ui";
+
+export default function RemoveForm({ recruit }: { recruit: Recruit }) {
+  if (recruit.removed_at) {
+    return (
+      <div className="rounded-2xl border border-neg/40 bg-neg/[0.08] px-4 py-3 text-sm text-neg">
+        Removed on {new Date(recruit.removed_at).toLocaleDateString()}. Record
+        retained. Post-removal workflow is intentionally not built (Section
+        6.2).
+      </div>
+    );
+  }
+
+  if (!recruit.flagged) {
+    return (
+      <p className="rounded-2xl border border-hairline px-4 py-3 text-sm text-mute">
+        Not flagged. Removal is only available on flagged recruits — the system
+        flags, you decide.
+      </p>
+    );
+  }
+
+  return (
+    <form
+      action={removeRecruitForm}
+      className="rounded-2xl border border-warn/40 bg-warn/[0.06] p-5"
+    >
+      <input type="hidden" name="recruitId" value={recruit.id} />
+      <p className="text-sm text-subtle">
+        This recruit is flagged:{" "}
+        <strong className="text-warn">
+          {recruit.flag_reason ?? "stalled"}
+        </strong>
+        . Removal sets <code className="text-ink">removed_at</code> and marks
+        the person <code className="text-ink">removed</code>. History stays
+        intact.
+      </p>
+      <label className="mt-4 block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+        Reason (optional)
+      </label>
+      <Input
+        name="reason"
+        type="text"
+        placeholder="Optional note — e.g. could not reach"
+        className="mt-1.5"
+      />
+      <button
+        type="submit"
+        className="mt-3 inline-flex items-center justify-center rounded-full bg-neg px-4 py-2 text-sm font-medium text-white transition hover:bg-neg/85"
+      >
+        Remove recruit
+      </button>
+    </form>
+  );
+}
