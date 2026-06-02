@@ -14,6 +14,24 @@ export const DEV_LOGIN_ENABLED =
 export const DEV_LOGIN_PASSWORD =
   process.env.DEV_LOGIN_PASSWORD ?? "allstar-dev-login";
 
+/**
+ * Secret-link bypass for the *deployed* site. Production hard-disables
+ * DEV_LOGIN_ENABLED, so the only way to reach the "sign in as" screen on Vercel
+ * is to arrive with ?key=<DEV_LOGIN_SECRET>. The secret is a long random string
+ * set as an env var — leave it unset to keep the door fully closed.
+ */
+export const DEV_LOGIN_SECRET = process.env.DEV_LOGIN_SECRET ?? "";
+
+/**
+ * True when dev login should be allowed for this request: either we're local
+ * (DEV_LOGIN_ENABLED) or the caller presented the correct secret key. An unset
+ * secret never authorizes — a blank key can't match a blank secret.
+ */
+export function devLoginAuthorized(key: string | null | undefined): boolean {
+  if (DEV_LOGIN_ENABLED) return true;
+  return DEV_LOGIN_SECRET.length > 0 && key === DEV_LOGIN_SECRET;
+}
+
 export type DevRole = "builder" | "producer" | "recruit";
 
 export type DevAccount = {

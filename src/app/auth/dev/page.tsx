@@ -1,18 +1,21 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { buttonClass } from "@/components/ui";
-import { DEV_ACCOUNTS, DEV_LOGIN_ENABLED } from "@/lib/devLogin";
+import { DEV_ACCOUNTS, devLoginAuthorized } from "@/lib/devLogin";
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; key?: string }>;
 
 export default async function DevLoginPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  if (!DEV_LOGIN_ENABLED) notFound();
+  const { error, key } = await searchParams;
+  if (!devLoginAuthorized(key)) notFound();
 
-  const { error } = await searchParams;
+  // Carry the secret key through to the sign-in route so the deployed link
+  // stays authorized on the next hop.
+  const keySuffix = key ? `&key=${encodeURIComponent(key)}` : "";
 
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-24">
@@ -50,7 +53,7 @@ export default async function DevLoginPage({
           {DEV_ACCOUNTS.map((account) => (
             <a
               key={account.role}
-              href={`/auth/dev/as?role=${account.role}`}
+              href={`/auth/dev/as?role=${account.role}${keySuffix}`}
               className={buttonClass(
                 account.is_builder ? "primary" : "secondary",
                 "w-full flex-col items-start gap-0.5 rounded-xl px-4 py-3 text-left",

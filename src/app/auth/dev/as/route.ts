@@ -2,9 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveLandingPath } from "@/lib/auth";
 import {
-  DEV_LOGIN_ENABLED,
   DEV_LOGIN_PASSWORD,
   devAccountByRole,
+  devLoginAuthorized,
 } from "@/lib/devLogin";
 import { resetDevRecruitByPersonId } from "@/lib/devReset";
 
@@ -25,7 +25,8 @@ async function resetDevRecruit(authUserId: string) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!DEV_LOGIN_ENABLED) {
+  const key = request.nextUrl.searchParams.get("key");
+  if (!devLoginAuthorized(key)) {
     return new NextResponse("Not found", { status: 404 });
   }
 
