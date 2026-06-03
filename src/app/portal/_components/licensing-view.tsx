@@ -19,7 +19,7 @@ import {
 import { SubmitButton } from "./submit-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
-const XCEL_LOGIN_URL = "https://xcelsolutions.com/login";
+const XCEL_LOGIN_URL = "https://www.xcelsolutions.com/";
 const XCEL_CODE = "FFLALLSTAR-NGBNCR";
 const SIRCON_URL = "https://www.sircon.com";
 const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
