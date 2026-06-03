@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -25,8 +26,6 @@ export default async function PortalPage({
     error?: string;
     ok?: string;
     milestone?: string;
-    failed?: string;
-    guide?: string;
   }>;
 }) {
   const person = await getCurrentPerson();
@@ -36,19 +35,16 @@ export default async function PortalPage({
 
   const params = await searchParams;
 
-  // Dev-only: a fresh (param-less) portal load on the seeded recruit resets it
-  // to a clean step 1, so the demo account never carries stale progress between
-  // sessions. In-flow loads carry a flash param (ok/guide/failed/...) and are
-  // left untouched so the unlock animations still play through.
-  const isFreshLoad =
-    !params.ok &&
-    !params.error &&
-    !params.milestone &&
-    !params.failed &&
-    !params.guide;
+  // Dev-only: arriving at the portal from outside the flow (a fresh login or a
+  // typed URL) resets the seeded recruit to a clean step 1, so the demo account
+  // never carries stale progress between sessions. Loads that come from inside
+  // the portal itself — i.e. the redirect after a step action — carry a referer
+  // pointing back at /portal, and are left untouched so progress sticks.
+  const referer = (await headers()).get("referer") ?? "";
+  const cameFromPortal = referer.includes("/portal");
   if (
     DEV_LOGIN_ENABLED &&
-    isFreshLoad &&
+    !cameFromPortal &&
     person.email === devAccountByRole("recruit")?.email
   ) {
     await resetDevRecruitByPersonId(person.id);
@@ -127,11 +123,7 @@ export default async function PortalPage({
       }}
     >
       {recruit.phase === "licensing" ? (
-        <LicensingView
-          recruit={recruit}
-          showFailModal={params.failed === "1"}
-          justUnlocked={params.ok}
-        />
+        <LicensingView recruit={recruit} />
       ) : recruit.phase === "onboarding" ? (
         <OnboardingView
           recruit={recruit}

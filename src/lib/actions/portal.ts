@@ -35,44 +35,37 @@ async function getRecruitForCurrent() {
 export async function setExamDateForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const date = String(formData.get("examDate") ?? "");
-  if (!recruitId || !date) {
-    redirect("/portal?error=missing-fields");
-  }
-  const result = await setExamDate(recruitId, date);
-  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
-  redirect("/portal?ok=exam-scheduled");
+  if (!recruitId || !date) redirect("/portal");
+  await setExamDate(recruitId, date);
+  redirect("/portal");
 }
 
 export async function markStudyingForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
-  if (!recruitId) redirect("/portal?error=missing-fields");
-  const result = await markStudying(recruitId);
-  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
-  redirect("/portal?ok=studying");
+  if (!recruitId) redirect("/portal");
+  await markStudying(recruitId);
+  redirect("/portal");
 }
 
 export async function markExamPassedForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
-  if (!recruitId) redirect("/portal?error=missing-fields");
-  const result = await markExamPassed(recruitId);
-  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
-  redirect("/portal?ok=exam-passed");
+  if (!recruitId) redirect("/portal");
+  await markExamPassed(recruitId);
+  redirect("/portal");
 }
 
 export async function markExamFailedForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
-  if (!recruitId) redirect("/portal?error=missing-fields");
-  const result = await markExamFailed(recruitId);
-  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
-  redirect("/portal?failed=1");
+  if (!recruitId) redirect("/portal");
+  await markExamFailed(recruitId);
+  redirect("/portal");
 }
 
 export async function markGuideReadForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
-  if (!recruitId) redirect("/portal?error=missing-fields");
-  const result = await markGuideRead(recruitId);
-  if (!result.ok) redirect(`/portal?error=${encodeURIComponent(result.error)}`);
-  redirect("/portal?ok=guide-read");
+  if (!recruitId) redirect("/portal");
+  await markGuideRead(recruitId);
+  redirect("/portal");
 }
 
 export async function recordCheckIn(formData: FormData) {
