@@ -131,7 +131,6 @@ export default async function PortalPage({
           recruit={recruit}
           showFailModal={params.failed === "1"}
           justUnlocked={params.ok}
-          guideVisited={params.guide === "visited"}
         />
       ) : recruit.phase === "onboarding" ? (
         <OnboardingView

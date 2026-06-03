@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import confetti from "canvas-confetti";
 
 const OK_MESSAGES: Record<string, string> = {
-  "guide-read": "Guide marked as read — let's schedule your exam.",
+  "guide-read": "Video marked as watched — let's schedule your exam.",
   "exam-scheduled": "Exam date saved. Study materials are unlocked.",
   studying: "Study login confirmed — next up, pass your exam.",
   "exam-passed": "Marked exam passed — your builder will confirm.",

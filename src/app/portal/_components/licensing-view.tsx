@@ -15,6 +15,7 @@ import { ExamFailModal } from "./exam-fail-modal";
 const SCHEDULE_EXAM_URL = "https://www.prometric.com";
 const XCEL_LOGIN_URL = "https://xcelsolutions.com/login";
 const FINGERPRINT_SCHEDULE_URL = "https://www.identogo.com";
+const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const EXAM_WALKTHROUGH_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const FINGERPRINT_WALKTHROUGH_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
@@ -30,16 +31,12 @@ export default function LicensingView({
   recruit,
   showFailModal = false,
   justUnlocked,
-  guideVisited = false,
 }: {
   recruit: Recruit;
   showFailModal?: boolean;
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
-  // True when the recruit just came back from the guide page (?guide=visited),
-  // which unlocks the "I've read the guide" confirm button on step 01.
-  guideVisited?: boolean;
 }) {
   // How far along the recruit is. Fall back to the exam_date column in case the
   // step lagged behind (the column is independently client-updatable).
@@ -48,9 +45,10 @@ export default function LicensingView({
     current = STEP_ORDER.exam_scheduled;
   }
 
-  // The guide is a soft gate that sits in front of everything. It's satisfied
-  // once guide_read_at is stamped, or implicitly once the recruit has moved past
-  // scheduling (so re-reads aren't forced on people already underway).
+  // The intro video is a soft gate that sits in front of everything. It's
+  // satisfied once guide_read_at is stamped (reused as the "watched" marker), or
+  // implicitly once the recruit has moved past scheduling (so people already
+  // underway aren't sent back to re-watch).
   const guideRead = !!recruit.guide_read_at;
   const guideComplete = guideRead || current >= STEP_ORDER.exam_scheduled;
   const stepGuide: StepStatus = guideComplete ? "complete" : "active";
@@ -90,48 +88,35 @@ export default function LicensingView({
     <>
       <ExamFailModal open={showFailModal} />
       <Timeline>
-        {/* 01 — Read the guide (soft gate) */}
+        {/* 01 — Watch the intro video (soft gate) */}
         <TimelineStep
           number="01"
-          title="Read this guide first"
+          title="Watch this video first"
           description={
             stepGuide === "complete"
-              ? "You're all set — you've read the guide that sets you up to pass on the first try."
-              : "This short guide, “How To Pass Your Life Insurance Exam On The First Try,” is what will set you up for success. We want to make sure you read it before you go through the next steps."
+              ? "Nice — you've watched the video that sets you up to pass on the first try."
+              : "In this short video we're going to show you how to pass your exam on your first try."
           }
           status={stepGuide}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <a
-              href="/portal/guide"
-              className={buttonClass(
-                stepGuide === "complete" ? "secondary" : "primary",
-              )}
-            >
-              {stepGuide === "complete" ? "Reread the guide →" : "Read guide →"}
-            </a>
-            {stepGuide === "active" &&
-              (guideVisited ? (
-                <form action={markGuideReadForm}>
-                  <input type="hidden" name="recruitId" value={recruit.id} />
-                  <Button type="submit" variant="secondary">
-                    I&apos;ve read the guide
-                  </Button>
-                </form>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  <button
-                    type="button"
-                    disabled
-                    className={buttonClass("secondary")}
-                  >
-                    I&apos;ve read the guide
-                  </button>
-                  <span className="text-xs text-mute">
-                    Open the guide first to unlock this.
-                  </span>
-                </div>
-              ))}
+          <div className="space-y-4">
+            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
+              <iframe
+                src={INTRO_VIDEO}
+                title="How to pass your exam on the first try"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            </div>
+            {stepGuide === "active" ? (
+              <form action={markGuideReadForm}>
+                <input type="hidden" name="recruitId" value={recruit.id} />
+                <Button type="submit" variant="primary">
+                  I watched the video
+                </Button>
+              </form>
+            ) : null}
           </div>
         </TimelineStep>
 
