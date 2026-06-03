@@ -85,6 +85,51 @@ export function TimelineStep({
   );
 }
 
+/**
+ * Closing card at the bottom of the timeline — no step number, just a success
+ * message. Locked (blurred) until the recruit reaches the end, then it clears.
+ * Always the last item, so it never draws a connector line below itself.
+ */
+export function TimelineFinale({
+  status,
+  children,
+}: {
+  status: StepStatus;
+  children: React.ReactNode;
+}) {
+  const locked = status === "locked";
+
+  return (
+    <li className="flex gap-5">
+      <div className="flex flex-col items-center">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+            locked
+              ? "border border-hairline bg-card text-mute"
+              : "bg-pos text-background"
+          }`}
+        >
+          {locked ? <LockIcon /> : <CheckIcon />}
+        </span>
+      </div>
+
+      <div className="min-w-0 flex-1 pb-0">
+        <div
+          aria-hidden={locked || undefined}
+          inert={locked || undefined}
+          className={`rounded-2xl border p-6 transition-[filter,opacity] duration-500 ${
+            locked
+              ? "pointer-events-none select-none border-hairline bg-card opacity-60 blur-[5px]"
+              : "border-pos/40 bg-pos/[0.06]"
+          }`}
+        >
+          {children}
+        </div>
+      </div>
+    </li>
+  );
+}
+
 function NodeCircle({ status }: { status: StepStatus }) {
   if (status === "complete") {
     return (

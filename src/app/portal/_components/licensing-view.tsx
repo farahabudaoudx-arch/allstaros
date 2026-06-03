@@ -8,7 +8,12 @@ import type { LicensingStep, Recruit } from "@/lib/db/types";
 import { Input, buttonClass } from "@/components/ui";
 import { examSiteForState } from "@/lib/exam-sites";
 import { US_STATES } from "@/lib/us-states";
-import { Timeline, TimelineStep, type StepStatus } from "./timeline";
+import {
+  Timeline,
+  TimelineStep,
+  TimelineFinale,
+  type StepStatus,
+} from "./timeline";
 import { WalkthroughButton } from "./walkthrough-modal";
 import { SubmitButton } from "./submit-button";
 
@@ -35,9 +40,12 @@ const STEP_ORDER: Record<LicensingStep, number> = {
 
 export default function LicensingView({
   recruit,
+  uplineName,
   justUnlocked,
 }: {
   recruit: Recruit;
+  // The recruit's upline (builder) name, shown on the closing success card.
+  uplineName?: string | null;
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
@@ -80,6 +88,11 @@ export default function LicensingView({
   // Step 05 has no rung above it inside licensing — it's the builder's gate.
   const step05: StepStatus =
     guideComplete && current >= STEP_ORDER.exam_passed ? "active" : "locked";
+  // Closing success card — clears once the recruit has passed their exam, the
+  // last milestone we track inside licensing.
+  const finaleStatus: StepStatus =
+    guideComplete && current >= STEP_ORDER.exam_passed ? "active" : "locked";
+  const uplineDisplay = uplineName?.trim() || "Your upline";
 
   // All steps stay on screen — locked ones are blurred. When an action just
   // unlocked the next step, animate that one unblurring. The `ok` flash maps to
@@ -301,7 +314,6 @@ export default function LicensingView({
           description="Once you've passed and submitted fingerprints, apply for your license on Sircon. Watch the video, then click below."
           status={step05}
           animateUnlock={animateStep === "05"}
-          isLast
         >
           <div className="space-y-4">
             <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
@@ -325,6 +337,17 @@ export default function LicensingView({
             ) : null}
           </div>
         </TimelineStep>
+
+        {/* Closing success card — no step number, just the congrats message. */}
+        <TimelineFinale status={finaleStatus}>
+          <p className="text-base font-semibold text-ink">
+            You&apos;re all set on your end.
+          </p>
+          <p className="mt-2 text-sm text-subtle">
+            <span className="font-semibold text-ink">{uplineDisplay}</span> will
+            be notified and you&apos;ll receive your next steps shortly. Congrats!
+          </p>
+        </TimelineFinale>
       </Timeline>
   );
 }
