@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { devAccountByRole } from "@/lib/devLogin";
+import { resetDevRecruitByPersonId } from "@/lib/devReset";
 import {
   setExamDate,
   markStudying,
@@ -65,6 +67,17 @@ export async function markGuideReadForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   if (!recruitId) redirect("/portal");
   await markGuideRead(recruitId);
+  redirect("/portal");
+}
+
+// Testing convenience: wipe the demo recruit's licensing progress back to
+// step 1. Gated to the seeded demo account by email — a real recruit can never
+// trigger it, and it only ever touches that one account's own row.
+export async function resetLicensingForm() {
+  const person = await getCurrentPerson();
+  if (!person) redirect("/auth/signin");
+  if (person.email !== devAccountByRole("recruit")?.email) redirect("/portal");
+  await resetDevRecruitByPersonId(person.id);
   redirect("/portal");
 }
 

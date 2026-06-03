@@ -7,9 +7,11 @@ import OnboardingView from "./_components/onboarding-view";
 import BootcampView from "./_components/bootcamp-view";
 import GraduatedView from "./_components/graduated-view";
 import PortalShell, { PortalHeading } from "./_components/portal-shell";
+import { SubmitButton } from "./_components/submit-button";
 import { phaseLabel } from "@/lib/pipeline/labels";
 import { DEV_LOGIN_ENABLED, devAccountByRole } from "@/lib/devLogin";
 import { resetDevRecruitByPersonId } from "@/lib/devReset";
+import { resetLicensingForm } from "@/lib/actions/portal";
 import type {
   CheckIn,
   LessonCompletion,
@@ -113,6 +115,10 @@ export default async function PortalPage({
       <PortalHeading eyebrow="Your progress" title={phaseLabel(recruit.phase)} />
     );
 
+  // Only the seeded demo recruit sees the reset control; a real recruit never
+  // gets it. Lets us replay the licensing flow from step 1 on the live site.
+  const isDemoRecruit = person.email === devAccountByRole("recruit")?.email;
+
   return (
     <PortalShell
       heading={heading}
@@ -122,6 +128,13 @@ export default async function PortalPage({
         milestone: params.milestone,
       }}
     >
+      {isDemoRecruit ? (
+        <form action={resetLicensingForm} className="mb-6">
+          <SubmitButton variant="ghost" pendingLabel="Resetting…">
+            ↺ Reset to step 1
+          </SubmitButton>
+        </form>
+      ) : null}
       {recruit.phase === "licensing" ? (
         <LicensingView recruit={recruit} />
       ) : recruit.phase === "onboarding" ? (
