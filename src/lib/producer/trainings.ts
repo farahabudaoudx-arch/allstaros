@@ -29,6 +29,9 @@ export type Course = {
   instructor: { name: string; title: string };
   durationLabel: string;
   videoUrl?: string;
+  /** Ready-to-embed iframe URL (e.g. a Bunny Stream embed). When present the
+   * CoursePlatform plays it instead of the fake placeholder player. */
+  embedUrl?: string;
   lectures: Lecture[];
 };
 

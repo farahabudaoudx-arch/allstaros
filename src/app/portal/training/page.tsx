@@ -3,6 +3,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CoursePlatform } from "@/components/producer/CoursePlatform";
 import { getProgram } from "@/lib/producer/trainings";
+import { bunnyTrainingProgram, listBunnyVideos } from "@/lib/bunny";
 import { portalFeaturesUnlocked } from "@/lib/portal/access";
 import type { Recruit } from "@/lib/db/types";
 
@@ -21,10 +22,16 @@ export default async function PortalTrainingPage() {
   if (!recruitRow) redirect("/onboarding/pending");
   if (!portalFeaturesUnlocked(recruitRow as Recruit)) redirect("/portal");
 
+  // Pull the real training library from Bunny Stream when it's configured;
+  // fall back to the static placeholder catalog if it isn't (or returns empty).
+  const videos = await listBunnyVideos();
+  const program =
+    videos.length > 0 ? bunnyTrainingProgram(videos) : getProgram("launchpad");
+
   return (
     <div className="flex h-dvh flex-col">
       <div className="min-h-0 flex-1">
-        <CoursePlatform program={getProgram("launchpad")} fill="parent" />
+        <CoursePlatform program={program} fill="parent" />
       </div>
     </div>
   );

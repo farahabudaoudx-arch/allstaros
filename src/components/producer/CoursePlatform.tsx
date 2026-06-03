@@ -31,6 +31,26 @@ function Monogram({ tone, label, className }: { tone: Tone; label: string; class
   );
 }
 
+function Player({ course }: { course: Course }) {
+  // A real embed (Bunny Stream) when we have one; otherwise the faux player.
+  if (course.embedUrl) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-hairline bg-black">
+        <iframe
+          key={course.id}
+          src={`${course.embedUrl}?autoplay=false&preload=true`}
+          title={course.title}
+          loading="lazy"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full"
+        />
+      </div>
+    );
+  }
+  return <PlayerPlaceholder course={course} />;
+}
+
 function PlayerPlaceholder({ course }: { course: Course }) {
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-hairline bg-gradient-to-br from-card-hi to-black">
@@ -204,7 +224,7 @@ export function CoursePlatform({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-8 md:px-8 lg:pt-[15rem]">
         {selected ? (
           <div className="mx-auto w-full max-w-4xl">
-            <PlayerPlaceholder course={selected} />
+            <Player course={selected} />
 
             <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
               {selected.title}

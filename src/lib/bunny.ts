@@ -11,6 +11,8 @@
 // the browser. Only the public embed URLs (library id + video guid) ever reach
 // the client.
 
+import type { Course, Program, Tone } from "@/lib/producer/trainings";
+
 const BUNNY_API_BASE = "https://video.bunnycdn.com";
 const BUNNY_EMBED_BASE = "https://iframe.mediadelivery.net/embed";
 
@@ -97,4 +99,73 @@ export async function listBunnyVideos(): Promise<BunnyVideo[]> {
   }
 
   return out;
+}
+
+const TONES: Tone[] = ["coral", "gold", "green", "sky", "violet", "rose"];
+
+/**
+ * Strip the bookkeeping noise out of a raw upload filename so it reads like a
+ * lesson title. Handles the export naming we see in the library, e.g.
+ *   "01 - 20260531 - How To Present Numbers… [VtMWOPWFKJQ].mp4"
+ * → "How To Present Numbers…"
+ */
+function cleanTitle(raw: string): string {
+  let t = raw.trim();
+  t = t.replace(/\.(mp4|mov|m4v|webm|mkv)$/i, ""); // file extension
+  t = t.replace(/\s*\[[^\]]*\]\s*$/, ""); // trailing [youtube-id]
+  t = t.replace(/^\s*\d{1,3}\s*[-–]\s*/, ""); // leading "01 - " order index
+  t = t.replace(/^\s*\d{8}\s*[-–]\s*/, ""); // leading "20260531 - " date
+  return t.trim() || raw.trim();
+}
+
+/** Leading order index from a filename ("01 - …" → 1), or a large fallback so
+ * unnumbered videos sort to the end while keeping the library order. */
+function orderIndex(raw: string): number {
+  const m = raw.trim().match(/^(\d{1,3})\s*[-–]/);
+  return m ? Number.parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+}
+
+function durationLabel(seconds: number): string {
+  if (!seconds) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${String(secs).padStart(2, "0")} mins`;
+}
+
+/**
+ * Build a CoursePlatform Program from a Bunny library. Each video becomes one
+ * "course" so the left rail lists every training and the right pane plays the
+ * selected one in a real Bunny embed. Sorted by the numeric prefix in the
+ * filename (01, 02, …) so the series plays in order.
+ */
+export function bunnyTrainingProgram(videos: BunnyVideo[]): Program {
+  const courses: Course[] = [...videos]
+    .sort((a, b) => {
+      const oi = orderIndex(a.title) - orderIndex(b.title);
+      return oi !== 0 ? oi : a.title.localeCompare(b.title);
+    })
+    .map((v, i) => ({
+      id: v.guid,
+      title: cleanTitle(v.title),
+      blurb: "",
+      description: "",
+      category: "Training",
+      level: "All levels" as const,
+      status: "active" as const,
+      rating: 5,
+      ratingCount: 0,
+      tone: TONES[i % TONES.length],
+      instructor: { name: "All Star", title: "Training" },
+      durationLabel: durationLabel(v.lengthSeconds),
+      embedUrl: v.embedUrl,
+      lectures: [],
+    }));
+
+  return {
+    key: "launchpad",
+    title: "All Star Training",
+    subtitle: "Watch the full training series, in order.",
+    filters: [],
+    courses,
+  };
 }
