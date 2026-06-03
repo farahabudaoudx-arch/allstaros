@@ -129,7 +129,7 @@ export function JoinWizard({
 
         <div className="rounded-3xl border border-hairline bg-card p-6 shadow-xl md:p-8">
           {done ? (
-            <WelcomeCard email={form.email} demo={demo} />
+            <WelcomeCard email={form.email} demo={demo} stateCode={form.state} />
           ) : (
             <form
               onSubmit={(e) => {
@@ -306,7 +306,20 @@ function Field({
   );
 }
 
-function WelcomeCard({ email, demo }: { email: string; demo: boolean }) {
+function WelcomeCard({
+  email,
+  demo,
+  stateCode,
+}: {
+  email: string;
+  demo: boolean;
+  /** The state the demo user picked, carried into the dev sign-in so the
+   * portal's exam-vendor card resolves. */
+  stateCode: string;
+}) {
+  const demoHref = `/auth/dev/as?role=recruit${
+    stateCode ? `&state=${encodeURIComponent(stateCode)}` : ""
+  }`;
   return (
     <div className="text-center">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
@@ -338,7 +351,7 @@ function WelcomeCard({ email, demo }: { email: string; demo: boolean }) {
       </div>
 
       <a
-        href={demo ? "/auth/dev/as?role=recruit" : "/auth/signin?next=/portal"}
+        href={demo ? demoHref : "/auth/signin?next=/portal"}
         className="mt-6 block w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition hover:brightness-95"
       >
         Get started

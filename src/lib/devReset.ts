@@ -5,20 +5,26 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
  * opens on step 1 with nothing filled in. Used both on dev login and on a fresh
  * (param-less) portal load, so the demo account never shows stale progress.
  * Never runs outside the DEV_LOGIN_ENABLED gate.
+ *
+ * Pass `state` (a 2-letter code) to also set the recruit's state — used by the
+ * "Show full flow" demo so the state picked in the signup wizard drives the
+ * exam-vendor card. Omit it to leave the existing state untouched.
  */
-export async function resetDevRecruitByPersonId(personId: string) {
+export async function resetDevRecruitByPersonId(
+  personId: string,
+  state?: string,
+) {
   const admin = createServiceRoleClient();
-  await admin
-    .from("recruit")
-    .update({
-      phase: "licensing",
-      phase_step: "logged_in",
-      exam_date: null,
-      exam_failures: 0,
-      guide_read_at: null,
-      bootcamp_started_at: null,
-    })
-    .eq("person_id", personId);
+  const update: Record<string, unknown> = {
+    phase: "licensing",
+    phase_step: "logged_in",
+    exam_date: null,
+    exam_failures: 0,
+    guide_read_at: null,
+    bootcamp_started_at: null,
+  };
+  if (state) update.state = state.toUpperCase();
+  await admin.from("recruit").update(update).eq("person_id", personId);
 
   // Best-effort: also clear the step-5 marker. Kept as a separate statement so
   // the reset above still succeeds before the licensing_submitted_at migration
