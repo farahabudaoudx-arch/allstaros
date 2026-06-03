@@ -27,7 +27,6 @@ export default async function PortalPage({
     error?: string;
     ok?: string;
     milestone?: string;
-    unlocked?: string;
   }>;
 }) {
   const person = await getCurrentPerson();
@@ -116,6 +115,13 @@ export default async function PortalPage({
   // gets it. Lets us replay the licensing flow from step 1 on the live site.
   const isDemoRecruit = person.email === devAccountByRole("recruit")?.email;
 
+  // The platform unlocks once the recruit clears the Xcel study-login step
+  // (phase_step reaches studying). Drives the one-time celebration overlay —
+  // computed from real progress, never a URL flag.
+  const platformUnlocked =
+    recruit.phase === "licensing" &&
+    (recruit.phase_step === "studying" || recruit.phase_step === "exam_passed");
+
   return (
     <PortalShell
       heading={heading}
@@ -125,7 +131,7 @@ export default async function PortalPage({
         milestone: params.milestone,
       }}
     >
-      <UnlockCelebration show={params.unlocked === "1"} />
+      <UnlockCelebration recruitId={recruit.id} unlocked={platformUnlocked} />
       {isDemoRecruit ? (
         <div className="mb-6 flex flex-col items-start gap-2">
           <form action={showFullFlowForm}>

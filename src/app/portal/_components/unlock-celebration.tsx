@@ -1,30 +1,54 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 /**
- * Celebration overlay shown the moment the recruit finishes the Xcel signup step
- * and the rest of the platform unlocks. Blurs the screen behind a card that
- * points (via a left-side triangle) toward the newly-unlocked sidebar nav.
+ * Celebration overlay shown the first time the recruit reaches the unlocked
+ * state (finished the Xcel study-login step). Blurs the screen behind a card
+ * that points (via a left-side triangle) toward the newly-unlocked sidebar nav.
  *
- * Visibility is driven directly by the `show` prop (the ?unlocked=1 flag) rather
- * than local state — the redirect that sets the flag is a soft client navigation
- * that doesn't remount this component, so gating on useState's initial value
- * would never catch the flag flipping on. Closing strips the flag, which flips
- * `show` to false and animates the overlay out.
+ * Visibility is driven entirely by the recruit's real progress (`unlocked`), NOT
+ * a URL flag — so it can't be triggered by someone typing a query string, and a
+ * plain refresh won't replay it. A per-recruit "seen" marker in localStorage
+ * keeps it to a single showing; it's cleared automatically whenever the recruit
+ * is back below the unlock point (e.g. the demo "Reset to step 1"), so the demo
+ * flow can replay the moment cleanly.
  */
-export function UnlockCelebration({ show }: { show: boolean }) {
-  const router = useRouter();
+export function UnlockCelebration({
+  recruitId,
+  unlocked,
+}: {
+  recruitId: string;
+  /** True once the recruit has reached the studying step in licensing. */
+  unlocked: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const seenKey = `allstar:unlock-celebrated:${recruitId}`;
+
+  // localStorage is client-only, so this has to run after mount. Reading the
+  // "seen" marker here (rather than in a useState initializer) keeps server and
+  // client renders identical and avoids a hydration mismatch.
+  useEffect(() => {
+    if (!unlocked) {
+      // Below the unlock point — clear the marker so a future unlock (or a demo
+      // replay) shows the celebration again.
+      window.localStorage.removeItem(seenKey);
+      return;
+    }
+    if (window.localStorage.getItem(seenKey)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time reveal gated on client-only storage; no SSR-safe alternative
+    setOpen(true);
+  }, [unlocked, seenKey]);
 
   function close() {
-    // Drop the query flag so the overlay closes (and won't reappear on refresh).
-    router.replace("/portal");
+    window.localStorage.setItem(seenKey, "1");
+    setOpen(false);
   }
 
   return (
     <AnimatePresence>
-      {show ? (
+      {open ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
