@@ -17,7 +17,7 @@ export function TimelineStep({
   animateUnlock = false,
   children,
 }: {
-  number: string;
+  number?: string;
   title: string;
   description?: string;
   status: StepStatus;
@@ -64,10 +64,16 @@ export function TimelineStep({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <span className="font-mono text-3xl font-bold tabular-nums text-accent">
-                {number}
-              </span>
-              <h2 className="mt-2 text-lg font-semibold tracking-[-0.01em] text-ink">
+              {number ? (
+                <span className="font-mono text-3xl font-bold tabular-nums text-accent">
+                  {number}
+                </span>
+              ) : null}
+              <h2
+                className={`text-lg font-semibold tracking-[-0.01em] text-ink ${
+                  number ? "mt-2" : ""
+                }`}
+              >
                 {title}
               </h2>
             </div>

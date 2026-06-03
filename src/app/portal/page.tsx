@@ -10,6 +10,7 @@ import { SubmitButton } from "./_components/submit-button";
 import { phaseLabel } from "@/lib/pipeline/labels";
 import { devAccountByRole } from "@/lib/devLogin";
 import { resetLicensingForm, showFullFlowForm } from "@/lib/actions/portal";
+import { UnlockCelebration } from "./_components/unlock-celebration";
 import type {
   CheckIn,
   LessonCompletion,
@@ -26,6 +27,7 @@ export default async function PortalPage({
     error?: string;
     ok?: string;
     milestone?: string;
+    unlocked?: string;
   }>;
 }) {
   const person = await getCurrentPerson();
@@ -123,6 +125,7 @@ export default async function PortalPage({
         milestone: params.milestone,
       }}
     >
+      <UnlockCelebration show={params.unlocked === "1"} />
       {isDemoRecruit ? (
         <div className="mb-6 flex flex-col items-start gap-2">
           <form action={showFullFlowForm}>

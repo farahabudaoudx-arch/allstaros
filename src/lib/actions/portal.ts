@@ -73,7 +73,8 @@ export async function markStudyingForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   if (!recruitId) redirect("/portal");
   await markStudying(recruitId);
-  redirect("/portal");
+  // ?unlocked=1 triggers the one-time "platform unlocked" celebration overlay.
+  redirect("/portal?unlocked=1");
 }
 
 export async function markExamPassedForm(formData: FormData) {

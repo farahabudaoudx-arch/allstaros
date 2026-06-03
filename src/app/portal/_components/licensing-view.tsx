@@ -17,6 +17,7 @@ import {
   type StepStatus,
 } from "./timeline";
 import { SubmitButton } from "./submit-button";
+import { CopyButton } from "./copy-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
 const XCEL_LOGIN_URL = "https://www.xcelsolutions.com/";
@@ -113,9 +114,7 @@ export default function LicensingView({
     <Timeline>
         {/* 01 — Watch the intro video (soft gate) */}
         <TimelineStep
-          number="01"
-          title="Watch this video first"
-          description="In this short video we're going to show you how to pass your exam on your first try."
+          title="Step 1: Watch This Video Before You Do Anything"
           status={stepGuide}
         >
           <div className="space-y-4">
@@ -141,13 +140,7 @@ export default function LicensingView({
 
         {/* 02 — Schedule the state exam */}
         <TimelineStep
-          number="02"
-          title="Schedule your state exam"
-          description={
-            step02 === "complete"
-              ? `Booked for ${recruit.exam_date}. Your study login unlocks below.`
-              : "Click below to schedule your exam."
-          }
+          title="Step 2: Schedule Your State Exam"
           status={step02}
           animateUnlock={animateStep === "02"}
         >
@@ -252,13 +245,7 @@ export default function LicensingView({
 
         {/* 03 — Study login */}
         <TimelineStep
-          number="03"
-          title="Get your study login"
-          description={
-            step03 === "complete"
-              ? "You're studying. Keep working through the course until exam day."
-              : "Your Xcel Solutions account is your exam prep. Log in, then mark this done."
-          }
+          title="Step 3: Get Your Study Portal Login"
           status={step03}
           animateUnlock={animateStep === "03"}
         >
@@ -273,13 +260,16 @@ export default function LicensingView({
               />
             </div>
 
-            <div className="rounded-xl border border-hairline bg-card px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
-                Your enrollment code
-              </p>
-              <p className="mt-1 font-mono text-lg font-semibold tracking-[0.08em] text-ink">
-                {XCEL_CODE}
-              </p>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                  Your enrollment code
+                </p>
+                <p className="mt-1 truncate font-mono text-lg font-semibold tracking-[0.08em] text-ink">
+                  {XCEL_CODE}
+                </p>
+              </div>
+              <CopyButton value={XCEL_CODE} />
             </div>
 
             <a
@@ -303,9 +293,7 @@ export default function LicensingView({
 
         {/* 04 — Pass the exam */}
         <TimelineStep
-          number="04"
-          title="Pass your exam"
-          description="Show up to your testing center on exam day, then tell us how it went."
+          title="Step 4: Pass Your Exam + Get Your Fingerprints!"
           status={step04}
           animateUnlock={animateStep === "04"}
         >
@@ -332,9 +320,7 @@ export default function LicensingView({
 
         {/* 05 — Apply for the license on Sircon */}
         <TimelineStep
-          number="05"
-          title="Apply for your license on Sircon"
-          description="Once you've passed and submitted fingerprints, apply for your license on Sircon. Watch the video, then click below."
+          title="Final Step: Apply For Your License On Sircon"
           status={step05}
           animateUnlock={animateStep === "05"}
         >
