@@ -187,6 +187,22 @@ export async function recordCheckIn(formData: FormData) {
   );
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
 
+  // Mirror the check-in into the builder chat thread so the builder sees it
+  // inline with their conversation. Best-effort: a failure here must not sink
+  // the check-in itself, which already saved above.
+  const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  await ctx.supabase.from("message").insert({
+    recruit_id: ctx.id,
+    sender_person_id: ctx.person.id,
+    body: `${dateLabel} - ${ctx.person.full_name} Checked In: ${summary}`,
+    is_ai: false,
+    channel: "builder",
+  });
+
   revalidatePath(returnTo);
   redirect(`${returnTo}?ok=check-in`);
 }
