@@ -6,10 +6,11 @@ import {
   markGuideReadForm,
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
-import { Input, Button, buttonClass } from "@/components/ui";
+import { Input, buttonClass } from "@/components/ui";
 import { Timeline, TimelineStep, type StepStatus } from "./timeline";
 import { WalkthroughButton } from "./walkthrough-modal";
 import { ExamFailModal } from "./exam-fail-modal";
+import { SubmitButton } from "./submit-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
 const SCHEDULE_EXAM_URL = "https://www.prometric.com";
@@ -112,9 +113,9 @@ export default function LicensingView({
             {stepGuide === "active" ? (
               <form action={markGuideReadForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
-                <Button type="submit" variant="primary">
+                <SubmitButton variant="primary" pendingLabel="Saving…">
                   I watched the video
-                </Button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -169,9 +170,9 @@ export default function LicensingView({
                   className="mt-1.5"
                 />
               </div>
-              <Button type="submit" variant="primary">
+              <SubmitButton variant="primary" pendingLabel="Saving…">
                 {step02 === "complete" ? "Update date" : "Save date"}
-              </Button>
+              </SubmitButton>
             </form>
           </div>
         </TimelineStep>
@@ -200,9 +201,9 @@ export default function LicensingView({
             {step03 === "active" ? (
               <form action={markStudyingForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
-                <Button type="submit" variant="secondary">
+                <SubmitButton variant="secondary" pendingLabel="Saving…">
                   I&apos;m logged in and studying
-                </Button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -220,15 +221,15 @@ export default function LicensingView({
             <div className="flex flex-wrap gap-3">
               <form action={markExamPassedForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
-                <Button type="submit" variant="primary">
+                <SubmitButton variant="primary" pendingLabel="Saving…">
                   I passed my exam
-                </Button>
+                </SubmitButton>
               </form>
               <form action={markExamFailedForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
-                <Button type="submit" variant="secondary">
+                <SubmitButton variant="secondary" pendingLabel="Saving…">
                   I failed my exam
-                </Button>
+                </SubmitButton>
               </form>
             </div>
           ) : null}
