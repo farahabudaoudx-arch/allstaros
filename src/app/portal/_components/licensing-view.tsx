@@ -361,8 +361,9 @@ export default function LicensingView({
             You&apos;re all set on your end.
           </p>
           <p className="mt-2 text-sm text-subtle">
-            <span className="font-semibold text-ink">{uplineDisplay}</span> will
-            be notified and you&apos;ll receive your next steps shortly. Congrats!
+            <span className="font-semibold text-ink">{uplineDisplay}</span>{" "}
+            will be notified and you&apos;ll receive your next steps shortly.
+            Congrats!
           </p>
         </TimelineFinale>
       </Timeline>
