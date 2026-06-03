@@ -13,11 +13,9 @@ import { ExamFailModal } from "./exam-fail-modal";
 import { SubmitButton } from "./submit-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
-const SCHEDULE_EXAM_URL = "https://www.prometric.com";
 const XCEL_LOGIN_URL = "https://xcelsolutions.com/login";
 const FINGERPRINT_SCHEDULE_URL = "https://www.identogo.com";
 const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-const EXAM_WALKTHROUGH_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const FINGERPRINT_WALKTHROUGH_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
 // Linear progression of the licensing phase. One timeline step per rung.
@@ -93,11 +91,7 @@ export default function LicensingView({
         <TimelineStep
           number="01"
           title="Watch this video first"
-          description={
-            stepGuide === "complete"
-              ? "Nice — you've watched the video that sets you up to pass on the first try."
-              : "In this short video we're going to show you how to pass your exam on your first try."
-          }
+          description="In this short video we're going to show you how to pass your exam on your first try."
           status={stepGuide}
         >
           <div className="space-y-4">
@@ -128,25 +122,16 @@ export default function LicensingView({
           description={
             step02 === "complete"
               ? `Booked for ${recruit.exam_date}. Your study login unlocks below.`
-              : "Find your testing center, lock in a date, then save it here."
+              : "Click below to schedule your exam."
           }
           status={step02}
           animateUnlock={animateStep === "02"}
         >
           <div className="space-y-4">
             <div className="flex flex-wrap gap-3">
-              <a
-                href={SCHEDULE_EXAM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonClass("secondary")}
-              >
-                Find where to schedule →
+              <a href="/portal/schedule" className={buttonClass("primary")}>
+                Click here to find your testing center →
               </a>
-              <WalkthroughButton
-                title="How to schedule your state exam"
-                videoUrl={EXAM_WALKTHROUGH_VIDEO}
-              />
             </div>
 
             <form
