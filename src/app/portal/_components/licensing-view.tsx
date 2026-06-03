@@ -7,6 +7,8 @@ import {
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
 import { Input, buttonClass } from "@/components/ui";
+import { examSiteForState } from "@/lib/exam-sites";
+import { US_STATES } from "@/lib/us-states";
 import { Timeline, TimelineStep, type StepStatus } from "./timeline";
 import { WalkthroughButton } from "./walkthrough-modal";
 import { ExamFailModal } from "./exam-fail-modal";
@@ -16,6 +18,7 @@ import { SubmitButton } from "./submit-button";
 const XCEL_LOGIN_URL = "https://xcelsolutions.com/login";
 const FINGERPRINT_SCHEDULE_URL = "https://www.identogo.com";
 const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+const SCHEDULE_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const FINGERPRINT_WALKTHROUGH_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
 // Linear progression of the licensing phase. One timeline step per rung.
@@ -61,6 +64,13 @@ export default function LicensingView({
     if (current === rung - 1) return "active";
     return "locked";
   };
+
+  // State-aware exam booking: map the recruit's onboarding state to its exam
+  // vendor + scheduling URL, shown inline on the step 02 card.
+  const examSite = examSiteForState(recruit.state);
+  const stateLabel =
+    US_STATES.find((s) => s.code === (recruit.state ?? "").toUpperCase())?.name ??
+    null;
 
   const step02 = statusFor(STEP_ORDER.exam_scheduled);
   const step03 = statusFor(STEP_ORDER.studying);
@@ -128,11 +138,45 @@ export default function LicensingView({
           animateUnlock={animateStep === "02"}
         >
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-3">
-              <a href="/portal/schedule" className={buttonClass("primary")}>
-                Click here to find your testing center →
-              </a>
+            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
+              <iframe
+                src={SCHEDULE_VIDEO}
+                title="How to schedule your state exam"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full"
+              />
             </div>
+
+            {examSite ? (
+              <div className="space-y-3">
+                {stateLabel ? (
+                  <p className="text-sm leading-relaxed text-subtle">
+                    You&apos;re getting licensed in{" "}
+                    <span className="font-semibold text-ink">{stateLabel}</span>,
+                    which tests through{" "}
+                    <span className="font-semibold text-ink">
+                      {examSite.vendor}
+                    </span>
+                    . Watch the video, then book your exam below.
+                  </p>
+                ) : null}
+                <a
+                  href={examSite.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClass("primary")}
+                >
+                  Schedule with {examSite.vendor} →
+                </a>
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-hairline px-4 py-5 text-sm text-mute">
+                We couldn&apos;t match a testing center to your state. Reach out
+                to your builder and they&apos;ll point you to the right place to
+                schedule.
+              </p>
+            )}
 
             <form
               action={setExamDateForm}
