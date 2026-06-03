@@ -7,6 +7,7 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { devAccountByRole } from "@/lib/devLogin";
 import { getOrCreateReferralCode } from "@/lib/referral";
 import { resetDevRecruitByPersonId } from "@/lib/devReset";
+import { US_STATES } from "@/lib/us-states";
 import {
   setExamDate,
   markStudying,
@@ -128,6 +129,22 @@ export async function showFullFlowForm() {
   if (!builder) redirect("/portal");
   const code = await getOrCreateReferralCode((builder as { id: string }).id);
   redirect(code ? `/join/${code}?demo=1` : "/portal");
+}
+
+// Demo convenience: finish the "Show full flow" wizard. Resets the demo
+// recruit to step 1 AND writes the state they picked, so the licensing exam
+// card resolves to the right vendor. Works on the deployed site (unlike the
+// /auth/dev/as route, which needs the dev-login secret) because it's gated to
+// the signed-in demo account by email and only ever touches that one row.
+export async function finishDemoFlowForm(formData: FormData) {
+  const person = await getCurrentPerson();
+  if (!person) redirect("/auth/signin");
+  if (person.email !== devAccountByRole("recruit")?.email) redirect("/portal");
+
+  const raw = String(formData.get("state") ?? "").toUpperCase();
+  const state = US_STATES.some((s) => s.code === raw) ? raw : undefined;
+  await resetDevRecruitByPersonId(person.id, state);
+  redirect("/portal");
 }
 
 export async function recordCheckIn(formData: FormData) {
