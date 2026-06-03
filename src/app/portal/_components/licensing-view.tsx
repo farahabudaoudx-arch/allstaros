@@ -20,8 +20,7 @@ import { SubmitButton } from "./submit-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
 const XCEL_LOGIN_URL = "https://xcelsolutions.com/login";
-// TODO: replace with the real Xcel enrollment code (Nick is sending it over).
-const XCEL_CODE = "YOUR-CODE-HERE";
+const XCEL_CODE = "FFLALLSTAR-NGBNCR";
 const SIRCON_URL = "https://www.sircon.com";
 const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const SCHEDULE_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
