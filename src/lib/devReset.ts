@@ -16,8 +16,16 @@ export async function resetDevRecruitByPersonId(personId: string) {
       exam_date: null,
       exam_failures: 0,
       guide_read_at: null,
-      licensing_submitted_at: null,
       bootcamp_started_at: null,
     })
+    .eq("person_id", personId);
+
+  // Best-effort: also clear the step-5 marker. Kept as a separate statement so
+  // the reset above still succeeds before the licensing_submitted_at migration
+  // has been run — until then this column doesn't exist and the error is
+  // harmlessly ignored.
+  await admin
+    .from("recruit")
+    .update({ licensing_submitted_at: null })
     .eq("person_id", personId);
 }

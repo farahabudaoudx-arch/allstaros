@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -9,8 +8,7 @@ import GraduatedView from "./_components/graduated-view";
 import PortalShell, { PortalHeading } from "./_components/portal-shell";
 import { SubmitButton } from "./_components/submit-button";
 import { phaseLabel } from "@/lib/pipeline/labels";
-import { DEV_LOGIN_ENABLED, devAccountByRole } from "@/lib/devLogin";
-import { resetDevRecruitByPersonId } from "@/lib/devReset";
+import { devAccountByRole } from "@/lib/devLogin";
 import { resetLicensingForm } from "@/lib/actions/portal";
 import type {
   CheckIn,
@@ -37,20 +35,9 @@ export default async function PortalPage({
 
   const params = await searchParams;
 
-  // Dev-only: arriving at the portal from outside the flow (a fresh login or a
-  // typed URL) resets the seeded recruit to a clean step 1, so the demo account
-  // never carries stale progress between sessions. Loads that come from inside
-  // the portal itself — i.e. the redirect after a step action — carry a referer
-  // pointing back at /portal, and are left untouched so progress sticks.
-  const referer = (await headers()).get("referer") ?? "";
-  const cameFromPortal = referer.includes("/portal");
-  if (
-    DEV_LOGIN_ENABLED &&
-    !cameFromPortal &&
-    person.email === devAccountByRole("recruit")?.email
-  ) {
-    await resetDevRecruitByPersonId(person.id);
-  }
+  // Progress is account-based and sticks across sessions. There's no automatic
+  // reset on load — the demo recruit clears their own progress with the
+  // explicit "Reset to step 1" button below.
 
   const supabase = await createClient();
 
