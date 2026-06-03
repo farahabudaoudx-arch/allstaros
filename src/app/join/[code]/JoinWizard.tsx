@@ -26,9 +26,13 @@ function phoneValid(v: string) {
 export function JoinWizard({
   code,
   builderName,
+  demo = false,
 }: {
   code: string;
   builderName: string;
+  /** Dev demo: walk the wizard UI but skip real account creation; the welcome
+   * card drops straight into the seeded recruit's portal. */
+  demo?: boolean;
 }) {
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
@@ -66,6 +70,12 @@ export function JoinWizard({
       setStep((s) => s + 1);
       return;
     }
+    // Demo mode: don't create a real account or email a magic link — just show
+    // the welcome card, which drops into the seeded recruit's portal.
+    if (demo) {
+      setDone(true);
+      return;
+    }
     // Last input step → submit.
     startTransition(async () => {
       const result = await signUpViaReferral({ code, ...form });
@@ -91,7 +101,7 @@ export function JoinWizard({
         {/* Brand + sponsor */}
         <div className="mb-6 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
-            // All Star OS
+            {"// All Star OS"}
           </p>
           {!done ? (
             <p className="mt-2 text-sm text-subtle">
@@ -119,7 +129,7 @@ export function JoinWizard({
 
         <div className="rounded-3xl border border-hairline bg-card p-6 shadow-xl md:p-8">
           {done ? (
-            <WelcomeCard email={form.email} />
+            <WelcomeCard email={form.email} demo={demo} />
           ) : (
             <form
               onSubmit={(e) => {
@@ -296,11 +306,11 @@ function Field({
   );
 }
 
-function WelcomeCard({ email }: { email: string }) {
+function WelcomeCard({ email, demo }: { email: string; demo: boolean }) {
   return (
     <div className="text-center">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-        // You're in
+        {"// You're in"}
       </p>
       <h1 className="mt-1.5 text-2xl font-semibold tracking-[-0.02em] text-ink">
         Welcome to the team
@@ -328,14 +338,20 @@ function WelcomeCard({ email }: { email: string }) {
       </div>
 
       <a
-        href="/auth/signin?next=/portal"
+        href={demo ? "/auth/dev/as?role=recruit" : "/auth/signin?next=/portal"}
         className="mt-6 block w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition hover:brightness-95"
       >
         Get started
       </a>
       <p className="mt-3 text-xs text-mute">
-        We emailed a one-click sign-in link to{" "}
-        <span className="text-subtle">{email}</span>.
+        {demo ? (
+          "Demo — this drops you straight into the recruit portal at step 1."
+        ) : (
+          <>
+            We emailed a one-click sign-in link to{" "}
+            <span className="text-subtle">{email}</span>.
+          </>
+        )}
       </p>
     </div>
   );

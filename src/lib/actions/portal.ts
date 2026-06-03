@@ -3,12 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { devAccountByRole } from "@/lib/devLogin";
-import {
-  resetDevRecruitByPersonId,
-  advanceDevRecruitByPersonId,
-} from "@/lib/devReset";
+import { getOrCreateReferralCode } from "@/lib/referral";
+import { resetDevRecruitByPersonId } from "@/lib/devReset";
 import {
   setExamDate,
   markStudying,
@@ -110,14 +108,26 @@ export async function resetLicensingForm() {
   redirect("/portal");
 }
 
-// Testing convenience: jump the demo recruit to the end of licensing so the
-// whole portal is unlocked at once. Same demo-account gate as the reset above.
+// Demo convenience: replay the WHOLE recruit journey from the top — drop onto
+// the builder's invite signup form, walk the wizard, then land in the portal as
+// a brand-new recruit. Resolves the seeded demo builder's referral code and
+// sends the demo recruit through /join in demo mode. Same demo-account gate.
 export async function showFullFlowForm() {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin");
   if (person.email !== devAccountByRole("recruit")?.email) redirect("/portal");
-  await advanceDevRecruitByPersonId(person.id);
-  redirect("/portal");
+
+  const builderEmail = devAccountByRole("builder")?.email;
+  if (!builderEmail) redirect("/portal");
+  const admin = createServiceRoleClient();
+  const { data: builder } = await admin
+    .from("person")
+    .select("id")
+    .eq("email", builderEmail)
+    .maybeSingle();
+  if (!builder) redirect("/portal");
+  const code = await getOrCreateReferralCode((builder as { id: string }).id);
+  redirect(code ? `/join/${code}?demo=1` : "/portal");
 }
 
 export async function recordCheckIn(formData: FormData) {
