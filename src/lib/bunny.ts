@@ -1,9 +1,11 @@
 // Bunny Stream integration — server-only. Lists the videos in a Stream library
 // so they can be embedded in the training section.
 //
-// Configured with two env vars (see .env.example):
-//   BUNNY_STREAM_LIBRARY_ID — the numeric library id
-//   BUNNY_STREAM_API_KEY     — the library-level API key (Stream → library → API)
+// Configured with two env vars (see .env.example). They're namespaced per app
+// because each Bunny library has its own key — these point at the "All Star
+// recruiting app" library:
+//   BUNNY_RECRUITING_LIBRARY_ID — the numeric library id
+//   BUNNY_RECRUITING_API_KEY    — the library-level API key (Stream → library → API)
 //
 // The API key is a secret and lives only in the environment; it is never sent to
 // the browser. Only the public embed URLs (library id + video guid) ever reach
@@ -36,8 +38,8 @@ type BunnyListResponse = {
 };
 
 function config(): { libraryId: string; apiKey: string } | null {
-  const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
-  const apiKey = process.env.BUNNY_STREAM_API_KEY;
+  const libraryId = process.env.BUNNY_RECRUITING_LIBRARY_ID;
+  const apiKey = process.env.BUNNY_RECRUITING_API_KEY;
   if (!libraryId || !apiKey) return null;
   return { libraryId, apiKey };
 }
