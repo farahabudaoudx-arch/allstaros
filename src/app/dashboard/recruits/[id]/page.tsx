@@ -70,6 +70,7 @@ export default async function RecruitDetailPage({
       .from("message")
       .select("*")
       .eq("recruit_id", recruit.id)
+      .eq("channel", "builder")
       .order("created_at", { ascending: false })
       .limit(3),
   ]);

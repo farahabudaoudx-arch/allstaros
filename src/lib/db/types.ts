@@ -106,6 +106,9 @@ export type Message = {
   sender_person_id: string | null;
   body: string;
   is_ai: boolean;
+  /** Which conversation this belongs to: the human builder chat or the AI
+   * assistant (Casey) thread. */
+  channel: "builder" | "assistant";
   created_at: string;
 };
 

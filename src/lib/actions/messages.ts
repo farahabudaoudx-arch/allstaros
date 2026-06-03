@@ -24,6 +24,7 @@ export async function sendMessageForm(formData: FormData) {
     sender_person_id: person.id,
     body,
     is_ai: false,
+    channel: "builder",
   });
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
 
@@ -56,6 +57,7 @@ export async function askAssistantForm(formData: FormData) {
     .from("message")
     .select("body, is_ai, sender_person_id")
     .eq("recruit_id", recruitId)
+    .eq("channel", "assistant")
     .order("created_at", { ascending: false })
     .limit(6);
 
@@ -76,6 +78,7 @@ export async function askAssistantForm(formData: FormData) {
     sender_person_id: person.id,
     body: question,
     is_ai: false,
+    channel: "assistant",
   });
 
   const result = await askAssistant({
@@ -96,6 +99,7 @@ export async function askAssistantForm(formData: FormData) {
     sender_person_id: null,
     body: result.ok ? result.answer : `(assistant error: ${result.error})`,
     is_ai: true,
+    channel: "assistant",
   });
 
   revalidatePath(returnTo);

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { sendMessageForm, askAssistantForm } from "@/lib/actions/messages";
+import { askAssistantForm } from "@/lib/actions/messages";
 import PortalShell, { PortalHeading } from "../_components/portal-shell";
 import MessageList from "../_components/message-list";
 import { portalFeaturesUnlocked } from "@/lib/portal/access";
@@ -34,6 +34,7 @@ export default async function PortalHelpPage({
     .from("message")
     .select("*")
     .eq("recruit_id", recruit.id)
+    .eq("channel", "assistant")
     .order("created_at", { ascending: true });
 
   const messages = (messagesRows ?? []) as Message[];
@@ -43,9 +44,9 @@ export default async function PortalHelpPage({
     <PortalShell
       heading={
         <PortalHeading
-          eyebrow="Get Help"
-          title="Stuck on something?"
-          subtitle="Ask Casey first — she knows where you are in your journey. Still stuck? Message your builder directly."
+          eyebrow="All Star AI"
+          title="Meet Casey"
+          subtitle="Your AI guide — she knows exactly where you are in your journey. Ask anything, any time. Need a human? Message your builder from the Messages tab."
         />
       }
     >
@@ -75,20 +76,6 @@ export default async function PortalHelpPage({
           />
           <Button type="submit" variant="primary" className="self-start">
             Ask
-          </Button>
-        </form>
-      </Card>
-
-      <Card className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-          Message your builder
-        </h2>
-        <form action={sendMessageForm} className="mt-3 flex flex-col gap-3">
-          <input type="hidden" name="recruitId" value={recruit.id} />
-          <input type="hidden" name="returnTo" value={RETURN_TO} />
-          <Textarea name="body" rows={2} required />
-          <Button type="submit" className="self-start">
-            Send
           </Button>
         </form>
       </Card>

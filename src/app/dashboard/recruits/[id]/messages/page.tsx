@@ -2,10 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { sendMessageForm } from "@/lib/actions/messages";
-import MessageList from "@/app/portal/_components/message-list";
+import MessageThread from "@/app/portal/_components/message-thread";
 import type { Message, Person, Recruit } from "@/lib/db/types";
-import { Card, Textarea, Button } from "@/components/ui";
 
 type RecruitWithPerson = Recruit & {
   person: Pick<Person, "full_name" | "email">;
@@ -13,10 +11,8 @@ type RecruitWithPerson = Recruit & {
 
 export default async function BuilderMessagesPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const { id } = await params;
   const me = await getCurrentPerson();
@@ -35,12 +31,12 @@ export default async function BuilderMessagesPage({
     .from("message")
     .select("*")
     .eq("recruit_id", recruit.id)
+    .eq("channel", "builder")
     .order("created_at", { ascending: true });
   const messages = (messagesRows ?? []) as Message[];
-  const params2 = await searchParams;
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       <Link
         href={`/dashboard/recruits/${recruit.id}`}
         className="text-sm text-mute transition hover:text-ink"
@@ -51,33 +47,15 @@ export default async function BuilderMessagesPage({
         Thread with {recruit.person.full_name}
       </h1>
 
-      {params2.error ? (
-        <div className="mt-4 rounded-xl border border-neg/40 bg-neg/[0.08] px-4 py-3 text-sm text-neg">
-          {decodeURIComponent(params2.error)}
-        </div>
-      ) : null}
-
-      <section className="mt-6">
-        <MessageList messages={messages} currentPersonId={me.id} />
+      <section className="mt-6 min-h-0 flex-1">
+        <MessageThread
+          recruitId={recruit.id}
+          currentPersonId={me.id}
+          initialMessages={messages}
+          otherLabel={recruit.person.full_name}
+          placeholder={`Message ${recruit.person.full_name}…`}
+        />
       </section>
-
-      <Card className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-          Reply
-        </h2>
-        <form action={sendMessageForm} className="mt-3 flex flex-col gap-3">
-          <input type="hidden" name="recruitId" value={recruit.id} />
-          <input
-            type="hidden"
-            name="returnTo"
-            value={`/dashboard/recruits/${recruit.id}/messages`}
-          />
-          <Textarea name="body" rows={3} required />
-          <Button type="submit" variant="primary" className="self-start">
-            Send
-          </Button>
-        </form>
-      </Card>
     </div>
   );
 }
