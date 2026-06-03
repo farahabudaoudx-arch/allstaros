@@ -35,6 +35,9 @@ export type Course = {
   /** Poster image for the course list. When present it replaces the colored
    * monogram tile. */
   thumbnailUrl?: string;
+  /** Optional grouping key. When a Program defines `sections`, the left rail
+   * tabs become those sections and filter by this key instead of by status. */
+  section?: string;
   lectures: Lecture[];
 };
 
@@ -45,6 +48,10 @@ export type Program = {
   title: string;
   subtitle: string;
   filters: string[];
+  /** Optional named groups for the left-rail tabs. When present, the tabs are
+   * these sections (filtering courses by `course.section`) instead of the
+   * default All/Active/Completed status tabs. */
+  sections?: Array<{ key: string; label: string }>;
   courses: Course[];
 };
 

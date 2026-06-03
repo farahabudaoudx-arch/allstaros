@@ -12,8 +12,8 @@ const TONE_BG: Record<Tone, string> = {
   rose: "bg-[#c97b8e]",
 };
 
-type Tab = "all" | "active" | "completed";
-const TABS: Array<{ key: Tab; label: string }> = [
+// Default status tabs, used when a Program doesn't define its own sections.
+const STATUS_TABS: Array<{ key: string; label: string }> = [
   { key: "all", label: "All" },
   { key: "active", label: "Active" },
   { key: "completed", label: "Completed" },
@@ -138,22 +138,33 @@ export function CoursePlatform({
   // for the recruit portal where a TopBar sits above it.
   fill?: "screen" | "parent";
 }) {
-  const [tab, setTab] = useState<Tab>("all");
+  // When the program defines named sections, the tabs become those sections
+  // (filtering by course.section); otherwise fall back to status tabs.
+  const sectionTabs = program.sections ?? null;
+  const tabs = sectionTabs ?? STATUS_TABS;
+
+  const [tab, setTab] = useState<string>(tabs[0]?.key ?? "all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(program.courses[0]?.id ?? "");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return program.courses.filter((c) => {
-      if (tab === "active" && c.status !== "active") return false;
-      if (tab === "completed" && c.status !== "completed") return false;
+      if (sectionTabs) {
+        if (c.section !== tab) return false;
+      } else {
+        if (tab === "active" && c.status !== "active") return false;
+        if (tab === "completed" && c.status !== "completed") return false;
+      }
       if (q && !`${c.title} ${c.blurb}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [program.courses, tab, query]);
+  }, [program.courses, sectionTabs, tab, query]);
 
+  // Keep the current selection while it's visible; otherwise show the first
+  // item in the active tab (so switching sections updates the player too).
   const selected =
-    program.courses.find((c) => c.id === selectedId) ?? filtered[0] ?? program.courses[0] ?? null;
+    filtered.find((c) => c.id === selectedId) ?? filtered[0] ?? program.courses[0] ?? null;
 
   return (
     <div
@@ -174,7 +185,7 @@ export function CoursePlatform({
 
           {/* Tabs */}
           <div className="mt-5 flex items-center gap-4 border-b border-hairline">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <button
                 key={t.key}
                 type="button"

@@ -29,6 +29,10 @@ export type BunnyVideo = {
    * referer-less requests, which browsers always send). Null if the library's
    * CDN hostname couldn't be resolved. */
   thumbnailUrl: string | null;
+  /** ISO timestamp of when the video was uploaded to Bunny (not the date in
+   * the filename — that's the content's publish date). Used to find the most
+   * recently added videos. */
+  dateUploaded: string;
 };
 
 type BunnyListResponse = {
@@ -40,6 +44,7 @@ type BunnyListResponse = {
     title: string;
     length?: number;
     status?: number;
+    dateUploaded?: string;
   }>;
 };
 
@@ -129,6 +134,7 @@ export async function listBunnyVideos(): Promise<BunnyVideo[]> {
         status: item.status ?? 0,
         embedUrl: `${BUNNY_EMBED_BASE}/${cfg.libraryId}/${item.guid}`,
         thumbnailUrl: null,
+        dateUploaded: item.dateUploaded ?? "",
       });
     }
 
@@ -186,37 +192,62 @@ function durationLabel(seconds: number): string {
  * selected one in a real Bunny embed. Sorted by the numeric prefix in the
  * filename (01, 02, …) so the series plays in order.
  */
+// The N most-recently-uploaded videos are treated as "Case Studies"; everything
+// older is the evergreen "Content" library.
+const CASE_STUDY_COUNT = 10;
+
+function byFilenameOrder(a: BunnyVideo, b: BunnyVideo): number {
+  const oi = orderIndex(a.title) - orderIndex(b.title);
+  return oi !== 0 ? oi : a.title.localeCompare(b.title);
+}
+
 export function bunnyTrainingProgram(videos: BunnyVideo[]): Program {
-  const courses: Course[] = [...videos]
-    .sort((a, b) => {
-      const oi = orderIndex(a.title) - orderIndex(b.title);
-      return oi !== 0 ? oi : a.title.localeCompare(b.title);
-    })
-    .map((v, i) => ({
-      id: v.guid,
-      title: cleanTitle(v.title),
-      blurb: "",
-      description: "",
-      category: "Training",
-      level: "All levels" as const,
-      status: "active" as const,
-      rating: 5,
-      ratingCount: 0,
-      tone: TONES[i % TONES.length],
-      // No real instructor metadata from Bunny — leave it empty so the
-      // CoursePlatform hides the avatar block beneath the player.
-      instructor: { name: "", title: "" },
-      durationLabel: durationLabel(v.lengthSeconds),
-      embedUrl: v.embedUrl,
-      thumbnailUrl: v.thumbnailUrl ?? undefined,
-      lectures: [],
-    }));
+  // The case studies are the most recent uploads (by Bunny upload time).
+  const caseStudyGuids = new Set(
+    [...videos]
+      .sort((a, b) => Date.parse(b.dateUploaded) - Date.parse(a.dateUploaded))
+      .slice(0, CASE_STUDY_COUNT)
+      .map((v) => v.guid),
+  );
+
+  const content = videos
+    .filter((v) => !caseStudyGuids.has(v.guid))
+    .sort(byFilenameOrder);
+  const caseStudies = videos
+    .filter((v) => caseStudyGuids.has(v.guid))
+    .sort(byFilenameOrder);
+
+  // Content first, then case studies — the array order also drives tab order.
+  const courses: Course[] = [...content, ...caseStudies].map((v, i) => ({
+    id: v.guid,
+    title: cleanTitle(v.title),
+    blurb: "",
+    description: "",
+    category: "Training",
+    level: "All levels" as const,
+    status: "active" as const,
+    rating: 5,
+    ratingCount: 0,
+    tone: TONES[i % TONES.length],
+    // No real instructor metadata from Bunny — leave it empty so the
+    // CoursePlatform hides the avatar block beneath the player.
+    instructor: { name: "", title: "" },
+    durationLabel: durationLabel(v.lengthSeconds),
+    embedUrl: v.embedUrl,
+    thumbnailUrl: v.thumbnailUrl ?? undefined,
+    section: caseStudyGuids.has(v.guid) ? "case_studies" : "content",
+    lectures: [],
+  }));
 
   return {
     key: "launchpad",
     title: "All Star Training",
     subtitle: "Watch the full training series, in order.",
     filters: [],
+    sections: [
+      { key: "content", label: "Content" },
+      { key: "case_studies", label: "Case Studies" },
+    ],
     courses,
   };
 }
