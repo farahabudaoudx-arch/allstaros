@@ -21,6 +21,7 @@ function buildNav(isBuilder: boolean): NavItem[] {
   if (isBuilder) {
     nav.push(
       { label: "Team", href: "/producer/team" },
+      { label: "Messages", href: "/producer/messages" },
       { label: "Recruiting", href: "/producer/recruiting" },
     );
   }
