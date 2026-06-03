@@ -69,8 +69,16 @@ export function bunnyEmbedUrl(guid: string): string | null {
 
 // The library's CDN ("pull zone") hostname — needed to build thumbnail URLs —
 // isn't returned by the per-library video API. It IS public on every embed
-// page (as the og:image host), so we resolve it once from a sample video and
-// cache it for the process. An explicit env var short-circuits the lookup.
+// page (as the og:image host), so we resolve it from a sample video and cache
+// it for the process. An explicit env var short-circuits the lookup.
+//
+// Known-good hostnames per library id: a public, stable fallback used when the
+// embed-page scrape fails (it can be flaky from a datacenter IP, which would
+// otherwise drop every thumbnail back to the colored monogram tile).
+const KNOWN_CDN_HOSTS: Record<string, string> = {
+  "675288": "vz-316b0bb9-a9f.b-cdn.net", // All Star recruiting app library
+};
+
 let cachedCdnHost: string | null = null;
 
 async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
@@ -87,15 +95,22 @@ async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
       // The hostname is stable for the life of the library — cache it for a day.
       next: { revalidate: 86400 },
     });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const m = html.match(/https:\/\/(vz-[a-z0-9-]+\.b-cdn\.net)\//i);
-    if (m) {
-      cachedCdnHost = m[1];
-      return cachedCdnHost;
+    if (res.ok) {
+      const html = await res.text();
+      const m = html.match(/https:\/\/(vz-[a-z0-9-]+\.b-cdn\.net)\//i);
+      if (m) {
+        cachedCdnHost = m[1];
+        return cachedCdnHost;
+      }
     }
   } catch {
-    // Best-effort: thumbnails just won't render, callers fall back gracefully.
+    // Scrape failed — fall through to the known-good fallback below.
+  }
+  // Fallback so thumbnails still render even when the scrape can't reach Bunny.
+  const known = KNOWN_CDN_HOSTS[cfg.libraryId];
+  if (known) {
+    cachedCdnHost = known;
+    return known;
   }
   return null;
 }
