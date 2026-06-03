@@ -25,6 +25,10 @@ export type BunnyVideo = {
   status: number;
   /** Ready-to-embed iframe URL. */
   embedUrl: string;
+  /** Public poster image URL (loads in a browser <img>; Bunny blocks
+   * referer-less requests, which browsers always send). Null if the library's
+   * CDN hostname couldn't be resolved. */
+  thumbnailUrl: string | null;
 };
 
 type BunnyListResponse = {
@@ -56,6 +60,39 @@ export function bunnyEmbedUrl(guid: string): string | null {
   const cfg = config();
   if (!cfg) return null;
   return `${BUNNY_EMBED_BASE}/${cfg.libraryId}/${guid}`;
+}
+
+// The library's CDN ("pull zone") hostname — needed to build thumbnail URLs —
+// isn't returned by the per-library video API. It IS public on every embed
+// page (as the og:image host), so we resolve it once from a sample video and
+// cache it for the process. An explicit env var short-circuits the lookup.
+let cachedCdnHost: string | null = null;
+
+async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
+  const fromEnv = process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
+  if (fromEnv) {
+    return fromEnv.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  }
+  if (cachedCdnHost) return cachedCdnHost;
+  const cfg = config();
+  if (!cfg) return null;
+  try {
+    const res = await fetch(`${BUNNY_EMBED_BASE}/${cfg.libraryId}/${sampleGuid}`, {
+      headers: { "user-agent": "Mozilla/5.0" },
+      // The hostname is stable for the life of the library — cache it for a day.
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const m = html.match(/https:\/\/(vz-[a-z0-9-]+\.b-cdn\.net)\//i);
+    if (m) {
+      cachedCdnHost = m[1];
+      return cachedCdnHost;
+    }
+  } catch {
+    // Best-effort: thumbnails just won't render, callers fall back gracefully.
+  }
+  return null;
 }
 
 /**
@@ -91,11 +128,22 @@ export async function listBunnyVideos(): Promise<BunnyVideo[]> {
         lengthSeconds: item.length ?? 0,
         status: item.status ?? 0,
         embedUrl: `${BUNNY_EMBED_BASE}/${cfg.libraryId}/${item.guid}`,
+        thumbnailUrl: null,
       });
     }
 
     const seen = page * perPage;
     if (!body.items?.length || seen >= (body.totalItems ?? 0)) break;
+  }
+
+  // Resolve the CDN host once and decorate every video with its poster URL.
+  if (out.length > 0) {
+    const host = await resolveCdnHost(out[0].guid);
+    if (host) {
+      for (const v of out) {
+        v.thumbnailUrl = `https://${host}/${v.guid}/thumbnail.jpg`;
+      }
+    }
   }
 
   return out;
@@ -155,9 +203,12 @@ export function bunnyTrainingProgram(videos: BunnyVideo[]): Program {
       rating: 5,
       ratingCount: 0,
       tone: TONES[i % TONES.length],
-      instructor: { name: "All Star", title: "Training" },
+      // No real instructor metadata from Bunny — leave it empty so the
+      // CoursePlatform hides the avatar block beneath the player.
+      instructor: { name: "", title: "" },
       durationLabel: durationLabel(v.lengthSeconds),
       embedUrl: v.embedUrl,
+      thumbnailUrl: v.thumbnailUrl ?? undefined,
       lectures: [],
     }));
 

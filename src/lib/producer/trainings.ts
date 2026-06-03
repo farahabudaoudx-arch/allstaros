@@ -32,6 +32,9 @@ export type Course = {
   /** Ready-to-embed iframe URL (e.g. a Bunny Stream embed). When present the
    * CoursePlatform plays it instead of the fake placeholder player. */
   embedUrl?: string;
+  /** Poster image for the course list. When present it replaces the colored
+   * monogram tile. */
+  thumbnailUrl?: string;
   lectures: Lecture[];
 };
 

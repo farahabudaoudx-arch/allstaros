@@ -108,7 +108,18 @@ function CourseCard({
           : "border-hairline bg-card hover:border-mute hover:bg-card-hi"
       }`}
     >
-      <Monogram tone={course.tone} label={course.title} className="h-20 w-24 shrink-0 rounded-xl" />
+      {course.thumbnailUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={course.thumbnailUrl}
+          alt=""
+          loading="lazy"
+          referrerPolicy="origin"
+          className="h-20 w-24 shrink-0 rounded-xl object-cover"
+        />
+      ) : (
+        <Monogram tone={course.tone} label={course.title} className="h-20 w-24 shrink-0 rounded-xl" />
+      )}
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <h3 className="truncate text-sm font-semibold text-ink">{course.title}</h3>
         <p className="mt-1 line-clamp-2 text-xs text-subtle">{course.blurb}</p>
@@ -231,17 +242,19 @@ export function CoursePlatform({
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-subtle">{selected.description}</p>
 
-            <div className="mt-5 flex items-center gap-3">
-              <Monogram
-                tone={selected.tone}
-                label={selected.instructor.name}
-                className="h-10 w-10 rounded-full"
-              />
-              <div>
-                <p className="text-sm font-medium text-ink">{selected.instructor.name}</p>
-                <p className="text-xs text-mute">{selected.instructor.title}</p>
+            {selected.instructor.name ? (
+              <div className="mt-5 flex items-center gap-3">
+                <Monogram
+                  tone={selected.tone}
+                  label={selected.instructor.name}
+                  className="h-10 w-10 rounded-full"
+                />
+                <div>
+                  <p className="text-sm font-medium text-ink">{selected.instructor.name}</p>
+                  <p className="text-xs text-mute">{selected.instructor.title}</p>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-mute">
