@@ -16,6 +16,7 @@ export async function resetDevRecruitByPersonId(personId: string) {
       exam_date: null,
       exam_failures: 0,
       guide_read_at: null,
+      licensing_submitted_at: null,
       bootcamp_started_at: null,
     })
     .eq("person_id", personId);

@@ -1,7 +1,9 @@
 import {
-  setExamDateForm,
+  saveExamDateForm,
+  markExamScheduledForm,
   markStudyingForm,
   markExamPassedForm,
+  markLicensingSubmittedForm,
   markGuideReadForm,
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
@@ -14,7 +16,6 @@ import {
   TimelineFinale,
   type StepStatus,
 } from "./timeline";
-import { WalkthroughButton } from "./walkthrough-modal";
 import { SubmitButton } from "./submit-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
@@ -26,8 +27,6 @@ const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const SCHEDULE_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const STUDY_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const EXAM_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-// Shown in the popup when a recruit taps "Failed My Exam".
-const FAIL_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const SIRCON_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
 // Linear progression of the licensing phase. One timeline step per rung.
@@ -50,12 +49,11 @@ export default function LicensingView({
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
 }) {
-  // How far along the recruit is. Fall back to the exam_date column in case the
-  // step lagged behind (the column is independently client-updatable).
-  let current = STEP_ORDER[(recruit.phase_step as LicensingStep) ?? "logged_in"] ?? 0;
-  if (recruit.exam_date && current < STEP_ORDER.exam_scheduled) {
-    current = STEP_ORDER.exam_scheduled;
-  }
+  // How far along the recruit is, straight from phase_step. Saving an exam date
+  // no longer advances the step on its own — the recruit has to click "Mark as
+  // completed", which is what moves logged_in → exam_scheduled.
+  const current =
+    STEP_ORDER[(recruit.phase_step as LicensingStep) ?? "logged_in"] ?? 0;
 
   // The intro video is a soft gate that sits in front of everything. It's
   // satisfied once guide_read_at is stamped (reused as the "watched" marker), or
@@ -85,13 +83,17 @@ export default function LicensingView({
   const step02 = statusFor(STEP_ORDER.exam_scheduled);
   const step03 = statusFor(STEP_ORDER.studying);
   const step04 = statusFor(STEP_ORDER.exam_passed);
-  // Step 05 has no rung above it inside licensing — it's the builder's gate.
-  const step05: StepStatus =
-    guideComplete && current >= STEP_ORDER.exam_passed ? "active" : "locked";
-  // Closing success card — clears once the recruit has passed their exam, the
-  // last milestone we track inside licensing.
-  const finaleStatus: StepStatus =
-    guideComplete && current >= STEP_ORDER.exam_passed ? "active" : "locked";
+  // Step 05 sits above the phase_step ladder — its own done-marker is
+  // licensing_submitted_at, stamped when the recruit marks the Sircon step
+  // complete. Active once the exam is passed, complete once that's stamped.
+  const licensingSubmitted = !!recruit.licensing_submitted_at;
+  const step05: StepStatus = licensingSubmitted
+    ? "complete"
+    : guideComplete && current >= STEP_ORDER.exam_passed
+      ? "active"
+      : "locked";
+  // Closing success card — clears only after that final "Mark as completed".
+  const finaleStatus: StepStatus = licensingSubmitted ? "active" : "locked";
   const uplineDisplay = uplineName?.trim() || "Your upline";
 
   // All steps stay on screen — locked ones are blurred. When an action just
@@ -131,7 +133,7 @@ export default function LicensingView({
               <form action={markGuideReadForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
                 <SubmitButton variant="primary" pendingLabel="Saving…">
-                  I watched the video
+                  Mark as completed
                 </SubmitButton>
               </form>
             ) : null}
@@ -178,7 +180,7 @@ export default function LicensingView({
                   href={examSite.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={buttonClass("primary")}
+                  className={buttonClass("secondary")}
                 >
                   Schedule with {examSite.vendor} →
                 </a>
@@ -192,7 +194,7 @@ export default function LicensingView({
             )}
 
             <form
-              action={setExamDateForm}
+              action={saveExamDateForm}
               className="flex flex-col gap-3 sm:flex-row sm:items-end"
             >
               <input type="hidden" name="recruitId" value={recruit.id} />
@@ -212,10 +214,40 @@ export default function LicensingView({
                   className="mt-1.5"
                 />
               </div>
-              <SubmitButton variant="primary" pendingLabel="Saving…">
-                {step02 === "complete" ? "Update date" : "Save date"}
+              <SubmitButton variant="secondary" pendingLabel="Saving…">
+                {recruit.exam_date ? "Update date" : "Save date"}
               </SubmitButton>
             </form>
+
+            {/* Advance gate: locked until a date is saved, then it moves the
+                recruit forward. */}
+            {step02 === "active" ? (
+              recruit.exam_date ? (
+                <form action={markExamScheduledForm}>
+                  <input type="hidden" name="recruitId" value={recruit.id} />
+                  <input
+                    type="hidden"
+                    name="examDate"
+                    value={recruit.exam_date}
+                  />
+                  <SubmitButton variant="primary" pendingLabel="Saving…">
+                    Mark as completed
+                  </SubmitButton>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="Save your exam date first"
+                  className={buttonClass(
+                    "primary",
+                    "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  Mark as completed
+                </button>
+              )
+            ) : null}
           </div>
         </TimelineStep>
 
@@ -255,15 +287,15 @@ export default function LicensingView({
               href={XCEL_LOGIN_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className={buttonClass("primary")}
+              className={buttonClass("secondary")}
             >
               Open Xcel Solutions →
             </a>
             {step03 === "active" ? (
               <form action={markStudyingForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
-                <SubmitButton variant="secondary" pendingLabel="Saving…">
-                  I&apos;m logged in and studying
+                <SubmitButton variant="primary" pendingLabel="Saving…">
+                  Mark as completed
                 </SubmitButton>
               </form>
             ) : null}
@@ -289,20 +321,12 @@ export default function LicensingView({
               />
             </div>
             {step04 === "active" ? (
-              <div className="flex flex-wrap gap-3">
-                <form action={markExamPassedForm}>
-                  <input type="hidden" name="recruitId" value={recruit.id} />
-                  <SubmitButton variant="primary" pendingLabel="Saving…">
-                    Passed My Exam
-                  </SubmitButton>
-                </form>
-                <WalkthroughButton
-                  label="Failed My Exam"
-                  variant="secondary"
-                  title="It's okay — here's your next step"
-                  videoUrl={FAIL_VIDEO}
-                />
-              </div>
+              <form action={markExamPassedForm}>
+                <input type="hidden" name="recruitId" value={recruit.id} />
+                <SubmitButton variant="primary" pendingLabel="Saving…">
+                  Mark as completed
+                </SubmitButton>
+              </form>
             ) : null}
           </div>
         </TimelineStep>
@@ -326,14 +350,22 @@ export default function LicensingView({
               />
             </div>
             {step05 === "active" ? (
-              <a
-                href={SIRCON_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonClass("primary")}
-              >
-                Apply on Sircon →
-              </a>
+              <>
+                <a
+                  href={SIRCON_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClass("secondary")}
+                >
+                  Apply on Sircon →
+                </a>
+                <form action={markLicensingSubmittedForm}>
+                  <input type="hidden" name="recruitId" value={recruit.id} />
+                  <SubmitButton variant="primary" pendingLabel="Saving…">
+                    Mark as completed
+                  </SubmitButton>
+                </form>
+              </>
             ) : null}
           </div>
         </TimelineStep>

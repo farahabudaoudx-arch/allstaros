@@ -74,6 +74,7 @@ export type Recruit = {
   exam_date: string | null;
   exam_failures: number;
   guide_read_at: string | null;
+  licensing_submitted_at: string | null;
   bootcamp_started_at: string | null;
   flagged: boolean;
   flag_reason: string | null;

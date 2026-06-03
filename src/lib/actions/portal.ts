@@ -12,6 +12,7 @@ import {
   markExamPassed,
   markExamFailed,
   markGuideRead,
+  markLicensingSubmitted,
 } from "@/lib/actions/pipeline";
 import type { MilestoneKind } from "@/lib/db/types";
 import { MILESTONE_KINDS } from "@/lib/db/types";
@@ -34,11 +35,36 @@ async function getRecruitForCurrent() {
     : null;
 }
 
-export async function setExamDateForm(formData: FormData) {
+// Step 2, part one: just save the date. This writes the exam_date column
+// directly (RLS lets a recruit update their own row) WITHOUT advancing the
+// step, so "Save date" only fills the field — the recruit still has to click
+// "Mark as completed" to move forward.
+export async function saveExamDateForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  const date = String(formData.get("examDate") ?? "");
+  if (!recruitId || !date) redirect("/portal");
+  const supabase = await createClient();
+  await supabase.from("recruit").update({ exam_date: date }).eq("id", recruitId);
+  revalidatePath("/portal");
+  redirect("/portal");
+}
+
+// Step 2, part two: "Mark as completed" — advance logged_in → exam_scheduled
+// using the already-saved date. The guarded RPC does the actual step change.
+export async function markExamScheduledForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const date = String(formData.get("examDate") ?? "");
   if (!recruitId || !date) redirect("/portal");
   await setExamDate(recruitId, date);
+  redirect("/portal");
+}
+
+// Step 5: "Mark as completed" on the Sircon card. Stamps licensing_submitted_at,
+// which unlocks the closing success card.
+export async function markLicensingSubmittedForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  if (!recruitId) redirect("/portal");
+  await markLicensingSubmitted(recruitId);
   redirect("/portal");
 }
 

@@ -80,6 +80,21 @@ export async function markGuideRead(
   return { ok: true, data: data as Recruit };
 }
 
+/** Recruit-only: mark licensing finished (applied on Sircon). Stamps
+ * licensing_submitted_at; the builder still confirms to advance the phase. */
+export async function markLicensingSubmitted(
+  recruitId: string,
+): Promise<ActionResult<Recruit>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("recruit_mark_licensing_submitted", {
+    p_recruit: recruitId,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/portal");
+  revalidatePath(`/dashboard/recruits/${recruitId}`);
+  return { ok: true, data: data as Recruit };
+}
+
 /** Builder-only: advance the recruit's phase. */
 export async function advancePhase(
   recruitId: string,
