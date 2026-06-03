@@ -9,7 +9,7 @@ import PortalShell, { PortalHeading } from "./_components/portal-shell";
 import { SubmitButton } from "./_components/submit-button";
 import { phaseLabel } from "@/lib/pipeline/labels";
 import { devAccountByRole } from "@/lib/devLogin";
-import { resetLicensingForm } from "@/lib/actions/portal";
+import { resetLicensingForm, showFullFlowForm } from "@/lib/actions/portal";
 import type {
   CheckIn,
   LessonCompletion,
@@ -124,11 +124,18 @@ export default async function PortalPage({
       }}
     >
       {isDemoRecruit ? (
-        <form action={resetLicensingForm} className="mb-6">
-          <SubmitButton variant="ghost" pendingLabel="Resetting…">
-            ↺ Reset to step 1
-          </SubmitButton>
-        </form>
+        <div className="mb-6 flex flex-col items-start gap-2">
+          <form action={showFullFlowForm}>
+            <SubmitButton variant="ghost" pendingLabel="Loading…">
+              ⏭ Show full flow
+            </SubmitButton>
+          </form>
+          <form action={resetLicensingForm}>
+            <SubmitButton variant="ghost" pendingLabel="Resetting…">
+              ↺ Reset to step 1
+            </SubmitButton>
+          </form>
+        </div>
       ) : null}
       {recruit.phase === "licensing" ? (
         <LicensingView recruit={recruit} uplineName={uplineName} />

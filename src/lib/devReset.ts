@@ -29,3 +29,35 @@ export async function resetDevRecruitByPersonId(personId: string) {
     .update({ licensing_submitted_at: null })
     .eq("person_id", personId);
 }
+
+/**
+ * Dev-only: jump the seeded recruit to the END of licensing — every step
+ * completed — so the portal opens fully unlocked and the whole flow (Training,
+ * Check-in, All Star AI, Messages, plus the completed licensing finale) is
+ * visible without re-walking each step. The mirror image of the reset above.
+ * Never runs outside the DEV_LOGIN_ENABLED gate.
+ */
+export async function advanceDevRecruitByPersonId(personId: string) {
+  const admin = createServiceRoleClient();
+  const nowIso = new Date().toISOString();
+  const today = nowIso.slice(0, 10);
+
+  await admin
+    .from("recruit")
+    .update({
+      phase: "licensing",
+      phase_step: "exam_passed",
+      exam_date: today,
+      exam_failures: 0,
+      guide_read_at: nowIso,
+      bootcamp_started_at: null,
+    })
+    .eq("person_id", personId);
+
+  // Separate statement so the advance above still succeeds before the
+  // licensing_submitted_at migration has run (column may not exist yet).
+  await admin
+    .from("recruit")
+    .update({ licensing_submitted_at: nowIso })
+    .eq("person_id", personId);
+}

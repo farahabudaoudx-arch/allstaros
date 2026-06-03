@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { devAccountByRole } from "@/lib/devLogin";
-import { resetDevRecruitByPersonId } from "@/lib/devReset";
+import {
+  resetDevRecruitByPersonId,
+  advanceDevRecruitByPersonId,
+} from "@/lib/devReset";
 import {
   setExamDate,
   markStudying,
@@ -104,6 +107,16 @@ export async function resetLicensingForm() {
   if (!person) redirect("/auth/signin");
   if (person.email !== devAccountByRole("recruit")?.email) redirect("/portal");
   await resetDevRecruitByPersonId(person.id);
+  redirect("/portal");
+}
+
+// Testing convenience: jump the demo recruit to the end of licensing so the
+// whole portal is unlocked at once. Same demo-account gate as the reset above.
+export async function showFullFlowForm() {
+  const person = await getCurrentPerson();
+  if (!person) redirect("/auth/signin");
+  if (person.email !== devAccountByRole("recruit")?.email) redirect("/portal");
+  await advanceDevRecruitByPersonId(person.id);
   redirect("/portal");
 }
 
