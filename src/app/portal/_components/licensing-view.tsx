@@ -1,6 +1,7 @@
 import {
   setExamDateForm,
   markStudyingForm,
+  markExamPassedForm,
   markGuideReadForm,
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
@@ -8,6 +9,7 @@ import { Input, buttonClass } from "@/components/ui";
 import { examSiteForState } from "@/lib/exam-sites";
 import { US_STATES } from "@/lib/us-states";
 import { Timeline, TimelineStep, type StepStatus } from "./timeline";
+import { WalkthroughButton } from "./walkthrough-modal";
 import { SubmitButton } from "./submit-button";
 
 // Placeholder external links + videos — swap these for the real destinations.
@@ -18,7 +20,9 @@ const SIRCON_URL = "https://www.sircon.com";
 const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const SCHEDULE_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const STUDY_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-const FINGERPRINT_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+const EXAM_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+// Shown in the popup when a recruit taps "Failed My Exam".
+const FAIL_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const SIRCON_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
 // Linear progression of the licensing phase. One timeline step per rung.
@@ -253,28 +257,39 @@ export default function LicensingView({
           </div>
         </TimelineStep>
 
-        {/* 04 — Pass the exam + fingerprints */}
+        {/* 04 — Pass the exam */}
         <TimelineStep
           number="04"
-          title="Pass your exam & get your fingerprints"
-          description="Pass your state exam, then get your fingerprints submitted. Watch the video, then open the fingerprint guide below."
+          title="Pass your exam"
+          description="Show up to your testing center on exam day, then tell us how it went."
           status={step04}
           animateUnlock={animateStep === "04"}
         >
           <div className="space-y-4">
             <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
               <iframe
-                src={FINGERPRINT_VIDEO}
-                title="Pass your exam and get your fingerprints"
+                src={EXAM_VIDEO}
+                title="Passing your state exam"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="h-full w-full"
               />
             </div>
             {step04 === "active" ? (
-              <a href="/portal/fingerprints" className={buttonClass("primary")}>
-                Open your fingerprint guide →
-              </a>
+              <div className="flex flex-wrap gap-3">
+                <form action={markExamPassedForm}>
+                  <input type="hidden" name="recruitId" value={recruit.id} />
+                  <SubmitButton variant="primary" pendingLabel="Saving…">
+                    Passed My Exam
+                  </SubmitButton>
+                </form>
+                <WalkthroughButton
+                  label="Failed My Exam"
+                  variant="secondary"
+                  title="It's okay — here's your next step"
+                  videoUrl={FAIL_VIDEO}
+                />
+              </div>
             ) : null}
           </div>
         </TimelineStep>
