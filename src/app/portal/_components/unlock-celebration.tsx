@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -8,21 +7,24 @@ import { motion, AnimatePresence } from "framer-motion";
  * Celebration overlay shown the moment the recruit finishes the Xcel signup step
  * and the rest of the platform unlocks. Blurs the screen behind a card that
  * points (via a left-side triangle) toward the newly-unlocked sidebar nav.
- * Closing strips the ?unlocked=1 flag so a refresh doesn't show it again.
+ *
+ * Visibility is driven directly by the `show` prop (the ?unlocked=1 flag) rather
+ * than local state — the redirect that sets the flag is a soft client navigation
+ * that doesn't remount this component, so gating on useState's initial value
+ * would never catch the flag flipping on. Closing strips the flag, which flips
+ * `show` to false and animates the overlay out.
  */
 export function UnlockCelebration({ show }: { show: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(show);
 
   function close() {
-    setOpen(false);
-    // Drop the query flag so the overlay doesn't reappear on refresh.
+    // Drop the query flag so the overlay closes (and won't reappear on refresh).
     router.replace("/portal");
   }
 
   return (
     <AnimatePresence>
-      {open ? (
+      {show ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
