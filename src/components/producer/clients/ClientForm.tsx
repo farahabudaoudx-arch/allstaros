@@ -457,7 +457,7 @@ function CarrierPicker({
   const finalNames = CARRIERS as readonly string[];
 
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${finalNames.length}, minmax(0, 1fr))` }}>
       {finalNames.map((name) => {
         const logo = CARRIER_LOGOS[name];
         const isSelected = selected === name;
