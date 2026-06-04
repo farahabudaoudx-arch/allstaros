@@ -95,6 +95,10 @@ export default async function ProducerMessagesPage() {
             const checkIn = lastCheckIn.get(row.id);
             const removed =
               row.person.status === "removed" || row.removed_at;
+            // "Unread" = the most recent message came from the recruit (not you,
+            // not the AI) and is still awaiting your reply.
+            const unread =
+              !!last && last.sender_person_id !== person.id && !last.is_ai;
             return (
               <li key={row.id}>
                 <Link
@@ -108,8 +112,24 @@ export default async function ProducerMessagesPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="truncate font-medium text-ink">
-                        {row.person.full_name}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={`truncate ${
+                            unread ? "font-semibold text-ink" : "font-medium text-ink"
+                          }`}
+                        >
+                          {row.person.full_name}
+                        </span>
+                        {row.flagged ? (
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-3.5 w-3.5 shrink-0 text-warn"
+                            fill="currentColor"
+                            aria-label="Flagged"
+                          >
+                            <path d="M5 3a1 1 0 0 1 1-1h12.5a.5.5 0 0 1 .4.8L16 7l2.9 4.2a.5.5 0 0 1-.4.8H7v9a1 1 0 1 1-2 0V3Z" />
+                          </svg>
+                        ) : null}
                       </span>
                       {last ? (
                         <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
@@ -117,7 +137,11 @@ export default async function ProducerMessagesPage() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 truncate text-sm text-subtle">
+                    <p
+                      className={`mt-0.5 truncate text-sm ${
+                        unread ? "font-medium text-ink" : "text-subtle"
+                      }`}
+                    >
                       {last ? last.body : "No messages yet — say hello."}
                     </p>
                   </div>
@@ -125,6 +149,12 @@ export default async function ProducerMessagesPage() {
                     <span className="hidden shrink-0 rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-mute sm:inline">
                       Checked in {checkIn}
                     </span>
+                  ) : null}
+                  {unread ? (
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent"
+                      aria-label="Unread"
+                    />
                   ) : null}
                 </Link>
               </li>

@@ -15,7 +15,6 @@ type LeaderboardResponse = {
 
 const METRICS: Array<{ key: LeaderboardMetric; label: string; money?: boolean }> = [
   { key: "ap_cents", label: "Annual Premium", money: true },
-  { key: "ip_cents", label: "Issued Premium", money: true },
   { key: "policies", label: "Policies" },
   { key: "sales", label: "Sales" },
   { key: "deposits_cents", label: "Deposits", money: true },
@@ -182,7 +181,6 @@ export function LeaderboardView() {
                   <th className="px-5 py-3 font-normal">Rank</th>
                   <th className="px-5 py-3 font-normal">Producer</th>
                   <th className="px-5 py-3 text-right font-normal">AP</th>
-                  <th className="hidden px-5 py-3 text-right font-normal sm:table-cell">IP</th>
                   <th className="hidden px-5 py-3 text-right font-normal md:table-cell">Policies</th>
                   <th className="px-5 py-3 text-right font-normal">Sales</th>
                 </tr>
@@ -215,13 +213,6 @@ export function LeaderboardView() {
                         }`}
                       >
                         {money(row.ap_cents)}
-                      </td>
-                      <td
-                        className={`hidden px-5 py-3 text-right tabular-nums sm:table-cell ${
-                          metric === "ip_cents" ? "font-semibold text-accent" : "text-subtle"
-                        }`}
-                      >
-                        {money(row.ip_cents)}
                       </td>
                       <td
                         className={`hidden px-5 py-3 text-right tabular-nums md:table-cell ${
