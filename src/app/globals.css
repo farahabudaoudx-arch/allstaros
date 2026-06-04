@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-@theme inline {
+/* Dark (default) palette. These emit real --color-* custom properties at
+   :root, which the generated utilities (bg-card, text-ink, …) reference via
+   var(). The `.light` block below overrides the same properties so toggling
+   the `.light` class on <html> recolors the whole app through the cascade. */
+@theme {
   --color-background: #050505;
   --color-foreground: #f5f5f5;
   --color-ink: #f5f5f5;
@@ -18,12 +22,37 @@
   --font-mono: var(--font-geist-mono);
 }
 
+:root {
+  color-scheme: dark;
+}
+
+/* Light palette — overrides the themed tokens. */
+.light {
+  --color-background: #f6f7f8;
+  --color-foreground: #0b0b0c;
+  --color-ink: #0b0b0c;
+  --color-subtle: #565b62;
+  --color-mute: #8b9099;
+  --color-hairline: #e4e6e9;
+  --color-card: #ffffff;
+  --color-card-hi: #eef0f2;
+  --color-accent: #f6c945;
+  --color-accent-soft: #c9a235;
+  color-scheme: light;
+}
+
 html,
 body {
   background: var(--color-background);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* The wordmark art is near-white, invisible on light surfaces — invert it to
+   black in light mode rather than sitting it on a dark chip. */
+.light .app-logo {
+  filter: invert(1);
 }
 
 body {
@@ -71,6 +100,29 @@ body {
   --warn: #f97316;
 
   letter-spacing: -0.012em;
+}
+
+/* Light-mode overrides for the ported analytics palette */
+.light .ll-analytics {
+  --ink-0: #0b0b0c;
+  --ink-1: #0b0b0c;
+  --ink-2: #565b62;
+  --ink-3: #8b9099;
+
+  --line-1: #e4e6e9;
+  --line-2: #d6d9dd;
+  --line-3: #c2c6cc;
+
+  --bg-inner: #f6f7f8;
+  --card-1: #ffffff;
+  --card-2: #eef0f2;
+
+  --surface-faint: rgba(0, 0, 0, 0.02);
+  --surface-soft: rgba(0, 0, 0, 0.04);
+  --surface-mid: rgba(0, 0, 0, 0.06);
+  --surface-strong: rgba(0, 0, 0, 0.09);
+
+  --nav-active-text: #ffffff;
 }
 
 /* Type */
