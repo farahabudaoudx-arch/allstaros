@@ -155,7 +155,15 @@ function writeLayout(layout: SectionLayout) {
   try { window.localStorage.setItem(LS_ANALYTICS_LAYOUT, JSON.stringify(layout)); } catch { /* quota */ }
 }
 
-export function AnalyticsView() {
+export function AnalyticsView({
+  personId,
+  title = "Analytics",
+}: {
+  // When set, the board renders a downline producer's metrics (read-only).
+  personId?: string;
+  title?: string;
+} = {}) {
+  const readOnly = !!personId;
   const [addOpen, setAddOpen] = useState(false);
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
   const [layout, setLayout] = useState<SectionLayout>({ order: DEFAULT_SECTION_ORDER, hidden: [] });
@@ -190,6 +198,7 @@ export function AnalyticsView() {
       }
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (tz) params.set("tz", tz);
+      if (personId) params.set("personId", personId);
       return fetch(`/api/producer/analytics/metrics?${params.toString()}`, { cache: "no-store" })
         .then((r) => r.json())
         .then((j) => {
@@ -207,7 +216,7 @@ export function AnalyticsView() {
       aborted = true;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tf, customRange]);
+  }, [tf, customRange, personId]);
 
   const m: RawMetrics = useMemo(() => server ? toMetrics(server.totals) : EMPTY_METRICS, [server]);
 
@@ -271,15 +280,17 @@ export function AnalyticsView() {
       {/* Header */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div className="flex items-baseline gap-3">
-          <h1 className="display-mega text-white leading-none">Analytics</h1>
+          <h1 className="display-mega text-white leading-none">{title}</h1>
           {loading && <span className="text-xs" style={{ color: "var(--ink-3)" }}>loading…</span>}
           {error && <span className="text-xs" style={{ color: "var(--danger)" }}>{error}</span>}
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setAddOpen(true)} className="btn btn-primary text-sm" title="Manually log activity for a day">
-            <PlusIcon /> Add Data
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => setAddOpen(true)} className="btn btn-primary text-sm" title="Manually log activity for a day">
+              <PlusIcon /> Add Data
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Controls — timeframe, custom range, layout settings */}
@@ -608,7 +619,7 @@ export function AnalyticsView() {
 
           calendar: (
             <Section title="Calendar">
-              <AnalyticsCalendar reloadKey={calendarReloadKey} />
+              <AnalyticsCalendar reloadKey={calendarReloadKey} personId={personId} />
             </Section>
           ),
         };
@@ -1143,7 +1154,7 @@ function fmtCents(c: number): string {
 type CalendarDay = { ap_cents: number; ip_cents: number; sales: number; submitted: boolean };
 type CalendarResp = { ok: true; month: string; days: Record<string, CalendarDay> } | { ok: false; error: string };
 
-function AnalyticsCalendar({ reloadKey }: { reloadKey: number }) {
+function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personId?: string }) {
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -1157,7 +1168,8 @@ function AnalyticsCalendar({ reloadKey }: { reloadKey: number }) {
     setError(null);
     const ym = `${viewYear}-${calPad2(viewMonth + 1)}`;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    fetch(`/api/producer/analytics/calendar?month=${ym}&tz=${encodeURIComponent(tz)}`, { cache: "no-store" })
+    const personParam = personId ? `&personId=${encodeURIComponent(personId)}` : "";
+    fetch(`/api/producer/analytics/calendar?month=${ym}&tz=${encodeURIComponent(tz)}${personParam}`, { cache: "no-store" })
       .then((r) => r.json() as Promise<CalendarResp>)
       .then((j) => {
         if (aborted) return;
@@ -1167,7 +1179,7 @@ function AnalyticsCalendar({ reloadKey }: { reloadKey: number }) {
       .catch((e) => { if (!aborted) { setError(e.message ?? "Failed to load"); setDays({}); } })
       .finally(() => { if (!aborted) setLoading(false); });
     return () => { aborted = true; };
-  }, [viewYear, viewMonth, reloadKey]);
+  }, [viewYear, viewMonth, reloadKey, personId]);
 
   function shiftMonth(delta: number) {
     let mo = viewMonth + delta;

@@ -12,10 +12,14 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const rangeKey = (url.searchParams.get("range") ?? "mtd") as RangeKey;
   const tz = safeTz(url.searchParams.get("tz"));
+  // A builder can view a downline producer's board by passing personId. RLS on
+  // the underlying tables scopes the data to what the viewer is allowed to see,
+  // so an out-of-downline id simply returns an empty board (no leak).
+  const targetPersonId = url.searchParams.get("personId") || person.id;
 
   try {
     const supabase = await createClient();
-    const result = await computeAnalytics(supabase, person.id, {
+    const result = await computeAnalytics(supabase, targetPersonId, {
       rangeKey,
       tz,
       from: url.searchParams.get("from"),

@@ -17,10 +17,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "bad month (expected YYYY-MM)" }, { status: 400 });
   }
   const tz = safeTz(url.searchParams.get("tz"));
+  // Optional downline producer id (RLS-scoped, same as the metrics route).
+  const targetPersonId = url.searchParams.get("personId") || person.id;
 
   try {
     const supabase = await createClient();
-    const result = await computeCalendar(supabase, person.id, ym, tz);
+    const result = await computeCalendar(supabase, targetPersonId, ym, tz);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

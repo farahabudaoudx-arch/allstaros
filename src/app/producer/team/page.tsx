@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -47,9 +48,7 @@ export default async function TeamPage() {
 
   const kpis = [
     { label: "Team AP", value: money(totals.ap_cents) },
-    { label: "Issued AP", value: money(totals.ip_cents) },
     { label: "Policies", value: num(totals.policies) },
-    { label: "Sales", value: num(totals.sales) },
     { label: "Producers", value: num(rows.length) },
   ];
 
@@ -63,7 +62,7 @@ export default async function TeamPage() {
         </p>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-2xl border border-hairline bg-card p-5">
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">{k.label}</p>
@@ -77,58 +76,41 @@ export default async function TeamPage() {
           No team production yet this month.
         </div>
       ) : (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-hairline bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
-                <th className="px-5 py-3 font-normal">Producer</th>
-                <th className="px-5 py-3 text-right font-normal">AP</th>
-                <th className="hidden px-5 py-3 text-right font-normal sm:table-cell">Issued AP</th>
-                <th className="hidden px-5 py-3 text-right font-normal md:table-cell">Policies</th>
-                <th className="px-5 py-3 text-right font-normal">Sales</th>
-                <th className="hidden px-5 py-3 text-right font-normal lg:table-cell">Deposits</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const isMe = row.person_id === person.id;
-                return (
-                  <tr
-                    key={row.person_id}
-                    className={`border-b border-hairline last:border-0 transition ${
-                      isMe ? "bg-accent/[0.06]" : "hover:bg-card-hi/60"
-                    }`}
-                  >
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card-hi text-[11px] font-semibold text-ink ring-1 ring-hairline">
-                          {initials(row.full_name)}
-                        </span>
-                        <span className="truncate font-medium text-ink">
-                          {row.full_name}
-                          {isMe ? <span className="ml-1 text-accent">(you)</span> : null}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-right font-semibold tabular-nums text-accent">
-                      {money(row.ap_cents)}
-                    </td>
-                    <td className="hidden px-5 py-3 text-right tabular-nums text-subtle sm:table-cell">
-                      {money(row.ip_cents)}
-                    </td>
-                    <td className="hidden px-5 py-3 text-right tabular-nums text-subtle md:table-cell">
-                      {num(row.policies)}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums text-subtle">{num(row.sales)}</td>
-                    <td className="hidden px-5 py-3 text-right tabular-nums text-subtle lg:table-cell">
-                      {money(row.deposits_cents)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ul className="mt-3 divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card">
+          {rows.map((row) => {
+            const isMe = row.person_id === person.id;
+            return (
+              <li key={row.person_id}>
+                <Link
+                  href={`/producer/team/${row.person_id}`}
+                  className={`flex items-center gap-4 px-5 py-4 transition ${
+                    isMe ? "bg-accent/[0.06] hover:bg-accent/[0.1]" : "hover:bg-card-hi/60"
+                  }`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card-hi text-[11px] font-semibold text-ink ring-1 ring-hairline">
+                    {initials(row.full_name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-ink">
+                      {row.full_name}
+                      {isMe ? <span className="ml-1 text-accent">(you)</span> : null}
+                    </div>
+                    <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
+                      {num(row.policies)} policies · {num(row.sales)} sales
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-semibold tabular-nums text-accent">{money(row.ap_cents)}</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-mute">AP</div>
+                  </div>
+                  <span className="shrink-0 text-mute" aria-hidden>
+                    →
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </main>
   );
