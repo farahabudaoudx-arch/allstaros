@@ -362,9 +362,8 @@ export function AnalyticsView({
             <Section title="Overview">
               <div className="flex items-stretch gap-0 flex-wrap lg:flex-nowrap">
                 <div className="card-lime p-5 lg:w-48 flex-shrink-0 relative lg:rounded-r-none">
-                  <span className="text-xs opacity-70">Leads routing in</span>
+                  <span className="text-xs opacity-70">New Leads</span>
                   <div className="display text-5xl tnum mt-2 leading-none">{fmtInt(m.leads)}</div>
-                  <div className="text-xs opacity-70 mt-3">into the system</div>
                 </div>
                 <div className="card flex-1 py-5 pr-5 pl-0 min-w-0 lg:rounded-l-none lg:border-l-0">
                   <FunnelChart
