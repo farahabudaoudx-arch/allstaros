@@ -31,6 +31,34 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+type ExamOutcome = "passed" | "failed" | null;
+
+// Did this recruit pass or fail their licensing exam? Reaching onboarding (or
+// beyond) implies the license was approved, so the exam was passed.
+function examResult(r: Pick<Recruit, "phase" | "phase_step" | "exam_failures">): ExamOutcome {
+  if (r.phase_step === "exam_passed" || ["onboarding", "bootcamp", "graduated"].includes(r.phase)) {
+    return "passed";
+  }
+  if ((r.exam_failures ?? 0) > 0) return "failed";
+  return null;
+}
+
+// Bootcamp result: graduated = passed, flagged-in-bootcamp = failed, else TBD.
+function bootcampResult(r: Pick<Recruit, "phase" | "flagged">): ExamOutcome {
+  if (r.phase === "graduated") return "passed";
+  if (r.phase === "bootcamp" && r.flagged) return "failed";
+  return null;
+}
+
+function ResultValue({ result }: { result: ExamOutcome }) {
+  if (!result) return <span className="text-mute">—</span>;
+  return (
+    <span className={result === "passed" ? "text-pos" : "text-neg"}>
+      {result === "passed" ? "Passed" : "Failed"}
+    </span>
+  );
+}
+
 export default async function RecruitProfilePage({
   params,
 }: {
@@ -92,9 +120,9 @@ export default async function RecruitProfilePage({
         <Fact label="Phone" value={recruit.phone || "—"} />
         <Fact label="State" value={recruit.state || "—"} />
         <Fact label="Exam date" value={fmtDate(recruit.exam_date)} />
-        <Fact label="Exam failures" value={recruit.exam_failures} />
-        <Fact label="Guide read" value={fmtDate(recruit.guide_read_at)} />
+        <Fact label="Exam" value={<ResultValue result={examResult(recruit)} />} />
         <Fact label="Bootcamp started" value={fmtDate(recruit.bootcamp_started_at)} />
+        <Fact label="Bootcamp" value={<ResultValue result={bootcampResult(recruit)} />} />
       </div>
 
       <div className="mt-6">

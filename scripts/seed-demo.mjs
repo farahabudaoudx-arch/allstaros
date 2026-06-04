@@ -296,6 +296,11 @@ console.log(
 // ===========================================================================
 // 2) RECRUITING — 250 recruits scattered across every funnel stage.
 // ===========================================================================
+// Exam dates: scheduled/studying recruits sit a few days out; anyone who has
+// already taken it has a date in the recent past.
+const futureExamDate = () => isoBetween(now, new Date(now.getTime() + 14 * 864e5)).slice(0, 10);
+const pastExamDate = () => historyTs().slice(0, 10);
+
 // The progress fields that place a recruit at each derived funnel stage.
 function recruitFields(kind) {
   switch (kind) {
@@ -308,33 +313,41 @@ function recruitFields(kind) {
         phase: "licensing",
         phase_step: "exam_scheduled",
         guide_read_at: historyTs(),
-        exam_date: isoBetween(now, new Date(now.getTime() + 14 * 864e5)).slice(0, 10),
+        exam_date: futureExamDate(),
       };
     case "studying":
-      return { phase: "licensing", phase_step: "studying", guide_read_at: historyTs() };
+      return { phase: "licensing", phase_step: "studying", guide_read_at: historyTs(), exam_date: futureExamDate() };
     case "passed_exam":
-      return { phase: "licensing", phase_step: "exam_passed", guide_read_at: historyTs() };
+      return { phase: "licensing", phase_step: "exam_passed", guide_read_at: historyTs(), exam_date: pastExamDate() };
     case "failed_exam":
-      return { phase: "licensing", phase_step: "studying", guide_read_at: historyTs(), exam_failures: randInt(1, 2) };
+      return {
+        phase: "licensing",
+        phase_step: "studying",
+        guide_read_at: historyTs(),
+        exam_date: pastExamDate(),
+        exam_failures: randInt(1, 2),
+      };
     case "license_pending":
       return {
         phase: "licensing",
         phase_step: "exam_passed",
         guide_read_at: historyTs(),
+        exam_date: pastExamDate(),
         licensing_submitted_at: historyTs(),
       };
     case "license_approved":
-      return { phase: "onboarding", phase_step: "training" };
+      return { phase: "onboarding", phase_step: "training", exam_date: pastExamDate() };
     case "contracting":
-      return { phase: "onboarding", phase_step: "contracting" };
+      return { phase: "onboarding", phase_step: "contracting", exam_date: pastExamDate() };
     case "in_bootcamp":
-      return { phase: "bootcamp", phase_step: "active", bootcamp_started_at: historyTs().slice(0, 10) };
+      return { phase: "bootcamp", phase_step: "active", exam_date: pastExamDate(), bootcamp_started_at: pastExamDate() };
     case "passed_bootcamp":
-      return { phase: "graduated", phase_step: null };
+      return { phase: "graduated", phase_step: null, exam_date: pastExamDate() };
     case "failed_bootcamp":
       return {
         phase: "bootcamp",
         phase_step: "active",
+        exam_date: pastExamDate(),
         bootcamp_started_at: historyTs().slice(0, 10),
         flagged: true,
         flag_reason: "Behind 8-in-28 pace",
@@ -396,6 +409,8 @@ const recruitPeople = await insertAll(
 const recruitRows = recruitSpecs.map((spec, i) => ({
   person_id: recruitPeople[i].id,
   builder_id: BUILDER_ID,
+  phone: `(${randInt(200, 989)}) ${randInt(200, 989)}-${String(randInt(0, 9999)).padStart(4, "0")}`,
+  state: pick(STATES),
   phase: spec.phase,
   phase_step: spec.phase_step ?? null,
   exam_date: spec.exam_date ?? null,
