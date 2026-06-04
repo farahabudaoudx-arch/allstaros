@@ -4,7 +4,6 @@ import { Sidebar, type NavItem } from "@/components/Sidebar";
 
 function buildNav(isBuilder: boolean): NavItem[] {
   const trainingChildren: NavItem[] = [
-    { label: "Guides", href: "/producer/trainings/guides" },
     { label: "Previous Live Trainings", href: "/producer/trainings/live" },
     { label: "Bootcamp", href: "/producer/trainings/bootcamp" },
     { label: "Accelerator", href: "/producer/trainings/accelerator" },
@@ -19,11 +18,15 @@ function buildNav(isBuilder: boolean): NavItem[] {
     { label: "Leaderboard", href: "/producer/leaderboard" },
   ];
   if (isBuilder) {
-    nav.push(
-      { label: "Team", href: "/producer/team" },
-      { label: "Messages", href: "/producer/messages" },
-      { label: "Recruiting", href: "/producer/recruiting" },
-    );
+    nav.push({
+      label: "My Team",
+      children: [
+        { label: "Team Performance", href: "/producer/team" },
+        { label: "Recruiting Pipeline", href: "/producer/recruiting" },
+        { label: "Messages", href: "/producer/messages" },
+        { label: "Flagged", href: "/producer/flagged" },
+      ],
+    });
   }
   nav.push(
     { label: "Training Portal", children: trainingChildren },
