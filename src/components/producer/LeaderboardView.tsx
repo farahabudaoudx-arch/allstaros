@@ -13,11 +13,18 @@ type LeaderboardResponse = {
   rows: LeaderboardRow[];
 };
 
-const METRICS: Array<{ key: LeaderboardMetric; label: string; money?: boolean }> = [
-  { key: "ap_cents", label: "Annual Premium", money: true },
-  { key: "policies", label: "Policies" },
-  { key: "sales", label: "Sales" },
-  { key: "deposits_cents", label: "Deposits", money: true },
+const METRICS: Array<{
+  key: LeaderboardMetric;
+  label: string;
+  short: string;
+  money?: boolean;
+  hideSmall?: boolean;
+}> = [
+  { key: "ap_cents", label: "Annual Premium", short: "AP", money: true },
+  { key: "sales", label: "Sales", short: "Sales" },
+  { key: "dials", label: "Dials", short: "Dials", hideSmall: true },
+  { key: "contacts", label: "Contacts", short: "Contacts", hideSmall: true },
+  { key: "presentations", label: "Presentations", short: "Pres", hideSmall: true },
 ];
 
 function initials(name: string): string {
@@ -180,9 +187,14 @@ export function LeaderboardView() {
                 <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
                   <th className="px-5 py-3 font-normal">Rank</th>
                   <th className="px-5 py-3 font-normal">Producer</th>
-                  <th className="px-5 py-3 text-right font-normal">AP</th>
-                  <th className="hidden px-5 py-3 text-right font-normal md:table-cell">Policies</th>
-                  <th className="px-5 py-3 text-right font-normal">Sales</th>
+                  {METRICS.map((m) => (
+                    <th
+                      key={m.key}
+                      className={`px-5 py-3 text-right font-normal ${m.hideSmall ? "hidden md:table-cell" : ""}`}
+                    >
+                      {m.short}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -207,27 +219,19 @@ export function LeaderboardView() {
                           </span>
                         </div>
                       </td>
-                      <td
-                        className={`px-5 py-3 text-right tabular-nums ${
-                          metric === "ap_cents" ? "font-semibold text-accent" : "text-ink"
-                        }`}
-                      >
-                        {money(row.ap_cents)}
-                      </td>
-                      <td
-                        className={`hidden px-5 py-3 text-right tabular-nums md:table-cell ${
-                          metric === "policies" ? "font-semibold text-accent" : "text-subtle"
-                        }`}
-                      >
-                        {num(row.policies)}
-                      </td>
-                      <td
-                        className={`px-5 py-3 text-right tabular-nums ${
-                          metric === "sales" ? "font-semibold text-accent" : "text-subtle"
-                        }`}
-                      >
-                        {num(row.sales)}
-                      </td>
+                      {METRICS.map((m) => {
+                        const active = metric === m.key;
+                        return (
+                          <td
+                            key={m.key}
+                            className={`px-5 py-3 text-right tabular-nums ${
+                              m.hideSmall ? "hidden md:table-cell" : ""
+                            } ${active ? "font-semibold text-accent" : "text-subtle"}`}
+                          >
+                            {m.money ? money(row[m.key]) : num(row[m.key])}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}

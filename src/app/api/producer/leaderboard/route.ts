@@ -4,7 +4,16 @@ import { getCurrentPerson } from "@/lib/auth";
 import { computeLeaderboard, type LeaderboardMetric, type RangeKey } from "@/lib/producer/metrics";
 import { safeTz } from "@/lib/producer/time";
 
-const METRICS: LeaderboardMetric[] = ["ap_cents", "ip_cents", "sales", "policies", "deposits_cents"];
+const METRICS: LeaderboardMetric[] = [
+  "ap_cents",
+  "ip_cents",
+  "sales",
+  "policies",
+  "deposits_cents",
+  "dials",
+  "contacts",
+  "presentations",
+];
 
 // GET /api/producer/leaderboard?range=mtd&metric=ap_cents&tz=America/Chicago
 //   (or range=custom&from=YYYY-MM-DD&to=YYYY-MM-DD)

@@ -457,7 +457,15 @@ export async function computeAnalytics(
 // everyone. Call it with a service-role client; RLS would otherwise clip the
 // result to the viewer's own downline.
 // ---------------------------------------------------------------------------
-export type LeaderboardMetric = "ap_cents" | "ip_cents" | "sales" | "policies" | "deposits_cents";
+export type LeaderboardMetric =
+  | "ap_cents"
+  | "ip_cents"
+  | "sales"
+  | "policies"
+  | "deposits_cents"
+  | "dials"
+  | "contacts"
+  | "presentations";
 
 export type LeaderboardRow = {
   person_id: string;
@@ -467,6 +475,9 @@ export type LeaderboardRow = {
   sales: number;
   policies: number;
   deposits_cents: number;
+  dials: number;
+  contacts: number;
+  presentations: number;
 };
 
 export type LeaderboardResult = {
@@ -508,7 +519,7 @@ export async function computeLeaderboard(
   const [salesRes, policyRes, trackerRes, depositRes] = await Promise.all([
     supabase.from("sale").select("person_id, annual_premium_cents, created_at").gte("created_at", fromTs).lte("created_at", toTs),
     supabase.from("issued_policy").select("person_id, status, issued_at, sale:sale_id(annual_premium_cents)").gte("issued_at", fromTs).lte("issued_at", toTs),
-    supabase.from("tracker_entry").select("person_id, sales, entry_date").gte("entry_date", from).lte("entry_date", to),
+    supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to),
     supabase.from("deposit").select("person_id, amount_cents, status, received_at").gte("received_at", fromTs).lte("received_at", toTs),
   ]);
   if (salesRes.error) throw new Error(salesRes.error.message);
@@ -516,12 +527,12 @@ export async function computeLeaderboard(
   if (trackerRes.error) throw new Error(trackerRes.error.message);
   if (depositRes.error) throw new Error(depositRes.error.message);
 
-  type Agg = { ap_cents: number; ip_cents: number; saleCount: number; trackerSales: number; policies: number; deposits_cents: number };
+  type Agg = { ap_cents: number; ip_cents: number; saleCount: number; trackerSales: number; policies: number; deposits_cents: number; dials: number; contacts: number; presentations: number };
   const byPerson = new Map<string, Agg>();
   const bump = (pid: string): Agg => {
     let a = byPerson.get(pid);
     if (!a) {
-      a = { ap_cents: 0, ip_cents: 0, saleCount: 0, trackerSales: 0, policies: 0, deposits_cents: 0 };
+      a = { ap_cents: 0, ip_cents: 0, saleCount: 0, trackerSales: 0, policies: 0, deposits_cents: 0, dials: 0, contacts: 0, presentations: 0 };
       byPerson.set(pid, a);
     }
     return a;
@@ -543,8 +554,12 @@ export async function computeLeaderboard(
     a.policies += 1;
   }
 
-  for (const t of (trackerRes.data ?? []) as Array<{ person_id: string; sales: number | null }>) {
-    bump(t.person_id).trackerSales += Number(t.sales ?? 0);
+  for (const t of (trackerRes.data ?? []) as Array<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>) {
+    const a = bump(t.person_id);
+    a.trackerSales += Number(t.sales ?? 0);
+    a.dials += Number(t.dials ?? 0);
+    a.contacts += Number(t.contacts ?? 0);
+    a.presentations += Number(t.presentations ?? 0);
   }
 
   for (const d of (depositRes.data ?? []) as Array<{ person_id: string; amount_cents: number | null; status: string | null; received_at: string }>) {
@@ -573,6 +588,9 @@ export async function computeLeaderboard(
       sales: Math.max(a.trackerSales, a.saleCount),
       policies: a.policies,
       deposits_cents: a.deposits_cents,
+      dials: a.dials,
+      contacts: a.contacts,
+      presentations: a.presentations,
     };
   });
 
