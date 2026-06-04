@@ -369,9 +369,9 @@ export function AnalyticsView({
                   <FunnelChart
                     stages={[
                       { label: "Dials", value: fmtInt(m.dials), conversion: null },
-                      { label: "Contacts", value: fmtInt(m.contacts), conversion: `${pct(m.contacts, m.dials).toFixed(1)}% contact` },
-                      { label: "Appointments", value: fmtInt(m.appointments), conversion: `${pct(m.appointments, m.contacts).toFixed(1)}% appt` },
-                      { label: "Presentations", value: fmtInt(m.presentations), conversion: `${pct(m.presentations, m.appointments).toFixed(1)}% show` },
+                      { label: "Contacts", value: fmtInt(m.contacts), conversion: `${pct(m.contacts, m.dials).toFixed(1)}% of dials` },
+                      { label: "Appointments", value: fmtInt(m.appointments), conversion: `${pct(m.appointments, m.dials).toFixed(1)}% of dials` },
+                      { label: "Presentations", value: fmtInt(m.presentations), conversion: `${pct(m.presentations, m.dials).toFixed(1)}% of dials` },
                       { label: "Sales", value: fmtInt(m.sales), conversion: `${pct(m.sales, m.presentations).toFixed(1)}% close` },
                       { label: "Total AP", value: fmtMoney(m.ap), conversion: `${fmtMoneyExact(avgAPPerSale)} avg` },
                       { label: "Total IP", value: fmtMoney(m.ip), conversion: `${issueRate.toFixed(1)}% issue` },
