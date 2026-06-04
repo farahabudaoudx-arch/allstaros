@@ -40,11 +40,32 @@ export async function GET(req: Request) {
     });
     const statsById = new Map(board.rows.map((r) => [r.person_id, r]));
 
+    // 2b) Activity aggregates (dials/contacts/appointments/presentations) come
+    //     from tracker_entry, which the leaderboard doesn't surface. Same range
+    //     and RLS scope as the production aggregates above.
+    type Activity = { dials: number; contacts: number; appointments: number; presentations: number };
+    const { data: trackerRows, error: trackerErr } = await supabase
+      .from("tracker_entry")
+      .select("person_id, dials, contacts, appointments, presentations")
+      .gte("entry_date", board.range.from)
+      .lte("entry_date", board.range.to);
+    if (trackerErr) throw new Error(trackerErr.message);
+    const activityById = new Map<string, Activity>();
+    for (const t of (trackerRows ?? []) as Array<{ person_id: string } & Partial<Activity>>) {
+      const a = activityById.get(t.person_id) ?? { dials: 0, contacts: 0, appointments: 0, presentations: 0 };
+      a.dials += Number(t.dials ?? 0);
+      a.contacts += Number(t.contacts ?? 0);
+      a.appointments += Number(t.appointments ?? 0);
+      a.presentations += Number(t.presentations ?? 0);
+      activityById.set(t.person_id, a);
+    }
+
     // 3) Left-join the roster onto the aggregates so zero-production producers
     //    still appear; sort by AP desc, then name.
     const rows = (roster ?? [])
       .map((p) => {
         const s = statsById.get(p.id);
+        const act = activityById.get(p.id);
         return {
           person_id: p.id,
           full_name: p.full_name ?? "Unknown",
@@ -54,6 +75,10 @@ export async function GET(req: Request) {
           sales: s?.sales ?? 0,
           policies: s?.policies ?? 0,
           deposits_cents: s?.deposits_cents ?? 0,
+          dials: act?.dials ?? 0,
+          contacts: act?.contacts ?? 0,
+          appointments: act?.appointments ?? 0,
+          presentations: act?.presentations ?? 0,
         };
       })
       .sort(
@@ -69,8 +94,12 @@ export async function GET(req: Request) {
         ip_cents: acc.ip_cents + r.ip_cents,
         policies: acc.policies + r.policies,
         sales: acc.sales + r.sales,
+        dials: acc.dials + r.dials,
+        contacts: acc.contacts + r.contacts,
+        appointments: acc.appointments + r.appointments,
+        presentations: acc.presentations + r.presentations,
       }),
-      { ap_cents: 0, ip_cents: 0, policies: 0, sales: 0 },
+      { ap_cents: 0, ip_cents: 0, policies: 0, sales: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0 },
     );
 
     return NextResponse.json({

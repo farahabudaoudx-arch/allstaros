@@ -14,6 +14,21 @@ type Row = {
   sales: number;
   policies: number;
   deposits_cents: number;
+  dials: number;
+  contacts: number;
+  appointments: number;
+  presentations: number;
+};
+
+type Totals = {
+  ap_cents: number;
+  ip_cents: number;
+  policies: number;
+  sales: number;
+  dials: number;
+  contacts: number;
+  appointments: number;
+  presentations: number;
 };
 
 type TeamResp =
@@ -22,10 +37,12 @@ type TeamResp =
       meId: string;
       range: { key: string; from: string; to: string };
       producers: number;
-      totals: { ap_cents: number; ip_cents: number; policies: number; sales: number };
+      totals: Totals;
       rows: Row[];
     }
   | { ok: false; error: string };
+
+type View = "performance" | "activity";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -43,6 +60,7 @@ function fmtRange(from: string, to: string): string {
 
 export function TeamView() {
   const [tf, setTf] = useState<Timeframe>({ key: "mtd" });
+  const [view, setView] = useState<View>("performance");
   const [data, setData] = useState<TeamResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,37 +99,80 @@ export function TeamView() {
   }, [tf]);
 
   const ok = data?.ok ? data : null;
-  const totals = ok?.totals ?? { ap_cents: 0, ip_cents: 0, policies: 0, sales: 0 };
-  const rows = ok?.rows ?? [];
+  const totals: Totals =
+    ok?.totals ?? {
+      ap_cents: 0,
+      ip_cents: 0,
+      policies: 0,
+      sales: 0,
+      dials: 0,
+      contacts: 0,
+      appointments: 0,
+      presentations: 0,
+    };
   const meId = ok?.meId;
+  const isActivity = view === "activity";
 
-  const kpis = [
-    { label: "Team AP", value: money(totals.ap_cents) },
-    { label: "Policies", value: num(totals.policies) },
-    { label: "Producers", value: num(ok?.producers ?? rows.length) },
-  ];
+  // Re-rank by the metric the active view leads with.
+  const rows = [...(ok?.rows ?? [])].sort((a, b) =>
+    isActivity
+      ? b.dials - a.dials || b.contacts - a.contacts || a.full_name.localeCompare(b.full_name)
+      : b.ap_cents - a.ap_cents || b.policies - a.policies || a.full_name.localeCompare(b.full_name),
+  );
+
+  const kpis = isActivity
+    ? [
+        { label: "Dials", value: num(totals.dials) },
+        { label: "Contacts", value: num(totals.contacts) },
+        { label: "Appointments", value: num(totals.appointments) },
+        { label: "Presentations", value: num(totals.presentations) },
+      ]
+    : [
+        { label: "Team AP", value: money(totals.ap_cents) },
+        { label: "Policies", value: num(totals.policies) },
+        { label: "Producers", value: num(ok?.producers ?? rows.length) },
+      ];
 
   return (
     <div className="mt-8">
       {/* Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-subtle">
-          {ok ? (
-            <>
-              Production across your team ·{" "}
-              <span className="text-ink">{fmtRange(ok.range.from, ok.range.to)}</span>
-            </>
-          ) : (
-            <span>&nbsp;</span>
-          )}
-          {loading && <span className="ml-2 text-xs text-mute">loading…</span>}
-          {error && <span className="ml-2 text-xs text-warn">{error}</span>}
+        <div className="flex items-center gap-1 rounded-full border border-hairline bg-card p-1">
+          {(["performance", "activity"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`rounded-full px-3.5 py-1 text-xs font-medium capitalize transition ${
+                view === v ? "bg-accent text-black" : "text-subtle hover:text-ink"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
         <TimeframePills value={tf} onChange={setTf} />
       </div>
 
+      <div className="mt-3 text-sm text-subtle">
+        {ok ? (
+          <>
+            {isActivity ? "Activity" : "Production"} across your team ·{" "}
+            <span className="text-ink">{fmtRange(ok.range.from, ok.range.to)}</span>
+          </>
+        ) : (
+          <span>&nbsp;</span>
+        )}
+        {loading && <span className="ml-2 text-xs text-mute">loading…</span>}
+        {error && <span className="ml-2 text-xs text-warn">{error}</span>}
+      </div>
+
       {/* KPIs */}
-      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div
+        className={`mt-5 grid grid-cols-2 gap-3 ${
+          isActivity ? "sm:grid-cols-4" : "sm:grid-cols-3"
+        }`}
+      >
         {kpis.map((k) => (
           <div key={k.label} className="rounded-2xl border border-hairline bg-card p-5">
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">{k.label}</p>
@@ -151,12 +212,18 @@ export function TeamView() {
                       ) : null}
                     </div>
                     <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
-                      {num(row.policies)} policies · {num(row.sales)} sales
+                      {isActivity
+                        ? `${num(row.contacts)} contacts · ${num(row.appointments)} appts · ${num(row.presentations)} pres`
+                        : `${num(row.policies)} policies · ${num(row.sales)} sales`}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="font-semibold tabular-nums text-accent">{money(row.ap_cents)}</div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-mute">AP</div>
+                    <div className="font-semibold tabular-nums text-accent">
+                      {isActivity ? num(row.dials) : money(row.ap_cents)}
+                    </div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
+                      {isActivity ? "Dials" : "AP"}
+                    </div>
                   </div>
                   <span className="shrink-0 text-mute" aria-hidden>
                     →
