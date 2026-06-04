@@ -1,7 +1,6 @@
 import { EventSchedule } from "@/components/producer/EventSchedule";
 import { DashboardOverview } from "@/components/producer/DashboardOverview";
 import { ProducerGoals } from "@/components/producer/ProducerGoals";
-import { DailyProjections } from "@/components/producer/DailyProjections";
 import { TodaySnapshot } from "@/components/producer/TodaySnapshot";
 import { getCurrentPerson } from "@/lib/auth";
 
@@ -24,8 +23,6 @@ export default async function ProducerDashboard() {
       <TodaySnapshot />
 
       <ProducerGoals />
-
-      <DailyProjections />
 
       <EventSchedule />
 

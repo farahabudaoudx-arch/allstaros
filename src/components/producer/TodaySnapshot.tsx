@@ -5,9 +5,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { money, num } from "@/lib/producer/format";
 import { localIsoDate } from "@/lib/producer/time";
 
+type Projection = {
+  dials: number;
+  contacts: number;
+  appointments: number;
+  presentations: number;
+  sales: number;
+  ap_cents: number;
+};
+
 type Row = { dials: number; contacts: number; presentations: number; sales: number; ap_cents: number };
 
-const EMPTY: Row = { dials: 0, contacts: 0, presentations: 0, sales: 0, ap_cents: 0 };
+const EMPTY_PROJ: Projection = {
+  dials: 0,
+  contacts: 0,
+  appointments: 0,
+  presentations: 0,
+  sales: 0,
+  ap_cents: 0,
+};
+const EMPTY_ROW: Row = { dials: 0, contacts: 0, presentations: 0, sales: 0, ap_cents: 0 };
 
 const FIELDS: Array<{ key: keyof Row; label: string; money?: boolean }> = [
   { key: "dials", label: "Dials" },
@@ -19,10 +36,12 @@ const FIELDS: Array<{ key: keyof Row; label: string; money?: boolean }> = [
 
 export function TodaySnapshot() {
   const today = useMemo(() => localIsoDate(), []);
-  const [target, setTarget] = useState<Row | null>(null);
-  const [actual, setActual] = useState<Row>(EMPTY);
+  const [target, setTarget] = useState<Projection | null>(null);
+  const [actual, setActual] = useState<Row>(EMPTY_ROW);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,22 +88,52 @@ export function TodaySnapshot() {
   const fmt = (key: keyof Row, v: number) =>
     FIELDS.find((f) => f.key === key)?.money ? money(v) : num(v);
 
+  const saveProjection = async (next: Projection) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/producer/projection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ date: today, ...next }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Failed to save");
+      setEditing(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="mt-10">
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Box 1 — Today's target */}
-        <GoldBox title="Today's target" subtitle="The numbers you're aiming for">
-          {target ? (
-            <MetricGrid render={(f) => fmt(f.key, target[f.key])} />
+        {/* Left — Daily projections (targets) */}
+        <GoldBox
+          title="Daily projections"
+          subtitle="The numbers you're aiming for"
+          action={
+            target && !editing ? (
+              <GoldButton onClick={() => setEditing(true)}>Edit</GoldButton>
+            ) : null
+          }
+        >
+          {editing || !target ? (
+            <ProjectionForm
+              initial={target ?? EMPTY_PROJ}
+              saving={saving}
+              onCancel={target ? () => setEditing(false) : undefined}
+              onSubmit={saveProjection}
+            />
           ) : (
-            <p className="mt-4 text-sm text-background/75">
-              No targets set for today. Set them in <span className="font-semibold">Daily projections</span> below
-              and they&apos;ll show up here.
-            </p>
+            <MetricGrid render={(f) => fmt(f.key, target[f.key])} />
           )}
         </GoldBox>
 
-        {/* Box 2 — Today's actuals + submit */}
+        {/* Right — Today's actuals + submit */}
         <GoldBox title="Today's numbers" subtitle="What you've logged so far">
           <MetricGrid
             render={(f) => fmt(f.key, actual[f.key])}
@@ -119,16 +168,25 @@ export function TodaySnapshot() {
 function GoldBox({
   title,
   subtitle,
+  action,
   children,
 }: {
   title: string;
   subtitle: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col rounded-3xl bg-accent p-6 text-background md:p-7">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-background/70">{subtitle}</p>
-      <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em]">{title}</h2>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-background/70">
+            {subtitle}
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em]">{title}</h2>
+        </div>
+        {action}
+      </div>
       <div className="flex-1">{children}</div>
     </div>
   );
@@ -155,6 +213,99 @@ function MetricGrid({
         </div>
       ))}
     </div>
+  );
+}
+
+function ProjectionForm({
+  initial,
+  saving,
+  onSubmit,
+  onCancel,
+}: {
+  initial: Projection;
+  saving: boolean;
+  onSubmit: (next: Projection) => void;
+  onCancel?: () => void;
+}) {
+  const [form, setForm] = useState<Record<keyof Row, string>>({
+    dials: initial.dials ? String(initial.dials) : "",
+    contacts: initial.contacts ? String(initial.contacts) : "",
+    presentations: initial.presentations ? String(initial.presentations) : "",
+    sales: initial.sales ? String(initial.sales) : "",
+    ap_cents: initial.ap_cents ? String(initial.ap_cents / 100) : "",
+  });
+
+  const set = (key: keyof Row, v: string) => setForm((p) => ({ ...p, [key]: v }));
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      // Preserve appointments — it isn't edited here but lives on the projection.
+      appointments: initial.appointments,
+      dials: Math.max(0, Math.floor(Number(form.dials) || 0)),
+      contacts: Math.max(0, Math.floor(Number(form.contacts) || 0)),
+      presentations: Math.max(0, Math.floor(Number(form.presentations) || 0)),
+      sales: Math.max(0, Math.floor(Number(form.sales) || 0)),
+      ap_cents: Math.max(0, Math.round((Number(form.ap_cents) || 0) * 100)),
+    });
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
+        {FIELDS.map((f) => (
+          <label key={f.key}>
+            <span className="block text-[11px] font-medium uppercase tracking-[0.1em] text-background/65">
+              {f.label}
+            </span>
+            <div className="mt-1 flex items-baseline rounded-lg border border-background/25 bg-background/10 px-2.5 py-1.5">
+              {f.money && <span className="mr-0.5 text-lg text-background/60">$</span>}
+              <input
+                type="number"
+                min={0}
+                step={f.money ? "0.01" : "1"}
+                inputMode={f.money ? "decimal" : "numeric"}
+                value={form[f.key]}
+                onChange={(e) => set(f.key, e.target.value)}
+                placeholder="0"
+                className="w-full bg-transparent text-xl font-semibold tabular-nums text-background outline-none placeholder:text-background/40"
+              />
+            </div>
+          </label>
+        ))}
+      </div>
+      <div className="mt-5 flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-full bg-background px-5 py-2.5 text-sm font-semibold text-accent transition hover:bg-background/90 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save projections"}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded-full border border-background/30 px-5 py-2.5 text-sm font-medium text-background/90 transition hover:border-background/60 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function GoldButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border border-background/30 px-4 py-1.5 text-sm font-medium text-background/90 transition hover:border-background/60"
+    >
+      {children}
+    </button>
   );
 }
 
