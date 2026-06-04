@@ -2,6 +2,7 @@ import { EventSchedule } from "@/components/producer/EventSchedule";
 import { DashboardOverview } from "@/components/producer/DashboardOverview";
 import { ProducerGoals } from "@/components/producer/ProducerGoals";
 import { DailyProjections } from "@/components/producer/DailyProjections";
+import { TodaySnapshot } from "@/components/producer/TodaySnapshot";
 import { getCurrentPerson } from "@/lib/auth";
 
 function greet(d: Date) {
@@ -19,6 +20,8 @@ export default async function ProducerDashboard() {
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <Greeting name={firstName} hello={greet(now)} />
+
+      <TodaySnapshot />
 
       <ProducerGoals />
 

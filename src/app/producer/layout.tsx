@@ -15,6 +15,7 @@ function buildNav(isBuilder: boolean): NavItem[] {
 
   const nav: NavItem[] = [
     { label: "Dashboard", href: "/producer" },
+    { label: "Dial Tracker", href: "/producer/tracker" },
     { label: "Leaderboard", href: "/producer/leaderboard" },
   ];
   if (isBuilder) {
