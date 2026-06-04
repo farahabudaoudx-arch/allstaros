@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export type NavItem = {
   label: string;
@@ -72,7 +73,7 @@ export function Sidebar({
             width={120}
             height={68}
             priority
-            className="h-9 w-auto shrink-0"
+            className="app-logo h-9 w-auto shrink-0"
           />
           {!collapsed && tag ? (
             <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-mute">
@@ -213,6 +214,8 @@ export function Sidebar({
             </button>
           </form>
         ) : null}
+
+        <ThemeToggle collapsed={collapsed} />
 
         <button
           type="button"

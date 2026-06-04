@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export type NavItem = { label: string; href: string };
 
@@ -39,7 +40,7 @@ export function TopBar({
               width={120}
               height={68}
               priority
-              className="h-9 w-auto"
+              className="app-logo h-9 w-auto"
             />
             {tag ? (
               <span className="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-mute sm:inline">
@@ -69,6 +70,7 @@ export function TopBar({
               {userName}
             </span>
           ) : null}
+          <ThemeToggle variant="icon" />
           <form action="/auth/signout" method="post">
             <button
               type="submit"
