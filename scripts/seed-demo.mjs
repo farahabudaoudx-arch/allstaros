@@ -114,6 +114,23 @@ function weekdaysBefore(endDate, count) {
   }
   return out;
 }
+// Weekdays from `start`..`end` inclusive, YYYY-MM-DD, most-recent-first.
+function weekdaysInRange(start, end) {
+  const out = [];
+  const d = new Date(end);
+  while (d >= start) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  return out;
+}
+// A business-hour timestamp on a given YYYY-MM-DD.
+function tsOnDate(ymd) {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCHours(randInt(9, 18), randInt(0, 59), 0, 0);
+  return d.toISOString();
+}
 
 async function insertAll(table, rows, opts = {}) {
   if (rows.length === 0) return [];
@@ -175,14 +192,17 @@ if (process.argv.includes("--clean")) {
 }
 
 // ===========================================================================
-// 1) TEAM — 15 producers under the builder, ~$130k AP this month.
+// 1) TEAM — 15 producers under the builder, VARIED AP this month.
+//    Member totals are deliberately uneven ($40k top down to a few hundred);
+//    the builder's own ~$16k MTD AP brings the team total to ~$130k.
 // ===========================================================================
-const TEAM_AP_TOTAL_CENTS = 130_000 * 100;
-const memberAp = distribute(TEAM_AP_TOTAL_CENTS, 15);
+const MEMBER_AP = [
+  40000, 21000, 14000, 9500, 7000, 5500, 4200, 3300, 2600, 2000, 1600, 1200, 900, 600, 400,
+].map((d) => d * 100); // cents
 
 const memberPeople = await insertAll(
   "person",
-  memberAp.map(() => ({
+  MEMBER_AP.map(() => ({
     full_name: fullName(),
     email: uniqueEmail("producer"),
     upline_id: BUILDER_ID,
@@ -194,13 +214,11 @@ const memberPeople = await insertAll(
 );
 
 const teamLeads = [];
-const teamSales = [];
 const teamTracker = [];
 memberPeople.forEach((m, i) => {
-  const apTarget = memberAp[i];
-  const saleCount = Math.max(3, Math.round(apTarget / 100_000)); // ~$1k AP/sale
-  const apPerSale = distribute(apTarget, saleCount);
-  // one lead per sale
+  const apTarget = MEMBER_AP[i];
+  const saleCount = Math.max(2, Math.round(apTarget / 200_000)); // ~$2k AP/sale
+  const apPerSale = weightedDistribute(apTarget, saleCount);
   for (let s = 0; s < saleCount; s++) {
     teamLeads.push({
       person_id: m.id,
@@ -211,7 +229,6 @@ memberPeople.forEach((m, i) => {
       state: pick(STATES),
       age: randInt(50, 80),
       received_at: thisMonthTs(),
-      _memberIdx: i,
       _ap: apPerSale[s],
     });
   }
@@ -229,27 +246,21 @@ memberPeople.forEach((m, i) => {
 
 const insertedTeamLeads = await insertAll(
   "sales_lead",
-  teamLeads.map(({ _memberIdx, _ap, ...row }) => row),
+  teamLeads.map(({ _ap, ...row }) => row),
   { select: "id, person_id" },
 );
-// Map inserted leads back to their member + AP (order is preserved per chunk,
-// but be safe: pair by index since we inserted in the same order).
-insertedTeamLeads.forEach((lead, idx) => {
-  const src = teamLeads[idx];
-  const monthly = Math.round(src._ap / 12);
-  teamSales.push({
-    person_id: lead.person_id,
-    lead_id: lead.id,
-    carrier: pick(CARRIERS),
-    face_amount_cents: randInt(10_000, 25_000) * 100,
-    monthly_premium_cents: monthly,
-    annual_premium_cents: src._ap,
-    beneficiary_name: fullName(),
-    effective_date: thisMonthTs().slice(0, 10),
-    notes: "DEMO",
-    created_at: thisMonthTs(),
-  });
-});
+const teamSales = insertedTeamLeads.map((lead, idx) => ({
+  person_id: lead.person_id,
+  lead_id: lead.id,
+  carrier: pick(CARRIERS),
+  face_amount_cents: randInt(10_000, 25_000) * 100,
+  monthly_premium_cents: Math.round(teamLeads[idx]._ap / 12),
+  annual_premium_cents: teamLeads[idx]._ap,
+  beneficiary_name: fullName(),
+  effective_date: thisMonthTs().slice(0, 10),
+  notes: "DEMO",
+  created_at: thisMonthTs(),
+}));
 const insertedTeamSales = await insertAll("sale", teamSales, { select: "id, person_id" });
 await insertAll("tracker_entry", teamTracker);
 
@@ -277,31 +288,101 @@ const teamDeposits = insertedTeamPolicies
     received_at: thisMonthTs(),
   }));
 await insertAll("deposit", teamDeposits);
-console.log(`Team: 15 producers, ${insertedTeamSales.length} sales = $130k AP (MTD).`);
+const teamTotal = MEMBER_AP.reduce((a, b) => a + b, 0);
+console.log(
+  `Team: 15 producers, ${insertedTeamSales.length} sales = $${Math.round(teamTotal / 100).toLocaleString()} AP (MTD), varied.`,
+);
 
 // ===========================================================================
-// 2) RECRUITING — one recruit parked at every funnel stage.
+// 2) RECRUITING — 250 recruits scattered across every funnel stage.
 // ===========================================================================
-const RECRUIT_SPECS = [
-  { stage: "Signed Up", phase: "licensing", phase_step: null },
-  { stage: "Signed Up", phase: "interview", phase_step: null },
-  { stage: "Watched 1st Video", phase: "licensing", phase_step: null, guide_read_at: historyTs() },
-  { stage: "Scheduled Exam", phase: "licensing", phase_step: "exam_scheduled", guide_read_at: historyTs(), exam_date: now.toISOString().slice(0, 10) },
-  { stage: "Studying", phase: "licensing", phase_step: "studying", guide_read_at: historyTs() },
-  { stage: "Failed Exam", phase: "licensing", phase_step: "studying", guide_read_at: historyTs(), exam_failures: 1, flagged: true, flag_reason: "Failed first exam attempt" },
-  { stage: "Passed Exam", phase: "licensing", phase_step: "exam_passed", guide_read_at: historyTs() },
-  { stage: "License Pending", phase: "licensing", phase_step: "exam_passed", guide_read_at: historyTs(), licensing_submitted_at: historyTs() },
-  { stage: "License Approved", phase: "onboarding", phase_step: "training" },
-  { stage: "Contracting", phase: "onboarding", phase_step: "contracting" },
-  { stage: "In Bootcamp", phase: "bootcamp", phase_step: "active", bootcamp_started_at: now.toISOString().slice(0, 10) },
-  { stage: "In Bootcamp", phase: "bootcamp", phase_step: "active", bootcamp_started_at: now.toISOString().slice(0, 10) },
-  { stage: "Failed Bootcamp", phase: "bootcamp", phase_step: "active", bootcamp_started_at: historyTs().slice(0, 10), flagged: true, flag_reason: "Behind 8-in-28 pace" },
-  { stage: "Passed Bootcamp", phase: "graduated", phase_step: null },
+// The progress fields that place a recruit at each derived funnel stage.
+function recruitFields(kind) {
+  switch (kind) {
+    case "signed_up":
+      return { phase: pick(["interview", "licensing"]), phase_step: null };
+    case "watched_video":
+      return { phase: "licensing", phase_step: null, guide_read_at: historyTs() };
+    case "scheduled_exam":
+      return {
+        phase: "licensing",
+        phase_step: "exam_scheduled",
+        guide_read_at: historyTs(),
+        exam_date: isoBetween(now, new Date(now.getTime() + 14 * 864e5)).slice(0, 10),
+      };
+    case "studying":
+      return { phase: "licensing", phase_step: "studying", guide_read_at: historyTs() };
+    case "passed_exam":
+      return { phase: "licensing", phase_step: "exam_passed", guide_read_at: historyTs() };
+    case "failed_exam":
+      return { phase: "licensing", phase_step: "studying", guide_read_at: historyTs(), exam_failures: randInt(1, 2) };
+    case "license_pending":
+      return {
+        phase: "licensing",
+        phase_step: "exam_passed",
+        guide_read_at: historyTs(),
+        licensing_submitted_at: historyTs(),
+      };
+    case "license_approved":
+      return { phase: "onboarding", phase_step: "training" };
+    case "contracting":
+      return { phase: "onboarding", phase_step: "contracting" };
+    case "in_bootcamp":
+      return { phase: "bootcamp", phase_step: "active", bootcamp_started_at: historyTs().slice(0, 10) };
+    case "passed_bootcamp":
+      return { phase: "graduated", phase_step: null };
+    case "failed_bootcamp":
+      return {
+        phase: "bootcamp",
+        phase_step: "active",
+        bootcamp_started_at: historyTs().slice(0, 10),
+        flagged: true,
+        flag_reason: "Behind 8-in-28 pace",
+      };
+  }
+}
+
+// Funnel-shaped counts (widest at the top), summing to 250.
+const FUNNEL_COUNTS = [
+  ["signed_up", 70],
+  ["watched_video", 38],
+  ["scheduled_exam", 24],
+  ["studying", 22],
+  ["passed_exam", 13],
+  ["failed_exam", 16],
+  ["license_pending", 12],
+  ["license_approved", 14],
+  ["contracting", 11],
+  ["in_bootcamp", 12],
+  ["passed_bootcamp", 6],
+  ["failed_bootcamp", 12],
 ];
+
+const recruitSpecs = [];
+for (const [kind, count] of FUNNEL_COUNTS) {
+  for (let k = 0; k < count; k++) recruitSpecs.push({ kind, ...recruitFields(kind) });
+}
+// Flag ~15 more recruits at random (beyond the failed-bootcamp ones).
+const FLAG_REASONS = [
+  "No contact in 7 days",
+  "Missed exam date",
+  "Behind on study plan",
+  "Stalled in contracting",
+  "Needs licensing follow-up",
+];
+let extraFlags = 15;
+for (const spec of recruitSpecs) {
+  if (extraFlags <= 0) break;
+  if (!spec.flagged && Math.random() < 0.12) {
+    spec.flagged = true;
+    spec.flag_reason = pick(FLAG_REASONS);
+    extraFlags--;
+  }
+}
 
 const recruitPeople = await insertAll(
   "person",
-  RECRUIT_SPECS.map(() => ({
+  recruitSpecs.map(() => ({
     full_name: fullName(),
     email: uniqueEmail("recruit"),
     upline_id: BUILDER_ID,
@@ -309,14 +390,14 @@ const recruitPeople = await insertAll(
     is_producer: false,
     status: "active",
   })),
-  { select: "id, full_name" },
+  { select: "id" },
 );
 
-const recruitRows = RECRUIT_SPECS.map((spec, i) => ({
+const recruitRows = recruitSpecs.map((spec, i) => ({
   person_id: recruitPeople[i].id,
   builder_id: BUILDER_ID,
   phase: spec.phase,
-  phase_step: spec.phase_step,
+  phase_step: spec.phase_step ?? null,
   exam_date: spec.exam_date ?? null,
   bootcamp_started_at: spec.bootcamp_started_at ?? null,
   guide_read_at: spec.guide_read_at ?? null,
@@ -327,7 +408,10 @@ const recruitRows = RECRUIT_SPECS.map((spec, i) => ({
   created_at: historyTs(),
 }));
 const insertedRecruits = await insertAll("recruit", recruitRows, { select: "id, person_id" });
-console.log(`Recruiting: ${insertedRecruits.length} recruits across every funnel stage.`);
+const totalFlagged = recruitSpecs.filter((s) => s.flagged).length;
+console.log(
+  `Recruiting: ${insertedRecruits.length} recruits scattered across every funnel stage (${totalFlagged} flagged).`,
+);
 
 // ===========================================================================
 // 3) INBOX — message threads; some unread (recruit sent last), several flagged.
@@ -350,9 +434,15 @@ const BUILDER_LINES = [
 ];
 
 const messages = [];
+let threads = 0;
+const MAX_THREADS = 36;
 insertedRecruits.forEach((r, i) => {
-  // give ~9 of the recruits a conversation
-  if (i % 14 >= 9) return;
+  if (threads >= MAX_THREADS) return;
+  // Prioritise flagged recruits (so the flag icon shows in the inbox), plus a
+  // spread of others.
+  const wantThread = recruitSpecs[i].flagged || i % 7 === 0;
+  if (!wantThread) return;
+  threads++;
   const turns = randInt(2, 4);
   const base = now.getTime() - randInt(1, 6) * 24 * 3600_000;
   for (let t = 0; t < turns; t++) {
@@ -367,7 +457,7 @@ insertedRecruits.forEach((r, i) => {
     });
   }
   // Half the threads end on the recruit's message => unread for the builder.
-  if (i % 2 === 0) {
+  if (threads % 2 === 0) {
     messages.push({
       recruit_id: r.id,
       sender_person_id: r.person_id,
@@ -379,8 +469,7 @@ insertedRecruits.forEach((r, i) => {
   }
 });
 await insertAll("message", messages);
-const flaggedCount = RECRUIT_SPECS.filter((s) => s.flagged).length;
-console.log(`Inbox: ${messages.length} messages seeded; ${flaggedCount} recruits flagged.`);
+console.log(`Inbox: ${messages.length} messages across ${threads} threads; ${totalFlagged} recruits flagged.`);
 
 // ===========================================================================
 // 4) CLIENTS — a book of dummy clients for the builder.
@@ -421,16 +510,26 @@ await insertAll("clients", clients);
 console.log(`Clients: ${clients.length} dummy clients added.`);
 
 // ===========================================================================
-// 5) ANALYTICS — the builder's own all-time funnel.
-//    ~1000 leads, ~20k dials, ~2.3k contacts, ~530 appts, ~430 pres,
-//    ~110 sales, ~$110k AP.  All dated BEFORE this month so team MTD stays clean.
+// 5) ANALYTICS — the builder's own funnel.
+//    All-time totals: ~1000 leads, ~20k dials, ~2.3k contacts, ~530 appts,
+//    ~430 pres, ~110 sales, ~$110k AP. A slice of every metric lands in the
+//    CURRENT month / week / today so the Today, WTD and MTD timeframes show
+//    real data too (the MTD AP also feeds the ~$130k team total).
 // ===========================================================================
 const LEAD_COUNT = 1000;
 const SALE_COUNT = 110;
 const AP_TOTAL_CENTS = 110_000 * 100;
+const MTD_SALE_COUNT = 8;
+const MTD_AP_CENTS = 16_000 * 100;
+const MTD_LEADS = 70;
 
-// 5a) Leads
-const myLeads = Array.from({ length: LEAD_COUNT }, () => ({
+// Weekdays this month up to today (today first); fall back to today if empty.
+let monthWeekdays = weekdaysInRange(monthStart, now);
+if (monthWeekdays.length === 0) monthWeekdays = [now.toISOString().slice(0, 10)];
+const recentTs = () => tsOnDate(pick(monthWeekdays));
+
+// 5a) Leads — first MTD_LEADS land in the current month, rest in history.
+const myLeads = Array.from({ length: LEAD_COUNT }, (_, i) => ({
   person_id: BUILDER_ID,
   first_name: pick(FIRST),
   last_name: pick(LAST),
@@ -438,82 +537,109 @@ const myLeads = Array.from({ length: LEAD_COUNT }, () => ({
   phone: `555${randInt(1000000, 9999999)}`,
   state: pick(STATES),
   age: randInt(50, 80),
-  received_at: historyTs(),
+  received_at: i < MTD_LEADS ? recentTs() : historyTs(),
 }));
 const insertedMyLeads = await insertAll("sales_lead", myLeads, { select: "id" });
 
-// 5b) Sales (110), each tied to a lead, AP summing to exactly $110k.
-const apPerSale = weightedDistribute(AP_TOTAL_CENTS, SALE_COUNT);
-const mySales = apPerSale.map((ap, i) => ({
-  person_id: BUILDER_ID,
-  lead_id: insertedMyLeads[i].id,
-  carrier: pick(CARRIERS),
-  face_amount_cents: randInt(10_000, 25_000) * 100,
-  monthly_premium_cents: Math.round(ap / 12),
-  annual_premium_cents: ap,
-  beneficiary_name: fullName(),
-  effective_date: historyTs().slice(0, 10),
-  notes: "DEMO",
-  created_at: historyTs(),
-}));
-const insertedMySales = await insertAll("sale", mySales, { select: "id" });
+// 5b) Sales (110) — 8 this month ($16k AP), 102 in history ($94k), each tied to
+//     a lead, AP summing to exactly $110k.
+const mtdApPer = weightedDistribute(MTD_AP_CENTS, MTD_SALE_COUNT);
+const histApPer = weightedDistribute(AP_TOTAL_CENTS - MTD_AP_CENTS, SALE_COUNT - MTD_SALE_COUNT);
+const saleAps = [...mtdApPer, ...histApPer];
+const mySales = saleAps.map((ap, i) => {
+  const recent = i < MTD_SALE_COUNT;
+  return {
+    person_id: BUILDER_ID,
+    lead_id: insertedMyLeads[i].id,
+    carrier: pick(CARRIERS),
+    face_amount_cents: randInt(10_000, 25_000) * 100,
+    monthly_premium_cents: Math.round(ap / 12),
+    annual_premium_cents: ap,
+    beneficiary_name: fullName(),
+    effective_date: (recent ? recentTs() : historyTs()).slice(0, 10),
+    notes: "DEMO",
+    created_at: recent ? recentTs() : historyTs(),
+  };
+});
+const insertedMySales = await insertAll("sale", mySales, { select: "id, created_at" });
 
-// 5c) Issued policies for ~80 of them (gives the analytics IP a value).
+// 5c) Issued policies for ~75% of sales (gives analytics IP a value), dated
+//     near their sale so recent ones stay in-period.
 const myPolicies = insertedMySales
   .filter(() => Math.random() < 0.75)
-  .map((s) => ({
-    person_id: BUILDER_ID,
-    sale_id: s.id,
-    policy_number: `POL${randInt(100000, 999999)}`,
-    status: "issued",
-    issued_at: historyTs(),
-  }));
-const insertedMyPolicies = await insertAll("issued_policy", myPolicies, { select: "id" });
+  .map((s) => {
+    const recent = new Date(s.created_at) >= monthStart;
+    return {
+      person_id: BUILDER_ID,
+      sale_id: s.id,
+      policy_number: `POL${randInt(100000, 999999)}`,
+      status: "issued",
+      issued_at: recent ? recentTs() : historyTs(),
+    };
+  });
+const insertedMyPolicies = await insertAll("issued_policy", myPolicies, { select: "id, issued_at" });
 
 // 5d) Deposits for ~70% of issued policies.
 const myDeposits = insertedMyPolicies
   .filter(() => Math.random() < 0.7)
-  .map((p) => ({
-    person_id: BUILDER_ID,
-    policy_id: p.id,
-    amount_cents: randInt(150, 600) * 100,
-    status: "received",
-    received_at: historyTs(),
-  }));
+  .map((p) => {
+    const recent = new Date(p.issued_at) >= monthStart;
+    return {
+      person_id: BUILDER_ID,
+      policy_id: p.id,
+      amount_cents: randInt(150, 600) * 100,
+      status: "received",
+      received_at: recent ? recentTs() : historyTs(),
+    };
+  });
 await insertAll("deposit", myDeposits);
 
-// 5e) Tracker entries — the dials/contacts/appointments/presentations/sales
-//     funnel, spread across 90 historical weekdays, summing to the targets.
-const DAYS = 90;
-const trackerDates = weekdaysBefore(prevMonthEnd, DAYS);
-const dialsBy = weightedDistribute(20_000, DAYS);
-const contactsBy = weightedDistribute(2_300, DAYS);
-const apptsBy = weightedDistribute(530, DAYS);
-const presBy = weightedDistribute(430, DAYS);
-const salesBy = distribute(SALE_COUNT, DAYS);
-const myTracker = trackerDates.map((date, i) => ({
-  person_id: BUILDER_ID,
-  entry_date: date,
-  dials: dialsBy[i],
-  contacts: contactsBy[i],
-  appointments: apptsBy[i],
-  presentations: presBy[i],
-  sales: salesBy[i],
-}));
-await insertAll("tracker_entry", myTracker);
+// 5e) Tracker entries — split the dials/contacts/appts/pres/sales funnel into a
+//     current-month slice (so Today/WTD/MTD populate) and a historical slice,
+//     each summing to its share so the all-time totals stay exact.
+function trackerRows(dates, totals) {
+  const cols = {};
+  for (const k of Object.keys(totals)) cols[k] = weightedDistribute(totals[k], dates.length);
+  return dates.map((date, i) => ({
+    person_id: BUILDER_ID,
+    entry_date: date,
+    dials: cols.dials[i],
+    contacts: cols.contacts[i],
+    appointments: cols.appointments[i],
+    presentations: cols.presentations[i],
+    sales: cols.sales[i],
+  }));
+}
+const HIST_DAYS = 86;
+const histDates = weekdaysBefore(prevMonthEnd, HIST_DAYS);
+const mtdTracker = trackerRows(monthWeekdays, {
+  dials: 900,
+  contacts: 110,
+  appointments: 26,
+  presentations: 22,
+  sales: MTD_SALE_COUNT,
+});
+const histTracker = trackerRows(histDates, {
+  dials: 20_000 - 900,
+  contacts: 2_300 - 110,
+  appointments: 530 - 26,
+  presentations: 430 - 22,
+  sales: SALE_COUNT - MTD_SALE_COUNT,
+});
+await insertAll("tracker_entry", [...mtdTracker, ...histTracker]);
 
-// 5f) Connected contact attempts — populates the analytics heatmap.
-const attempts = Array.from({ length: 450 }, () => ({
+// 5f) Connected contact attempts — populates the analytics heatmap; ~70 recent.
+const attempts = Array.from({ length: 450 }, (_, i) => ({
   person_id: BUILDER_ID,
   lead_id: insertedMyLeads[rand(LEAD_COUNT)].id,
   outcome: "connected",
   duration_sec: randInt(30, 600),
-  created_at: historyBusinessTs(),
+  created_at: i < 70 ? recentTs() : historyBusinessTs(),
 }));
 await insertAll("contact_attempt", attempts);
 
 console.log(
-  `Analytics: ${LEAD_COUNT} leads, 20k dials, 2.3k contacts, 530 appts, 430 pres, ${SALE_COUNT} sales = $110k AP (all-time).`,
+  `Analytics: ${LEAD_COUNT} leads, 20k dials, 2.3k contacts, 530 appts, 430 pres, ${SALE_COUNT} sales = $110k AP (all-time); ${MTD_SALE_COUNT} sales / $${MTD_AP_CENTS / 100} AP this month.`,
 );
 
 console.log("\n✅ Demo data loaded. Re-run any time — it wipes its own data first.");

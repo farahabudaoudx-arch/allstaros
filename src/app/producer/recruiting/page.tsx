@@ -29,28 +29,23 @@ function StageBox({
   tone?: "default" | "pos" | "neg";
 }) {
   const empty = count === 0;
-  const borderClass = empty
-    ? "border-hairline/60"
+  // Filled, color-coded bands: yellow for in-progress stages, green/red for the
+  // pass/fail splits, faint for empty ones.
+  const palette = empty
+    ? { box: "border-hairline/60 bg-card/40", label: "text-mute", count: "text-mute" }
     : tone === "pos"
-      ? "border-pos/40"
+      ? { box: "border-pos/60 bg-pos/[0.16]", label: "text-pos", count: "text-ink" }
       : tone === "neg"
-        ? "border-neg/40"
-        : "border-hairline";
-  const labelClass = empty
-    ? "text-mute"
-    : tone === "pos"
-      ? "text-pos"
-      : tone === "neg"
-        ? "text-neg"
-        : "text-subtle";
+        ? { box: "border-neg/60 bg-neg/[0.16]", label: "text-neg", count: "text-ink" }
+        : { box: "border-accent/60 bg-accent/[0.16]", label: "text-accent", count: "text-ink" };
 
   return (
-    <div className={`rounded-xl border px-4 py-3 ${borderClass} ${empty ? "bg-card/40" : "bg-card"}`}>
+    <div className={`rounded-xl border px-4 py-3 ${palette.box}`}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className={`font-mono text-[11px] uppercase tracking-[0.14em] ${labelClass}`}>
+        <span className={`font-mono text-[11px] uppercase tracking-[0.14em] ${palette.label}`}>
           {label}
         </span>
-        <span className={`font-mono text-sm tabular-nums ${empty ? "text-mute" : "text-ink"}`}>
+        <span className={`font-mono text-sm tabular-nums ${palette.count}`}>
           {count}
         </span>
       </div>
