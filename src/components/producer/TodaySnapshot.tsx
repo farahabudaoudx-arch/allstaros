@@ -110,7 +110,7 @@ export function TodaySnapshot() {
 
   return (
     <section className="mt-10">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid items-start gap-4 md:grid-cols-2">
         {/* Left — Daily projections (targets) */}
         <Card
           title="Daily projections"
