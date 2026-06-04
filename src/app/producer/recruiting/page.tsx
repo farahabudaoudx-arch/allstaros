@@ -1,15 +1,79 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateReferralCode } from "@/lib/referral";
-import { PHASES, type Person, type Recruit } from "@/lib/db/types";
-import { phaseLabel, phaseStepLabel } from "@/lib/pipeline/labels";
-import { Badge } from "@/components/ui";
+import { type Person, type Recruit } from "@/lib/db/types";
+import {
+  FUNNEL_STAGES,
+  deriveFunnelStage,
+  funnelStageLabel,
+  type FunnelStage,
+} from "@/lib/pipeline/funnel";
 import { CopyLink } from "./CopyLink";
+import { RecruitTable, type RecruitListItem } from "./RecruitTable";
 
 type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
 
-export default async function RecruitingPage() {
+type Bucket = { plain: number; passed: number; failed: number };
+
+function StageBox({
+  label,
+  count,
+  href,
+  tone = "default",
+}: {
+  label: string;
+  count: number;
+  href: string;
+  tone?: "default" | "pos" | "neg";
+}) {
+  const empty = count === 0;
+  const borderClass = empty
+    ? "border-hairline/60"
+    : tone === "pos"
+      ? "border-pos/40"
+      : tone === "neg"
+        ? "border-neg/40"
+        : "border-hairline";
+  const labelClass = empty
+    ? "text-mute"
+    : tone === "pos"
+      ? "text-pos"
+      : tone === "neg"
+        ? "text-neg"
+        : "text-subtle";
+
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${borderClass} ${empty ? "bg-card/40" : "bg-card"}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className={`font-mono text-[11px] uppercase tracking-[0.14em] ${labelClass}`}>
+          {label}
+        </span>
+        <span className={`font-mono text-sm tabular-nums ${empty ? "text-mute" : "text-ink"}`}>
+          {count}
+        </span>
+      </div>
+      {empty ? null : (
+        <Link
+          href={href}
+          className="mt-2.5 inline-block rounded-full border border-hairline bg-card-hi px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle transition hover:border-mute hover:text-ink"
+        >
+          View {count === 1 ? "person" : "people"}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+export default async function RecruitingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const { view } = await searchParams;
+  const spreadsheet = view === "spreadsheet";
+
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/recruiting");
   if (!person.is_builder) redirect("/producer");
@@ -24,8 +88,25 @@ export default async function RecruitingPage() {
 
   const rows = (data ?? []) as unknown as Row[];
 
-  const counts = Object.fromEntries(PHASES.map((p) => [p, 0])) as Record<string, number>;
-  for (const r of rows) counts[r.phase] = (counts[r.phase] ?? 0) + 1;
+  const buckets = Object.fromEntries(
+    FUNNEL_STAGES.map((s) => [s.key, { plain: 0, passed: 0, failed: 0 } as Bucket]),
+  ) as Record<FunnelStage, Bucket>;
+
+  const tableItems: RecruitListItem[] = rows.map((row) => {
+    const { stage, outcome } = deriveFunnelStage(row);
+    const bucket = buckets[stage];
+    if (outcome === "passed") bucket.passed += 1;
+    else if (outcome === "failed") bucket.failed += 1;
+    else bucket.plain += 1;
+    return {
+      id: row.id,
+      name: row.person.full_name,
+      email: row.person.email,
+      stageLabel: funnelStageLabel(stage, outcome),
+      signedUpAt: row.created_at,
+      flagged: row.flagged,
+    };
+  });
 
   // This builder's personal signup link. Anyone who joins through it lands in
   // this builder's downline.
@@ -33,14 +114,38 @@ export default async function RecruitingPage() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const signupUrl = code ? `${appUrl}/join/${code}` : null;
 
+  const lastIndex = FUNNEL_STAGES.length - 1;
+
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
-      <div>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Builder</p>
-        <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">Recruiting</h1>
-        <p className="mt-3 max-w-2xl text-sm text-subtle">
-          Where everyone in your downline sits in the recruiting pipeline.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Builder</p>
+          <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">Recruiting</h1>
+          <p className="mt-3 max-w-2xl text-sm text-subtle">
+            Where everyone in your downline sits in the recruiting pipeline.
+          </p>
+        </div>
+
+        {/* Visual / Spreadsheet toggle */}
+        <div className="flex items-center gap-1 rounded-full border border-hairline bg-card p-1">
+          <Link
+            href="/producer/recruiting"
+            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+              spreadsheet ? "text-subtle hover:text-ink" : "bg-accent text-black"
+            }`}
+          >
+            Visual
+          </Link>
+          <Link
+            href="/producer/recruiting?view=spreadsheet"
+            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+              spreadsheet ? "bg-accent text-black" : "text-subtle hover:text-ink"
+            }`}
+          >
+            Spreadsheet
+          </Link>
+        </div>
       </div>
 
       {/* Personal signup link */}
@@ -63,60 +168,54 @@ export default async function RecruitingPage() {
         </div>
       ) : null}
 
-      {/* Pipeline funnel */}
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {PHASES.map((p) => (
-          <div key={p} className="rounded-2xl border border-hairline bg-card p-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
-              {phaseLabel(p).split(" — ")[0]}
-            </p>
-            <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">{counts[p] ?? 0}</p>
-          </div>
-        ))}
-      </div>
+      {rows.length === 0 ? (
+        <div className="mt-8 rounded-2xl border border-hairline bg-card px-5 py-16 text-center text-subtle">
+          No recruits in your downline yet.
+        </div>
+      ) : spreadsheet ? (
+        <div className="mt-8">
+          <RecruitTable items={tableItems} />
+        </div>
+      ) : (
+        <div className="mt-8 space-y-2">
+          {FUNNEL_STAGES.map((stage, i) => {
+            const bucket = buckets[stage.key];
+            // Each band steps narrower than the last to draw the funnel.
+            const width = `${100 - (i / lastIndex) * 46}%`;
 
-      {/* Roster */}
-      <div className="mt-3 overflow-hidden rounded-2xl border border-hairline bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
-            <tr>
-              <th className="px-5 py-3 font-normal">Recruit</th>
-              <th className="px-5 py-3 font-normal">Phase</th>
-              <th className="hidden px-5 py-3 font-normal md:table-cell">Step</th>
-              <th className="px-5 py-3 font-normal">Flag</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-hairline">
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-5 py-12 text-center text-subtle">
-                  No recruits in your downline yet.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="transition hover:bg-card-hi/60">
-                  <td className="px-5 py-3">
-                    <div className="font-medium text-ink">{row.person.full_name}</div>
-                    <div className="text-xs text-mute">{row.person.email}</div>
-                  </td>
-                  <td className="px-5 py-3 text-subtle">{phaseLabel(row.phase)}</td>
-                  <td className="hidden px-5 py-3 text-subtle md:table-cell">
-                    {phaseStepLabel(row.phase_step)}
-                  </td>
-                  <td className="px-5 py-3">
-                    {row.flagged ? (
-                      <Badge tone="warn">{row.flag_reason ?? "Flagged"}</Badge>
-                    ) : (
-                      <span className="text-mute">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+            return (
+              <div
+                key={stage.key}
+                style={{ width, minWidth: "min(100%, 22rem)" }}
+                className="mx-auto"
+              >
+                {stage.split ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <StageBox
+                      label={stage.split.passed}
+                      count={bucket.passed}
+                      href={`/producer/recruiting/stage/${stage.key}?outcome=passed`}
+                      tone="pos"
+                    />
+                    <StageBox
+                      label={stage.split.failed}
+                      count={bucket.failed}
+                      href={`/producer/recruiting/stage/${stage.key}?outcome=failed`}
+                      tone="neg"
+                    />
+                  </div>
+                ) : (
+                  <StageBox
+                    label={stage.label}
+                    count={bucket.plain}
+                    href={`/producer/recruiting/stage/${stage.key}`}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
