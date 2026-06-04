@@ -250,6 +250,18 @@ export function JoinWizard({
             </form>
           )}
         </div>
+
+        {!done ? (
+          <p className="mt-5 text-center text-sm text-subtle">
+            Already have an account?{" "}
+            <a
+              href="/auth/signin?next=/portal"
+              className="font-medium text-accent transition hover:brightness-110"
+            >
+              Sign in here
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );
