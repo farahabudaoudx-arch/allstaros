@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export function GoalSettingsForm() {
-  const [ip, setIp] = useState("");
+  const [ap, setAp] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export function GoalSettingsForm() {
       const res = await fetch("/api/producer/goal", { cache: "no-store" });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Failed to load");
-      if (json.goal?.ip_cents) setIp(String(json.goal.ip_cents / 100));
+      if (json.goal?.ap_cents) setAp(String(json.goal.ap_cents / 100));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -37,7 +37,7 @@ export function GoalSettingsForm() {
       const res = await fetch("/api/producer/goal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ip_cents: Math.max(0, Math.round((Number(ip) || 0) * 100)) }),
+        body: JSON.stringify({ ap_cents: Math.max(0, Math.round((Number(ap) || 0) * 100)) }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Failed to save");
@@ -54,9 +54,9 @@ export function GoalSettingsForm() {
   return (
     <form onSubmit={submit} className="mt-6 max-w-xl">
       <label className="block rounded-2xl border border-hairline bg-card p-5">
-        <span className="block text-sm font-medium text-ink">Monthly Issued Premium goal</span>
+        <span className="block text-sm font-medium text-ink">Monthly Annual Premium goal</span>
         <span className="block text-xs text-mute">
-          Your target IP for the month. The dashboard reverse-engineers your daily activity from
+          Your target AP for the month. The dashboard reverse-engineers your daily activity from
           this.
         </span>
         <div className="mt-3 flex items-baseline">
@@ -66,9 +66,9 @@ export function GoalSettingsForm() {
             min={0}
             step="0.01"
             inputMode="decimal"
-            value={ip}
+            value={ap}
             onChange={(e) => {
-              setIp(e.target.value);
+              setAp(e.target.value);
               setSaved(false);
             }}
             placeholder="0"

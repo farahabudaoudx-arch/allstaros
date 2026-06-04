@@ -22,7 +22,6 @@ const METRICS: Array<{
   { key: "presentations", label: "Presentations", base: "appointments" },
   { key: "sales", label: "Sales", base: "presentations" },
   { key: "ap_cents", label: "AP", money: true },
-  { key: "ip_cents", label: "IP", money: true, base: "ap_cents" },
 ];
 
 function fmtBucketLabel(date: string, granularity: "day" | "hour"): string {

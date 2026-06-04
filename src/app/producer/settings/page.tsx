@@ -8,7 +8,7 @@ export default function ProducerSettings() {
       <section className="mt-12">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your goal</h2>
         <p className="mt-2 max-w-2xl text-sm text-subtle">
-          Set your monthly Issued Premium goal. The dashboard tracks month-to-date progress and
+          Set your monthly Annual Premium goal. The dashboard tracks month-to-date progress and
           reverse-engineers the daily activity you need to hit it.
         </p>
         <GoalSettingsForm />

@@ -9,13 +9,13 @@ type Totals = {
   contacts: number;
   presentations: number;
   sales: number;
-  ip_cents: number;
+  ap_cents: number;
 };
 
 // Final-expense telesales fallbacks, used when a producer has no history yet to
 // derive their own ratios from.
 const FALLBACK = {
-  ipPerSaleCents: 80_000, // avg IP per client
+  apPerSaleCents: 100_000, // avg AP per client
   presPerSale: 4, // 1 sale per 4 presentations
   contactsPerSale: 19, // contacts worked per sale
   dialsPerSale: 76, // dials made per sale
@@ -38,8 +38,8 @@ function remainingBusinessDays(now: Date): number {
 }
 
 export function ProducerGoals() {
-  const [goalIp, setGoalIp] = useState<number | null>(null);
-  const [mtdIp, setMtdIp] = useState(0);
+  const [goalAp, setGoalAp] = useState<number | null>(null);
+  const [mtdAp, setMtdAp] = useState(0);
   const [hist, setHist] = useState<Totals | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,14 +64,14 @@ export function ProducerGoals() {
       if (!goalJson.ok) throw new Error(goalJson.error ?? "Failed to load goal");
       if (!mtdJson.ok) throw new Error(mtdJson.error ?? "Failed to load activity");
       if (!allJson.ok) throw new Error(allJson.error ?? "Failed to load history");
-      setGoalIp(goalJson.goal?.ip_cents ?? null);
-      setMtdIp(mtdJson.totals.ip_cents);
+      setGoalAp(goalJson.goal?.ap_cents ?? null);
+      setMtdAp(mtdJson.totals.ap_cents);
       setHist({
         dials: allJson.totals.dials,
         contacts: allJson.totals.contacts,
         presentations: allJson.totals.presentations,
         sales: allJson.totals.sales,
-        ip_cents: allJson.totals.ip_cents,
+        ap_cents: allJson.totals.ap_cents,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -93,17 +93,17 @@ export function ProducerGoals() {
   }, [load]);
 
   const needs = useMemo(() => {
-    if (!goalIp || goalIp <= 0 || !hist) return null;
+    if (!goalAp || goalAp <= 0 || !hist) return null;
     const daysLeft = remainingBusinessDays(new Date());
-    const remainingIp = Math.max(0, goalIp - mtdIp);
-    const ipPerDay = remainingIp / daysLeft;
+    const remainingAp = Math.max(0, goalAp - mtdAp);
+    const apPerDay = remainingAp / daysLeft;
 
-    const ipPerSale = ratio(hist.ip_cents, hist.sales, FALLBACK.ipPerSaleCents);
+    const apPerSale = ratio(hist.ap_cents, hist.sales, FALLBACK.apPerSaleCents);
     const presPerSale = ratio(hist.presentations, hist.sales, FALLBACK.presPerSale);
     const contactsPerSale = ratio(hist.contacts, hist.sales, FALLBACK.contactsPerSale);
     const dialsPerSale = ratio(hist.dials, hist.sales, FALLBACK.dialsPerSale);
 
-    const salesPerDay = ipPerSale > 0 ? ipPerDay / ipPerSale : 0;
+    const salesPerDay = apPerSale > 0 ? apPerDay / apPerSale : 0;
 
     return {
       daysLeft,
@@ -112,16 +112,16 @@ export function ProducerGoals() {
       presentations: Math.ceil(salesPerDay * presPerSale),
       sales: Math.ceil(salesPerDay),
     };
-  }, [goalIp, mtdIp, hist]);
+  }, [goalAp, mtdAp, hist]);
 
-  const hasGoal = goalIp != null && goalIp > 0;
-  const pct = hasGoal ? pctValue(mtdIp, goalIp) : 0;
-  const hit = hasGoal && mtdIp >= goalIp;
+  const hasGoal = goalAp != null && goalAp > 0;
+  const pct = hasGoal ? pctValue(mtdAp, goalAp) : 0;
+  const hit = hasGoal && mtdAp >= goalAp;
 
   return (
     <section className="mt-12">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your monthly IP goal</h2>
+        <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your monthly AP goal</h2>
         <Link
           href="/producer/settings"
           className="text-sm font-medium text-accent hover:text-accent-soft"
@@ -136,7 +136,7 @@ export function ProducerGoals() {
         <p className="mt-6 text-sm text-mute">Loading…</p>
       ) : !hasGoal ? (
         <p className="mt-4 max-w-2xl text-sm text-subtle">
-          You haven&apos;t set your IP goal yet.{" "}
+          You haven&apos;t set your AP goal yet.{" "}
           <Link href="/producer/settings" className="text-accent hover:text-accent-soft">
             Set it in Settings
           </Link>{" "}
@@ -147,8 +147,8 @@ export function ProducerGoals() {
           <div className="mt-6 rounded-2xl border border-hairline bg-card p-6">
             <div className="flex items-baseline justify-between">
               <p className="text-3xl font-semibold tabular-nums text-ink md:text-4xl">
-                {money(mtdIp)}
-                <span className="text-lg font-normal text-mute"> / {money(goalIp!)}</span>
+                {money(mtdAp)}
+                <span className="text-lg font-normal text-mute"> / {money(goalAp!)}</span>
               </p>
               <p className={`text-sm font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
                 {Math.round(pct)}%
@@ -160,7 +160,7 @@ export function ProducerGoals() {
                 style={{ width: `${Math.min(100, pct)}%` }}
               />
             </div>
-            <p className="mt-3 text-xs text-mute">Issued premium, month to date.</p>
+            <p className="mt-3 text-xs text-mute">Annual premium, month to date.</p>
           </div>
 
           {needs && (
@@ -186,7 +186,7 @@ export function ProducerGoals() {
                 <NeedCard
                   value={num(needs.sales)}
                   label="Policies sold per day"
-                  sub="Based on avg IP per client"
+                  sub="Based on avg AP per client"
                 />
               </div>
             </div>
