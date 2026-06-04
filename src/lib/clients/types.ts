@@ -185,6 +185,17 @@ export const CARRIER_LOGOS: Record<string, string> = {
   "Transamerica": "/carriers/transamerica.jpg",
 };
 
+// Carrier policyholder support lines, shown on the generated policy PDF.
+export const CARRIER_SUPPORT_PHONES: Record<string, string> = {
+  "American Amicable": "800-736-7311",
+  "Americo": "800-231-0801",
+  "Corebridge": "800-448-2542",
+  "Ethos": "877-913-8467",
+  "InstaBrain": "800-806-9714",
+  "Mutual of Omaha": "800-775-6000",
+  "Transamerica": "800-851-9777",
+};
+
 export const POLICY_TYPES = [
   "Whole Life", "Term", "IUL", "Final Expense", "Annuity", "Other",
 ] as const;

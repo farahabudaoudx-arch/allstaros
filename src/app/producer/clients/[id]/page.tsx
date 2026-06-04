@@ -27,7 +27,11 @@ export default async function ClientOverviewPage({
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-10 md:px-10 md:py-14">
-      <ClientPage clientId={id} initialClient={data as Client} />
+      <ClientPage
+        clientId={id}
+        initialClient={data as Client}
+        agent={{ name: person.full_name || person.email, email: person.email }}
+      />
     </main>
   );
 }

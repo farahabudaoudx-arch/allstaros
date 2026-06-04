@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { Client } from "@/lib/clients/types";
 import { ClientDepositsPanel } from "@/components/producer/clients/ClientDepositsPanel";
+import type { AgentInfo } from "@/components/producer/clients/PolicyPromisePDF";
 
-type Props = { clientId: string; initialClient: Client };
+type Props = { clientId: string; initialClient: Client; agent: AgentInfo };
 
 function fmtMoney(value: number | string | null | undefined): string {
   const n = typeof value === "number" ? value : parseFloat(String(value ?? "").replace(/[^0-9.]/g, ""));
@@ -25,8 +27,22 @@ function initials(name: string | null | undefined): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "—";
 }
 
-export function ClientPage({ clientId, initialClient }: Props) {
+export function ClientPage({ clientId, initialClient, agent }: Props) {
   const client = initialClient;
+  const [downloading, setDownloading] = useState(false);
+
+  async function downloadPolicyPDF() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const { generatePolicyPromisePDF } = await import(
+        "@/components/producer/clients/PolicyPromisePDF"
+      );
+      await generatePolicyPromisePDF({ client, agent });
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   const idx = client.chosen_quote_index ?? 0;
   const quote = client.quotes?.[idx];
@@ -58,6 +74,15 @@ export function ClientPage({ clientId, initialClient }: Props) {
             <PencilIcon />
             <span>Edit</span>
           </Link>
+          <button
+            type="button"
+            onClick={downloadPolicyPDF}
+            disabled={downloading}
+            className="hbtn disabled:opacity-60"
+          >
+            <PdfIcon />
+            <span>{downloading ? "Preparing…" : "Policy PDF"}</span>
+          </button>
         </div>
       </div>
 
@@ -182,6 +207,17 @@ function PencilIcon() {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 20h9"></path>
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <path d="M14 2v6h6"></path>
+      <path d="M12 18v-6"></path>
+      <path d="M9 15l3 3 3-3"></path>
     </svg>
   );
 }
