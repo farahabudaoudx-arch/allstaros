@@ -112,12 +112,14 @@ export function TodaySnapshot() {
     <section className="mt-10">
       <div className="grid gap-4 md:grid-cols-2">
         {/* Left — Daily projections (targets) */}
-        <GoldBox
+        <Card
           title="Daily projections"
           subtitle="The numbers you're aiming for"
           action={
             target && !editing ? (
-              <GoldButton onClick={() => setEditing(true)}>Edit</GoldButton>
+              <YellowButton small onClick={() => setEditing(true)}>
+                Edit
+              </YellowButton>
             ) : null
           }
         >
@@ -131,10 +133,10 @@ export function TodaySnapshot() {
           ) : (
             <MetricGrid render={(f) => fmt(f.key, target[f.key])} />
           )}
-        </GoldBox>
+        </Card>
 
         {/* Right — Today's actuals + submit */}
-        <GoldBox title="Today's numbers" subtitle="What you've logged so far">
+        <Card title="Today's numbers" subtitle="What you've logged so far">
           <MetricGrid
             render={(f) => fmt(f.key, actual[f.key])}
             sub={(f) => (target ? `of ${fmt(f.key, target[f.key])}` : undefined)}
@@ -142,7 +144,7 @@ export function TodaySnapshot() {
           <div className="mt-5 flex items-center gap-2">
             <Link
               href="/producer/tracker"
-              className="inline-flex items-center gap-2 rounded-full bg-background px-5 py-2.5 text-sm font-semibold text-accent transition hover:bg-background/90"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-background transition hover:bg-accent-soft"
             >
               Submit today&apos;s numbers
             </Link>
@@ -152,12 +154,12 @@ export function TodaySnapshot() {
               rel="noopener noreferrer"
               aria-label="Open dial tracker in a new tab"
               title="Open in a new tab"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-background/15 text-background transition hover:bg-background/25"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent text-background transition hover:bg-accent-soft"
             >
               <NewTabIcon />
             </a>
           </div>
-        </GoldBox>
+        </Card>
       </div>
       {error && <p className="mt-3 text-sm text-neg">{error}</p>}
       {loading && !error && <p className="mt-3 text-xs text-mute">Refreshing…</p>}
@@ -165,7 +167,7 @@ export function TodaySnapshot() {
   );
 }
 
-function GoldBox({
+function Card({
   title,
   subtitle,
   action,
@@ -177,10 +179,10 @@ function GoldBox({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col rounded-3xl bg-accent p-6 text-background md:p-7">
+    <div className="flex flex-col rounded-3xl bg-white p-6 text-black md:p-7">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-background/70">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/55">
             {subtitle}
           </p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em]">{title}</h2>
@@ -203,13 +205,11 @@ function MetricGrid({
     <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
       {FIELDS.map((f) => (
         <div key={f.key}>
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-background/65">
+          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-black/55">
             {f.label}
           </p>
           <p className="mt-0.5 text-2xl font-semibold tabular-nums leading-tight">{render(f)}</p>
-          {sub && sub(f) && (
-            <p className="text-[11px] tabular-nums text-background/60">{sub(f)}</p>
-          )}
+          {sub && sub(f) && <p className="text-[11px] tabular-nums text-black/45">{sub(f)}</p>}
         </div>
       ))}
     </div>
@@ -255,11 +255,11 @@ function ProjectionForm({
       <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
         {FIELDS.map((f) => (
           <label key={f.key}>
-            <span className="block text-[11px] font-medium uppercase tracking-[0.1em] text-background/65">
+            <span className="block text-[11px] font-medium uppercase tracking-[0.1em] text-black/55">
               {f.label}
             </span>
-            <div className="mt-1 flex items-baseline rounded-lg border border-background/25 bg-background/10 px-2.5 py-1.5">
-              {f.money && <span className="mr-0.5 text-lg text-background/60">$</span>}
+            <div className="mt-1 flex items-baseline rounded-lg border border-black/10 bg-black/5 px-2.5 py-1.5">
+              {f.money && <span className="mr-0.5 text-lg text-black/40">$</span>}
               <input
                 type="number"
                 min={0}
@@ -268,26 +268,22 @@ function ProjectionForm({
                 value={form[f.key]}
                 onChange={(e) => set(f.key, e.target.value)}
                 placeholder="0"
-                className="w-full bg-transparent text-xl font-semibold tabular-nums text-background outline-none placeholder:text-background/40"
+                className="w-full bg-transparent text-xl font-semibold tabular-nums text-black outline-none placeholder:text-black/35"
               />
             </div>
           </label>
         ))}
       </div>
       <div className="mt-5 flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-full bg-background px-5 py-2.5 text-sm font-semibold text-accent transition hover:bg-background/90 disabled:opacity-50"
-        >
+        <YellowButton type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save projections"}
-        </button>
+        </YellowButton>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="rounded-full border border-background/30 px-5 py-2.5 text-sm font-medium text-background/90 transition hover:border-background/60 disabled:opacity-50"
+            className="rounded-full border border-black/20 px-5 py-2.5 text-sm font-medium text-black transition hover:border-black/40 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -297,12 +293,27 @@ function ProjectionForm({
   );
 }
 
-function GoldButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+function YellowButton({
+  onClick,
+  type = "button",
+  disabled,
+  small,
+  children,
+}: {
+  onClick?: () => void;
+  type?: "button" | "submit";
+  disabled?: boolean;
+  small?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <button
-      type="button"
+      type={type}
       onClick={onClick}
-      className="rounded-full border border-background/30 px-4 py-1.5 text-sm font-medium text-background/90 transition hover:border-background/60"
+      disabled={disabled}
+      className={`rounded-full bg-accent font-semibold text-background transition hover:bg-accent-soft disabled:opacity-50 ${
+        small ? "px-4 py-1.5 text-sm" : "px-5 py-2.5 text-sm"
+      }`}
     >
       {children}
     </button>
