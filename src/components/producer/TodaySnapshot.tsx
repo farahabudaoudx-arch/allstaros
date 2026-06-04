@@ -141,23 +141,14 @@ export function TodaySnapshot() {
             render={(f) => fmt(f.key, actual[f.key])}
             sub={(f) => (target ? `of ${fmt(f.key, target[f.key])}` : undefined)}
           />
-          <div className="mt-5 flex items-center gap-2">
+          <div className="mt-5">
             <Link
               href="/producer/tracker"
               className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-background transition hover:bg-accent-soft"
             >
-              Submit today&apos;s numbers
-            </Link>
-            <a
-              href="/producer/tracker"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open dial tracker in a new tab"
-              title="Open in a new tab"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent text-background transition hover:bg-accent-soft"
-            >
+              Open Tracker
               <NewTabIcon />
-            </a>
+            </Link>
           </div>
         </Card>
       </div>
