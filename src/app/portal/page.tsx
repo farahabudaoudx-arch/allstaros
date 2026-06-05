@@ -104,8 +104,8 @@ export default async function PortalPage({
     recruit.phase === "licensing" ? (
       <PortalHeading
         eyebrow="License"
-        title="Get licensed in 5 steps"
-        subtitle="Pass your state exam and submit fingerprints. Clear these and your portal unlocks Bootcamp."
+        title="Get Licensed In 5 Steps"
+        subtitle="Follow the step by step guide to get your license."
       />
     ) : (
       <PortalHeading eyebrow="Your progress" title={phaseLabel(recruit.phase)} />

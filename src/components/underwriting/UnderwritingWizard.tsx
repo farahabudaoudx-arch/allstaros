@@ -1,0 +1,641 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ConditionResult, Outcome, Toolkit } from "@/lib/underwriting/types";
+import { humanizeRawInfo } from "@/lib/underwriting/humanize";
+import { useTheme } from "@/lib/use-theme";
+
+const TOOLKITS: { id: Toolkit; label: string; hint: string }[] = [
+  { id: "FEX",  label: "FEX",  hint: "Final Expense" },
+  { id: "SIUL", label: "SIUL", hint: "Simplified IUL" },
+];
+
+const OUTCOME_RANK: Record<Outcome, number> = {
+  Approved: 0,
+  Unknown: 1,
+  Conditional: 2,
+  Graded: 3,
+  Decline: 4,
+};
+
+type OutcomeStyle = { label: string; bg: string; fg: string; border: string };
+
+const OUTCOME_STYLES_DARK: Record<Outcome, OutcomeStyle> = {
+  Approved:    { label: "Approved",    bg: "rgba(0,223,129,0.12)",   fg: "#00DF81", border: "rgba(0,223,129,0.45)"  },
+  Unknown:     { label: "Unknown",     bg: "rgba(148,163,184,0.12)", fg: "#94A3B8", border: "rgba(148,163,184,0.45)" },
+  Conditional: { label: "Conditional", bg: "rgba(250,204,21,0.12)",  fg: "#FACC15", border: "rgba(250,204,21,0.45)" },
+  Graded:      { label: "Graded",      bg: "rgba(251,146,60,0.12)",  fg: "#FB923C", border: "rgba(251,146,60,0.45)" },
+  Decline:     { label: "Decline",     bg: "rgba(248,113,113,0.12)", fg: "#F87171", border: "rgba(248,113,113,0.45)" },
+};
+const OUTCOME_STYLES_LIGHT: Record<Outcome, OutcomeStyle> = {
+  Approved:    { label: "Approved",    bg: "#A7F3D0", fg: "#064E3B", border: "#10B981" },
+  Unknown:     { label: "Unknown",     bg: "#E2E8F0", fg: "#1E293B", border: "#94A3B8" },
+  Conditional: { label: "Conditional", bg: "#FEF08A", fg: "#713F12", border: "#CA8A04" },
+  Graded:      { label: "Graded",      bg: "#FED7AA", fg: "#7C2D12", border: "#EA580C" },
+  Decline:     { label: "Decline",     bg: "#FECACA", fg: "#7F1D1D", border: "#DC2626" },
+};
+function outcomeStyles(theme: "dark" | "light"): Record<Outcome, OutcomeStyle> {
+  return theme === "light" ? OUTCOME_STYLES_LIGHT : OUTCOME_STYLES_DARK;
+}
+
+const DEBOUNCE_MS = 800;
+
+type AnalyzeResponse = {
+  ok: true;
+  conditions: string[];
+  summary: string;
+  results: ConditionResult[];
+  noConditionsMentioned?: boolean;
+};
+
+export type AggregatedCarrier = {
+  carrier: string;
+  outcome: Outcome;
+  perCondition: Array<{ condition: string; outcome: Outcome; rawInfo: string }>;
+};
+
+// Snapshot of everything the wizard has read on the current notes. Sent up
+// to a parent so a downstream recap step can render the wizard's
+// summary + detected conditions alongside the carrier outlook.
+export type WizardAnalysisSnapshot = {
+  carriers: AggregatedCarrier[];
+  conditions: string[];
+  summary: string;
+};
+
+export type WizardVitals = { dob: string; height: string; weight: string };
+
+// Best-effort DOB → age. Accepts YYYY-MM-DD or MM/DD/YYYY. Returns "" if
+// the string isn't parseable or the resulting age is implausible.
+function ageFromDob(dob: string): string {
+  if (!dob) return "";
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age >= 0 && age < 120 ? String(age) : "";
+}
+
+export type UnderwritingWizardProps = {
+  // Controlled notes string. Empty string means the agent has typed nothing yet.
+  value: string;
+  onChange: (next: string) => void;
+  // Controlled vitals (age / height / weight). Empty strings mean unset.
+  // These render as small inputs above the medical-notes textarea and get
+  // prepended to the analyzer payload so carrier rules can consider BMI/age.
+  vitals: WizardVitals;
+  onVitalsChange: (next: WizardVitals) => void;
+  // Toolkit defaults to FEX since most life sales are final-expense.
+  defaultToolkit?: Toolkit;
+  // Optional title above the textarea; the embedded variant uses a short
+  // label, the standalone tool page uses the big heading.
+  heading?: React.ReactNode;
+  // Slightly tighter spacing when embedded in a step card.
+  compact?: boolean;
+  // Fires every time the wizard finishes an analysis pass.
+  onAnalysisResult?: (snapshot: WizardAnalysisSnapshot) => void;
+};
+
+// Build the analyzer payload from vitals + free notes. Empty vitals are
+// omitted so the LLM doesn't see "Age: " with nothing after it. DOB is
+// converted to age (since carrier rules are written against age, not
+// birthdate).
+function buildAnalyzerText(vitals: WizardVitals, notes: string): string {
+  const parts: string[] = [];
+  const age = ageFromDob(vitals.dob);
+  if (age)                  parts.push(`Age: ${age}`);
+  if (vitals.height.trim()) parts.push(`Height: ${vitals.height.trim()}`);
+  if (vitals.weight.trim()) parts.push(`Weight: ${vitals.weight.trim()}`);
+  const prefix = parts.length > 0 ? parts.join(". ") + ". " : "";
+  return (prefix + notes).trim();
+}
+
+export function UnderwritingWizard({
+  value,
+  onChange,
+  vitals,
+  onVitalsChange,
+  defaultToolkit = "FEX",
+  heading,
+  compact = false,
+  onAnalysisResult,
+}: UnderwritingWizardProps) {
+  const [toolkit, setToolkit] = useState<Toolkit>(defaultToolkit);
+  const [carriersByToolkit, setCarriersByToolkit] = useState<Record<Toolkit, string[]>>({ FEX: [], SIUL: [] });
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingMeta, setLoadingMeta] = useState(true);
+
+  // Empty string means "don't analyze yet". We only set this once the agent
+  // has actually typed something in the medical-notes textarea — vitals
+  // alone (age/height/weight) aren't enough; the LLM would have nothing to
+  // match against and the recap would falsely show every carrier approving.
+  const [debouncedQuery, setDebouncedQuery] = useState(() => value.trim() ? buildAnalyzerText(vitals, value) : "");
+
+  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [outcomeFilter, setOutcomeFilter] = useState<Outcome | "All">("All");
+
+  const abortRef = useRef<AbortController | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Voice dictation (macOS, Voice In, etc.) bypasses React onChange. Poll the
+  // ref so the controlled value stays in sync with what the user sees.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      if (el.value !== value) onChange(el.value);
+    }, 200);
+    return () => clearInterval(id);
+  }, [value, onChange]);
+
+  const flushPendingText = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const v = el.value;
+    if (v !== value) onChange(v);
+    setDebouncedQuery(v.trim() ? buildAnalyzerText(vitals, v) : "");
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMeta(true);
+    setLoadError(null);
+    setAnalysis(null);
+    fetch(`/api/underwriting/conditions?toolkit=${toolkit}`)
+      .then(async (r) => {
+        const json = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(json?.error ?? `HTTP ${r.status} — are you signed in?`);
+        return json;
+      })
+      .then((json) => {
+        if (cancelled) return;
+        if (!json?.ok) throw new Error(json?.error ?? "load failed");
+        const c = json.conditions?.length ?? 0;
+        const carriersList = (json.carriers ?? []) as string[];
+        setCarriersByToolkit((prev) => ({ ...prev, [toolkit]: carriersList }));
+        if (c === 0) setLoadError("The conditions table returned 0 rows.");
+      })
+      .catch((e) => {
+        if (!cancelled) setLoadError(e?.message ?? "load failed");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMeta(false);
+      });
+    return () => { cancelled = true; };
+  }, [toolkit]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(value.trim() ? buildAnalyzerText(vitals, value) : "");
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [value, vitals]);
+
+  useEffect(() => {
+    const text = debouncedQuery.trim();
+    if (!text) {
+      setAnalysis(null);
+      setAnalyzeError(null);
+      return;
+    }
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    setAnalyzing(true);
+    setAnalyzeError(null);
+
+    fetch("/api/underwriting/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, toolkit }),
+      signal: ctrl.signal,
+    })
+      .then(async (r) => {
+        const json = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(json?.error ?? `HTTP ${r.status}`);
+        return json as AnalyzeResponse;
+      })
+      .then((json) => {
+        if (ctrl.signal.aborted) return;
+        setAnalysis(json);
+      })
+      .catch((e) => {
+        if (e?.name === "AbortError") return;
+        setAnalyzeError(e?.message ?? "analyze failed");
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setAnalyzing(false);
+      });
+
+    return () => { ctrl.abort(); };
+  }, [debouncedQuery, toolkit]);
+
+  const aggregated = useMemo<AggregatedCarrier[]>(() => {
+    if (!analysis) return [];
+    if (analysis.results.length === 0) {
+      if (!analysis.noConditionsMentioned) return [];
+      const list = carriersByToolkit[toolkit] ?? [];
+      return list
+        .slice()
+        .sort((a, b) => a.localeCompare(b))
+        .map((carrier) => ({ carrier, outcome: "Approved" as Outcome, perCondition: [] }));
+    }
+    const all = new Set<string>();
+    for (const r of analysis.results) {
+      for (const carrier of Object.keys(r.carriers)) all.add(carrier);
+    }
+    const out: AggregatedCarrier[] = [];
+    for (const carrier of all) {
+      const perCondition: AggregatedCarrier["perCondition"] = [];
+      let worstRank = -1;
+      let worst: Outcome = "Approved";
+      for (const r of analysis.results) {
+        const cell = r.carriers[carrier];
+        if (!cell) continue;
+        perCondition.push({ condition: r.condition, outcome: cell.outcome, rawInfo: cell.rawInfo });
+        if (OUTCOME_RANK[cell.outcome] > worstRank) {
+          worstRank = OUTCOME_RANK[cell.outcome];
+          worst = cell.outcome;
+        }
+      }
+      out.push({ carrier, outcome: worst, perCondition });
+    }
+    out.sort((a, b) => {
+      const r = OUTCOME_RANK[a.outcome] - OUTCOME_RANK[b.outcome];
+      if (r !== 0) return r;
+      return a.carrier.localeCompare(b.carrier);
+    });
+    return out;
+  }, [analysis, carriersByToolkit, toolkit]);
+
+  useEffect(() => {
+    if (!onAnalysisResult) return;
+    onAnalysisResult({
+      carriers: aggregated,
+      conditions: analysis?.conditions ?? [],
+      summary: analysis?.summary ?? "",
+    });
+  }, [aggregated, analysis, onAnalysisResult]);
+
+  const aggregatedCounts = useMemo(() => {
+    const c = { Approved: 0, Unknown: 0, Conditional: 0, Graded: 0, Decline: 0 } as Record<Outcome, number>;
+    for (const a of aggregated) c[a.outcome]++;
+    return c;
+  }, [aggregated]);
+
+  const filteredCarriers = outcomeFilter === "All"
+    ? aggregated
+    : aggregated.filter((a) => a.outcome === outcomeFilter);
+
+  const showResults = !!debouncedQuery.trim();
+
+  return (
+    <div className={compact ? "space-y-3" : "space-y-5 pt-2"}>
+      {heading}
+
+      <div
+        className="inline-flex p-1 rounded-xl"
+        style={{ background: "var(--bg-inner)", border: "1px solid var(--line-2)" }}
+      >
+        {TOOLKITS.map((t) => {
+          const on = t.id === toolkit;
+          return (
+            <button
+              key={t.id}
+              onClick={() => { flushPendingText(); setToolkit(t.id); }}
+              title={t.hint}
+              className="px-6 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                background: on ? "var(--lime)" : "transparent",
+                color: on ? "#0A0A0A" : "var(--ink-2)",
+                cursor: "pointer",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+      >
+        <VitalInput
+          label="Date of birth"
+          placeholder="MM/DD/YYYY"
+          value={vitals.dob}
+          onChange={(v) => onVitalsChange({ ...vitals, dob: v })}
+          compact={compact}
+          type="date"
+          suffix={ageFromDob(vitals.dob) ? `Age ${ageFromDob(vitals.dob)}` : undefined}
+        />
+        <VitalInput
+          label="Height"
+          placeholder={`5'8"`}
+          value={vitals.height}
+          onChange={(v) => onVitalsChange({ ...vitals, height: v })}
+          compact={compact}
+        />
+        <VitalInput
+          label="Weight"
+          placeholder="180 lbs"
+          value={vitals.weight}
+          onChange={(v) => onVitalsChange({ ...vitals, weight: v })}
+          compact={compact}
+        />
+      </div>
+
+      <textarea
+        ref={textareaRef}
+        className="input w-full"
+        placeholder={loadingMeta
+          ? "Loading conditions…"
+          : "Medical notes — e.g. \"Type 2 diabetes on insulin, had breast cancer in 1999 in remission since, no neuropathy.\""}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onInput={(e) => onChange((e.target as HTMLTextAreaElement).value)}
+        onCompositionEnd={(e) => onChange((e.target as HTMLTextAreaElement).value)}
+        onBlur={flushPendingText}
+        disabled={!!loadError}
+        rows={compact ? 3 : 4}
+        style={{ padding: "14px 16px", fontSize: compact ? 14 : 16, lineHeight: 1.4, resize: "vertical" }}
+      />
+
+      {loadError && (
+        <div
+          className="card p-4 text-sm"
+          style={{ borderColor: "var(--danger)", background: "rgba(248,113,113,0.06)", color: "var(--danger)" }}
+        >
+          <div className="font-semibold mb-1">Couldn&apos;t load conditions</div>
+          <div style={{ color: "var(--ink-2)" }}>{loadError}</div>
+        </div>
+      )}
+      {analyzeError && (
+        <div className="text-sm" style={{ color: "var(--danger)" }}>{analyzeError}</div>
+      )}
+
+      {!showResults ? (
+        <EmptyState />
+      ) : analyzing ? (
+        <AnalyzingPlaceholder />
+      ) : analysis ? (
+        <>
+          {analysis.results.length > 0 && analysis.summary && (
+            <SummaryCard summary={analysis.summary} conditions={analysis.conditions} />
+          )}
+          {aggregated.length > 0 ? (
+            <section className="card p-4">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap mb-4">
+                <div>
+                  <div className="display text-lg text-white leading-none">Carrier outlook</div>
+                  <div className="text-[11px] uppercase tracking-wider mt-1" style={{ color: "var(--ink-3)" }}>
+                    {analysis.results.length > 0 ? (
+                      <>Combined across {analysis.results.length} condition{analysis.results.length === 1 ? "" : "s"}</>
+                    ) : (
+                      <>No underwriting conditions detected — every carrier defaults to Approved</>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs flex-wrap">
+                  <CountPill outcome="Approved" n={aggregatedCounts.Approved} />
+                  <CountPill outcome="Unknown" n={aggregatedCounts.Unknown} />
+                  <CountPill outcome="Conditional" n={aggregatedCounts.Conditional} />
+                  <CountPill outcome="Graded" n={aggregatedCounts.Graded} />
+                  <CountPill outcome="Decline" n={aggregatedCounts.Decline} />
+                </div>
+              </div>
+
+              <div
+                className="text-xs mb-4 px-3 py-2 rounded-md"
+                style={{
+                  borderLeft: "3px solid rgba(250,204,21,0.55)",
+                  background: "rgba(250,204,21,0.06)",
+                  color: "var(--ink-2)",
+                  lineHeight: 1.5,
+                }}
+              >
+                <span style={{ color: "#FACC15", fontWeight: 600 }}>Heads up — </span>
+                this is a probabilistic estimation based on each carrier&apos;s published
+                underwriting guidelines. An Approved (or Decline) here does not guarantee
+                the carrier will issue (or reject) the application. Final underwriting
+                decisions can differ from the wizard&apos;s read for any number of reasons —
+                unreported medical history, MIB hits, prescription history, MVR, lab/exam
+                results, or carrier discretion. Always submit and let the carrier&apos;s
+                actual underwriting be the source of truth.
+              </div>
+
+              <div className="flex items-center gap-2 text-xs flex-wrap mb-4">
+                <span style={{ color: "var(--ink-3)" }}>Filter:</span>
+                {(["All", "Approved", "Unknown", "Conditional", "Graded", "Decline"] as const).map((o) => (
+                  <button key={o} className="chip" data-on={outcomeFilter === o} onClick={() => setOutcomeFilter(o)}>
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {filteredCarriers.map((c) => (
+                  <CarrierTile key={c.carrier} carrier={c.carrier} outcome={c.outcome} perCondition={c.perCondition} />
+                ))}
+              </div>
+              {filteredCarriers.length === 0 && (
+                <div className="text-xs" style={{ color: "var(--ink-3)" }}>No carriers match this filter.</div>
+              )}
+            </section>
+          ) : (
+            <div
+              className="card p-4"
+              style={{
+                borderColor: "rgba(250,204,21,0.45)",
+                background: "rgba(250,204,21,0.06)",
+              }}
+            >
+              <div className="text-sm font-medium mb-1" style={{ color: "#FACC15" }}>
+                Couldn&apos;t match these notes to any condition
+              </div>
+              <div className="text-sm" style={{ color: "var(--ink-2)" }}>
+                {analysis.summary
+                  ? <>{analysis.summary}{" "}</>
+                  : null}
+                The wizard isn&apos;t showing carrier outcomes because we couldn&apos;t confidently
+                map what you typed to an entry in the {analysis.conditions.length === 0 ? "287-condition" : ""} canonical list.
+                Try rephrasing (e.g. spell out abbreviations, use the most common medical term),
+                or check the spelling.
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function VitalInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  compact,
+  type = "text",
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  compact: boolean;
+  type?: "text" | "date";
+  suffix?: string;
+}) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 8,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 0.7,
+          textTransform: "uppercase",
+          color: "var(--ink-3)",
+        }}
+      >
+        <span>{label}</span>
+        {suffix && (
+          <span style={{ color: "var(--lime)", letterSpacing: 0.4 }}>· {suffix}</span>
+        )}
+      </span>
+      <input
+        className="input"
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ padding: compact ? "8px 10px" : "10px 12px", fontSize: compact ? 14 : 15 }}
+      />
+    </label>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="card p-6 text-sm" style={{ color: "var(--ink-2)" }}>
+      <div className="mb-2 text-white font-medium">How this works</div>
+      Type freeform client notes. The wizard reads them clinically (distinguishing diabetes with vs without complications, current vs past cancer, timing of cardiovascular events, etc.) and combines every detected condition into one carrier outlook: green = highest chance of approval, yellow = conditional on timing, orange = will be graded, red = decline.
+    </div>
+  );
+}
+
+function AnalyzingPlaceholder() {
+  return (
+    <div className="card p-4 text-sm flex items-center gap-2" style={{ color: "var(--ink-2)" }}>
+      <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--lime)" }} />
+      Reading the notes and matching against carrier rules…
+    </div>
+  );
+}
+
+function SummaryCard({ summary, conditions }: { summary: string; conditions: string[] }) {
+  return (
+    <div className="card p-4" style={{ background: "var(--card-2)" }}>
+      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "var(--ink-3)" }}>
+        Wizard&apos;s read
+      </div>
+      <div className="text-sm leading-relaxed" style={{ color: "var(--ink-1)" }}>{summary}</div>
+      {conditions.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {conditions.map((c) => (
+            <span key={c} className="chip" data-on="true">{c}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountPill({ outcome, n }: { outcome: Outcome; n: number }) {
+  const theme = useTheme();
+  const s = outcomeStyles(theme)[outcome];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px]"
+      style={{ background: s.bg, color: s.fg, border: `1px solid ${s.border}` }}
+    >
+      <span className="font-semibold text-sm">{n}</span>
+      <span className="opacity-80 uppercase tracking-wider">{s.label}</span>
+    </span>
+  );
+}
+
+function CarrierTile({
+  carrier, outcome, perCondition,
+}: {
+  carrier: string;
+  outcome: Outcome;
+  perCondition: AggregatedCarrier["perCondition"];
+}) {
+  const theme = useTheme();
+  const palette = outcomeStyles(theme);
+  const s = palette[outcome];
+  const [open, setOpen] = useState(false);
+  const hasDetail = perCondition.length > 0;
+  return (
+    <div
+      className="relative rounded-md px-3 py-2"
+      style={{
+        background: s.bg,
+        border: `1px solid ${s.border}`,
+        cursor: hasDetail ? "help" : "default",
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <div className="text-sm font-medium truncate" style={{ color: s.fg }} title={carrier}>
+        {carrier}
+      </div>
+      <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: s.fg, opacity: 0.85 }}>
+        {s.label}
+      </div>
+      {open && hasDetail && (
+        <div
+          className="absolute z-40 left-0 top-full mt-1 w-96 rounded-lg p-3 text-[11px] leading-relaxed pointer-events-none shadow-xl"
+          style={{ background: "var(--card-1)", border: "1px solid var(--line-2)", color: "var(--ink-1)" }}
+        >
+          <div className="font-medium mb-2" style={{ color: "var(--ink-0)" }}>{carrier}</div>
+          {perCondition.map((p) => {
+            const ps = palette[p.outcome];
+            const rules = humanizeRawInfo(p.rawInfo);
+            const hasRules = rules.length > 0;
+            return (
+              <div key={p.condition} className="mb-2.5 last:mb-0">
+                <div style={{ color: "var(--ink-2)" }}>{p.condition}</div>
+                <div style={{ color: ps.fg, fontWeight: 500 }}>{ps.label}</div>
+                {hasRules && (
+                  <ul className="mt-1 space-y-0.5" style={{ listStyle: "none", paddingLeft: 0 }}>
+                    {rules.map((r, i) => (
+                      <li key={i} className="flex gap-1.5" style={{ color: "var(--ink-2)" }}>
+                        <span style={{ color: "var(--ink-3)" }}>•</span>
+                        <span>
+                          <span>{r.when}</span>
+                          <span style={{ color: "var(--ink-3)" }}> → </span>
+                          <span style={{ color: "var(--ink-1)" }}>{r.then}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

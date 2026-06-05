@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AnalyticsView } from "@/components/producer/AnalyticsView";
+import { Button } from "@/components/ui";
+import { promoteToBuilderForm } from "@/lib/actions/promotions";
 import type { Person } from "@/lib/db/types";
 
 function initials(name: string): string {
@@ -19,10 +21,13 @@ function initials(name: string): string {
  */
 export default async function TeamMemberPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const { id } = await params;
+  const flash = await searchParams;
   const me = await getCurrentPerson();
   if (!me) redirect("/auth/signin?next=/producer/team");
   if (!me.is_builder) redirect("/producer");
@@ -54,6 +59,17 @@ export default async function TeamMemberPage({
         ← Team
       </Link>
 
+      {flash.error ? (
+        <div className="mt-4 rounded-xl border border-neg/40 bg-neg/[0.08] px-4 py-3 text-sm text-neg">
+          {decodeURIComponent(flash.error)}
+        </div>
+      ) : null}
+      {flash.ok ? (
+        <div className="mt-4 rounded-xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
+          Promoted to builder.
+        </div>
+      ) : null}
+
       {/* Profile header */}
       <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-hairline bg-card p-5 md:p-6">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-card-hi text-base font-semibold text-ink ring-1 ring-hairline">
@@ -70,6 +86,21 @@ export default async function TeamMemberPage({
           {role}
         </span>
       </div>
+
+      {!isMe && person.is_producer && !person.is_builder ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-hairline bg-card p-5">
+          <p className="text-sm text-subtle">
+            Promote {firstName} to a builder so they can recruit and manage their
+            own downline.
+          </p>
+          <form action={promoteToBuilderForm}>
+            <input type="hidden" name="personId" value={person.id} />
+            <Button type="submit" variant="primary">
+              Promote to Builder
+            </Button>
+          </form>
+        </div>
+      ) : null}
 
       {/* Their analytics board (read-only) */}
       <div className="mt-8">

@@ -12,6 +12,18 @@ type Resource = {
 // Placeholder catalog — swap href/description as the real links come in.
 const RESOURCES: Resource[] = [
   {
+    name: "All Star AI",
+    description: "Ask the assistant trained on the All Star training library.",
+    href: "/allstar-ai",
+    category: "AI",
+  },
+  {
+    name: "Underwriting Wizard",
+    description: "Match clients to the right carrier and product by health profile.",
+    href: "/underwriting",
+    category: "Underwriting",
+  },
+  {
     name: "GOAT Leads",
     description: "Order and manage your exclusive final-expense lead flow.",
     href: "#",
@@ -74,8 +86,7 @@ export default function ProducerResourcesPage() {
           Resources
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-subtle">
-          Tools, platforms, and reference material for working your book. Links are
-          placeholders for now.
+          Tools, platforms, and reference material for working your book.
         </p>
       </div>
 

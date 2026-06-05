@@ -14,12 +14,13 @@ import {
   type Recruit,
   type TrainingLesson,
 } from "@/lib/db/types";
-import { Card, Badge } from "@/components/ui";
+import { Card, Badge, Button } from "@/components/ui";
 import BuilderActions from "./_components/builder-actions";
 import RemoveForm from "./_components/remove-form";
+import { promoteToProducerForm } from "@/lib/actions/promotions";
 
 type RecruitWithPerson = Recruit & {
-  person: Pick<Person, "full_name" | "email" | "status">;
+  person: Pick<Person, "id" | "full_name" | "email" | "status" | "is_producer">;
 };
 
 export default async function RecruitDetailPage({
@@ -34,7 +35,7 @@ export default async function RecruitDetailPage({
 
   const { data: recruitRow } = await supabase
     .from("recruit")
-    .select("*, person:person_id(full_name, email, status)")
+    .select("*, person:person_id(id, full_name, email, status, is_producer)")
     .eq("id", id)
     .maybeSingle();
 
@@ -166,6 +167,35 @@ export default async function RecruitDetailPage({
               ).length
             }
           />
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold tracking-[-0.01em]">
+          Account role
+        </h2>
+        <p className="mt-1 text-sm text-subtle">
+          Promote this recruit to a producer once they&#x2019;re licensed and
+          ready to sell. This moves them off the recruit portal and onto the
+          producer dashboard.
+        </p>
+        <div className="mt-4">
+          {recruit.person.is_producer ? (
+            <p className="rounded-2xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
+              Already a producer.
+            </p>
+          ) : (
+            <form
+              action={promoteToProducerForm}
+              className="rounded-2xl border border-hairline bg-card p-5"
+            >
+              <input type="hidden" name="personId" value={recruit.person.id} />
+              <input type="hidden" name="recruitId" value={recruit.id} />
+              <Button type="submit" variant="primary">
+                Promote to Producer
+              </Button>
+            </form>
+          )}
         </div>
       </section>
 

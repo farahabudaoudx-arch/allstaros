@@ -54,7 +54,7 @@ export function UnlockCelebration({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-5 backdrop-blur-md md:left-60 md:justify-start md:pl-12"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-5 backdrop-blur-md md:left-60 md:items-start md:justify-start md:pl-12 md:pt-24"
           onClick={close}
         >
           <motion.div

@@ -65,6 +65,21 @@ export default async function DevLoginPage({
               </span>
             </a>
           ))}
+
+          {/* Walk the real recruit signup wizard, then land in the portal —
+              no email or magic link needed. */}
+          <a
+            href={`/auth/dev/as?role=recruit&flow=demo${keySuffix}`}
+            className={buttonClass(
+              "secondary",
+              "w-full flex-col items-start gap-0.5 rounded-xl px-4 py-3 text-left",
+            )}
+          >
+            <span className="text-sm font-semibold">Recruit signup flow</span>
+            <span className="text-xs font-normal opacity-70">
+              Fill out the invite form, then drop into the recruit portal
+            </span>
+          </a>
         </div>
       </div>
     </div>

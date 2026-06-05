@@ -19,6 +19,23 @@ import {
 import type { MilestoneKind } from "@/lib/db/types";
 import { MILESTONE_KINDS } from "@/lib/db/types";
 
+// Shown when a recruit tries to save an exam date that isn't in the future.
+const EXAM_DATE_PAST_ERROR = encodeURIComponent(
+  "Your exam date must be in the future — pick a date after today.",
+);
+
+// A `YYYY-MM-DD` date input is "past" when it falls before today's local date.
+// String comparison is safe because the format is zero-padded and lexically
+// ordered. Today itself is allowed.
+function isPastDate(date: string): boolean {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(now.getDate()).padStart(2, "0")}`;
+  return date < today;
+}
+
 async function getRecruitForCurrent() {
   const person = await getCurrentPerson();
   if (!person) return null;
@@ -45,6 +62,7 @@ export async function saveExamDateForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const date = String(formData.get("examDate") ?? "");
   if (!recruitId || !date) redirect("/portal");
+  if (isPastDate(date)) redirect(`/portal?error=${EXAM_DATE_PAST_ERROR}`);
   const supabase = await createClient();
   await supabase.from("recruit").update({ exam_date: date }).eq("id", recruitId);
   revalidatePath("/portal");
@@ -57,6 +75,7 @@ export async function markExamScheduledForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const date = String(formData.get("examDate") ?? "");
   if (!recruitId || !date) redirect("/portal");
+  if (isPastDate(date)) redirect(`/portal?error=${EXAM_DATE_PAST_ERROR}`);
   await setExamDate(recruitId, date);
   redirect("/portal");
 }

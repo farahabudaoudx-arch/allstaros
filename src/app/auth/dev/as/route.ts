@@ -7,6 +7,7 @@ import {
   devLoginAuthorized,
 } from "@/lib/devLogin";
 import { resetDevRecruitByPersonId } from "@/lib/devReset";
+import { getOrCreateReferralCode } from "@/lib/referral";
 import { US_STATES } from "@/lib/us-states";
 
 /**
@@ -56,6 +57,30 @@ export async function GET(request: NextRequest) {
       ? stateParam.toUpperCase()
       : "AL";
     await resetDevRecruit(data.user.id, state);
+
+    // flow=demo: sign in as the recruit but, instead of dropping straight into
+    // the portal, send them through the builder's signup wizard in demo mode.
+    // They fill out the form, then "Get started" lands them in the portal —
+    // no real account or magic-link email needed.
+    if (request.nextUrl.searchParams.get("flow") === "demo") {
+      const builderEmail = devAccountByRole("builder")?.email;
+      if (builderEmail) {
+        const admin = createServiceRoleClient();
+        const { data: builder } = await admin
+          .from("person")
+          .select("id")
+          .eq("email", builderEmail)
+          .maybeSingle();
+        const code = builder
+          ? await getOrCreateReferralCode((builder as { id: string }).id)
+          : null;
+        if (code) {
+          return NextResponse.redirect(
+            new URL(`/join/${code}?demo=1`, request.url),
+          );
+        }
+      }
+    }
   }
 
   const path = await resolveLandingPath(supabase, data.user.id);

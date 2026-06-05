@@ -76,6 +76,13 @@ export default function LicensingView({
   // State-aware exam booking: map the recruit's onboarding state to its exam
   // vendor + scheduling URL, shown inline on the step 02 card.
   const examSite = examSiteForState(recruit.state);
+  // Native floor for the exam-date picker — recruits can only book a future
+  // date. The server action re-checks this on submit.
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(now.getDate()).padStart(2, "0")}`;
   const stateLabel =
     US_STATES.find((s) => s.code === (recruit.state ?? "").toUpperCase())?.name ??
     null;
@@ -202,6 +209,7 @@ export default function LicensingView({
                   name="examDate"
                   type="date"
                   defaultValue={recruit.exam_date ?? ""}
+                  min={todayIso}
                   required
                   className="mt-1.5"
                 />
