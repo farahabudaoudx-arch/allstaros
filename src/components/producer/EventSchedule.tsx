@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AddToCalendarButton } from "add-to-calendar-button-react";
+
+const TIME_ZONE = "America/Chicago";
 
 type EventItem = {
   slug: string;
   day: string;
   date: string;
+  startDate: string;
+  startTime: string;
+  endTime: string;
   kicker?: string;
   title: string;
   host: string;
@@ -19,6 +25,9 @@ const events: EventItem[] = [
     slug: "ring-of-objections",
     day: "Mon",
     date: "5/11",
+    startDate: "2026-05-11",
+    startTime: "08:30",
+    endTime: "09:00",
     kicker: "Special Training",
     title: "Ring of Objections",
     host: "Preston Beck",
@@ -29,6 +38,9 @@ const events: EventItem[] = [
     slug: "the-why",
     day: "Tue",
     date: "5/12",
+    startDate: "2026-05-12",
+    startTime: "08:30",
+    endTime: "09:00",
     title: "The Why",
     host: "Graham Hatley",
     initials: "GH",
@@ -38,6 +50,9 @@ const events: EventItem[] = [
     slug: "financial-inventory",
     day: "Wed",
     date: "5/13",
+    startDate: "2026-05-13",
+    startTime: "08:30",
+    endTime: "09:00",
     title: "Financial Inventory",
     host: "Ethan Fox",
     initials: "EF",
@@ -47,6 +62,9 @@ const events: EventItem[] = [
     slug: "application-close",
     day: "Thu",
     date: "5/14",
+    startDate: "2026-05-14",
+    startTime: "08:30",
+    endTime: "09:00",
     title: "Application & Close",
     host: "Aidan Abell",
     initials: "AA",
@@ -75,38 +93,52 @@ export function EventSchedule() {
 
 function EventCard({ event }: { event: EventItem }) {
   return (
-    <Link
-      href={`/producer/events/${event.slug}`}
-      className="group flex flex-col rounded-2xl border border-hairline bg-card p-5 transition hover:border-mute hover:bg-card-hi"
-    >
-      <div className="flex items-center gap-4">
-        <Avatar src={event.image} initials={event.initials} />
-        <div className="min-w-0">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-            {event.day} {event.date}
-          </p>
-          {event.kicker && (
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-              {event.kicker}
+    <div className="group flex flex-col rounded-2xl border border-hairline bg-card p-5 transition hover:border-mute hover:bg-card-hi">
+      <Link href={`/producer/events/${event.slug}`} className="flex flex-col">
+        <div className="flex items-center gap-4">
+          <Avatar src={event.image} initials={event.initials} />
+          <div className="min-w-0">
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+              {event.day} {event.date}
             </p>
-          )}
+            {event.kicker && (
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
+                {event.kicker}
+              </p>
+            )}
+          </div>
         </div>
+        <div className="mt-5">
+          <h3 className="text-lg font-semibold uppercase leading-tight tracking-[0.01em] text-ink">
+            {event.title}
+          </h3>
+          <p className="mt-1.5 text-sm italic text-subtle">— {event.host}</p>
+        </div>
+        <div className="mt-5 flex items-center justify-between text-xs text-mute">
+          <span className="text-ink/70 transition group-hover:text-ink">
+            View session
+          </span>
+          <span aria-hidden className="transition group-hover:translate-x-0.5">
+            →
+          </span>
+        </div>
+      </Link>
+      <div className="mt-4 border-t border-hairline pt-4">
+        <AddToCalendarButton
+          name={`${event.title} — ${event.host}`}
+          startDate={event.startDate}
+          startTime={event.startTime}
+          endTime={event.endTime}
+          timeZone={TIME_ZONE}
+          location="All Star OS"
+          options={["Apple", "Google", "Outlook.com", "iCal"]}
+          buttonStyle="text"
+          size="3"
+          lightMode="dark"
+          label="Add to calendar"
+        />
       </div>
-      <div className="mt-5">
-        <h3 className="text-lg font-semibold uppercase leading-tight tracking-[0.01em] text-ink">
-          {event.title}
-        </h3>
-        <p className="mt-1.5 text-sm italic text-subtle">— {event.host}</p>
-      </div>
-      <div className="mt-5 flex items-center justify-between text-xs text-mute">
-        <span className="text-ink/70 transition group-hover:text-ink">
-          View session
-        </span>
-        <span aria-hidden className="transition group-hover:translate-x-0.5">
-          →
-        </span>
-      </div>
-    </Link>
+    </div>
   );
 }
 
