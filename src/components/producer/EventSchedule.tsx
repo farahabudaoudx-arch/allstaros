@@ -5,6 +5,8 @@ import { useState } from "react";
 import { AddToCalendarButton } from "add-to-calendar-button-react";
 
 const TIME_ZONE = "America/Chicago";
+const ZOOM_URL =
+  "https://us02web.zoom.us/j/87144901286?pwd=Q0FuQXFDbXJ3ZjFSbVV1Wm95ZzNsUT09";
 
 type EventItem = {
   slug: string;
@@ -130,7 +132,8 @@ function EventCard({ event }: { event: EventItem }) {
           startTime={event.startTime}
           endTime={event.endTime}
           timeZone={TIME_ZONE}
-          location="All Star OS"
+          location={ZOOM_URL}
+          description={`Live training with ${event.host}.[br][br]Join on Zoom: [url]${ZOOM_URL}|Join Zoom Meeting[/url]`}
           options={["Apple", "Google", "Outlook.com", "iCal"]}
           buttonStyle="text"
           size="3"
