@@ -30,7 +30,11 @@ export default async function ClientOverviewPage({
       <ClientPage
         clientId={id}
         initialClient={data as Client}
-        agent={{ name: person.full_name || person.email, email: person.email }}
+        agent={{
+          name: person.full_name || person.email,
+          email: person.email,
+          phone: person.phone ?? undefined,
+        }}
       />
     </main>
   );

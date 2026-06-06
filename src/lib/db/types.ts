@@ -55,6 +55,7 @@ export type Person = {
   auth_user_id: string | null;
   full_name: string;
   email: string;
+  phone: string | null;
   upline_id: string | null;
   is_builder: boolean;
   is_producer: boolean;

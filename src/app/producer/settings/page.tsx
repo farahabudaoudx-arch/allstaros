@@ -1,9 +1,19 @@
 import { GoalSettingsForm } from "@/components/producer/GoalSettingsForm";
+import { ProfileSettingsForm } from "@/components/producer/ProfileSettingsForm";
 
 export default function ProducerSettings() {
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">Settings</h1>
+
+      <section className="mt-12">
+        <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your details</h2>
+        <p className="mt-2 max-w-2xl text-sm text-subtle">
+          Your name, email, and phone number. These appear on the policy summary you send clients,
+          under &ldquo;Your Client Coverage Specialist.&rdquo;
+        </p>
+        <ProfileSettingsForm />
+      </section>
 
       <section className="mt-12">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your goal</h2>
