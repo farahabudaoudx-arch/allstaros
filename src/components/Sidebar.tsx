@@ -125,19 +125,30 @@ export function Sidebar({
                 </button>
                 {isOpen ? (
                   <div className="mt-1 flex flex-col gap-0.5 border-l border-hairline pl-3 ml-5">
-                    {it.children.map((child) => (
-                      <Link
-                        key={child.href}
-                        href={child.href ?? "#"}
-                        className={`truncate rounded-lg px-3 py-2 text-sm transition ${
-                          active === child.href
-                            ? "bg-card-hi text-ink ring-1 ring-hairline"
-                            : "text-subtle hover:bg-card-hi/60 hover:text-ink"
-                        }`}
-                      >
-                        {child.label}
-                      </Link>
-                    ))}
+                    {it.children.map((child) =>
+                      child.locked ? (
+                        <div
+                          key={child.label}
+                          title={`${child.label} is locked`}
+                          className="flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm text-mute/70"
+                        >
+                          <span className="flex-1 truncate">{child.label}</span>
+                          <LockIcon />
+                        </div>
+                      ) : (
+                        <Link
+                          key={child.href}
+                          href={child.href ?? "#"}
+                          className={`truncate rounded-lg px-3 py-2 text-sm transition ${
+                            active === child.href
+                              ? "bg-card-hi text-ink ring-1 ring-hairline"
+                              : "text-subtle hover:bg-card-hi/60 hover:text-ink"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      ),
+                    )}
                   </div>
                 ) : null}
               </div>

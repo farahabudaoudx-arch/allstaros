@@ -116,14 +116,6 @@ function EventCard({ event }: { event: EventItem }) {
           </h3>
           <p className="mt-1.5 text-sm italic text-subtle">— {event.host}</p>
         </div>
-        <div className="mt-5 flex items-center justify-between text-xs text-mute">
-          <span className="text-ink/70 transition group-hover:text-ink">
-            View session
-          </span>
-          <span aria-hidden className="transition group-hover:translate-x-0.5">
-            →
-          </span>
-        </div>
       </Link>
       <div className="mt-4 border-t border-hairline pt-4">
         <AddToCalendarButton

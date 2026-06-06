@@ -189,9 +189,9 @@ function HeroDial({
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="overflow-hidden rounded-3xl bg-accent text-background">
+    <div className="overflow-hidden rounded-3xl bg-accent text-[#050505]">
       <div className="flex flex-col items-center gap-6 px-6 py-10 sm:px-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-background/70">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#050505]/70">
           Dials today
         </p>
         <div className="flex items-center gap-6 sm:gap-10">
@@ -207,13 +207,13 @@ function HeroDial({
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-2">
-          {[1, 5, 10, 25].map((s) => (
+          {[3, 5, 10, 25].map((s) => (
             <button
               key={s}
               type="button"
               disabled={disabled}
               onClick={() => onBump(s)}
-              className="rounded-full bg-background/15 px-4 py-1.5 text-sm font-semibold text-background transition hover:bg-background/25 disabled:opacity-50"
+              className="rounded-full bg-[#050505]/15 px-4 py-1.5 text-sm font-semibold text-[#050505] transition hover:bg-[#050505]/25 disabled:opacity-50"
             >
               +{s}
             </button>
@@ -222,12 +222,12 @@ function HeroDial({
 
         {target > 0 && (
           <div className="w-full max-w-md">
-            <div className="flex items-baseline justify-between text-xs font-medium text-background/80">
+            <div className="flex items-baseline justify-between text-xs font-medium text-[#050505]/80">
               <span>{hit ? "Target hit" : `Goal ${target}`}</span>
               <span className="tabular-nums">{Math.round(pct)}%</span>
             </div>
-            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-background/20">
-              <div className="h-full rounded-full bg-background" style={{ width: `${pct}%` }} />
+            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#050505]/20">
+              <div className="h-full rounded-full bg-[#050505]" style={{ width: `${pct}%` }} />
             </div>
           </div>
         )}
@@ -324,8 +324,8 @@ function TapButton({
       aria-label={label}
       className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl font-semibold leading-none transition active:scale-95 disabled:opacity-40 sm:h-20 sm:w-20 ${
         primary
-          ? "bg-background text-accent hover:bg-background/90"
-          : "bg-background/15 text-background hover:bg-background/25"
+          ? "bg-[#050505]/20 text-[#050505] hover:bg-[#050505]/30"
+          : "bg-[#050505]/10 text-[#050505] hover:bg-[#050505]/20"
       }`}
     >
       {children}

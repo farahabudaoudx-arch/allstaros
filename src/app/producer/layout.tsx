@@ -5,8 +5,8 @@ import { Sidebar, type NavItem } from "@/components/Sidebar";
 function buildNav(isBuilder: boolean): NavItem[] {
   const trainingChildren: NavItem[] = [
     { label: "Previous Live Trainings", href: "/producer/trainings/live" },
-    { label: "Bootcamp", href: "/producer/trainings/bootcamp" },
-    { label: "Accelerator", href: "/producer/trainings/accelerator" },
+    { label: "Bootcamp", href: "/producer/trainings/bootcamp", locked: true },
+    { label: "Accelerator", href: "/producer/trainings/accelerator", locked: true },
   ];
   // Uplevel is a leadership track — unlocked only once you're building a team.
   if (isBuilder) {
