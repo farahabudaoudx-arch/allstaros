@@ -6,6 +6,13 @@ export type Quote = {
   notes?: string;
 };
 
+export type Beneficiary = {
+  name?: string;
+  relationship?: string;
+  email?: string;
+  phone?: string;
+};
+
 export type DepositStatus = "pending" | "successful" | "failed";
 
 export type ClientDeposit = {
@@ -105,6 +112,8 @@ export type Client = {
   quotes: Quote[];
   chosen_quote_index: number | null;
 
+  beneficiaries: Beneficiary[];
+
   annual_premium: number | null;
   product_comp_pct: number;
   advance_type: string;
@@ -157,6 +166,7 @@ export const EMPTY_DRAFT: ClientDraft = {
   cc_cvv: null,
   quotes: [{}],
   chosen_quote_index: 0,
+  beneficiaries: [],
   annual_premium: null,
   product_comp_pct: 140,
   advance_type: "75_9mo",

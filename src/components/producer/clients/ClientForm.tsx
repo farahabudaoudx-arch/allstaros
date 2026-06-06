@@ -12,6 +12,7 @@ import {
   EMPTY_DRAFT,
   POLICY_TYPES,
   projectedPay,
+  type Beneficiary,
   type Client,
   type ClientDraft,
   type Quote,
@@ -25,7 +26,12 @@ type Props = {
 function draftFromClient(c: Client): ClientDraft {
   const { id, person_id, created_at, updated_at, ...rest } = c;
   void id; void person_id; void created_at; void updated_at;
-  return { ...EMPTY_DRAFT, ...rest, quotes: rest.quotes?.length ? rest.quotes : [{}] };
+  return {
+    ...EMPTY_DRAFT,
+    ...rest,
+    quotes: rest.quotes?.length ? rest.quotes : [{}],
+    beneficiaries: rest.beneficiaries ?? [],
+  };
 }
 
 function calcAge(dob: string | null | undefined): number | null {
@@ -83,6 +89,22 @@ export function ClientForm({ clientId, initialClient }: Props) {
       return { ...d, quotes };
     });
   };
+
+  const addBeneficiary = () =>
+    setDraft((d) => ({ ...d, beneficiaries: [...d.beneficiaries, {}] }));
+
+  const updateBeneficiary = (idx: number, patch: Partial<Beneficiary>) => {
+    setDraft((d) => ({
+      ...d,
+      beneficiaries: d.beneficiaries.map((b, i) => (i === idx ? { ...b, ...patch } : b)),
+    }));
+  };
+
+  const removeBeneficiary = (idx: number) =>
+    setDraft((d) => ({
+      ...d,
+      beneficiaries: d.beneficiaries.filter((_, i) => i !== idx),
+    }));
 
   const save = async () => {
     setSaving(true);
@@ -264,6 +286,78 @@ export function ClientForm({ clientId, initialClient }: Props) {
               </Grid>
             </div>
           ))}
+        </div>
+      </Section>
+
+      {/* BENEFICIARIES */}
+      <Section title="Beneficiary details">
+        <span className="text-xs" style={{ color: "var(--ink-3)", marginTop: -4 }}>
+          Add one or more beneficiaries. These flow onto the downloadable policy summary.
+        </span>
+        <div className="flex flex-col gap-3">
+          {draft.beneficiaries.length === 0 && (
+            <div className="text-sm" style={{ color: "var(--ink-3)" }}>
+              No beneficiaries added yet.
+            </div>
+          )}
+          {draft.beneficiaries.map((b, i) => (
+            <div key={i} className="card-soft p-4 rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <span className="section-label">Beneficiary {i + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removeBeneficiary(i)}
+                  className="btn btn-pill text-xs"
+                  style={{ color: "var(--danger)" }}
+                >
+                  <TrashIcon /> Remove
+                </button>
+              </div>
+              <Grid cols={2}>
+                <Field label="Beneficiary name">
+                  <input
+                    className="input"
+                    value={b.name ?? ""}
+                    onChange={(e) => updateBeneficiary(i, { name: e.target.value })}
+                    placeholder="Full name"
+                  />
+                </Field>
+                <Field label="Relationship to insured">
+                  <input
+                    className="input"
+                    value={b.relationship ?? ""}
+                    onChange={(e) => updateBeneficiary(i, { relationship: e.target.value })}
+                    placeholder="e.g. Spouse, Son, Daughter"
+                  />
+                </Field>
+              </Grid>
+              <div className="h-3" />
+              <Grid cols={2}>
+                <Field label="Email (optional)">
+                  <input
+                    className="input"
+                    type="email"
+                    value={b.email ?? ""}
+                    onChange={(e) => updateBeneficiary(i, { email: e.target.value })}
+                    placeholder="email@example.com"
+                  />
+                </Field>
+                <Field label="Phone (optional)">
+                  <input
+                    className="input tnum"
+                    value={b.phone ?? ""}
+                    onChange={(e) => updateBeneficiary(i, { phone: e.target.value })}
+                    placeholder="555-555-5555"
+                  />
+                </Field>
+              </Grid>
+            </div>
+          ))}
+          <div>
+            <button type="button" onClick={addBeneficiary} className="btn btn-pill">
+              + Add beneficiary
+            </button>
+          </div>
         </div>
       </Section>
 

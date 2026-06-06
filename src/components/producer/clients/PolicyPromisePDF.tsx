@@ -67,6 +67,10 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
   const paymentMethodDisplay = last4 ? `${paymentLabel} (Ending in ${last4})` : paymentLabel;
   const notes = client.policy_notes?.trim() || "";
 
+  const beneficiaries = (client.beneficiaries ?? []).filter(
+    (b) => b.name?.trim() || b.relationship?.trim() || b.email?.trim() || b.phone?.trim(),
+  );
+
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
@@ -102,6 +106,24 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
             <Detail label="Payment Method" value={paymentMethodDisplay} />
           </View>
         </View>
+
+        {beneficiaries.length ? (
+          <View style={styles.beneBlock}>
+            <Text style={styles.sectionHeader}>Beneficiaries</Text>
+            {beneficiaries.map((b, i) => (
+              <View key={i} style={styles.beneRow}>
+                <Text style={styles.beneName}>
+                  {(b.name?.trim() || "—") + (b.relationship?.trim() ? ` (${b.relationship.trim()})` : "")}
+                </Text>
+                {b.email?.trim() || b.phone?.trim() ? (
+                  <Text style={styles.beneContact}>
+                    {[b.phone?.trim(), b.email?.trim()].filter(Boolean).join("  •  ")}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {notes ? (
           <View style={styles.notesBlock}>
@@ -175,6 +197,11 @@ const styles = StyleSheet.create({
 
   notesBlock: { marginTop: 4, marginBottom: 14 },
   notesText: { fontSize: 11, color: "#1f2937", lineHeight: 1.4 },
+
+  beneBlock: { marginTop: 4, marginBottom: 14 },
+  beneRow: { marginBottom: 8 },
+  beneName: { fontSize: 11, fontWeight: 700, color: "#0f172a" },
+  beneContact: { fontSize: 10, color: "#475569", marginTop: 1 },
 
   divider: { height: 1, backgroundColor: "#0f172a", marginVertical: 12 },
 

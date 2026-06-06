@@ -173,6 +173,33 @@ export function ClientPage({ clientId, initialClient, agent }: Props) {
             ]}
           />
         </Section>
+
+        <Section title="Beneficiaries">
+          {client.beneficiaries?.length ? (
+            <div className="flex flex-col gap-4">
+              {client.beneficiaries.map((b, i) => (
+                <div
+                  key={i}
+                  className={i > 0 ? "pt-4" : undefined}
+                  style={i > 0 ? { borderTop: "1px solid var(--line-2)" } : undefined}
+                >
+                  <DetailGrid
+                    items={[
+                      ["Name", b.name],
+                      ["Relationship", b.relationship],
+                      ["Email", b.email],
+                      ["Phone", b.phone],
+                    ]}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm" style={{ color: "var(--ink-3)" }}>
+              No beneficiaries recorded.
+            </div>
+          )}
+        </Section>
       </div>
     </div>
   );
