@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateReferralCode } from "@/lib/referral";
+import { getAppUrl } from "@/lib/site-url";
 import { type Person, type Recruit } from "@/lib/db/types";
 import {
   FUNNEL_STAGES,
@@ -106,8 +107,7 @@ export default async function RecruitingPage({
   // This builder's personal signup link. Anyone who joins through it lands in
   // this builder's downline.
   const code = await getOrCreateReferralCode(person.id);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const signupUrl = code ? `${appUrl}/join/${code}` : null;
+  const signupUrl = code ? `${getAppUrl()}/join/${code}` : null;
 
   const lastIndex = FUNNEL_STAGES.length - 1;
 

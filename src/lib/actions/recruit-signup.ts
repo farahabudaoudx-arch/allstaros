@@ -3,6 +3,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveBuilderByCode } from "@/lib/referral";
 import { US_STATE_CODES } from "@/lib/us-states";
+import { getAppUrl } from "@/lib/site-url";
 
 export type SignUpInput = {
   code: string;
@@ -94,9 +95,8 @@ export async function signUpViaReferral(
 
   // Send the Supabase invite email so the recruit gets a one-click sign-in.
   // Non-fatal: the recruit can still sign in via the normal magic-link flow.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${appUrl}/auth/callback?next=/portal`,
+    redirectTo: `${getAppUrl()}/auth/callback?next=/portal`,
   });
 
   return { ok: true };

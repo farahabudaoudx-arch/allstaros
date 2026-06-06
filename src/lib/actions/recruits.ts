@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { getAppUrl } from "@/lib/site-url";
 
 type CreateRecruitInput = {
   fullName: string;
@@ -86,10 +87,8 @@ export async function createRecruit(
   // Send the Supabase invite email so the recruit gets a one-click sign-in.
   // Non-fatal: if the auth user already exists or the invite fails, the
   // recruit can still sign in via the normal magic-link flow.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${appUrl}/auth/callback?next=/portal`,
+    redirectTo: `${getAppUrl()}/auth/callback?next=/portal`,
   });
 
   revalidatePath("/dashboard");
