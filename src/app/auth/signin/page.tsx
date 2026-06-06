@@ -47,7 +47,7 @@ export default async function SignInPage({
             Sign in to continue
           </h1>
           <p className="mt-3 text-sm text-subtle">
-            Enter the email your upline has on file. We’ll send a sign-in link.
+            Sign in with the email and password you set up.
           </p>
         </div>
 

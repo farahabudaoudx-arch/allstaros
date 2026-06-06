@@ -2,8 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getOrCreateReferralCode } from "@/lib/referral";
-import { getAppUrl } from "@/lib/site-url";
 import { type Person, type Recruit } from "@/lib/db/types";
 import {
   FUNNEL_STAGES,
@@ -11,7 +9,7 @@ import {
   funnelStageLabel,
   type FunnelStage,
 } from "@/lib/pipeline/funnel";
-import { CopyLink } from "./CopyLink";
+import { InviteRecruit } from "./InviteRecruit";
 import { RecruitTable, type RecruitListItem } from "./RecruitTable";
 
 type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
@@ -104,11 +102,6 @@ export default async function RecruitingPage({
     };
   });
 
-  // This builder's personal signup link. Anyone who joins through it lands in
-  // this builder's downline.
-  const code = await getOrCreateReferralCode(person.id);
-  const signupUrl = code ? `${getAppUrl()}/join/${code}` : null;
-
   const lastIndex = FUNNEL_STAGES.length - 1;
 
   return (
@@ -143,25 +136,8 @@ export default async function RecruitingPage({
         </div>
       </div>
 
-      {/* Personal signup link */}
-      {signupUrl ? (
-        <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/[0.05] p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-                Your signup link
-              </p>
-              <p className="mt-1.5 text-sm text-subtle">
-                Share this link to recruit directly. Everyone who joins through it is added to
-                your team.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <CopyLink url={signupUrl} />
-          </div>
-        </div>
-      ) : null}
+      {/* Invite a recruit by email — the only way an account is created. */}
+      <InviteRecruit />
 
       {rows.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card px-5 py-16 text-center text-subtle">

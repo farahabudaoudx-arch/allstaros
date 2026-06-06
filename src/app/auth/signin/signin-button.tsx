@@ -1,44 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input, Button } from "@/components/ui";
 
 export default function SignInButton({ next }: { next: string }) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<"idle" | "signing" | "error">("idle");
   const [error, setError] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("sending");
+    setStatus("signing");
     setError("");
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-    const { error: err } = await supabase.auth.signInWithOtp({
+    const { error: err } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: redirectTo },
+      password,
     });
     if (err) {
-      setError(err.message);
+      setError("That email and password don’t match. Try again.");
       setStatus("error");
       return;
     }
-    setStatus("sent");
-  }
-
-  if (status === "sent") {
-    return (
-      <div className="rounded-xl border border-pos/40 bg-pos/[0.08] p-4 text-sm text-pos">
-        <p className="font-medium">Check your inbox.</p>
-        <p className="mt-1">
-          We sent a sign-in link to <strong>{email}</strong>. Click it to come
-          back.
-        </p>
-      </div>
-    );
+    // Full navigation so the server re-renders with the new session cookie.
+    window.location.href = next;
   }
 
   return (
@@ -54,15 +42,31 @@ export default function SignInButton({ next }: { next: string }) {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="you@example.com"
       />
+      <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+        Password
+      </label>
+      <Input
+        type="password"
+        required
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="••••••••"
+      />
       <Button
         type="submit"
         variant="primary"
-        disabled={status === "sending"}
+        disabled={status === "signing"}
         className="w-full py-2.5"
       >
-        {status === "sending" ? "Sending…" : "Send sign-in link"}
+        {status === "signing" ? "Signing in…" : "Sign in"}
       </Button>
       {error ? <p className="text-sm text-neg">{error}</p> : null}
+      <p className="pt-1 text-center text-xs text-mute">
+        <Link href="/auth/reset" className="underline hover:text-accent">
+          Forgot your password?
+        </Link>
+      </p>
     </form>
   );
 }

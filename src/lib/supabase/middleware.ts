@@ -30,10 +30,13 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  // Note: /join is intentionally NOT public. There is no unauthenticated
+  // self-serve signup — accounts only come from a builder's email invite, which
+  // lands the recruit on /welcome (auth-gated) after /auth/callback signs them
+  // in. The demo replay at /join runs only for an already-signed-in seed user.
   const isPublic =
     pathname === "/" ||
     pathname.startsWith("/auth") ||
-    pathname.startsWith("/join") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/health");
