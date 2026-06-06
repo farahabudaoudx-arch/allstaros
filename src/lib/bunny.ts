@@ -48,21 +48,32 @@ type BunnyListResponse = {
   }>;
 };
 
-function config(): { libraryId: string; apiKey: string } | null {
-  const libraryId = process.env.BUNNY_RECRUITING_LIBRARY_ID;
-  const apiKey = process.env.BUNNY_RECRUITING_API_KEY;
+/** Which Bunny library to talk to. Each app has its own library id + API key:
+ *   "recruiting" → BUNNY_RECRUITING_* (the recruiting-app library)
+ *   "live"       → BUNNY_LIVE_*       (the All Star Live Training library) */
+export type BunnyApp = "recruiting" | "live";
+
+function config(app: BunnyApp = "recruiting"): { libraryId: string; apiKey: string } | null {
+  const libraryId =
+    app === "live"
+      ? process.env.BUNNY_LIVE_LIBRARY_ID
+      : process.env.BUNNY_RECRUITING_LIBRARY_ID;
+  const apiKey =
+    app === "live"
+      ? process.env.BUNNY_LIVE_API_KEY
+      : process.env.BUNNY_RECRUITING_API_KEY;
   if (!libraryId || !apiKey) return null;
   return { libraryId, apiKey };
 }
 
-/** True once both Bunny env vars are present. */
-export function isBunnyConfigured(): boolean {
-  return config() !== null;
+/** True once both Bunny env vars for the given library are present. */
+export function isBunnyConfigured(app: BunnyApp = "recruiting"): boolean {
+  return config(app) !== null;
 }
 
-/** Build the public embed URL for a video guid in the configured library. */
-export function bunnyEmbedUrl(guid: string): string | null {
-  const cfg = config();
+/** Build the public embed URL for a video guid in the given library. */
+export function bunnyEmbedUrl(guid: string, app: BunnyApp = "recruiting"): string | null {
+  const cfg = config(app);
   if (!cfg) return null;
   return `${BUNNY_EMBED_BASE}/${cfg.libraryId}/${guid}`;
 }
@@ -77,18 +88,26 @@ export function bunnyEmbedUrl(guid: string): string | null {
 // otherwise drop every thumbnail back to the colored monogram tile).
 const KNOWN_CDN_HOSTS: Record<string, string> = {
   "675288": "vz-316b0bb9-a9f.b-cdn.net", // All Star recruiting app library
+  "677701": "vz-eea2b1a7-946.b-cdn.net", // All Star Live Training library
 };
 
-let cachedCdnHost: string | null = null;
+// Cache the resolved CDN host per library id (two libraries can be in play).
+const cachedCdnHost: Record<string, string> = {};
 
-async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
-  const fromEnv = process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
+async function resolveCdnHost(
+  sampleGuid: string,
+  app: BunnyApp = "recruiting",
+): Promise<string | null> {
+  const fromEnv =
+    app === "live"
+      ? process.env.BUNNY_LIVE_CDN_HOSTNAME
+      : process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
   if (fromEnv) {
     return fromEnv.replace(/^https?:\/\//, "").replace(/\/+$/, "");
   }
-  if (cachedCdnHost) return cachedCdnHost;
-  const cfg = config();
+  const cfg = config(app);
   if (!cfg) return null;
+  if (cachedCdnHost[cfg.libraryId]) return cachedCdnHost[cfg.libraryId];
   try {
     const res = await fetch(`${BUNNY_EMBED_BASE}/${cfg.libraryId}/${sampleGuid}`, {
       headers: { "user-agent": "Mozilla/5.0" },
@@ -99,8 +118,8 @@ async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
       const html = await res.text();
       const m = html.match(/https:\/\/(vz-[a-z0-9-]+\.b-cdn\.net)\//i);
       if (m) {
-        cachedCdnHost = m[1];
-        return cachedCdnHost;
+        cachedCdnHost[cfg.libraryId] = m[1];
+        return m[1];
       }
     }
   } catch {
@@ -109,7 +128,7 @@ async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
   // Fallback so thumbnails still render even when the scrape can't reach Bunny.
   const known = KNOWN_CDN_HOSTS[cfg.libraryId];
   if (known) {
-    cachedCdnHost = known;
+    cachedCdnHost[cfg.libraryId] = known;
     return known;
   }
   return null;
@@ -120,8 +139,10 @@ async function resolveCdnHost(sampleGuid: string): Promise<string | null> {
  * Returns an empty array if Bunny isn't configured, so callers can degrade
  * gracefully rather than throw.
  */
-export async function listBunnyVideos(): Promise<BunnyVideo[]> {
-  const cfg = config();
+export async function listBunnyVideos(
+  app: BunnyApp = "recruiting",
+): Promise<BunnyVideo[]> {
+  const cfg = config(app);
   if (!cfg) return [];
 
   const perPage = 100;
@@ -159,7 +180,7 @@ export async function listBunnyVideos(): Promise<BunnyVideo[]> {
 
   // Resolve the CDN host once and decorate every video with its poster URL.
   if (out.length > 0) {
-    const host = await resolveCdnHost(out[0].guid);
+    const host = await resolveCdnHost(out[0].guid, app);
     if (host) {
       for (const v of out) {
         v.thumbnailUrl = `https://${host}/${v.guid}/thumbnail.jpg`;
@@ -263,6 +284,69 @@ export function bunnyTrainingProgram(videos: BunnyVideo[]): Program {
       { key: "content", label: "Content" },
       { key: "case_studies", label: "Case Studies" },
     ],
+    courses,
+  };
+}
+
+const MONTHS: Record<string, number> = {
+  january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+  july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+};
+
+/**
+ * Parse the session date out of a live-training title. The library is titled
+ * "Month D, YYYY - Name …" (e.g. "December 5, 2025 - Justin Caleb Reeves"), so
+ * the date is the sort key. Returns a sortable timestamp, or null if the title
+ * isn't in that format (those sort to the end).
+ */
+function parseTitleDate(title: string): number | null {
+  const m = title.trim().match(/^([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/);
+  if (!m) return null;
+  const month = MONTHS[m[1].toLowerCase()];
+  if (month === undefined) return null;
+  return Date.UTC(Number(m[3]), month, Number(m[2]));
+}
+
+/**
+ * Build the "Previous Live Trainings" Program from the live library, newest
+ * first, as a single flat list. Each recording becomes one course; the date in
+ * the title drives the order (see parseTitleDate). Titles that don't carry a
+ * date (e.g. a not-yet-renamed upload) fall to the bottom.
+ */
+export function liveTrainingProgram(videos: BunnyVideo[]): Program {
+  const sorted = [...videos].sort((a, b) => {
+    const da = parseTitleDate(a.title);
+    const db = parseTitleDate(b.title);
+    // Newest first; undated entries sink to the end.
+    return (db ?? -Infinity) - (da ?? -Infinity);
+  });
+
+  const courses: Course[] = sorted.map((v, i) => ({
+    id: v.guid,
+    title: cleanTitle(v.title),
+    blurb: "",
+    description: "",
+    category: "Live Training",
+    level: "All levels" as const,
+    status: "completed" as const,
+    rating: 5,
+    ratingCount: 0,
+    tone: TONES[i % TONES.length],
+    instructor: { name: "", title: "" },
+    durationLabel: durationLabel(v.lengthSeconds),
+    embedUrl: v.embedUrl,
+    thumbnailUrl: v.thumbnailUrl ?? undefined,
+    section: "all",
+    lectures: [],
+  }));
+
+  return {
+    key: "live",
+    title: "Previous Live Trainings",
+    subtitle: "Recordings of past team calls, workshops, and guest sessions.",
+    filters: [],
+    // A single section renders as one flat, chronological list (no status tabs).
+    sections: [{ key: "all", label: "All Trainings" }],
     courses,
   };
 }
