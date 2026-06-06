@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { Client } from "@/lib/clients/types";
+import { formatSharePct, type Client } from "@/lib/clients/types";
 import { ClientDepositsPanel } from "@/components/producer/clients/ClientDepositsPanel";
 import type { AgentInfo } from "@/components/producer/clients/PolicyPromisePDF";
 
@@ -187,6 +187,7 @@ export function ClientPage({ clientId, initialClient, agent }: Props) {
                     items={[
                       ["Name", b.name],
                       ["Relationship", b.relationship],
+                      ["% of death benefit", formatSharePct(b.share) || null],
                       ["Email", b.email],
                       ["Phone", b.phone],
                     ]}

@@ -313,7 +313,7 @@ export function ClientForm({ clientId, initialClient }: Props) {
                   <TrashIcon /> Remove
                 </button>
               </div>
-              <Grid cols={2}>
+              <Grid cols={3}>
                 <Field label="Beneficiary name">
                   <input
                     className="input"
@@ -329,6 +329,31 @@ export function ClientForm({ clientId, initialClient }: Props) {
                     onChange={(e) => updateBeneficiary(i, { relationship: e.target.value })}
                     placeholder="e.g. Spouse, Son, Daughter"
                   />
+                </Field>
+                <Field label="% of death benefit">
+                  <div style={{ position: "relative" }}>
+                    <input
+                      className="input tnum"
+                      inputMode="decimal"
+                      value={b.share ?? ""}
+                      onChange={(e) => updateBeneficiary(i, { share: e.target.value })}
+                      placeholder="e.g. 50"
+                      style={{ paddingRight: 28 }}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        right: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--ink-3)",
+                        fontSize: 14,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      %
+                    </span>
+                  </div>
                 </Field>
               </Grid>
               <div className="h-3" />

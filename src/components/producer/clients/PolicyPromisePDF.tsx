@@ -2,7 +2,7 @@
 
 import { Document, Page, Text, View, StyleSheet, Image, pdf } from "@react-pdf/renderer";
 import type { Client } from "@/lib/clients/types";
-import { CARRIER_LOGOS, CARRIER_SUPPORT_PHONES } from "@/lib/clients/types";
+import { CARRIER_LOGOS, CARRIER_SUPPORT_PHONES, formatSharePct } from "@/lib/clients/types";
 
 export type AgentInfo = { name: string; email: string; phone?: string };
 
@@ -110,18 +110,23 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
         {beneficiaries.length ? (
           <View style={styles.beneBlock}>
             <Text style={styles.sectionHeader}>Beneficiaries</Text>
-            {beneficiaries.map((b, i) => (
-              <View key={i} style={styles.beneRow}>
-                <Text style={styles.beneName}>
-                  {(b.name?.trim() || "—") + (b.relationship?.trim() ? ` (${b.relationship.trim()})` : "")}
-                </Text>
-                {b.email?.trim() || b.phone?.trim() ? (
-                  <Text style={styles.beneContact}>
-                    {[b.phone?.trim(), b.email?.trim()].filter(Boolean).join("  •  ")}
+            {beneficiaries.map((b, i) => {
+              const share = formatSharePct(b.share);
+              return (
+                <View key={i} style={styles.beneRow}>
+                  <Text style={styles.beneName}>
+                    {(b.name?.trim() || "—") +
+                      (b.relationship?.trim() ? ` (${b.relationship.trim()})` : "") +
+                      (share ? ` — ${share}` : "")}
                   </Text>
-                ) : null}
-              </View>
-            ))}
+                  {b.email?.trim() || b.phone?.trim() ? (
+                    <Text style={styles.beneContact}>
+                      {[b.phone?.trim(), b.email?.trim()].filter(Boolean).join("  •  ")}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
 

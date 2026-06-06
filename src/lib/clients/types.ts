@@ -11,7 +11,17 @@ export type Beneficiary = {
   relationship?: string;
   email?: string;
   phone?: string;
+  // Percentage of the death benefit this beneficiary receives, entered free-form
+  // (e.g. "50", "100"). Stored as a string to match the other fields.
+  share?: string;
 };
+
+// Normalize a beneficiary's share into a display string like "50%". Returns ""
+// when no share is set. Tolerates the user typing the % sign themselves.
+export function formatSharePct(share: string | null | undefined): string {
+  const s = String(share ?? "").trim().replace(/%+\s*$/, "").trim();
+  return s ? `${s}%` : "";
+}
 
 export type DepositStatus = "pending" | "successful" | "failed";
 
