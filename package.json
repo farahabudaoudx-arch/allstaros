@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:dev-users": "node --env-file=.env.local scripts/seed-dev-users.mjs"
+    "seed:dev-users": "node --env-file=.env.local scripts/seed-dev-users.mjs",
+    "email:test": "node --env-file=.env.local scripts/send-test-email.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
@@ -23,6 +24,7 @@
     "react-markdown": "^10.1.0",
     "react-simple-maps": "^3.0.0",
     "remark-gfm": "^4.0.1",
+    "resend": "^6.12.4",
     "us-atlas": "^3.0.1"
   },
   "devDependencies": {
