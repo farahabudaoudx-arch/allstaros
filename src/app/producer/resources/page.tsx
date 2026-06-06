@@ -9,10 +9,28 @@ type Resource = {
   external?: boolean;
 };
 
-// Placeholder catalog — swap href/description as the real links come in.
 const RESOURCES: Resource[] = [
   {
-    name: "All Star AI",
+    name: "Portal Links",
+    description: "Direct login links for every contracted carrier's agent portal.",
+    href: "/producer/resources/portal-links",
+    category: "Carriers",
+  },
+  {
+    name: "Carrier Contacts",
+    description: "Phone, email, and rep contacts for every carrier.",
+    href: "/producer/resources/carrier-contacts",
+    category: "Contacts",
+  },
+  {
+    name: "Gateway Login",
+    description: "Sign in to the Family First Life agent gateway.",
+    href: "https://ww3.familyfirstlife.com/login",
+    category: "Login",
+    external: true,
+  },
+  {
+    name: "All Star Sidekick",
     description: "Ask the assistant trained on the All Star training library.",
     href: "/allstar-ai",
     category: "AI",
@@ -24,55 +42,17 @@ const RESOURCES: Resource[] = [
     category: "Underwriting",
   },
   {
-    name: "GOAT Leads",
-    description: "Order and manage your exclusive final-expense lead flow.",
-    href: "#",
-    category: "Leads",
-    external: true,
-  },
-  {
     name: "E-App Guides",
     description: "Step-by-step electronic application walkthroughs by carrier.",
-    href: "#",
+    href: "https://mytrustedadvisor.wixsite.com/eappguides",
     category: "Guides",
+    external: true,
   },
   {
-    name: "Orion.io",
+    name: "Orion AI",
     description: "Quoting and underwriting platform for final-expense products.",
-    href: "#",
+    href: "https://www.orionaisolutions.ai/",
     category: "Quoting",
-    external: true,
-  },
-  {
-    name: "Carrier Portals",
-    description: "Direct links to every contracted carrier's agent portal.",
-    href: "#",
-    category: "Carriers",
-    external: true,
-  },
-  {
-    name: "Script Library",
-    description: "Phone scripts, rebuttals, and presentation flows.",
-    href: "#",
-    category: "Scripts",
-  },
-  {
-    name: "Commission Statements",
-    description: "View your advances, earned commissions, and chargebacks.",
-    href: "#",
-    category: "Pay",
-  },
-  {
-    name: "Compliance Docs",
-    description: "State requirements, disclosures, and CE tracking.",
-    href: "#",
-    category: "Compliance",
-  },
-  {
-    name: "Dialer Setup",
-    description: "Configure your power dialer and import lead lists.",
-    href: "#",
-    category: "Tools",
     external: true,
   },
 ];
