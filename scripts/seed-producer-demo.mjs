@@ -140,44 +140,47 @@ if (process.argv.includes("--clean")) {
 // 1) PRODUCTION — sales summing to $100k YTD and $600k all-time.
 //    Buckets: June (MTD) + Jan..May (rest of YTD) + 2 prior years (history).
 // ===========================================================================
-const MTD = { count: 14, ap: 18_000_00, start: monthStart, end: now };
-const YTD_REST = { count: 71, ap: 82_000_00, start: yearStart, end: preMonthEnd };
-const HIST = { count: 415, ap: 500_000_00, start: historyStart, end: new Date(yearStart.getTime() - 24 * 3600_000) };
+// Each bucket gets a pool of leads (received in-period); a subset close into
+// sales. A high-activity producer works far more leads than they close, so
+// leads >> sales — ~200 leads MTD with ~14 closing (~7% close rate).
+const MTD = { leads: 200, count: 14, ap: 18_000_00, start: monthStart, end: now };
+const YTD_REST = { leads: 1_000, count: 71, ap: 82_000_00, start: yearStart, end: preMonthEnd };
+const HIST = { leads: 5_000, count: 415, ap: 500_000_00, start: historyStart, end: new Date(yearStart.getTime() - 24 * 3600_000) };
 
-const saleSpecs = [];
+const insertedLeads = [];
+const saleRows = [];
 for (const b of [MTD, YTD_REST, HIST]) {
+  const leadRows = Array.from({ length: b.leads }, () => ({
+    person_id: PID,
+    first_name: pick(FIRST),
+    last_name: pick(LAST),
+    email: uniqueEmail("lead"),
+    phone: `555${randInt(1000000, 9999999)}`,
+    state: pick(STATES),
+    age: randInt(50, 80),
+    received_at: businessTsBetween(b.start, b.end),
+  }));
+  const bucketLeads = await insertAll("sales_lead", leadRows, { select: "id, received_at" });
+  insertedLeads.push(...bucketLeads);
+
+  // Convert the first `count` leads of this bucket into sales, AP summing exactly.
   const aps = weightedDistribute(b.ap, b.count);
   for (let i = 0; i < b.count; i++) {
-    const ts = businessTsBetween(b.start, b.end);
-    saleSpecs.push({ ap: aps[i], ts, state: pick(STATES), age: randInt(50, 80), carrier: pick(CARRIERS) });
+    const lead = bucketLeads[i];
+    saleRows.push({
+      person_id: PID,
+      lead_id: lead.id,
+      carrier: pick(CARRIERS),
+      face_amount_cents: randInt(10_000, 25_000) * 100,
+      monthly_premium_cents: Math.round(aps[i] / 12),
+      annual_premium_cents: aps[i],
+      beneficiary_name: fullName(),
+      effective_date: lead.received_at.slice(0, 10),
+      notes: "DEMO",
+      created_at: lead.received_at,
+    });
   }
 }
-
-// One lead per sale (FK), received the same day as the sale.
-const leadRows = saleSpecs.map((s) => ({
-  person_id: PID,
-  first_name: pick(FIRST),
-  last_name: pick(LAST),
-  email: uniqueEmail("lead"),
-  phone: `555${randInt(1000000, 9999999)}`,
-  state: s.state,
-  age: s.age,
-  received_at: s.ts,
-}));
-const insertedLeads = await insertAll("sales_lead", leadRows, { select: "id" });
-
-const saleRows = saleSpecs.map((s, i) => ({
-  person_id: PID,
-  lead_id: insertedLeads[i].id,
-  carrier: s.carrier,
-  face_amount_cents: randInt(10_000, 25_000) * 100,
-  monthly_premium_cents: Math.round(s.ap / 12),
-  annual_premium_cents: s.ap,
-  beneficiary_name: fullName(),
-  effective_date: s.ts.slice(0, 10),
-  notes: "DEMO",
-  created_at: s.ts,
-}));
 const insertedSales = await insertAll("sale", saleRows, { select: "id, person_id, created_at" });
 
 // Issued policies for ~78% of sales; deposits for ~70% of those.
@@ -236,6 +239,11 @@ const preMonthWeekdays = weekdaysInRange(historyStart, preMonthEnd);
 const mtdTracker = trackerRows(monthWeekdays, {
   dials: 4_000, contacts: 430, appointments: 100, presentations: 80, sales: MTD.count,
 });
+// Pin today's dials so the "Today" card reads a clean ~350 instead of a
+// distribution-dependent spike.
+const todayKey = now.toISOString().slice(0, 10);
+const todayRow = mtdTracker.find((r) => r.entry_date === todayKey);
+if (todayRow) todayRow.dials = 350;
 const histTracker = trackerRows(preMonthWeekdays, {
   dials: 86_000, contacts: 8_570, appointments: 2_100, presentations: 1_620,
   sales: YTD_REST.count + HIST.count,
