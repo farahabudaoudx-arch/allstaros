@@ -16,7 +16,7 @@ export default async function PortalCheckInPage({
 }) {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/portal/check-in");
-  if (person.is_builder) redirect("/dashboard");
+  if (person.is_builder) redirect("/producer");
   if (person.is_producer) redirect("/producer");
 
   const supabase = await createClient();

@@ -12,7 +12,7 @@ export default async function PortalLayout({
 }) {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/portal");
-  if (person.is_builder) redirect("/dashboard");
+  if (person.is_builder) redirect("/producer");
   if (person.is_producer) redirect("/producer");
 
   const supabase = await createClient();

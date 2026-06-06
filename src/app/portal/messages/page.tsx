@@ -11,7 +11,7 @@ import type { Message, Recruit } from "@/lib/db/types";
 export default async function PortalMessagesPage() {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/portal/messages");
-  if (person.is_builder) redirect("/dashboard");
+  if (person.is_builder) redirect("/producer");
   if (person.is_producer) redirect("/producer");
 
   const supabase = await createClient();
