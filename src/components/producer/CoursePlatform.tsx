@@ -242,10 +242,12 @@ export function CoursePlatform({
         </div>
       </div>
 
-      {/* Right: player + detail */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-8 md:px-8 lg:pt-[15rem]">
+      {/* Right: player + detail. The player stays put while the left list
+       * scrolls — `lg:my-auto` centers it vertically and collapses to allow
+       * scrolling only if the detail ever overflows a short viewport. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-8 md:px-8">
         {selected ? (
-          <div className="mx-auto w-full max-w-4xl">
+          <div className="mx-auto w-full max-w-4xl lg:my-auto">
             <Player course={selected} />
 
             <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
