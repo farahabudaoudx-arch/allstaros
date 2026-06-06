@@ -2,8 +2,9 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveLandingPath } from "@/lib/auth";
-import { LinkButton } from "@/components/ui";
+import { DEV_LOGIN_ENABLED } from "@/lib/devLogin";
 import { HeroVideo } from "@/components/HeroVideo";
+import { SignInModal } from "@/components/SignInModal";
 
 export const metadata = {
   title: "All Star OS — Systems designed to turn you into an All Star",
@@ -41,13 +42,7 @@ function Hero() {
           <span className="italic text-accent">All Star</span>
         </h1>
         <div className="mt-10">
-          <LinkButton
-            href="/auth/signin"
-            variant="primary"
-            className="px-7 py-3 text-base"
-          >
-            Sign In
-          </LinkButton>
+          <SignInModal next="/" devLogin={DEV_LOGIN_ENABLED} />
         </div>
       </div>
     </section>
