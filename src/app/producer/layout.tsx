@@ -34,6 +34,7 @@ function buildNav(isBuilder: boolean): NavItem[] {
     { label: "Clients", href: "/producer/clients" },
     { label: "Analytics", href: "/producer/analytics" },
     { label: "Resources", href: "/producer/resources" },
+    { label: "Messages", href: "/producer/upline" },
     { label: "Settings", href: "/producer/settings" },
   );
   return nav;

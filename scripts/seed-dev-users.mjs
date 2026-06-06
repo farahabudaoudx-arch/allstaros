@@ -82,29 +82,40 @@ for (const acc of accounts) {
   console.log(`  person  ${acc.role.padEnd(8)} ${acc.email}`);
 }
 
-// Pass 2: put the recruit under the builder and give them a recruit row.
+// Pass 2: place the recruit and the producer under the builder, each with a
+// recruit row so the dashboard isn't empty and both can message their upline.
 const builderId = personIdByRole.builder;
-const recruitId = personIdByRole.recruit;
 
-if (builderId && recruitId) {
-  await admin.from("person").update({ upline_id: builderId }).eq("id", recruitId);
+// [person.id, phase] for everyone who sits under the builder as their upline.
+const downline = [
+  [personIdByRole.recruit, "licensing"],
+  // The producer keeps a recruit row (now "graduated") so they have an upline
+  // thread to message — see /producer/upline.
+  [personIdByRole.producer, "graduated"],
+];
 
-  const { data: existingRecruit } = await admin
-    .from("recruit")
-    .select("id")
-    .eq("person_id", recruitId)
-    .maybeSingle();
+if (builderId) {
+  for (const [personId, phase] of downline) {
+    if (!personId) continue;
+    await admin.from("person").update({ upline_id: builderId }).eq("id", personId);
 
-  if (!existingRecruit) {
-    const { error } = await admin.from("recruit").insert({
-      person_id: recruitId,
-      builder_id: builderId,
-      phase: "licensing",
-    });
-    if (error) throw error;
-    console.log("  recruit row created under builder");
-  } else {
-    console.log("  recruit row already exists");
+    const { data: existingRecruit } = await admin
+      .from("recruit")
+      .select("id")
+      .eq("person_id", personId)
+      .maybeSingle();
+
+    if (!existingRecruit) {
+      const { error } = await admin.from("recruit").insert({
+        person_id: personId,
+        builder_id: builderId,
+        phase,
+      });
+      if (error) throw error;
+      console.log(`  recruit row created under builder (${phase})`);
+    } else {
+      console.log("  recruit row already exists");
+    }
   }
 }
 
