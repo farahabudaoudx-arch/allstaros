@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { signUpViaReferral } from "@/lib/actions/recruit-signup";
 import { finishDemoFlowForm } from "@/lib/actions/portal";
 import { US_STATES } from "@/lib/us-states";
+import { HeroVideo } from "@/components/HeroVideo";
 
 type Form = {
   firstName: string;
@@ -97,8 +98,15 @@ export function JoinWizard({
   const currentCard = done ? STEPS.length : step;
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-5 py-12">
-      <div className="w-full max-w-md">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-background px-5 py-12">
+      {/* Background video — same clip as the landing page hero. */}
+      <HeroVideo
+        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/all%20star%20login%20page%201.mp4"
+        className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+      />
+      {/* Dark tint so the wizard card and text stay readable over the video. */}
+      <div aria-hidden className="absolute inset-0 z-[1] bg-background/75" />
+      <div className="relative z-[2] w-full max-w-md">
         {/* Brand + sponsor */}
         <div className="mb-6 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">

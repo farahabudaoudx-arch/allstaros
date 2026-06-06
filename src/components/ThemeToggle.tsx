@@ -6,7 +6,7 @@ type Theme = "dark" | "light";
 
 /** Inline script run before paint to apply the saved theme and avoid a flash
  *  of the wrong palette. Injected once from the root layout. */
-export const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");var landing=location.pathname==="/";if(t==="light"&&!landing){document.documentElement.classList.add("light");}}catch(e){}})();`;
+export const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");var p=location.pathname;var landing=p==="/"||p.indexOf("/join")===0;if(t==="light"&&!landing){document.documentElement.classList.add("light");}}catch(e){}})();`;
 
 function currentTheme(): Theme {
   if (typeof document === "undefined") return "dark";
