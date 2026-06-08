@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getOrCreateReferralCode } from "@/lib/referral";
 
-const BACK = "/admin/referral-codes";
+const BACK = "/admin/builder-codes";
 
 function done(query: string): never {
   revalidatePath(BACK);

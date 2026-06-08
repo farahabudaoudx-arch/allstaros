@@ -40,7 +40,7 @@ export default async function AdminReferralCodesPage({
           Admin
         </p>
         <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
-          Referral Codes
+          Builder Codes
         </h1>
         <p className="mt-3 text-sm text-subtle">
           Builder invite links. Recruits sign up at{" "}

@@ -13,14 +13,15 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
     {
       label: "People",
       children: [
-        { label: "Roster", href: "/admin/people" },
-        { label: "Recruits", href: "/admin/recruits" },
+        { label: "Builders", href: "/admin/people/builders" },
+        { label: "Producers", href: "/admin/people/producers" },
+        { label: "Recruits", href: "/admin/people/recruits" },
       ],
     },
     {
       label: "Performance",
       children: [
-        { label: "Sales", href: "/admin/sales" },
+        { label: "Leaderboard", href: "/admin/leaderboard" },
         { label: "Lead Spend", href: "/admin/lead-spend" },
         { label: "Goals", href: "/admin/goals" },
       ],
@@ -35,7 +36,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
     {
       label: "Access",
       children: [
-        { label: "Referral Codes", href: "/admin/referral-codes" },
+        { label: "Builder Codes", href: "/admin/builder-codes" },
         { label: "Auth Ops", href: "/admin/auth-ops" },
         { label: "Login Monitoring", href: "/admin/login-monitoring" },
       ],
@@ -45,11 +46,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
   if (isSuperAdmin) {
     nav.push({
       label: "Super Admin",
-      children: [
-        { label: "Roles & Minting", href: "/admin/minting" },
-        { label: "System", href: "/admin/system" },
-        { label: "Audit Log", href: "/admin/audit" },
-      ],
+      children: [{ label: "Roles & Minting", href: "/admin/minting" }],
     });
   }
 

@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { resetDevRecruitByPersonId } from "@/lib/devReset";
 import { PHASES, type Phase } from "@/lib/db/types";
 
-const BACK = "/admin/recruits";
+const BACK = "/admin/people/recruits";
 
 /**
  * Admin recruit override. Unlike the builder RPCs (which require is_builder and
@@ -101,4 +102,18 @@ export async function adminRestoreRecruit(formData: FormData) {
     .eq("id", recruitId);
   if (error) done(`error=${encodeURIComponent(error.message)}`);
   done("ok=restored");
+}
+
+/** Reset a recruit's portal to the very start of licensing (step 1). */
+export async function adminResetRecruitPortal(formData: FormData) {
+  await requireAdmin();
+  const personId = String(formData.get("personId") ?? "");
+  const backPath = String(formData.get("back") ?? BACK);
+  if (!personId) {
+    revalidatePath(backPath);
+    redirect(`${backPath}?error=${encodeURIComponent("Missing person.")}`);
+  }
+  await resetDevRecruitByPersonId(personId);
+  revalidatePath(backPath);
+  redirect(`${backPath}?ok=reset`);
 }

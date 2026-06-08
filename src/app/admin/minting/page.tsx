@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   adminSetAdminFlag,
   adminSetOwnerFlag,
+  adminAddAdminByEmail,
 } from "@/lib/actions/admin/minting";
 
 type Row = {
@@ -54,34 +55,19 @@ function ToggleBtn({
 export default async function AdminMintingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; error?: string; q?: string }>;
+  searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const caller = await requireSuperAdmin();
   const flash = await searchParams;
-  const q = (flash.q ?? "").trim();
   const supabase = await createClient();
 
-  // Always show current privileged accounts; plus search results for promoting others.
   const { data: privilegedData } = await supabase
     .from("person")
     .select("id, full_name, email, is_admin, is_super_admin, is_owner")
     .or("is_admin.eq.true,is_owner.eq.true,is_super_admin.eq.true")
     .order("full_name", { ascending: true });
 
-  let searchRows: Row[] = [];
-  if (q) {
-    const { data } = await supabase
-      .from("person")
-      .select("id, full_name, email, is_admin, is_super_admin, is_owner")
-      .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`)
-      .order("full_name", { ascending: true })
-      .limit(50);
-    searchRows = (data ?? []) as Row[];
-  }
-
   const privileged = (privilegedData ?? []) as Row[];
-  const privilegedIds = new Set(privileged.map((p) => p.id));
-  const searchOnly = searchRows.filter((r) => !privilegedIds.has(r.id));
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -110,37 +96,33 @@ export default async function AdminMintingPage({
         </p>
       ) : null}
 
+      {/* Add a person as admin by email */}
+      <section className="mt-8 rounded-2xl border border-hairline bg-card p-5">
+        <h2 className="text-sm font-semibold text-ink">Add an admin</h2>
+        <p className="mt-1 text-sm text-subtle">
+          Enter anyone&apos;s email to make them an admin (e.g. the CEO or his EA).
+        </p>
+        <form action={adminAddAdminByEmail} className="mt-3 flex flex-wrap gap-2">
+          <input
+            name="email"
+            type="email"
+            placeholder="person@example.com"
+            className="w-full max-w-md rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          />
+          <button
+            type="submit"
+            className="rounded-full bg-accent px-5 py-2 text-xs font-semibold text-black transition hover:opacity-90"
+          >
+            Add as admin
+          </button>
+        </form>
+      </section>
+
       <Section title={`Current admins & owners (${privileged.length})`}>
         {privileged.map((p) => (
           <PersonRow key={p.id} p={p} selfId={caller.id} />
         ))}
       </Section>
-
-      <form method="get" className="mt-10 flex gap-2">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Search anyone to promote…"
-          className="w-full max-w-md rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-        />
-        <button
-          type="submit"
-          className="rounded-full border border-hairline px-4 py-2 text-xs font-semibold text-ink transition hover:border-accent hover:text-accent"
-        >
-          Search
-        </button>
-      </form>
-
-      {q ? (
-        <Section title={`Search results (${searchOnly.length})`}>
-          {searchOnly.map((p) => (
-            <PersonRow key={p.id} p={p} selfId={caller.id} />
-          ))}
-          {searchOnly.length === 0 ? (
-            <p className="text-sm text-mute">No other matches.</p>
-          ) : null}
-        </Section>
-      ) : null}
     </main>
   );
 }

@@ -1,129 +1,83 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/guard";
 
-type SectionStatus = "available" | "soon" | "super";
-
-type Section = {
-  name: string;
-  description: string;
-  href?: string;
-  status: SectionStatus;
-};
+type Section = { name: string; description: string; href: string };
 
 const SECTIONS: Section[] = [
   {
-    name: "People",
-    description: "Org-wide roster, profile edits, activate/deactivate, role toggles.",
-    href: "/admin/people",
-    status: "soon",
+    name: "Builders",
+    description: "Manage builders, their downline, bulk add + invite a team.",
+    href: "/admin/people/builders",
+  },
+  {
+    name: "Producers",
+    description: "View activity, reassign upline, view their portal.",
+    href: "/admin/people/producers",
   },
   {
     name: "Recruits",
-    description: "Pipeline oversight — flag, correct phase, remove.",
-    href: "/admin/recruits",
-    status: "soon",
+    description: "Activity, reassign upline, reset portal, change step.",
+    href: "/admin/people/recruits",
   },
   {
-    name: "Sales",
-    description: "Org-wide leaderboards, funnel, per-team drill-down.",
-    href: "/admin/sales",
-    status: "soon",
+    name: "Leaderboard",
+    description: "Org-wide performance across the full funnel.",
+    href: "/admin/leaderboard",
   },
   {
     name: "Lead Spend",
     description: "Audit every producer's lead purchases, cost-per-lead, export.",
     href: "/admin/lead-spend",
-    status: "soon",
   },
   {
     name: "Goals",
     description: "Set and adjust producer & team targets.",
     href: "/admin/goals",
-    status: "soon",
   },
   {
     name: "Training Content",
-    description: "Upload / delete videos across all five libraries via Bunny links.",
+    description: "Manage training videos per library via Bunny links.",
     href: "/admin/training",
-    status: "soon",
   },
   {
     name: "Training Schedule",
-    description: "Manage upcoming live trainings shown on the producer dashboard.",
+    description: "Upcoming live trainings shown on the producer dashboard.",
     href: "/admin/schedule",
-    status: "soon",
   },
   {
-    name: "Referral Codes",
+    name: "Builder Codes",
     description: "Generate, revoke, and review builder invite codes.",
-    href: "/admin/referral-codes",
-    status: "soon",
+    href: "/admin/builder-codes",
   },
   {
     name: "Auth Ops",
     description: "Resend invites and trigger password resets.",
     href: "/admin/auth-ops",
-    status: "soon",
   },
   {
     name: "Login Monitoring",
-    description: "Per-user login history with auto-flagged new-location sign-ins.",
+    description: "Login history with auto-flagged new-location sign-ins.",
     href: "/admin/login-monitoring",
-    status: "soon",
   },
 ];
 
 const SUPER_SECTIONS: Section[] = [
   {
     name: "Roles & Minting",
-    description: "Grant or revoke admin and owner. Reserved to super-admins.",
+    description: "Add a person as admin, or grant/revoke owner. Super-admins only.",
     href: "/admin/minting",
-    status: "super",
-  },
-  {
-    name: "System",
-    description: "Feature flags, API keys, hard deletes, impersonation.",
-    href: "/admin/system",
-    status: "super",
-  },
-  {
-    name: "Audit Log",
-    description: "Every sensitive admin action, with actor and target.",
-    href: "/admin/audit",
-    status: "super",
   },
 ];
 
-function StatusBadge({ status }: { status: SectionStatus }) {
-  if (status === "available") {
-    return (
-      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent ring-1 ring-accent/30">
-        Available
-      </span>
-    );
-  }
-  if (status === "super") {
-    return (
-      <span className="rounded-full bg-card-hi px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-subtle ring-1 ring-hairline">
-        Super Admin
-      </span>
-    );
-  }
-  return (
-    <span className="rounded-full bg-card-hi px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-mute ring-1 ring-hairline">
-      Coming soon
-    </span>
-  );
-}
-
 function SectionCard({ s }: { s: Section }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-hairline bg-card p-5">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-base font-semibold text-ink">{s.name}</h3>
-        <StatusBadge status={s.status} />
-      </div>
+    <Link
+      href={s.href}
+      className="flex flex-col rounded-2xl border border-hairline bg-card p-5 transition hover:border-accent hover:bg-card-hi"
+    >
+      <h3 className="text-base font-semibold text-ink">{s.name}</h3>
       <p className="mt-1.5 text-sm text-subtle">{s.description}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -142,7 +96,7 @@ export default async function AdminHomePage() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-subtle">
           {isSuper
-            ? "You hold the reserved system tier — everything below plus minting, hard deletes, and the audit log."
+            ? "You hold the reserved tier — everything below, plus adding admins and owners."
             : "Welcome. Manage people, performance, content, and access across the whole organization."}
         </p>
       </div>

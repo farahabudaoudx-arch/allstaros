@@ -55,3 +55,40 @@ export async function adminSetAdminFlag(formData: FormData) {
 export async function adminSetOwnerFlag(formData: FormData) {
   await setFlag(formData, "is_owner");
 }
+
+/** Add a person as admin by their email — find them and grant is_admin. */
+export async function adminAddAdminByEmail(formData: FormData) {
+  const caller = await requireSuperAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) done(`error=${encodeURIComponent("Enter an email.")}`);
+
+  const admin = createServiceRoleClient();
+  const { data: person } = await admin
+    .from("person")
+    .select("id, full_name, is_admin")
+    .ilike("email", email)
+    .maybeSingle();
+  if (!person) {
+    done(`error=${encodeURIComponent(`No one found with email ${email}.`)}`);
+  }
+  if (person.id === caller.id) {
+    done(`error=${encodeURIComponent("You're already an admin.")}`);
+  }
+  if (person.is_admin) {
+    done(`error=${encodeURIComponent(`${person.full_name} is already an admin.`)}`);
+  }
+
+  const { error } = await admin
+    .from("person")
+    .update({ is_admin: true })
+    .eq("id", person.id);
+  if (error) done(`error=${encodeURIComponent(error.message)}`);
+
+  await writeAudit({
+    actorId: caller.id,
+    action: "grant_is_admin",
+    targetId: person.id,
+    detail: { via: "email", email },
+  });
+  done("ok=minted");
+}

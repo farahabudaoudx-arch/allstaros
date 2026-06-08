@@ -7,7 +7,7 @@ import { LeaderboardView } from "@/components/producer/LeaderboardView";
  * across the full funnel — AP, sales, dials, contacts, presentations — with
  * range + metric controls. We reuse that view here under the admin gate.
  */
-export default async function AdminSalesPage() {
+export default async function AdminLeaderboardPage() {
   await requireAdmin();
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -16,7 +16,7 @@ export default async function AdminSalesPage() {
           Admin
         </p>
         <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
-          Sales
+          Leaderboard
         </h1>
         <p className="mt-3 text-sm text-subtle">
           Organization-wide performance across the full funnel.
