@@ -7,16 +7,21 @@ function buildNav(isBuilder: boolean): NavItem[] {
     { label: "Previous Live Trainings", href: "/producer/trainings/live" },
     { label: "Bootcamp", href: "/producer/trainings/bootcamp", locked: true },
     { label: "Accelerator", href: "/producer/trainings/accelerator", locked: true },
+    { label: "Uplevel", href: "/producer/trainings/uplevel", locked: true },
   ];
-  // Uplevel is a leadership track — unlocked only once you're building a team.
-  if (isBuilder) {
-    trainingChildren.push({ label: "Uplevel", href: "/producer/trainings/uplevel" });
-  }
 
   const nav: NavItem[] = [
     { label: "Dashboard", href: "/producer" },
-    { label: "Dial Tracker", href: "/producer/tracker" },
     { label: "Leaderboard", href: "/producer/leaderboard" },
+    {
+      label: "Tracking",
+      children: [
+        { label: "Dial Tracker", href: "/producer/tracker" },
+        { label: "Analytics", href: "/producer/analytics" },
+        { label: "Lead Spend", href: "/producer/lead-spend" },
+        { label: "Clients", href: "/producer/clients" },
+      ],
+    },
   ];
   if (isBuilder) {
     nav.push({
@@ -30,9 +35,7 @@ function buildNav(isBuilder: boolean): NavItem[] {
     });
   }
   nav.push(
-    { label: "Training Portal", children: trainingChildren },
-    { label: "Clients", href: "/producer/clients" },
-    { label: "Analytics", href: "/producer/analytics" },
+    { label: "Training", children: trainingChildren },
     { label: "Resources", href: "/producer/resources" },
     { label: "Messages", href: "/producer/upline" },
     { label: "Settings", href: "/producer/settings" },

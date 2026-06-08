@@ -227,20 +227,6 @@ export function Sidebar({
         ) : null}
 
         <ThemeToggle collapsed={collapsed} />
-
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? "Expand menu" : "Collapse menu"}
-          className={`flex items-center gap-2 rounded-full border border-hairline px-3 py-2 text-xs font-medium text-subtle transition hover:border-mute hover:text-ink ${
-            collapsed ? "justify-center" : ""
-          }`}
-        >
-          <span aria-hidden className="text-base leading-none">
-            {collapsed ? "»" : "«"}
-          </span>
-          {!collapsed ? <span>Collapse</span> : null}
-        </button>
       </div>
     </aside>
   );
