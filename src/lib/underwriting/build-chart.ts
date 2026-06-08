@@ -10,8 +10,10 @@ export type BuildStatus = "TooThin" | "Immediate" | "Borderline" | "OverLimit";
 
 export type BuildResult = {
   status: BuildStatus;
-  inches: number;   // parsed height, in total inches (clamped to chart range)
-  weight: number;   // parsed weight, in lbs
+  inches: number;    // actual parsed height, in total inches (for display)
+  rowInches: number; // clamped to the chart's range (for cutoff lookup / row highlight)
+  offChart: boolean; // true when the height is taller/shorter than the chart covers
+  weight: number;    // parsed weight, in lbs
   // The band cutoffs that applied at this height (interpolated for in-between
   // heights). Exposed so the UI can show "Immediate range 115–290", etc.
   thin: number;
@@ -133,7 +135,16 @@ export function classifyBuild(
   else status = "OverLimit";
 
   const clampedInches = Math.min(MAX_INCHES, Math.max(MIN_INCHES, inches));
-  return { status, inches: clampedInches, weight, thin, immediate, borderline };
+  return {
+    status,
+    inches,                       // show what the agent actually typed
+    rowInches: clampedInches,     // cutoffs/row highlight use the nearest charted row
+    offChart: inches !== clampedInches,
+    weight,
+    thin,
+    immediate,
+    borderline,
+  };
 }
 
 // Pretty-print total inches as 5'8" for chart labels.

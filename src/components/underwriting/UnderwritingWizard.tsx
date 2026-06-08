@@ -612,6 +612,11 @@ function BuildStatusBanner({ height, weight }: { height: string; weight: string 
         <span style={{ color: "var(--ink-2)" }}>
           {formatHeight(result.inches)} · {result.weight} lbs — Immediate range{" "}
           {result.thin}–{result.immediate} lbs
+          {result.offChart && (
+            <span style={{ color: "var(--ink-3)" }}>
+              {" "}· outside chart, using {formatHeight(result.rowInches)} limits
+            </span>
+          )}
         </span>
         <button
           onClick={() => setShowChart((v) => !v)}
@@ -640,7 +645,7 @@ function BuildStatusBanner({ height, weight }: { height: string; weight: string 
             </thead>
             <tbody>
               {BUILD_ROWS.map((r) => {
-                const here = Math.round(result.inches) === r.inches;
+                const here = Math.round(result.rowInches) === r.inches;
                 return (
                   <tr
                     key={r.inches}
