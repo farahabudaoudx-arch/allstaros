@@ -17,11 +17,12 @@ export async function resolveLandingPath(
 ): Promise<string> {
   const { data: person } = await supabase
     .from("person")
-    .select("id, is_builder, is_producer")
+    .select("id, is_builder, is_producer, is_admin, is_super_admin")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
   if (!person) return "/onboarding/pending";
+  if (person.is_admin || person.is_super_admin) return "/admin";
   if (person.is_builder || person.is_producer) return "/producer";
   return "/portal";
 }

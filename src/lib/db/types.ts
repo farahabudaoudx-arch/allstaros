@@ -59,6 +59,9 @@ export type Person = {
   upline_id: string | null;
   is_builder: boolean;
   is_producer: boolean;
+  is_owner: boolean;
+  is_admin: boolean;
+  is_super_admin: boolean;
   status: PersonStatus;
   created_at: string;
   updated_at: string;
