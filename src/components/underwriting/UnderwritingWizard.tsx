@@ -412,6 +412,7 @@ export function UnderwritingWizard({
         />
       </div>
 
+      <DobWarningBanner dob={vitals.dob} />
       <AgeStatusBanner dob={vitals.dob} carriers={carriersByToolkit[toolkit] ?? []} />
       <BuildStatusBanner height={vitals.height} weight={vitals.weight} />
 
@@ -585,6 +586,41 @@ function VitalInput({
         style={{ padding: compact ? "8px 10px" : "10px 12px", fontSize: compact ? 14 : 15 }}
       />
     </label>
+  );
+}
+
+// Flags a bad DOB entry — a date in the future, or one implying an age over
+// 120 — since both silently produce no age and no other flag would catch them.
+function DobWarningBanner({ dob }: { dob: string }) {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dobLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  let msg = "";
+  if (dobLocal.getTime() > today.getTime()) {
+    msg = "The date of birth is in the future — please re-enter it.";
+  } else {
+    let age = now.getFullYear() - d.getFullYear();
+    const m = now.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+    if (age >= 120) msg = `That date of birth implies an age of ${age} — please check it.`;
+  }
+  if (!msg) return null;
+
+  const dot = "#F87171";
+  return (
+    <div className="rounded-md text-xs" style={{ border: `1px solid ${dot}55`, background: `${dot}14` }}>
+      <div className="flex items-center gap-2.5 px-3 py-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: dot }} />
+          <span className="font-semibold uppercase tracking-wider" style={{ color: dot }}>Check date of birth</span>
+        </span>
+        <span style={{ color: "var(--ink-2)" }}>{msg}</span>
+      </div>
+    </div>
   );
 }
 
