@@ -55,7 +55,7 @@ export const BUILD_STATUS_META: Record<
   { label: string; dot: string; note: string }
 > = {
   TooThin:    { label: "Too Thin",   dot: "#60A5FA", note: "Underweight for height — may signal frailty or chronic illness; expect extra scrutiny." },
-  Immediate:  { label: "Immediate",  dot: "#00DF81", note: "Build is within the standard range — likely qualifies for immediate coverage if otherwise healthy." },
+  Immediate:  { label: "Immediate",  dot: "#00DF81", note: "Build is within the standard range." },
   Borderline: { label: "Borderline", dot: "#FACC15", note: "Near the upper cutoff — may still qualify Immediate if otherwise healthy. Carriers vary ±10 lbs." },
   OverLimit:  { label: "Over Limit", dot: "#F87171", note: "Above the build limit for this height — likely graded or decline on build alone." },
 };
