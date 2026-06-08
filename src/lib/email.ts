@@ -44,6 +44,15 @@ function getFrom(): string {
   return from;
 }
 
+export type EmailAttachment = {
+  /** Filename shown to the recipient, e.g. "screenshot.png". */
+  filename: string;
+  /** Raw bytes of the file. */
+  content: Buffer;
+  /** MIME type, e.g. "image/png". Optional — Resend infers from the name. */
+  contentType?: string;
+};
+
 export type SendEmailParams = {
   /** Recipient address, or several. */
   to: string | string[];
@@ -54,6 +63,8 @@ export type SendEmailParams = {
   text?: string;
   /** Where replies should go. Defaults to the `from` address if omitted. */
   replyTo?: string;
+  /** Files to attach (e.g. a bug-report screenshot). */
+  attachments?: EmailAttachment[];
 };
 
 export type SendEmailResult =
@@ -70,7 +81,7 @@ export type SendEmailResult =
 export async function sendEmail(
   params: SendEmailParams,
 ): Promise<SendEmailResult> {
-  const { to, subject, html, text, replyTo } = params;
+  const { to, subject, html, text, replyTo, attachments } = params;
 
   if (!html && !text) {
     return { ok: false, error: "Email must include an html or text body." };
@@ -87,6 +98,13 @@ export async function sendEmail(
       to,
       subject,
       replyTo: replyTo ?? undefined,
+      attachments: attachments?.length
+        ? attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.contentType,
+          }))
+        : undefined,
       ...body,
     });
 
