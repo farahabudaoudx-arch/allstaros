@@ -4,7 +4,7 @@ import { computeStalls } from "@/lib/actions/flagging";
 import { phaseLabel, phaseStepLabel } from "@/lib/pipeline/labels";
 import { STALL_LAPSE_DAYS } from "@/lib/db/types";
 import type { CheckIn, Recruit, Person } from "@/lib/db/types";
-import { SectionHeading, LinkButton, Badge } from "@/components/ui";
+import { SectionHeading, Badge } from "@/components/ui";
 
 type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
 
@@ -51,11 +51,6 @@ export default async function DashboardPage({
       <SectionHeading
         kicker="Visibility — your downline only"
         title="Downline roster"
-        right={
-          <LinkButton href="/dashboard/recruits/new" variant="primary">
-            Mark interview passed
-          </LinkButton>
-        }
       />
 
       {params.created ? (
