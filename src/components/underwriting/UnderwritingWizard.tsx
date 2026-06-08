@@ -242,14 +242,37 @@ export function UnderwritingWizard({
   }, [debouncedQuery, toolkit]);
 
   const aggregated = useMemo<AggregatedCarrier[]>(() => {
+    // An over-limit build is an automatic decline at every carrier, no matter
+    // how clean the health history is — no carrier issues over its build chart.
+    // So when the client's height/weight lands in "Over Limit", we force every
+    // carrier to Decline and surface the build as the reason. (Borderline /
+    // Too Thin stay informational in the build banner — they don't hard-knock
+    // the application; health decides.)
+    const build = classifyBuild(vitals.height, vitals.weight);
+    const buildKnockout = build?.status === "OverLimit";
+    const applyBuild = (carriers: AggregatedCarrier[]): AggregatedCarrier[] => {
+      if (!buildKnockout || !build) return carriers;
+      const reason = `Build ${formatHeight(build.inches)} / ${build.weight} lbs is over the build limit for this height (≈ ${build.immediate} lbs max) — declined on build regardless of health.`;
+      return carriers.map((c) => ({
+        carrier: c.carrier,
+        outcome: "Decline" as Outcome,
+        perCondition: [
+          { condition: "Build (height & weight)", outcome: "Decline" as Outcome, rawInfo: reason },
+          ...c.perCondition,
+        ],
+      }));
+    };
+
     if (!analysis) return [];
     if (analysis.results.length === 0) {
       if (!analysis.noConditionsMentioned) return [];
       const list = carriersByToolkit[toolkit] ?? [];
-      return list
-        .slice()
-        .sort((a, b) => a.localeCompare(b))
-        .map((carrier) => ({ carrier, outcome: "Approved" as Outcome, perCondition: [] }));
+      return applyBuild(
+        list
+          .slice()
+          .sort((a, b) => a.localeCompare(b))
+          .map((carrier) => ({ carrier, outcome: "Approved" as Outcome, perCondition: [] }))
+      );
     }
     const all = new Set<string>();
     for (const r of analysis.results) {
@@ -276,8 +299,8 @@ export function UnderwritingWizard({
       if (r !== 0) return r;
       return a.carrier.localeCompare(b.carrier);
     });
-    return out;
-  }, [analysis, carriersByToolkit, toolkit]);
+    return applyBuild(out);
+  }, [analysis, carriersByToolkit, toolkit, vitals.height, vitals.weight]);
 
   useEffect(() => {
     if (!onAnalysisResult) return;
