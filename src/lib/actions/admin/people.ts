@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { writeAudit } from "@/lib/admin/audit";
 import type { Person } from "@/lib/db/types";
 
 const BACK = "/admin/people";
@@ -75,6 +76,12 @@ export async function adminSetRoleFlags(formData: FormData) {
     .update(flags)
     .eq("id", targetPersonId);
   if (error) done(`error=${encodeURIComponent(error.message)}`);
+  await writeAudit({
+    actorId: g.caller.id,
+    action: `set_role_${role}`,
+    targetId: targetPersonId,
+    detail: { role, next },
+  });
   done("ok=role");
 }
 
@@ -95,6 +102,12 @@ export async function adminSetStatus(formData: FormData) {
     .update({ status })
     .eq("id", targetPersonId);
   if (error) done(`error=${encodeURIComponent(error.message)}`);
+  await writeAudit({
+    actorId: g.caller.id,
+    action: `set_status_${status}`,
+    targetId: targetPersonId,
+    detail: { status },
+  });
   done("ok=status");
 }
 

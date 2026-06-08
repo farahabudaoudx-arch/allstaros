@@ -25,8 +25,9 @@ export default function SignInButton({ next }: { next: string }) {
       setStatus("error");
       return;
     }
-    // Full navigation so the server re-renders with the new session cookie.
-    window.location.href = next;
+    // Full navigation through the login recorder (captures IP/location), which
+    // then forwards to `next` with the new session cookie in place.
+    window.location.href = `/auth/after-login?next=${encodeURIComponent(next)}`;
   }
 
   return (

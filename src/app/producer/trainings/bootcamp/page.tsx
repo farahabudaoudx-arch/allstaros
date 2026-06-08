@@ -1,6 +1,7 @@
 import { CoursePlatform } from "@/components/producer/CoursePlatform";
-import { getProgram } from "@/lib/producer/trainings";
+import { resolveProgram } from "@/lib/producer/training-content";
 
-export default function BootcampPage() {
-  return <CoursePlatform program={getProgram("bootcamp")} />;
+export default async function BootcampPage() {
+  const program = await resolveProgram("bootcamp");
+  return <CoursePlatform program={program} />;
 }

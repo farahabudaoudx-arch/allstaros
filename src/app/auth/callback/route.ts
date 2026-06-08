@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
       if (user?.email) {
         await linkPersonByEmail(user.id, user.email);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      // Funnel through the login recorder so OAuth/invite/recovery logins are
+      // captured too, then on to `next`.
+      return NextResponse.redirect(
+        `${origin}/auth/after-login?next=${encodeURIComponent(next)}`,
+      );
     }
   }
 

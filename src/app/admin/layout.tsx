@@ -28,8 +28,8 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
     {
       label: "Content",
       children: [
-        { label: "Training Content", href: "/admin/training", locked: true },
-        { label: "Training Schedule", href: "/admin/schedule", locked: true },
+        { label: "Training Content", href: "/admin/training" },
+        { label: "Training Schedule", href: "/admin/schedule" },
       ],
     },
     {
@@ -37,7 +37,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
       children: [
         { label: "Referral Codes", href: "/admin/referral-codes" },
         { label: "Auth Ops", href: "/admin/auth-ops" },
-        { label: "Login Monitoring", href: "/admin/login-monitoring", locked: true },
+        { label: "Login Monitoring", href: "/admin/login-monitoring" },
       ],
     },
   ];
@@ -46,9 +46,9 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
     nav.push({
       label: "Super Admin",
       children: [
-        { label: "Roles & Minting", href: "/admin/minting", locked: true },
-        { label: "System", href: "/admin/system", locked: true },
-        { label: "Audit Log", href: "/admin/audit", locked: true },
+        { label: "Roles & Minting", href: "/admin/minting" },
+        { label: "System", href: "/admin/system" },
+        { label: "Audit Log", href: "/admin/audit" },
       ],
     });
   }
