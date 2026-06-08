@@ -46,9 +46,6 @@ export default async function SignInPage({
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">
             Sign in to continue
           </h1>
-          <p className="mt-3 text-sm text-subtle">
-            Sign in with the email and password you set up.
-          </p>
         </div>
 
         {params.error ? (
@@ -58,10 +55,6 @@ export default async function SignInPage({
         ) : null}
 
         <SignInButton next={params.next ?? "/"} />
-
-        <p className="mt-6 text-center text-xs text-mute">
-          By signing in you agree to be tracked through the pipeline.
-        </p>
 
         {DEV_LOGIN_ENABLED ? (
           <p className="mt-4 text-center text-xs text-mute">
