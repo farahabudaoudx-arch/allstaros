@@ -18,7 +18,7 @@ function Hero() {
       {/* Background video. Muted + playsInline so it autoplays everywhere,
           incl. iOS — see HeroVideo for the mobile-autoplay handling. */}
       <HeroVideo
-        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/all%20star%20login%20page%201.mp4"
+        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/homepage%20video%20final.mp4"
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
       />
       {/* Dark tint so the headline and accent stay readable over the video. */}

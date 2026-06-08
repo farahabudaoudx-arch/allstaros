@@ -102,7 +102,7 @@ export function JoinWizard({
     <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-background px-5 py-12">
       {/* Background video — same clip as the landing page hero. */}
       <HeroVideo
-        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/all%20star%20login%20page%201.mp4"
+        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/homepage%20video%20final.mp4"
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
       />
       {/* Dark tint so the wizard card and text stay readable over the video. */}
