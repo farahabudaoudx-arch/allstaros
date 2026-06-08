@@ -21,18 +21,13 @@ const SECTIONS: Section[] = [
   },
   {
     name: "Leaderboard",
-    description: "Org-wide performance across the full funnel.",
+    description: "Org-wide performance, filter by builder, lead-spend metric.",
     href: "/admin/leaderboard",
   },
   {
-    name: "Lead Spend",
-    description: "Audit every producer's lead purchases, cost-per-lead, export.",
-    href: "/admin/lead-spend",
-  },
-  {
-    name: "Goals",
-    description: "Set and adjust producer & team targets.",
-    href: "/admin/goals",
+    name: "Flags",
+    description: "Flagged recruits across the organization.",
+    href: "/admin/flags",
   },
   {
     name: "Training Content",

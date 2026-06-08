@@ -2,15 +2,33 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/site-url";
 import { welcomeEmail } from "@/lib/emails/welcome";
 
+type Role = "builder" | "producer" | "recruit";
+
+function pageFor(role: Role): string {
+  return role === "builder"
+    ? "/admin/people/builders"
+    : role === "producer"
+      ? "/admin/people/producers"
+      : "/admin/people/recruits";
+}
+
 function back(path: string, query: string): never {
   revalidatePath(path);
   redirect(`${path}?${query}`);
+}
+
+function roleFlags(role: Role): { is_builder: boolean; is_producer: boolean } {
+  return {
+    is_builder: role === "builder",
+    is_producer: role === "builder" || role === "producer",
+  };
 }
 
 /** Reassign a person to a new upline (or clear it). */
@@ -51,7 +69,6 @@ function parseRoster(text: string): ParsedPerson[] {
       email = angle[2].trim();
     } else if (line.includes(",")) {
       const [a, b] = line.split(",").map((s) => s.trim());
-      // Either "name, email" or "email, name" — pick the part that looks like an email.
       if (/@/.test(b ?? "")) {
         name = a;
         email = b;
@@ -70,93 +87,125 @@ function parseRoster(text: string): ParsedPerson[] {
   return out;
 }
 
-/**
- * Bulk-add a roster of people (names + emails) under one upline and one role,
- * then send each a branded invite email. Used to bring a new builder's whole
- * downline over at once. Each becomes a separate person. Best-effort per row:
- * rows that already exist or fail to email are reported, the rest still go.
- */
+// Create one person under an upline with the role's flags and email them a
+// branded invite. Returns true if the invite was sent.
+async function invitePerson(
+  admin: SupabaseClient,
+  p: { name: string; email: string; uplineId: string | null; role: Role },
+): Promise<boolean> {
+  const { data: existing } = await admin
+    .from("person")
+    .select("id")
+    .ilike("email", p.email)
+    .maybeSingle();
+  if (existing) return false;
+
+  const flags = roleFlags(p.role);
+  const { data: person, error: personErr } = await admin
+    .from("person")
+    .insert({
+      full_name: p.name,
+      email: p.email,
+      upline_id: p.uplineId,
+      is_builder: flags.is_builder,
+      is_producer: flags.is_producer,
+    })
+    .select("id")
+    .single();
+  if (personErr || !person) return false;
+
+  if (p.role === "recruit") {
+    await admin.from("recruit").insert({
+      person_id: person.id,
+      builder_id: p.uplineId ?? person.id,
+      phase: "licensing",
+    });
+  }
+
+  // Roll back the new rows if we can't actually deliver the invite, so a failure
+  // never leaves an un-invitable ghost account.
+  async function rollback() {
+    await admin.from("recruit").delete().eq("person_id", person!.id);
+    await admin.from("person").delete().eq("id", person!.id);
+  }
+
+  const { data: link } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: p.email,
+    options: { redirectTo: `${getAppUrl()}/auth/callback?next=/welcome` },
+  });
+  const setupUrl = link?.properties?.action_link;
+  if (!setupUrl) {
+    await rollback();
+    return false;
+  }
+
+  const mail = welcomeEmail({ firstName: p.name.split(/\s+/)[0], setupUrl });
+  const sent = await sendEmail({
+    to: p.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
+  if (!sent.ok) {
+    const authUserId = link?.user?.id;
+    if (authUserId) await admin.auth.admin.deleteUser(authUserId).catch(() => {});
+    await rollback();
+    return false;
+  }
+  return true;
+}
+
+function readRole(formData: FormData): Role {
+  const r = String(formData.get("role") ?? "recruit");
+  return r === "builder" || r === "producer" ? r : "recruit";
+}
+
+/** Add a single person under an upline and send their invite. */
+export async function adminAddPerson(formData: FormData) {
+  await requireAdmin();
+  const role = readRole(formData);
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const uplineId = String(formData.get("uplineId") ?? "").trim() || null;
+  const backPath = String(formData.get("back") ?? pageFor(role));
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    back(backPath, `error=${encodeURIComponent("Enter a valid email.")}`);
+  }
+
+  const admin = createServiceRoleClient();
+  const ok = await invitePerson(admin, {
+    name: name || email.split("@")[0],
+    email,
+    uplineId,
+    role,
+  });
+  if (!ok) {
+    back(backPath, `error=${encodeURIComponent("Couldn't add — they may already exist, or the email failed.")}`);
+  }
+  back(backPath, "ok=1&skipped=0");
+}
+
+/** Bulk-add a roster of people under one upline + role; invite them all. */
 export async function adminBulkInvite(formData: FormData) {
   await requireAdmin();
-  const BACK = "/admin/people/builders";
+  const role = readRole(formData);
   const uplineId = String(formData.get("uplineId") ?? "").trim() || null;
-  const role = String(formData.get("role") ?? "recruit"); // builder | producer | recruit
+  const backPath = String(formData.get("back") ?? pageFor(role));
   const roster = parseRoster(String(formData.get("roster") ?? ""));
 
   if (roster.length === 0) {
-    back(BACK, `error=${encodeURIComponent("No valid name/email rows found.")}`);
+    back(backPath, `error=${encodeURIComponent("No valid name/email rows found.")}`);
   }
-
-  const flags = {
-    is_builder: role === "builder",
-    is_producer: role === "builder" || role === "producer",
-  };
 
   const admin = createServiceRoleClient();
   let invited = 0;
   let skipped = 0;
-
   for (const p of roster) {
-    // One account per email.
-    const { data: existing } = await admin
-      .from("person")
-      .select("id")
-      .ilike("email", p.email)
-      .maybeSingle();
-    if (existing) {
-      skipped++;
-      continue;
-    }
-
-    const { data: person, error: personErr } = await admin
-      .from("person")
-      .insert({
-        full_name: p.name,
-        email: p.email,
-        upline_id: uplineId,
-        is_builder: flags.is_builder,
-        is_producer: flags.is_producer,
-      })
-      .select("id")
-      .single();
-    if (personErr || !person) {
-      skipped++;
-      continue;
-    }
-
-    // Recruits get a recruit row so they show in the pipeline.
-    if (role === "recruit") {
-      await admin.from("recruit").insert({
-        person_id: person.id,
-        builder_id: uplineId ?? person.id,
-        phase: "licensing",
-      });
-    }
-
-    const { data: link } = await admin.auth.admin.generateLink({
-      type: "invite",
-      email: p.email,
-      options: { redirectTo: `${getAppUrl()}/auth/callback?next=/welcome` },
-    });
-    const setupUrl = link?.properties?.action_link;
-    if (!setupUrl) {
-      skipped++;
-      continue;
-    }
-
-    const mail = welcomeEmail({
-      firstName: p.name.split(/\s+/)[0],
-      setupUrl,
-    });
-    const sent = await sendEmail({
-      to: p.email,
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-    });
-    if (sent.ok) invited++;
+    const ok = await invitePerson(admin, { ...p, uplineId, role });
+    if (ok) invited++;
     else skipped++;
   }
-
-  back(BACK, `ok=${invited}&skipped=${skipped}`);
+  back(backPath, `ok=${invited}&skipped=${skipped}`);
 }

@@ -210,110 +210,113 @@ export default async function AdminLeaderboardPage({
         </p>
       </div>
 
-      {/* Metric pills */}
-      <div className="mt-6 flex flex-wrap gap-2">
-        {METRICS.map((m) => (
-          <Link
-            key={m.key}
-            href={buildHref(baseParams, { metric: m.key })}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              m.key === metric
-                ? "bg-accent text-black"
-                : "border border-hairline text-subtle hover:border-accent hover:text-accent"
-            }`}
-          >
-            {m.label}
-          </Link>
-        ))}
-      </div>
+      {/* Filter card */}
+      <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-hairline bg-card p-4 sm:p-5">
+        <ControlRow label="Metric">
+          {METRICS.map((m) => (
+            <Pill
+              key={m.key}
+              href={buildHref(baseParams, { metric: m.key })}
+              active={m.key === metric}
+              solid
+            >
+              {m.label}
+            </Pill>
+          ))}
+        </ControlRow>
 
-      {/* Range pills */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {RANGES.map((r) => (
-          <Link
-            key={r.key}
-            href={buildHref(baseParams, { range: r.key })}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              r.key === rangeKey
-                ? "bg-card-hi text-ink ring-1 ring-hairline"
-                : "border border-hairline text-subtle hover:border-accent hover:text-accent"
-            }`}
-          >
-            {r.label}
-          </Link>
-        ))}
-      </div>
+        <ControlRow label="Range">
+          {RANGES.map((r) => (
+            <Pill
+              key={r.key}
+              href={buildHref(baseParams, { range: r.key })}
+              active={r.key === rangeKey}
+            >
+              {r.label}
+            </Pill>
+          ))}
+        </ControlRow>
 
-      {/* Builder filter */}
-      <form method="get" className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-hairline bg-card p-4">
-        <input type="hidden" name="metric" value={metric} />
-        <input type="hidden" name="range" value={rangeKey} />
-        <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-mute">
-            Builders (Ctrl/Cmd-click for several)
-          </span>
-          <select
-            name="builders"
-            multiple
-            defaultValue={selectedBuilders}
-            size={4}
-            className="min-w-[14rem] rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+        <ControlRow label="Builders">
+          <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+            {builders.map((b) => {
+              const isOn = selectedBuilders.includes(b.id);
+              const nextBuilders = isOn
+                ? selectedBuilders.filter((x) => x !== b.id)
+                : [...selectedBuilders, b.id];
+              return (
+                <Pill
+                  key={b.id}
+                  href={buildHref(baseParams, { builders: nextBuilders })}
+                  active={isOn}
+                  solid
+                >
+                  {b.full_name}
+                </Pill>
+              );
+            })}
+            {builders.length === 0 ? (
+              <span className="text-xs text-mute">No builders.</span>
+            ) : null}
+          </div>
+        </ControlRow>
+
+        <div className="flex flex-wrap items-center gap-4 border-t border-hairline pt-3">
+          <Pill
+            href={buildHref(baseParams, { downline: includeDownline ? "" : "1" })}
+            active={includeDownline}
           >
-            {builders.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.full_name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-subtle">
-          <input
-            type="checkbox"
-            name="downline"
-            value="1"
-            defaultChecked={includeDownline}
-          />
-          Include their downline builders
-        </label>
-        <button
-          type="submit"
-          className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-black transition hover:opacity-90"
-        >
-          Apply
-        </button>
-        {allowed ? (
-          <Link
-            href={buildHref({ metric, range: rangeKey }, {})}
-            className="text-xs text-mute hover:text-accent"
-          >
-            Clear
-          </Link>
-        ) : null}
-      </form>
+            {includeDownline ? "✓ " : ""}Include downline
+          </Pill>
+          {allowed ? (
+            <Link
+              href={buildHref({ metric, range: rangeKey }, {})}
+              className="text-xs text-mute hover:text-accent"
+            >
+              Clear filter
+            </Link>
+          ) : (
+            <span className="text-xs text-mute">No filter — whole org.</span>
+          )}
+        </div>
+      </div>
 
       {/* Table */}
       <div className="mt-6 overflow-hidden rounded-2xl border border-hairline">
         <table className="w-full text-sm">
           <thead className="bg-card-hi text-left text-xs uppercase tracking-wide text-mute">
             <tr>
-              <th className="px-4 py-3 font-medium">#</th>
+              <th className="w-12 px-4 py-3 font-medium">#</th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 text-right font-medium">{metricCfg.label}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.person_id} className="border-t border-hairline">
-                <td className="px-4 py-3 text-mute">{i + 1}</td>
+              <tr
+                key={r.person_id}
+                className="border-t border-hairline transition hover:bg-card-hi/40"
+              >
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                      i < 3
+                        ? "bg-accent/15 text-accent"
+                        : "text-mute"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                </td>
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/people/${r.person_id}`}
-                    className="text-ink hover:text-accent"
+                    className="font-medium text-ink hover:text-accent"
                   >
                     {r.full_name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-right font-medium text-ink">
+                <td className="px-4 py-3 text-right font-semibold text-ink">
                   {fmt(r)}
                 </td>
               </tr>
@@ -329,5 +332,48 @@ export default async function AdminLeaderboardPage({
         </table>
       </div>
     </main>
+  );
+}
+
+function ControlRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
+      <span className="w-20 shrink-0 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-mute">
+        {label}
+      </span>
+      <div className="flex flex-1 flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function Pill({
+  href,
+  active,
+  solid,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  solid?: boolean;
+  children: React.ReactNode;
+}) {
+  const cls = active
+    ? solid
+      ? "bg-accent text-black"
+      : "bg-card-hi text-ink ring-1 ring-hairline"
+    : "border border-hairline text-subtle hover:border-accent hover:text-accent";
+  return (
+    <Link
+      href={href}
+      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${cls}`}
+    >
+      {children}
+    </Link>
   );
 }

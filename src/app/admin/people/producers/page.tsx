@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
+import { AddPeople } from "@/components/admin/AddPeople";
 
 type Producer = {
   id: string;
@@ -9,19 +10,30 @@ type Producer = {
   upline_id: string | null;
 };
 
-export default async function AdminProducersPage() {
+export default async function AdminProducersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string; skipped?: string; error?: string }>;
+}) {
   await requireAdmin();
+  const flash = await searchParams;
   const supabase = await createClient();
 
-  // Pure producers: producer flag set, but not builders (builders live on their
-  // own page).
-  const { data } = await supabase
-    .from("person")
-    .select("id, full_name, email, upline_id, is_builder, is_producer")
-    .eq("is_producer", true)
-    .eq("is_builder", false)
-    .order("full_name", { ascending: true });
-  const producers = (data ?? []) as Producer[];
+  const [{ data: producerData }, { data: builderData }] = await Promise.all([
+    supabase
+      .from("person")
+      .select("id, full_name, email, upline_id, is_builder, is_producer")
+      .eq("is_producer", true)
+      .eq("is_builder", false)
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("person")
+      .select("id, full_name")
+      .eq("is_builder", true)
+      .order("full_name", { ascending: true }),
+  ]);
+  const producers = (producerData ?? []) as Producer[];
+  const builders = (builderData ?? []) as { id: string; full_name: string }[];
 
   const uplineIds = [...new Set(producers.map((p) => p.upline_id).filter(Boolean))] as string[];
   const nameById = new Map<string, string>();
@@ -48,7 +60,24 @@ export default async function AdminProducersPage() {
         </p>
       </div>
 
-      <section className="mt-8 flex flex-col gap-2">
+      {flash.ok ? (
+        <p className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-accent">
+          {flash.skipped !== undefined
+            ? `Invited ${flash.ok}, skipped ${flash.skipped}.`
+            : "Done."}
+        </p>
+      ) : null}
+      {flash.error ? (
+        <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          {flash.error}
+        </p>
+      ) : null}
+
+      <div className="mt-8">
+        <AddPeople role="producer" uplines={builders} back="/admin/people/producers" />
+      </div>
+
+      <section className="mt-10 flex flex-col gap-2">
         {producers.map((p) => (
           <Link
             key={p.id}

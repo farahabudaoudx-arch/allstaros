@@ -15,9 +15,9 @@ const BACK = "/admin/people/recruits";
  * corrections: any admin can flag/unflag, freely set phase/step, or remove and
  * restore a recruit anywhere in the org. Writes go through the service role.
  */
-function done(query: string): never {
-  revalidatePath(BACK);
-  redirect(`${BACK}?${query}`);
+function done(query: string, backPath: string = BACK): never {
+  revalidatePath(backPath);
+  redirect(`${backPath}?${query}`);
 }
 
 async function loadRecruit(recruitId: string) {
@@ -36,9 +36,10 @@ export async function adminSetFlag(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const flagged = String(formData.get("flagged") ?? "") === "true";
   const reason = String(formData.get("reason") ?? "").trim() || null;
+  const b = String(formData.get("back") ?? BACK) || BACK;
 
   if (!(await loadRecruit(recruitId))) {
-    done(`error=${encodeURIComponent("Recruit not found.")}`);
+    done(`error=${encodeURIComponent("Recruit not found.")}`, b);
   }
 
   const admin = createServiceRoleClient();
@@ -46,8 +47,8 @@ export async function adminSetFlag(formData: FormData) {
     .from("recruit")
     .update({ flagged, flag_reason: flagged ? reason : null })
     .eq("id", recruitId);
-  if (error) done(`error=${encodeURIComponent(error.message)}`);
-  done("ok=flag");
+  if (error) done(`error=${encodeURIComponent(error.message)}`, b);
+  done("ok=flag", b);
 }
 
 export async function adminSetPhase(formData: FormData) {

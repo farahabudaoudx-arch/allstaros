@@ -11,6 +11,8 @@ export type NavItem = {
   href?: string;
   children?: NavItem[];
   locked?: boolean;
+  /** Opens in a new tab via a plain anchor (e.g. an external dashboard). */
+  external?: boolean;
 };
 
 function leafHrefs(items: NavItem[]): string[] {
@@ -135,6 +137,19 @@ export function Sidebar({
                           <span className="flex-1 truncate">{child.label}</span>
                           <LockIcon />
                         </div>
+                      ) : child.external ? (
+                        <a
+                          key={child.label}
+                          href={child.href ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 truncate rounded-lg px-3 py-2 text-sm text-subtle transition hover:bg-card-hi/60 hover:text-ink"
+                        >
+                          <span className="truncate">{child.label}</span>
+                          <span aria-hidden className="text-mute">
+                            ↗
+                          </span>
+                        </a>
                       ) : (
                         <Link
                           key={child.href}

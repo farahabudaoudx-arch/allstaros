@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
+import { AddPeople } from "@/components/admin/AddPeople";
 
 type RecruitRow = {
   id: string;
@@ -11,16 +12,28 @@ type RecruitRow = {
   removed_at: string | null;
 };
 
-export default async function AdminRecruitsListPage() {
+export default async function AdminRecruitsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string; skipped?: string; error?: string }>;
+}) {
   await requireAdmin();
+  const flash = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: recruitData }, { data: personData }] = await Promise.all([
-    supabase
-      .from("recruit")
-      .select("id, person_id, phase, phase_step, flagged, removed_at"),
-    supabase.from("person").select("id, full_name, email"),
-  ]);
+  const [{ data: recruitData }, { data: personData }, { data: builderData }] =
+    await Promise.all([
+      supabase
+        .from("recruit")
+        .select("id, person_id, phase, phase_step, flagged, removed_at"),
+      supabase.from("person").select("id, full_name, email"),
+      supabase
+        .from("person")
+        .select("id, full_name")
+        .eq("is_builder", true)
+        .order("full_name", { ascending: true }),
+    ]);
+  const builders = (builderData ?? []) as { id: string; full_name: string }[];
 
   const recruits = (recruitData ?? []) as RecruitRow[];
   const nameById = new Map(
@@ -49,6 +62,23 @@ export default async function AdminRecruitsListPage() {
           {recruits.length} recruits · {flaggedCount} flagged. Open a profile to
           reassign upline, reset their portal, or change their step.
         </p>
+      </div>
+
+      {flash.ok ? (
+        <p className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-accent">
+          {flash.skipped !== undefined
+            ? `Invited ${flash.ok}, skipped ${flash.skipped}.`
+            : "Done."}
+        </p>
+      ) : null}
+      {flash.error ? (
+        <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          {flash.error}
+        </p>
+      ) : null}
+
+      <div className="mt-8">
+        <AddPeople role="recruit" uplines={builders} back="/admin/people/recruits" />
       </div>
 
       <section className="mt-8 flex flex-col gap-2">

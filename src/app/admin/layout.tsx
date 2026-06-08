@@ -22,8 +22,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
       label: "Performance",
       children: [
         { label: "Leaderboard", href: "/admin/leaderboard" },
-        { label: "Lead Spend", href: "/admin/lead-spend" },
-        { label: "Goals", href: "/admin/goals" },
+        { label: "Flags", href: "/admin/flags" },
       ],
     },
     {
@@ -31,6 +30,11 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
       children: [
         { label: "Training Content", href: "/admin/training" },
         { label: "Training Schedule", href: "/admin/schedule" },
+        {
+          label: "Stream Bunny",
+          href: "https://dash.bunny.net/stream",
+          external: true,
+        },
       ],
     },
     {

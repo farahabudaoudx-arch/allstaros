@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 import { adminSetRoleFlags } from "@/lib/actions/admin/people";
-import { adminBulkInvite } from "@/lib/actions/admin/team";
+import { AddPeople } from "@/components/admin/AddPeople";
 
 type Builder = { id: string; full_name: string; email: string; upline_id: string | null };
 
@@ -47,61 +47,10 @@ export default async function AdminBuildersPage({
         </p>
       ) : null}
 
-      {/* Bulk add + invite a downline */}
-      <section className="mt-8 rounded-2xl border border-hairline bg-card p-5">
-        <h2 className="text-lg font-semibold text-ink">Bulk add &amp; invite</h2>
-        <p className="mt-1 text-sm text-subtle">
-          Paste one person per line — <span className="font-mono text-xs">Name, email</span>{" "}
-          or <span className="font-mono text-xs">Name &lt;email&gt;</span>. Pick an
-          upline and a role for the whole batch; everyone gets an invite email.
-        </p>
-        <form action={adminBulkInvite} className="mt-4 flex flex-col gap-3">
-          <textarea
-            name="roster"
-            rows={6}
-            placeholder={"Jane Doe, jane@example.com\nJohn Smith <john@example.com>"}
-            className="w-full rounded-lg border border-hairline bg-card-hi px-3 py-2 font-mono text-sm text-ink outline-none focus:border-accent"
-          />
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-mute">
-                Upline
-              </span>
-              <select
-                name="uplineId"
-                className="rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-              >
-                <option value="">— none —</option>
-                {builders.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.full_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-mute">
-                Role
-              </span>
-              <select
-                name="role"
-                defaultValue="recruit"
-                className="rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-              >
-                <option value="recruit">Recruit</option>
-                <option value="producer">Producer</option>
-                <option value="builder">Builder</option>
-              </select>
-            </label>
-            <button
-              type="submit"
-              className="rounded-full bg-accent px-5 py-2 text-xs font-semibold text-black transition hover:opacity-90"
-            >
-              Add &amp; send invites
-            </button>
-          </div>
-        </form>
-      </section>
+      {/* Add builders */}
+      <div className="mt-8">
+        <AddPeople role="builder" uplines={builders} back="/admin/people/builders" />
+      </div>
 
       {/* Builder roster */}
       <section className="mt-10 flex flex-col gap-2">
