@@ -154,6 +154,15 @@ export default async function PersonProfilePage({
         {person.phone ? ` · ${person.phone}` : ""}
       </p>
 
+      {person.is_producer ? (
+        <Link
+          href={`/admin/people/${id}/portal`}
+          className="mt-4 inline-block rounded-full border border-hairline px-4 py-2 text-xs font-semibold text-ink transition hover:border-accent hover:text-accent"
+        >
+          View portal (read-only) →
+        </Link>
+      ) : null}
+
       {flash.ok ? (
         <p className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-accent">
           {FLASH[flash.ok] ?? "Done."}
