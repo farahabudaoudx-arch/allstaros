@@ -1,24 +1,6 @@
 import Link from "next/link";
 import { LinkButton } from "@/components/ui";
-
-type Portal = {
-  name: string;
-  // Swap "#" for the real portal URL as links come in.
-  href: string;
-};
-
-const PORTALS: Portal[] = [
-  { name: "Americo", href: "https://account.americoagent.com/Identity/Account/Login/?returnUrl=https%3a%2f%2ftools.americoagent.com%2f" },
-  { name: "Ethos", href: "https://agents.ethoslife.com/login" },
-  { name: "Mutual Of Omaha", href: "https://accounts.mutualofomaha.com/samlAuthnRequest" },
-  { name: "NLG", href: "https://www.nationallife.com/agent" },
-  // Single Transamerica agent home serves both product lines.
-  { name: "Transamerica Express", href: "https://secure.transamerica.com/agenthome/#/" },
-  { name: "Transamerica Immediate Solutions", href: "https://secure.transamerica.com/agenthome/#/" },
-  { name: "Corebridge", href: "https://connext.corebridgefinancial.com/life/connext-portal/public/login" },
-  { name: "Aetna", href: "https://www.aetna.com/producer_public/login.fcc?icid=OLogin_nav_link" },
-  { name: "American Amicable", href: "https://www.insuranceapplication.com/AppPage/index.html" },
-];
+import { CARRIER_PORTALS as PORTALS } from "@/lib/carrier-portals";
 
 export default function PortalLinksPage() {
   return (

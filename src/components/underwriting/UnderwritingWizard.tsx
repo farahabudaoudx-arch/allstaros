@@ -9,7 +9,14 @@ import {
   BUILD_ROWS,
   BUILD_STATUS_META,
 } from "@/lib/underwriting/build-chart";
+import { portalUrlForCarrier } from "@/lib/carrier-portals";
 import { useTheme } from "@/lib/use-theme";
+
+// Guaranteed-issue products (e.g. Corebridge GIWL) issue regardless of build
+// or health, so they're exempt from the over-limit build knockout below.
+function isGuaranteedIssue(carrier: string): boolean {
+  return /\bGIWL\b|guaranteed issue/i.test(carrier);
+}
 
 const TOOLKITS: { id: Toolkit; label: string; hint: string }[] = [
   { id: "FEX",  label: "FEX",  hint: "Final Expense" },
@@ -253,14 +260,19 @@ export function UnderwritingWizard({
     const applyBuild = (carriers: AggregatedCarrier[]): AggregatedCarrier[] => {
       if (!buildKnockout || !build) return carriers;
       const reason = `Build ${formatHeight(build.inches)} / ${build.weight} lbs is over the build limit for this height (≈ ${build.immediate} lbs max) — declined on build regardless of health.`;
-      return carriers.map((c) => ({
-        carrier: c.carrier,
-        outcome: "Decline" as Outcome,
-        perCondition: [
-          { condition: "Build (height & weight)", outcome: "Decline" as Outcome, rawInfo: reason },
-          ...c.perCondition,
-        ],
-      }));
+      return carriers.map((c) =>
+        // Guaranteed-issue products issue regardless of build — leave them be.
+        isGuaranteedIssue(c.carrier)
+          ? c
+          : {
+              carrier: c.carrier,
+              outcome: "Decline" as Outcome,
+              perCondition: [
+                { condition: "Build (height & weight)", outcome: "Decline" as Outcome, rawInfo: reason },
+                ...c.perCondition,
+              ],
+            }
+      );
     };
 
     if (!analysis) return [];
@@ -697,19 +709,17 @@ function CarrierTile({
   const s = palette[outcome];
   const [open, setOpen] = useState(false);
   const hasDetail = perCondition.length > 0;
-  return (
-    <div
-      className="relative rounded-md px-3 py-2"
-      style={{
-        background: s.bg,
-        border: `1px solid ${s.border}`,
-        cursor: hasDetail ? "help" : "default",
-      }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <div className="text-sm font-medium truncate" style={{ color: s.fg }} title={carrier}>
-        {carrier}
+  const portalUrl = portalUrlForCarrier(carrier);
+
+  const inner = (
+    <>
+      <div className="flex items-start gap-1">
+        <div className="text-sm font-medium truncate" style={{ color: s.fg }} title={carrier}>
+          {carrier}
+        </div>
+        {portalUrl && (
+          <span aria-hidden className="text-xs shrink-0" style={{ color: s.fg, opacity: 0.7 }}>↗</span>
+        )}
       </div>
       <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: s.fg, opacity: 0.85 }}>
         {s.label}
@@ -747,6 +757,38 @@ function CarrierTile({
           })}
         </div>
       )}
+    </>
+  );
+
+  const tileClass = "relative rounded-md px-3 py-2 block";
+  const tileStyle: React.CSSProperties = {
+    background: s.bg,
+    border: `1px solid ${s.border}`,
+    cursor: portalUrl ? "pointer" : hasDetail ? "help" : "default",
+    textDecoration: "none",
+  };
+
+  // The whole tile is a link to the carrier's agent portal when we have one.
+  return portalUrl ? (
+    <a
+      href={portalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={tileClass}
+      style={tileStyle}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {inner}
+    </a>
+  ) : (
+    <div
+      className={tileClass}
+      style={tileStyle}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {inner}
     </div>
   );
 }
