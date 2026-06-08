@@ -195,11 +195,12 @@ export default async function AdminLeaderboardPage({
         <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
           Leaderboard
         </h1>
-        <p className="mt-3 text-sm text-subtle">
-          {allowed
-            ? `Filtered to ${selectedBuilders.length} builder${selectedBuilders.length === 1 ? "" : "s"} + their downline.`
-            : "Everyone, organization-wide."}
-        </p>
+        {allowed ? (
+          <p className="mt-3 text-sm text-subtle">
+            Filtered to {selectedBuilders.length} builder
+            {selectedBuilders.length === 1 ? "" : "s"} + their downline.
+          </p>
+        ) : null}
       </div>
 
       {/* Filter card */}
@@ -253,20 +254,16 @@ export default async function AdminLeaderboardPage({
           </div>
         </ControlRow>
 
-        <div className="flex flex-wrap items-center gap-4 border-t border-hairline pt-3">
-          {allowed ? (
+        {allowed ? (
+          <div className="flex flex-wrap items-center gap-4 border-t border-hairline pt-3">
             <Link
               href={buildHref({ metric, range: rangeKey }, {})}
               className="text-xs text-mute hover:text-accent"
             >
               Clear filter
             </Link>
-          ) : (
-            <span className="text-xs text-mute">
-              No filter — whole org. Selecting a builder includes their downline.
-            </span>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Table */}
