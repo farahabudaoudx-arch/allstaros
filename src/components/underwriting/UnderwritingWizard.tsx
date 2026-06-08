@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ConditionResult, Outcome, Toolkit } from "@/lib/underwriting/types";
 import { humanizeRawInfo } from "@/lib/underwriting/humanize";
 import {
@@ -809,8 +810,30 @@ function CarrierTile({
   const palette = outcomeStyles(theme);
   const s = palette[outcome];
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
+  const tileRef = useRef<HTMLElement | null>(null);
   const hasDetail = perCondition.length > 0;
   const portalUrl = portalUrlForCarrier(carrier);
+
+  const TIP_W = 384;
+  // Measure the tile and place the card as a viewport-fixed overlay, clamped on
+  // screen and flipped above the tile when there's more room up than down.
+  const showTip = () => {
+    const el = tileRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - TIP_W - 8));
+      const spaceBelow = window.innerHeight - r.bottom - 12;
+      const spaceAbove = r.top - 12;
+      if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
+        setPos({ left, top: r.bottom + 4, maxHeight: spaceBelow });
+      } else {
+        setPos({ left, bottom: window.innerHeight - r.top + 4, maxHeight: spaceAbove });
+      }
+    }
+    setOpen(true);
+  };
+  const hideTip = () => setOpen(false);
 
   const inner = (
     <>
@@ -825,43 +848,63 @@ function CarrierTile({
       <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: s.fg, opacity: 0.85 }}>
         {s.label}
       </div>
-      {open && hasDetail && (
-        <div
-          className="absolute z-40 left-0 top-full mt-1 w-96 rounded-lg p-3 text-[11px] leading-relaxed pointer-events-none shadow-xl"
-          style={{ background: "var(--card-1)", border: "1px solid var(--line-2)", color: "var(--ink-1)" }}
-        >
-          <div className="font-medium mb-2" style={{ color: "var(--ink-0)" }}>{carrier}</div>
-          {perCondition.map((p) => {
-            const ps = palette[p.outcome];
-            const rules = humanizeRawInfo(p.rawInfo);
-            const hasRules = rules.length > 0;
-            return (
-              <div key={p.condition} className="mb-2.5 last:mb-0">
-                <div style={{ color: "var(--ink-2)" }}>{p.condition}</div>
-                <div style={{ color: ps.fg, fontWeight: 500 }}>{ps.label}</div>
-                {hasRules && (
-                  <ul className="mt-1 space-y-0.5" style={{ listStyle: "none", paddingLeft: 0 }}>
-                    {rules.map((r, i) => (
-                      <li key={i} className="flex gap-1.5" style={{ color: "var(--ink-2)" }}>
-                        <span style={{ color: "var(--ink-3)" }}>•</span>
-                        <span>
-                          <span>{r.when}</span>
-                          <span style={{ color: "var(--ink-3)" }}> → </span>
-                          <span style={{ color: "var(--ink-1)" }}>{r.then}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </>
   );
 
-  const tileClass = "relative rounded-md px-3 py-2 block";
+  // Rendered into <body> as a fixed overlay so it never shifts page layout
+  // (an in-flow card caused a scrollbar flicker that toggled the hover state).
+  const tip =
+    open && hasDetail && pos && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="rounded-lg p-3 text-[11px] leading-relaxed pointer-events-none shadow-xl"
+            style={{
+              position: "fixed",
+              left: pos.left,
+              top: pos.top,
+              bottom: pos.bottom,
+              width: TIP_W,
+              maxWidth: "calc(100vw - 16px)",
+              maxHeight: pos.maxHeight,
+              overflowY: "auto",
+              zIndex: 60,
+              background: "var(--card-1)",
+              border: "1px solid var(--line-2)",
+              color: "var(--ink-1)",
+            }}
+          >
+            <div className="font-medium mb-2" style={{ color: "var(--ink-0)" }}>{carrier}</div>
+            {perCondition.map((p) => {
+              const ps = palette[p.outcome];
+              const rules = humanizeRawInfo(p.rawInfo);
+              const hasRules = rules.length > 0;
+              return (
+                <div key={p.condition} className="mb-2.5 last:mb-0">
+                  <div style={{ color: "var(--ink-2)" }}>{p.condition}</div>
+                  <div style={{ color: ps.fg, fontWeight: 500 }}>{ps.label}</div>
+                  {hasRules && (
+                    <ul className="mt-1 space-y-0.5" style={{ listStyle: "none", paddingLeft: 0 }}>
+                      {rules.map((r, i) => (
+                        <li key={i} className="flex gap-1.5" style={{ color: "var(--ink-2)" }}>
+                          <span style={{ color: "var(--ink-3)" }}>•</span>
+                          <span>
+                            <span>{r.when}</span>
+                            <span style={{ color: "var(--ink-3)" }}> → </span>
+                            <span style={{ color: "var(--ink-1)" }}>{r.then}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>,
+          document.body
+        )
+      : null;
+
+  const tileClass = "rounded-md px-3 py-2 block";
   const tileStyle: React.CSSProperties = {
     background: s.bg,
     border: `1px solid ${s.border}`,
@@ -872,24 +915,28 @@ function CarrierTile({
   // The whole tile is a link to the carrier's agent portal when we have one.
   return portalUrl ? (
     <a
+      ref={(el) => { tileRef.current = el; }}
       href={portalUrl}
       target="_blank"
       rel="noopener noreferrer"
       className={tileClass}
       style={tileStyle}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={showTip}
+      onMouseLeave={hideTip}
     >
       {inner}
+      {tip}
     </a>
   ) : (
     <div
+      ref={(el) => { tileRef.current = el; }}
       className={tileClass}
       style={tileStyle}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={showTip}
+      onMouseLeave={hideTip}
     >
       {inner}
+      {tip}
     </div>
   );
 }
