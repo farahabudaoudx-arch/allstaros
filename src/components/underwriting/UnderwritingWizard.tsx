@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConditionResult, Outcome, Toolkit } from "@/lib/underwriting/types";
 import { humanizeRawInfo } from "@/lib/underwriting/humanize";
+import {
+  classifyBuild,
+  formatHeight,
+  BUILD_ROWS,
+  BUILD_STATUS_META,
+} from "@/lib/underwriting/build-chart";
 import { useTheme } from "@/lib/use-theme";
 
 const TOOLKITS: { id: Toolkit; label: string; hint: string }[] = [
@@ -351,6 +357,8 @@ export function UnderwritingWizard({
         />
       </div>
 
+      <BuildStatusBanner height={vitals.height} weight={vitals.weight} />
+
       <textarea
         ref={textareaRef}
         className="input w-full"
@@ -521,6 +529,86 @@ function VitalInput({
         style={{ padding: compact ? "8px 10px" : "10px 12px", fontSize: compact ? 14 : 15 }}
       />
     </label>
+  );
+}
+
+// Live build read from the height + weight vitals. Renders nothing until both
+// fields parse, then shows a colored status (Too Thin / Immediate / Borderline
+// / Over Limit) with the band cutoffs and an expandable full reference chart.
+function BuildStatusBanner({ height, weight }: { height: string; weight: string }) {
+  const [showChart, setShowChart] = useState(false);
+  const result = classifyBuild(height, weight);
+  if (!result) return null;
+
+  const meta = BUILD_STATUS_META[result.status];
+
+  return (
+    <div
+      className="rounded-md text-xs"
+      style={{ border: `1px solid ${meta.dot}55`, background: `${meta.dot}14` }}
+    >
+      <div className="flex items-center gap-2.5 px-3 py-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: meta.dot }} />
+          <span className="font-semibold uppercase tracking-wider" style={{ color: meta.dot }}>
+            {meta.label}
+          </span>
+        </span>
+        <span style={{ color: "var(--ink-2)" }}>
+          {formatHeight(result.inches)} · {result.weight} lbs — Immediate range{" "}
+          {result.thin}–{result.immediate} lbs
+        </span>
+        <button
+          onClick={() => setShowChart((v) => !v)}
+          className="ml-auto"
+          style={{ color: "var(--ink-3)", cursor: "pointer", textDecoration: "underline" }}
+        >
+          {showChart ? "Hide chart" : "View chart"}
+        </button>
+      </div>
+
+      <div className="px-3 pb-2" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
+        {meta.note}
+      </div>
+
+      {showChart && (
+        <div className="px-3 pb-3 pt-1">
+          <table className="w-full" style={{ borderCollapse: "collapse", color: "var(--ink-2)" }}>
+            <thead>
+              <tr style={{ color: "var(--ink-3)", textAlign: "left" }}>
+                <th className="font-semibold pb-1 pr-3">Height</th>
+                <th className="font-semibold pb-1 pr-3" style={{ color: "#60A5FA" }}>Too Thin</th>
+                <th className="font-semibold pb-1 pr-3" style={{ color: "#00DF81" }}>Immediate</th>
+                <th className="font-semibold pb-1 pr-3" style={{ color: "#FACC15" }}>Borderline</th>
+                <th className="font-semibold pb-1" style={{ color: "#F87171" }}>Over Limit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BUILD_ROWS.map((r) => {
+                const here = Math.round(result.inches) === r.inches;
+                return (
+                  <tr
+                    key={r.inches}
+                    style={here ? { background: `${meta.dot}1f` } : undefined}
+                  >
+                    <td className="py-0.5 pr-3" style={{ color: here ? "var(--ink-0)" : "var(--ink-1)", fontWeight: here ? 700 : 400 }}>
+                      {formatHeight(r.inches)}
+                    </td>
+                    <td className="py-0.5 pr-3">&lt;{r.thin}</td>
+                    <td className="py-0.5 pr-3">{r.thin}–{r.immediate}</td>
+                    <td className="py-0.5 pr-3">{r.immediate + 1}–{r.borderline}</td>
+                    <td className="py-0.5">{r.borderline + 1}+</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="mt-2" style={{ color: "var(--ink-3)" }}>
+            Based on Americo, Mutual of Omaha &amp; Corebridge build guides. Carriers vary ±10 lbs — verify near a cutoff.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
