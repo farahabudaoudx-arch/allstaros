@@ -24,7 +24,6 @@ if (!apiKey || !from || !to) {
 const { subject, html, text } = welcomeEmail({
   firstName: "Marcus",
   setupUrl: "https://app.allstarlifegroup.com/auth/setup?token=preview-sample-token",
-  expiryHours: 48,
 });
 
 const resend = new Resend(apiKey);

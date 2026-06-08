@@ -1,40 +1,43 @@
-// "Welcome — set up your account" email. Sent to a newly registered recruit so
-// they can create their password and sign in for the first time (the flow we're
-// moving to as we retire magic-link-only auth).
+// "Invite / account setup" email — the ONLY email a new recruit receives.
 //
-// Returns { subject, html, text } ready to hand to sendEmail(). The HTML is
-// table-based with fully inline styles so it renders consistently across email
-// clients (Gmail, Apple Mail, Outlook). Brand palette matches the app:
-//   background #050505 · gold #f6c945 · card #0d0d0d · hairline #1e1e1e
+// A team builder invites a recruit by email; this message is how they get in.
+// It carries a one-time setup link (`setupUrl`) that lands them on a page to
+// enter their name, phone, and state and set a password. There is no public
+// sign-up, so the email is intentionally legitimate-feeling with one obvious CTA.
+//
+// welcomeEmail() returns { subject, html, text } ready to hand to the Resend
+// sendEmail() helper — it does NOT send anything itself. The HTML is table-based
+// with fully inline styles (no <style> blocks, no flexbox/grid) so it renders
+// consistently across Gmail, Apple Mail, and Outlook.
+//
+// Brand palette is inlined below. Typeface is Helvetica throughout.
 
-const BG = "#050505";
-const CARD = "#0d0d0d";
-const HAIRLINE = "#1f1f1f";
-const GOLD = "#f6c945";
-const GOLD_SOFT = "#c9a235";
-const INK = "#f5f5f5";
-const SUBTLE = "#9a9a9a";
-const MUTE = "#6a6a6a";
+// ── Brand palette (dark theme) ────────────────────────────────────────────────
+const BG = "#050505"; // page background
+const CARD = "#0d0d0d"; // email card
+const HAIRLINE = "#1f1f1f"; // dividers / card border
+const GOLD = "#f6c945"; // accent: button + top rule
+const GOLD_SOFT = "#c9a235"; // accent: eyebrow + links
+const INK = "#f5f5f5"; // primary text
+const SUBTLE = "#9a9a9a"; // body text
+const MUTE = "#6a6a6a"; // fine print
+
+const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 
 // Absolute URL — email clients can't resolve relative paths.
 const LOGO_URL = "https://app.allstarlifegroup.com/logo.png";
 
-export type WelcomeEmailParams = {
-  /** Recruit's first name for the greeting. Falls back to a generic line. */
-  firstName?: string;
-  /** The one-click link to the account-setup (create password) page. */
-  setupUrl: string;
-  /** How long the setup link stays valid, for the fine print. */
-  expiryHours?: number;
-};
+export function welcomeEmail(params: {
+  firstName?: string; // recruit's first name; may be undefined → generic greeting
+  setupUrl: string; // the one-time setup link; primary CTA button href
+  expiryHours?: number; // how long the link is valid, for the fine print
+}): { subject: string; html: string; text: string } {
+  const { firstName, setupUrl, expiryHours = 24 } = params;
 
-export function welcomeEmail({
-  firstName,
-  setupUrl,
-  expiryHours = 48,
-}: WelcomeEmailParams): { subject: string; html: string; text: string } {
-  const greeting = firstName ? `Welcome, ${firstName}.` : "Welcome to All Star.";
-  const subject = "Welcome to All Star — set up your account";
+  const greeting = firstName
+    ? `Welcome to All Star, ${firstName}.`
+    : "Welcome to All Star.";
+  const subject = "You're invited to All Star — set up your account";
 
   const html = `<!doctype html>
 <html lang="en">
@@ -48,7 +51,7 @@ export function welcomeEmail({
   <body style="margin:0;padding:0;background-color:${BG};">
     <!-- Preheader: shows in the inbox preview, hidden in the body. -->
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${BG};font-size:1px;line-height:1px;">
-      Your account is ready — create your password to sign in.
+      You've been invited to All Star — tap to set up your account.
     </div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${BG};">
       <tr>
@@ -62,7 +65,7 @@ export function welcomeEmail({
             <tr>
               <td style="padding:36px 40px 0 40px;" align="left">
                 <img src="${LOGO_URL}" alt="All Star Life Group" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
-                <div style="margin-top:18px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${GOLD_SOFT};">
+                <div style="margin-top:18px;font-family:${FONT};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${GOLD_SOFT};">
                   All Star Life Group
                 </div>
               </td>
@@ -71,14 +74,14 @@ export function welcomeEmail({
             <!-- Headline + body -->
             <tr>
               <td style="padding:14px 40px 0 40px;">
-                <h1 style="margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:${INK};">
+                <h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:${INK};">
                   ${greeting}
                 </h1>
-                <p style="margin:18px 0 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:${SUBTLE};">
-                  Your spot in the All Star pipeline is ready. Set up your account to sign in, track your licensing and onboarding, and start your 28-day bootcamp.
+                <p style="margin:18px 0 0 0;font-family:${FONT};font-size:16px;line-height:1.6;color:${SUBTLE};">
+                  You've been invited to join the All Star team. This link sets up your account — enter a few details, choose a password, and you're in.
                 </p>
-                <p style="margin:14px 0 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:${SUBTLE};">
-                  It takes about a minute — just create your password.
+                <p style="margin:14px 0 0 0;font-family:${FONT};font-size:16px;line-height:1.6;color:${SUBTLE};">
+                  It takes about a minute. One tap to get started.
                 </p>
               </td>
             </tr>
@@ -90,8 +93,8 @@ export function welcomeEmail({
                   <tr>
                     <td align="center" bgcolor="${GOLD}" style="border-radius:10px;">
                       <a href="${setupUrl}" target="_blank"
-                         style="display:inline-block;padding:15px 30px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;line-height:1;color:#0b0b0b;text-decoration:none;border-radius:10px;">
-                        Set up your account
+                         style="display:inline-block;padding:15px 30px;font-family:${FONT};font-size:15px;font-weight:600;line-height:1;color:#0b0b0b;text-decoration:none;border-radius:10px;">
+                        Set up my account
                       </a>
                     </td>
                   </tr>
@@ -99,17 +102,14 @@ export function welcomeEmail({
               </td>
             </tr>
 
-            <!-- Fallback link + expiry -->
+            <!-- Fallback link -->
             <tr>
               <td style="padding:24px 40px 0 40px;">
-                <p style="margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:${MUTE};">
+                <p style="margin:0;font-family:${FONT};font-size:13px;line-height:1.6;color:${MUTE};">
                   Button not working? Paste this link into your browser:
                 </p>
-                <p style="margin:6px 0 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;word-break:break-all;">
+                <p style="margin:6px 0 0 0;font-family:${FONT};font-size:12px;line-height:1.5;word-break:break-all;">
                   <a href="${setupUrl}" target="_blank" style="color:${GOLD_SOFT};text-decoration:underline;">${setupUrl}</a>
-                </p>
-                <p style="margin:18px 0 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:${MUTE};">
-                  This link expires in ${expiryHours} hours. If it lapses, your upline can resend it.
                 </p>
               </td>
             </tr>
@@ -121,13 +121,13 @@ export function welcomeEmail({
               </td>
             </tr>
 
-            <!-- Footer -->
+            <!-- Footer / fine print -->
             <tr>
               <td style="padding:24px 40px 36px 40px;">
-                <p style="margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:0.05em;line-height:1.6;color:${MUTE};">
-                  You received this because your upline registered you with All Star Life Group. If this wasn't expected, you can ignore this email.
+                <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.6;color:${MUTE};">
+                  This link expires in ${expiryHours} hours. If you weren't expecting this invitation, you can safely ignore this email.
                 </p>
-                <p style="margin:12px 0 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:0.05em;color:${MUTE};">
+                <p style="margin:12px 0 0 0;font-family:${FONT};font-size:11px;letter-spacing:0.05em;color:${MUTE};">
                   © All Star Life Group
                 </p>
               </td>
@@ -143,14 +143,13 @@ export function welcomeEmail({
   const text = [
     greeting,
     "",
-    "Your spot in the All Star pipeline is ready. Set up your account to sign in, track your licensing and onboarding, and start your 28-day bootcamp.",
+    "You've been invited to join the All Star team. This link sets up your account — enter a few details, choose a password, and you're in.",
     "",
-    "Set up your account:",
+    "Set up my account:",
     setupUrl,
     "",
-    `This link expires in ${expiryHours} hours. If it lapses, your upline can resend it.`,
+    `This link expires in ${expiryHours} hours. If you weren't expecting this invitation, you can safely ignore this email.`,
     "",
-    "You received this because your upline registered you with All Star Life Group.",
     "© All Star Life Group",
   ].join("\n");
 
