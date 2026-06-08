@@ -6,6 +6,7 @@ import { adminSetFlag } from "@/lib/actions/admin/recruits";
 type FlaggedRow = {
   id: string;
   person_id: string;
+  builder_id: string;
   phase: string;
   phase_step: string | null;
   flag_reason: string | null;
@@ -22,21 +23,35 @@ export default async function AdminFlagsPage({
 
   const { data: flaggedData } = await supabase
     .from("recruit")
-    .select("id, person_id, phase, phase_step, flag_reason")
+    .select("id, person_id, builder_id, phase, phase_step, flag_reason")
     .eq("flagged", true)
     .is("removed_at", null);
   const flagged = (flaggedData ?? []) as FlaggedRow[];
 
-  const personIds = [...new Set(flagged.map((f) => f.person_id))];
-  const nameById = new Map<string, { full_name: string; email: string }>();
-  if (personIds.length > 0) {
+  // Names for both recruits and their builders.
+  const ids = [
+    ...new Set(flagged.flatMap((f) => [f.person_id, f.builder_id]).filter(Boolean)),
+  ];
+  const nameById = new Map<string, string>();
+  if (ids.length > 0) {
     const { data: people } = await supabase
       .from("person")
-      .select("id, full_name, email")
-      .in("id", personIds);
-    for (const p of people ?? [])
-      nameById.set(p.id, { full_name: p.full_name as string, email: p.email as string });
+      .select("id, full_name")
+      .in("id", ids);
+    for (const p of people ?? []) nameById.set(p.id, p.full_name as string);
   }
+
+  // Group by builder.
+  const byBuilder = new Map<string, FlaggedRow[]>();
+  for (const f of flagged) {
+    const key = f.builder_id ?? "none";
+    const arr = byBuilder.get(key) ?? [];
+    arr.push(f);
+    byBuilder.set(key, arr);
+  }
+  const groups = [...byBuilder.entries()].sort((a, b) =>
+    (nameById.get(a[0]) ?? "").localeCompare(nameById.get(b[0]) ?? ""),
+  );
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -48,8 +63,8 @@ export default async function AdminFlagsPage({
           Flags
         </h1>
         <p className="mt-3 text-sm text-subtle">
-          {flagged.length} flagged recruit{flagged.length === 1 ? "" : "s"} across
-          the organization.
+          {flagged.length} flagged recruit{flagged.length === 1 ? "" : "s"},
+          grouped by builder.
         </p>
       </div>
 
@@ -64,47 +79,56 @@ export default async function AdminFlagsPage({
         </p>
       ) : null}
 
-      <section className="mt-8 flex flex-col gap-2">
-        {flagged.map((f) => {
-          const person = nameById.get(f.person_id);
-          return (
-            <div
-              key={f.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-500/40 bg-red-500/5 p-5"
-            >
-              <div className="min-w-0">
-                <Link
-                  href={`/admin/people/${f.person_id}`}
-                  className="text-base font-semibold text-ink hover:text-accent"
+      <div className="mt-8 flex flex-col gap-8">
+        {groups.map(([builderId, rows]) => (
+          <section key={builderId}>
+            <h2 className="text-sm font-semibold text-ink">
+              {nameById.get(builderId) ?? "No builder"}
+              <span className="ml-2 text-xs font-normal text-mute">
+                {rows.length} flagged
+              </span>
+            </h2>
+            <div className="mt-3 flex flex-col gap-2">
+              {rows.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-500/40 bg-red-500/5 p-4"
                 >
-                  {person?.full_name ?? "Unknown"}
-                </Link>
-                <p className="mt-1 text-sm text-subtle">
-                  {f.flag_reason ?? "No reason given"}
-                </p>
-                <p className="mt-0.5 text-xs text-mute">
-                  {f.phase}
-                  {f.phase_step ? ` · ${f.phase_step}` : ""}
-                </p>
-              </div>
-              <form action={adminSetFlag}>
-                <input type="hidden" name="recruitId" value={f.id} />
-                <input type="hidden" name="flagged" value="false" />
-                <input type="hidden" name="back" value="/admin/flags" />
-                <button
-                  type="submit"
-                  className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
-                >
-                  Unflag
-                </button>
-              </form>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/admin/people/${f.person_id}`}
+                      className="text-sm font-semibold text-ink hover:text-accent"
+                    >
+                      {nameById.get(f.person_id) ?? "Unknown"}
+                    </Link>
+                    <p className="mt-0.5 text-sm text-subtle">
+                      {f.flag_reason ?? "No reason given"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-mute">
+                      {f.phase}
+                      {f.phase_step ? ` · ${f.phase_step}` : ""}
+                    </p>
+                  </div>
+                  <form action={adminSetFlag}>
+                    <input type="hidden" name="recruitId" value={f.id} />
+                    <input type="hidden" name="flagged" value="false" />
+                    <input type="hidden" name="back" value="/admin/flags" />
+                    <button
+                      type="submit"
+                      className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+                    >
+                      Unflag
+                    </button>
+                  </form>
+                </div>
+              ))}
             </div>
-          );
-        })}
+          </section>
+        ))}
         {flagged.length === 0 ? (
           <p className="text-sm text-mute">Nothing flagged. 🎉</p>
         ) : null}
-      </section>
+      </div>
     </main>
   );
 }

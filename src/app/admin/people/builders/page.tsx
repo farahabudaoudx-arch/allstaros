@@ -47,9 +47,14 @@ export default async function AdminBuildersPage({
         </p>
       ) : null}
 
-      {/* Add builders */}
+      {/* Add builder */}
       <div className="mt-8">
-        <AddPeople role="builder" uplines={builders} back="/admin/people/builders" />
+        <AddPeople
+          role="builder"
+          uplines={builders}
+          back="/admin/people/builders"
+          allowBulk={false}
+        />
       </div>
 
       {/* Builder roster */}

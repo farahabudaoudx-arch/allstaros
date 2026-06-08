@@ -28,7 +28,6 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
     {
       label: "Content",
       children: [
-        { label: "Training Content", href: "/admin/training" },
         { label: "Training Schedule", href: "/admin/schedule" },
         {
           label: "Stream Bunny",

@@ -5,6 +5,7 @@ import {
   adminSetOwnerFlag,
   adminAddAdminByEmail,
 } from "@/lib/actions/admin/minting";
+import { Modal } from "@/components/admin/Modal";
 
 type Row = {
   id: string;
@@ -96,27 +97,28 @@ export default async function AdminMintingPage({
         </p>
       ) : null}
 
-      {/* Add a person as admin by email */}
-      <section className="mt-8 rounded-2xl border border-hairline bg-card p-5">
-        <h2 className="text-sm font-semibold text-ink">Add an admin</h2>
-        <p className="mt-1 text-sm text-subtle">
-          Enter anyone&apos;s email to make them an admin (e.g. the CEO or his EA).
-        </p>
-        <form action={adminAddAdminByEmail} className="mt-3 flex flex-wrap gap-2">
-          <input
-            name="email"
-            type="email"
-            placeholder="person@example.com"
-            className="w-full max-w-md rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-          />
-          <button
-            type="submit"
-            className="rounded-full bg-accent px-5 py-2 text-xs font-semibold text-black transition hover:opacity-90"
-          >
-            Add as admin
-          </button>
-        </form>
-      </section>
+      <div className="mt-8">
+        <Modal label="Add an admin" title="Add an admin">
+          <form action={adminAddAdminByEmail} className="flex flex-col gap-3">
+            <p className="text-sm text-subtle">
+              Enter anyone&apos;s email to make them an admin (e.g. the CEO or his
+              EA).
+            </p>
+            <input
+              name="email"
+              type="email"
+              placeholder="person@example.com"
+              className="w-full rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            <button
+              type="submit"
+              className="mt-1 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-black transition hover:opacity-90"
+            >
+              Add as admin
+            </button>
+          </form>
+        </Modal>
+      </div>
 
       <Section title={`Current admins & owners (${privileged.length})`}>
         {privileged.map((p) => (

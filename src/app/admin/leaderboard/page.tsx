@@ -64,7 +64,6 @@ export default async function AdminLeaderboardPage({
     metric?: string;
     range?: string;
     builders?: string | string[];
-    downline?: string;
   }>;
 }) {
   await requireAdmin();
@@ -80,7 +79,6 @@ export default async function AdminLeaderboardPage({
     : sp.builders
       ? [sp.builders]
       : [];
-  const includeDownline = sp.downline === "1";
 
   // Activity leaderboard (org-wide) + the resolved date window.
   const board = await computeLeaderboard(supabase, {
@@ -127,24 +125,19 @@ export default async function AdminLeaderboardPage({
     childrenOf.set(p.upline_id, arr);
   }
 
-  // Allowed person set when builders are selected.
+  // Allowed person set when builders are selected — always their full downline
+  // tree (selecting a builder includes everyone beneath them).
   let allowed: Set<string> | null = null;
   if (selectedBuilders.length > 0) {
     allowed = new Set<string>();
     for (const bId of selectedBuilders) {
       allowed.add(bId);
-      if (includeDownline) {
-        // Full descendant tree.
-        const stack = [...(childrenOf.get(bId) ?? [])];
-        while (stack.length) {
-          const cur = stack.pop()!;
-          if (allowed.has(cur)) continue;
-          allowed.add(cur);
-          stack.push(...(childrenOf.get(cur) ?? []));
-        }
-      } else {
-        // Direct reports only.
-        for (const c of childrenOf.get(bId) ?? []) allowed.add(c);
+      const stack = [...(childrenOf.get(bId) ?? [])];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (allowed.has(cur)) continue;
+        allowed.add(cur);
+        stack.push(...(childrenOf.get(cur) ?? []));
       }
     }
   }
@@ -189,7 +182,6 @@ export default async function AdminLeaderboardPage({
     metric,
     range: rangeKey,
     builders: selectedBuilders,
-    downline: includeDownline ? "1" : "",
   };
   const metricCfg = METRICS.find((m) => m.key === metric)!;
   const fmt = (r: Row) => (metricCfg.money ? money(r[metric]) : num(r[metric]));
@@ -205,7 +197,7 @@ export default async function AdminLeaderboardPage({
         </h1>
         <p className="mt-3 text-sm text-subtle">
           {allowed
-            ? `Filtered to ${selectedBuilders.length} builder${selectedBuilders.length === 1 ? "" : "s"}${includeDownline ? " + downline" : " (direct reports)"}.`
+            ? `Filtered to ${selectedBuilders.length} builder${selectedBuilders.length === 1 ? "" : "s"} + their downline.`
             : "Everyone, organization-wide."}
         </p>
       </div>
@@ -262,12 +254,6 @@ export default async function AdminLeaderboardPage({
         </ControlRow>
 
         <div className="flex flex-wrap items-center gap-4 border-t border-hairline pt-3">
-          <Pill
-            href={buildHref(baseParams, { downline: includeDownline ? "" : "1" })}
-            active={includeDownline}
-          >
-            {includeDownline ? "✓ " : ""}Include downline
-          </Pill>
           {allowed ? (
             <Link
               href={buildHref({ metric, range: rangeKey }, {})}
@@ -276,7 +262,9 @@ export default async function AdminLeaderboardPage({
               Clear filter
             </Link>
           ) : (
-            <span className="text-xs text-mute">No filter — whole org.</span>
+            <span className="text-xs text-mute">
+              No filter — whole org. Selecting a builder includes their downline.
+            </span>
           )}
         </div>
       </div>

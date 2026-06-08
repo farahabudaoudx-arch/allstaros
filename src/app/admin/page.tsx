@@ -30,11 +30,6 @@ const SECTIONS: Section[] = [
     href: "/admin/flags",
   },
   {
-    name: "Training Content",
-    description: "Manage training videos per library via Bunny links.",
-    href: "/admin/training",
-  },
-  {
     name: "Training Schedule",
     description: "Upcoming live trainings shown on the producer dashboard.",
     href: "/admin/schedule",
