@@ -900,7 +900,10 @@ function CarrierTile({
               );
             })}
           </div>,
-          document.body
+          // Portal into the .ll-analytics wrapper (not <body>) so the design
+          // tokens — var(--card-1), --ink-*, --line-2 — stay in scope. Outside
+          // it they resolve to nothing and the card renders transparent.
+          tileRef.current?.closest(".ll-analytics") ?? document.body
         )
       : null;
 
