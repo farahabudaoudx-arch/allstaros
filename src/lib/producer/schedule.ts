@@ -69,14 +69,24 @@ export function rowToEvent(row: ScheduleRow): ScheduleEvent {
   };
 }
 
-/** Upcoming training events for the producer dashboard, in display order. */
+/**
+ * Upcoming training events for the producer dashboard, in display order.
+ * Only events from today onward are shown, so past weeks' trainings drop off
+ * automatically — admins just add the new week's events in /admin/schedule.
+ * "Today" is computed in the app's timezone (America/Chicago).
+ */
 export async function getScheduleEvents(): Promise<ScheduleEvent[]> {
   const supabase = await createClient();
+  // en-CA formats as YYYY-MM-DD, matching the date column.
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+  }).format(new Date());
   const { data } = await supabase
     .from("training_schedule")
     .select(
       "id, slug, title, host, initials, image, kicker, event_date, start_time, end_time, timezone, zoom_url, sort_order",
     )
+    .gte("event_date", today)
     .order("sort_order", { ascending: true })
     .order("event_date", { ascending: true });
   return ((data ?? []) as ScheduleRow[]).map(rowToEvent);
