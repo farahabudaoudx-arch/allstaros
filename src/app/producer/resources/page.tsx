@@ -127,7 +127,7 @@ function iconProps(className?: string) {
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.8,
+    strokeWidth: 2,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     className,
@@ -135,79 +135,87 @@ function iconProps(className?: string) {
   };
 }
 
-// Portal Links — chain link
+// Portal Links — chain link (lucide: link)
 function LinkIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <path d="M9.5 14.5l5-5" />
-      <path d="M8 12l-1.5 1.5a3.5 3.5 0 005 5L13 17" />
-      <path d="M16 12l1.5-1.5a3.5 3.5 0 00-5-5L11 7" />
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
   );
 }
 
-// Carrier Contacts — phone book / address book
+// Carrier Contacts — address book with a person (lucide: book-user)
 function PhoneBookIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <path d="M6 4h11a2 2 0 012 2v12a2 2 0 01-2 2H6V4z" />
-      <path d="M6 4a2 2 0 00-2 2v0a2 2 0 002 2" />
-      <path d="M4 12h2M4 16h2" />
-      <circle cx="11.5" cy="11" r="1.8" />
-      <path d="M8.8 16c.4-1.4 1.5-2.2 2.7-2.2s2.3.8 2.7 2.2" />
+      <path d="M15 13a3 3 0 1 0-6 0" />
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+      <circle cx="12" cy="8" r="2" />
     </svg>
   );
 }
 
-// Gateway Login — mouse pointer / cursor
+// Gateway Login — mouse pointer / cursor (lucide: mouse-pointer)
 function MousePointerIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <path d="M5 4l6.5 15.5 2.3-6.2 6.2-2.3L5 4z" />
-      <path d="M13.5 13.5L19 19" />
+      <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+      <path d="M13 13l6 6" />
     </svg>
   );
 }
 
-// All Star Sidekick — robot
+// All Star Sidekick — robot (lucide: bot)
 function RobotIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <rect x="5" y="8" width="14" height="10" rx="2.5" />
-      <path d="M12 4v4M12 4h-.01" />
-      <circle cx="9.5" cy="13" r="1" fill="currentColor" stroke="none" />
-      <circle cx="14.5" cy="13" r="1" fill="currentColor" stroke="none" />
-      <path d="M3 12v3M21 12v3" />
+      <path d="M12 8V4H8" />
+      <rect x="4" y="8" width="16" height="12" rx="2" />
+      <path d="M2 14h2" />
+      <path d="M20 14h2" />
+      <path d="M15 13v2" />
+      <path d="M9 13v2" />
     </svg>
   );
 }
 
-// Underwriting Wizard — magic wand + sparkle
+// Underwriting Wizard — magic wand + sparkles (lucide: wand-sparkles)
 function WandIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <path d="M6 19L17 8" />
-      <path d="M14.5 5.5l1-1M18 9l1-1M16 4.5l.5-1.5M19.5 8l1.5-.5" />
-      <path d="M15.5 6.5l2 2" />
+      <path d="M15 4V2" />
+      <path d="M15 16v-2" />
+      <path d="M8 9h2" />
+      <path d="M20 9h2" />
+      <path d="M17.8 11.8 19 13" />
+      <path d="M15 9h.01" />
+      <path d="M17.8 6.2 19 5" />
+      <path d="m3 21 9-9" />
+      <path d="M12.2 6.2 11 5" />
     </svg>
   );
 }
 
-// E-App Guides — numbered / step-by-step list
+// E-App Guides — numbered step-by-step list (lucide: list-ordered)
 function StepsIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <path d="M10 7h10M10 12h10M10 17h10" />
-      <path d="M4 6.5h1.4V9M4 16.2c0-.6.5-1 1.1-1s1.1.4 1.1 1c0 .9-2.2 1.4-2.2 2.8h2.2" />
+      <path d="M10 6h11" />
+      <path d="M10 12h11" />
+      <path d="M10 18h11" />
+      <path d="M4 6h1v4" />
+      <path d="M4 10h2" />
+      <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
     </svg>
   );
 }
 
-// Orion AI — phone handset
+// Orion AI — phone handset (lucide: phone)
 function PhoneIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>
-      <path d="M6.5 4h3l1.5 4-2 1.5a11 11 0 005 5l1.5-2 4 1.5v3a2 2 0 01-2 2A16 16 0 014.5 6a2 2 0 012-2z" />
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
     </svg>
   );
 }
