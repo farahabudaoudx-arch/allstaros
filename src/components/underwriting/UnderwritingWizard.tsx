@@ -595,6 +595,11 @@ function DobWarningBanner({ dob }: { dob: string }) {
   if (!dob) return null;
   const d = new Date(dob);
   if (isNaN(d.getTime())) return null;
+  // A native date input fires on every keystroke, so a year typed digit by
+  // digit briefly reads 0001, 0019, 0198… Don't judge the date until the year
+  // is a full 4 digits, otherwise the warning flashes while they're still
+  // typing.
+  if (d.getFullYear() < 1000) return null;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dobLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate());
