@@ -412,6 +412,7 @@ export function UnderwritingWizard({
         />
       </div>
 
+      <AgeStatusBanner dob={vitals.dob} carriers={carriersByToolkit[toolkit] ?? []} />
       <BuildStatusBanner height={vitals.height} weight={vitals.weight} />
 
       <textarea
@@ -584,6 +585,40 @@ function VitalInput({
         style={{ padding: compact ? "8px 10px" : "10px 12px", fontSize: compact ? 14 : 15 }}
       />
     </label>
+  );
+}
+
+// Age knockout read from the DOB vital. Renders nothing while every carrier in
+// the current toolkit can still issue at this age; otherwise flags how many are
+// out (and who's left), so the green build badge isn't misread as "eligible"
+// when age alone is a hard decline.
+function AgeStatusBanner({ dob, carriers }: { dob: string; carriers: string[] }) {
+  const ageStr = ageFromDob(dob);
+  if (!ageStr || carriers.length === 0) return null;
+  const age = parseInt(ageStr, 10);
+
+  const remaining = carriers.filter((c) => age <= maxAgeForCarrier(c));
+  const knocked = carriers.length - remaining.length;
+  if (knocked === 0) return null; // every carrier still issues at this age
+
+  const all = remaining.length === 0;
+  const highest = Math.max(...carriers.map(maxAgeForCarrier));
+  const dot = all ? "#F87171" : "#FB923C";
+  const label = all ? "Over age limit" : "Some carriers out";
+  const note = all
+    ? `Age ${age} is over every carrier's max issue age (highest is ${highest}). No carrier will issue — regardless of health or build.`
+    : `Age ${age} is over the max issue age for ${knocked} of ${carriers.length} carriers. Still eligible on age: ${remaining.join(", ")}.`;
+
+  return (
+    <div className="rounded-md text-xs" style={{ border: `1px solid ${dot}55`, background: `${dot}14` }}>
+      <div className="flex items-center gap-2.5 px-3 py-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: dot }} />
+          <span className="font-semibold uppercase tracking-wider" style={{ color: dot }}>{label}</span>
+        </span>
+        <span style={{ color: "var(--ink-2)" }}>{note}</span>
+      </div>
+    </div>
   );
 }
 
