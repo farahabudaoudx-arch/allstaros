@@ -18,6 +18,19 @@ function isGuaranteedIssue(carrier: string): boolean {
   return /\bGIWL\b|guaranteed issue/i.test(carrier);
 }
 
+// Max issue age per carrier. Over this age the carrier won't write the
+// policy at all, so it's an automatic decline (a knockout like build).
+// Most carriers cap at 85; the exceptions are listed explicitly.
+const DEFAULT_MAX_AGE = 85;
+const CARRIER_MAX_AGE: Record<string, number> = {
+  "Corebridge (GIWL)": 80,
+  "Corebridge (SIWL)": 80,
+  "Aetna (Accendo)": 89,
+};
+function maxAgeForCarrier(carrier: string): number {
+  return CARRIER_MAX_AGE[carrier] ?? DEFAULT_MAX_AGE;
+}
+
 const TOOLKITS: { id: Toolkit; label: string; hint: string }[] = [
   { id: "FEX",  label: "FEX",  hint: "Final Expense" },
   { id: "SIUL", label: "SIUL", hint: "Simplified IUL" },
@@ -249,37 +262,44 @@ export function UnderwritingWizard({
   }, [debouncedQuery, toolkit]);
 
   const aggregated = useMemo<AggregatedCarrier[]>(() => {
-    // An over-limit build is an automatic decline at every carrier, no matter
-    // how clean the health history is — no carrier issues over its build chart.
-    // So when the client's height/weight lands in "Over Limit", we force every
-    // carrier to Decline and surface the build as the reason. (Borderline /
-    // Too Thin stay informational in the build banner — they don't hard-knock
-    // the application; health decides.)
+    // Per-carrier knockouts applied on top of the health outcome (worst-of):
+    //  • Age — over the carrier's max issue age → Decline (every product).
+    //  • Build — an over-limit height/weight → Decline at every non-GI carrier
+    //    (guaranteed-issue products issue regardless of build). Borderline /
+    //    Too Thin stay informational in the build banner; health decides those.
     const build = classifyBuild(vitals.height, vitals.weight);
     const buildKnockout = build?.status === "OverLimit";
-    const applyBuild = (carriers: AggregatedCarrier[]): AggregatedCarrier[] => {
-      if (!buildKnockout || !build) return carriers;
-      const reason = `Build ${formatHeight(build.inches)} / ${build.weight} lbs is over the build limit for this height (≈ ${build.immediate} lbs max) — declined on build regardless of health.`;
-      return carriers.map((c) =>
-        // Guaranteed-issue products issue regardless of build — leave them be.
-        isGuaranteedIssue(c.carrier)
-          ? c
-          : {
-              carrier: c.carrier,
-              outcome: "Decline" as Outcome,
-              perCondition: [
-                { condition: "Build (height & weight)", outcome: "Decline" as Outcome, rawInfo: reason },
-                ...c.perCondition,
-              ],
-            }
-      );
-    };
+    const buildReason = build
+      ? `Build ${formatHeight(build.inches)} / ${build.weight} lbs is over the build limit for this height (≈ ${build.immediate} lbs max) — declined on build regardless of health.`
+      : "";
+    const ageStr = ageFromDob(vitals.dob);
+    const age = ageStr ? parseInt(ageStr, 10) : NaN;
+    const applyKnockouts = (carriers: AggregatedCarrier[]): AggregatedCarrier[] =>
+      carriers.map((c) => {
+        const knocks: Array<{ condition: string; rawInfo: string }> = [];
+        const maxAge = maxAgeForCarrier(c.carrier);
+        if (!Number.isNaN(age) && age > maxAge) {
+          knocks.push({ condition: "Age", rawInfo: `Client age ${age} is over this product's max issue age of ${maxAge}.` });
+        }
+        if (buildKnockout && build && !isGuaranteedIssue(c.carrier)) {
+          knocks.push({ condition: "Build (height & weight)", rawInfo: buildReason });
+        }
+        if (knocks.length === 0) return c;
+        return {
+          carrier: c.carrier,
+          outcome: "Decline" as Outcome,
+          perCondition: [
+            ...knocks.map((k) => ({ condition: k.condition, outcome: "Decline" as Outcome, rawInfo: k.rawInfo })),
+            ...c.perCondition,
+          ],
+        };
+      });
 
     if (!analysis) return [];
     if (analysis.results.length === 0) {
       if (!analysis.noConditionsMentioned) return [];
       const list = carriersByToolkit[toolkit] ?? [];
-      return applyBuild(
+      return applyKnockouts(
         list
           .slice()
           .sort((a, b) => a.localeCompare(b))
@@ -311,8 +331,8 @@ export function UnderwritingWizard({
       if (r !== 0) return r;
       return a.carrier.localeCompare(b.carrier);
     });
-    return applyBuild(out);
-  }, [analysis, carriersByToolkit, toolkit, vitals.height, vitals.weight]);
+    return applyKnockouts(out);
+  }, [analysis, carriersByToolkit, toolkit, vitals.dob, vitals.height, vitals.weight]);
 
   useEffect(() => {
     if (!onAnalysisResult) return;

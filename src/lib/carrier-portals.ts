@@ -22,6 +22,7 @@ export const CARRIER_PORTALS: CarrierPortal[] = [
 // URL, keyed on the company prefix (every product from one company shares the
 // same agent portal). Returns null when we don't have a link for that company.
 const COMPANY_PORTAL: Record<string, string> = {
+  "aetna": "https://www.aetna.com/producer_public/login.fcc?icid=OLogin_nav_link",
   "american amicable": "https://www.insuranceapplication.com/AppPage/index.html",
   "americo": "https://account.americoagent.com/Identity/Account/Login/?returnUrl=https%3a%2f%2ftools.americoagent.com%2f",
   "corebridge": "https://connext.corebridgefinancial.com/life/connext-portal/public/login",
