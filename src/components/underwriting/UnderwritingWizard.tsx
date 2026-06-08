@@ -32,9 +32,11 @@ function maxAgeForCarrier(carrier: string): number {
   return CARRIER_MAX_AGE[carrier] ?? DEFAULT_MAX_AGE;
 }
 
+// SIUL is hidden for now (no carrier build charts for it yet). Re-add
+// { id: "SIUL", label: "SIUL", hint: "Simplified IUL" } here to bring it back —
+// the toggle reappears automatically once there's more than one toolkit.
 const TOOLKITS: { id: Toolkit; label: string; hint: string }[] = [
   { id: "FEX",  label: "FEX",  hint: "Final Expense" },
-  { id: "SIUL", label: "SIUL", hint: "Simplified IUL" },
 ];
 
 const OUTCOME_RANK: Record<Outcome, number> = {
@@ -360,29 +362,31 @@ export function UnderwritingWizard({
     <div className={compact ? "space-y-3" : "space-y-5 pt-2"}>
       {heading}
 
-      <div
-        className="inline-flex p-1 rounded-xl"
-        style={{ background: "var(--bg-inner)", border: "1px solid var(--line-2)" }}
-      >
-        {TOOLKITS.map((t) => {
-          const on = t.id === toolkit;
-          return (
-            <button
-              key={t.id}
-              onClick={() => { flushPendingText(); setToolkit(t.id); }}
-              title={t.hint}
-              className="px-6 py-2 rounded-lg text-sm font-semibold transition-colors"
-              style={{
-                background: on ? "var(--lime)" : "transparent",
-                color: on ? "#0A0A0A" : "var(--ink-2)",
-                cursor: "pointer",
-              }}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      {TOOLKITS.length > 1 && (
+        <div
+          className="inline-flex p-1 rounded-xl"
+          style={{ background: "var(--bg-inner)", border: "1px solid var(--line-2)" }}
+        >
+          {TOOLKITS.map((t) => {
+            const on = t.id === toolkit;
+            return (
+              <button
+                key={t.id}
+                onClick={() => { flushPendingText(); setToolkit(t.id); }}
+                title={t.hint}
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition-colors"
+                style={{
+                  background: on ? "var(--lime)" : "transparent",
+                  color: on ? "#0A0A0A" : "var(--ink-2)",
+                  cursor: "pointer",
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div
         className="grid gap-2"
