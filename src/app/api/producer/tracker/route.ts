@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("tracker_entry")
-      .select("dials, contacts, appointments, presentations, sales")
+      .select("dials, contacts, appointments, presentations, sales, leads")
       .eq("person_id", person.id)
       .eq("entry_date", date)
       .maybeSingle();
@@ -65,6 +65,7 @@ export async function POST(req: Request) {
           appointments: clampInt(body.appointments),
           presentations: clampInt(body.presentations),
           sales: clampInt(body.sales),
+          leads: clampInt(body.leads),
         },
         { onConflict: "person_id,entry_date" },
       );

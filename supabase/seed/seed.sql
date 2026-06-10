@@ -43,11 +43,6 @@ insert into training_lesson (title, phase, sort_order, is_assignment) values
   ('Onboarding — Roleplay prep',   'onboarding', 2, true)
 on conflict do nothing;
 
-insert into motivational_video (title, sort_order) values
-  ('Case study — first $20k month', 0),
-  ('Interview — top-of-team agent', 1)
-on conflict do nothing;
-
 -- ============================================================
 -- VERIFICATION — run interactively as the postgres superuser.
 -- Each block simulates a user by setting the JWT subject claim, then queries.

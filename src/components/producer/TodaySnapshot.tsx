@@ -7,6 +7,7 @@ import { localIsoDate } from "@/lib/producer/time";
 
 type Projection = {
   dials: number;
+  leads: number;
   contacts: number;
   appointments: number;
   presentations: number;
@@ -14,20 +15,22 @@ type Projection = {
   ap_cents: number;
 };
 
-type Row = { dials: number; contacts: number; presentations: number; sales: number; ap_cents: number };
+type Row = { dials: number; leads: number; contacts: number; presentations: number; sales: number; ap_cents: number };
 
 const EMPTY_PROJ: Projection = {
   dials: 0,
+  leads: 0,
   contacts: 0,
   appointments: 0,
   presentations: 0,
   sales: 0,
   ap_cents: 0,
 };
-const EMPTY_ROW: Row = { dials: 0, contacts: 0, presentations: 0, sales: 0, ap_cents: 0 };
+const EMPTY_ROW: Row = { dials: 0, leads: 0, contacts: 0, presentations: 0, sales: 0, ap_cents: 0 };
 
 const FIELDS: Array<{ key: keyof Row; label: string; money?: boolean }> = [
   { key: "dials", label: "Dials" },
+  { key: "leads", label: "Leads" },
   { key: "contacts", label: "Contacts" },
   { key: "presentations", label: "Presentations" },
   { key: "sales", label: "Policies" },
@@ -60,6 +63,7 @@ export function TodaySnapshot() {
       setTarget(projJson.ok ? (projJson.projection ?? null) : null);
       setActual({
         dials: actJson.totals.dials,
+        leads: actJson.totals.leads,
         contacts: actJson.totals.contacts,
         presentations: actJson.totals.presentations,
         sales: actJson.totals.sales,
@@ -220,6 +224,7 @@ function ProjectionForm({
 }) {
   const [form, setForm] = useState<Record<keyof Row, string>>({
     dials: initial.dials ? String(initial.dials) : "",
+    leads: initial.leads ? String(initial.leads) : "",
     contacts: initial.contacts ? String(initial.contacts) : "",
     presentations: initial.presentations ? String(initial.presentations) : "",
     sales: initial.sales ? String(initial.sales) : "",
@@ -234,6 +239,7 @@ function ProjectionForm({
       // Preserve appointments — it isn't edited here but lives on the projection.
       appointments: initial.appointments,
       dials: Math.max(0, Math.floor(Number(form.dials) || 0)),
+      leads: Math.max(0, Math.floor(Number(form.leads) || 0)),
       contacts: Math.max(0, Math.floor(Number(form.contacts) || 0)),
       presentations: Math.max(0, Math.floor(Number(form.presentations) || 0)),
       sales: Math.max(0, Math.floor(Number(form.sales) || 0)),

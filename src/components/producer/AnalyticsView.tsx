@@ -48,7 +48,6 @@ type ServerMetrics = {
     name: string; sales: number; ap_cents: number;
     avg_monthly_premium_cents: number; avg_face_amount_cents: number;
   }>;
-  heatmap: number[][];
 };
 
 const EMPTY_METRICS: RawMetrics = {
@@ -56,10 +55,6 @@ const EMPTY_METRICS: RawMetrics = {
   presentations: 0, sales: 0, ap: 0, ip: 0, issuedCount: 0,
   deposits: 0, leadSpend: 0,
 };
-
-const HEATMAP_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-const HEATMAP_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const EMPTY_HEATMAP: number[][] = Array.from({ length: 7 }, () => Array(HEATMAP_HOURS.length).fill(0));
 
 function toMetrics(s: ServerMetrics["totals"]): RawMetrics {
   return {
@@ -236,7 +231,6 @@ export function AnalyticsView({
     })),
     [server],
   );
-  const HEATMAP: number[][] = server?.heatmap ?? EMPTY_HEATMAP;
 
   const contactRate = pct(m.contacts, m.dials);
   const presentationRate = pct(m.presentations, m.dials);
@@ -481,11 +475,10 @@ export function AnalyticsView({
                   <UsStateMap
                     metricLabel="Total AP"
                     data={STATE_PERF.reduce<Record<string, StateDatum>>((acc, r) => {
-                      const closePct = pct(r.sales, r.leads);
                       acc[r.state] = {
                         value: r.ap,
                         display: fmtMoney(r.ap),
-                        sub: `${r.sales} sales · ${closePct.toFixed(1)}% close`,
+                        sub: `${r.sales} sales`,
                       };
                       return acc;
                     }, {})}
@@ -503,14 +496,13 @@ export function AnalyticsView({
                       const maxAp = Math.max(...AGE_BANDS.map((b) => b.ap), 1);
                       return AGE_BANDS.map((b) => {
                         const widthPct = (b.ap / maxAp) * 100;
-                        const closePct = pct(b.sales, b.leads);
                         return (
                           <div key={b.band} className="flex flex-col gap-1.5">
                             <div className="flex items-baseline justify-between gap-3">
                               <div className="flex items-baseline gap-3">
                                 <span className="display text-lg text-white tnum">{b.band}</span>
                                 <span className="text-xs tnum" style={{ color: "var(--ink-3)" }}>
-                                  {b.sales} sales · {closePct.toFixed(1)}% close · {b.leads} leads
+                                  {b.sales} sales
                                 </span>
                               </div>
                               <span className="display text-xl text-white tnum">{fmtMoney(b.ap)}</span>
@@ -535,7 +527,7 @@ export function AnalyticsView({
                 </div>
 
                 {/* Carrier performance — scrollable */}
-                <div className="card lg:col-span-6 overflow-hidden flex flex-col">
+                <div className="card lg:col-span-12 overflow-hidden flex flex-col">
                   <div className="p-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--line-1)" }}>
                     <span className="section-label">Carrier Performance</span>
                   </div>
@@ -567,49 +559,6 @@ export function AnalyticsView({
                         )}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-
-                {/* Contact performance heatmap */}
-                <div className="card lg:col-span-6 p-5 flex flex-col">
-                  <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4 flex-shrink-0">
-                    <span className="section-label">Contact Performance (Hour / Day)</span>
-                    <div className="flex items-center gap-2 text-xs" style={{ color: "var(--ink-3)" }}>
-                      <span>Low</span>
-                      <div className="flex gap-0.5">
-                        {[0.15, 0.35, 0.55, 0.75, 1].map((a) => (
-                          <div key={a} style={{ width: 12, height: 10, background: `rgba(246, 201, 69, ${a})`, borderRadius: 2 }} />
-                        ))}
-                      </div>
-                      <span>High</span>
-                    </div>
-                  </div>
-                  <div className="grid gap-1 flex-1" style={{ gridTemplateColumns: `36px repeat(${HEATMAP_HOURS.length}, minmax(0, 1fr))`, gridAutoRows: "1fr" }}>
-                    <div />
-                    {HEATMAP_HOURS.map((h) => (
-                      <div key={h} className="text-[10px] text-center tnum flex items-end justify-center pb-1" style={{ color: "var(--ink-3)" }}>
-                        {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
-                      </div>
-                    ))}
-                    {(() => {
-                      const heatMax = Math.max(1, ...HEATMAP.flat());
-                      return HEATMAP_DAYS.map((day, di) => (
-                        <Fragment key={day}>
-                          <div className="text-xs flex items-center" style={{ color: "var(--ink-2)" }}>{day}</div>
-                          {(HEATMAP[di] ?? []).map((v, hi) => (
-                            <div
-                              key={`${day}-${hi}`}
-                              title={`${day} ${HEATMAP_HOURS[hi]}:00 · ${v} connected`}
-                              className="rounded"
-                              style={{
-                                background: `rgba(246, 201, 69, ${v === 0 ? 0.04 : Math.max(0.12, v / heatMax)})`,
-                                border: "1px solid rgba(255,255,255,0.04)",
-                              }}
-                            />
-                          ))}
-                        </Fragment>
-                      ));
-                    })()}
                   </div>
                 </div>
               </div>
@@ -1377,6 +1326,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const today = useMemo(() => calIsoDay(new Date()), []);
   const [date, setDate] = useState(today);
   const [dials, setDials] = useState(0);
+  const [leads, setLeads] = useState(0);
   const [contacts, setContacts] = useState(0);
   const [appointments, setAppointments] = useState(0);
   const [presentations, setPresentations] = useState(0);
@@ -1398,6 +1348,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         if (aborted) return;
         if (!j.ok || !j.entry) return;
         setDials(j.entry.dials ?? 0);
+        setLeads(j.entry.leads ?? 0);
         setContacts(j.entry.contacts ?? 0);
         setAppointments(j.entry.appointments ?? 0);
         setPresentations(j.entry.presentations ?? 0);
@@ -1414,7 +1365,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       const res = await fetch("/api/producer/tracker", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ date, dials, contacts, appointments, presentations, sales }),
+        body: JSON.stringify({ date, dials, leads, contacts, appointments, presentations, sales }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error ?? "Save failed");
@@ -1459,6 +1410,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           </div>
           <div className="grid grid-cols-2 gap-3">
             <AddDataField label="Dials" value={dials} onChange={setDials} />
+            <AddDataField label="Leads" value={leads} onChange={setLeads} />
             <AddDataField label="Contacts" value={contacts} onChange={setContacts} />
             <AddDataField label="Appointments" value={appointments} onChange={setAppointments} />
             <AddDataField label="Presentations" value={presentations} onChange={setPresentations} />

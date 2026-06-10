@@ -5,6 +5,7 @@ import { localIsoDate } from "@/lib/producer/time";
 
 type Counts = {
   dials: number;
+  leads: number;
   contacts: number;
   appointments: number;
   presentations: number;
@@ -13,10 +14,11 @@ type Counts = {
 
 type Projection = Counts & { ap_cents: number };
 
-const EMPTY: Counts = { dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
+const EMPTY: Counts = { dials: 0, leads: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
 
 const METRICS: Array<{ key: keyof Counts; label: string; steps: number[] }> = [
   { key: "dials", label: "Dials", steps: [1, 5, 10] },
+  { key: "leads", label: "Leads", steps: [1, 5] },
   { key: "contacts", label: "Contacts", steps: [1, 5] },
   { key: "appointments", label: "Appointments", steps: [1] },
   { key: "presentations", label: "Presentations", steps: [1] },
@@ -53,6 +55,7 @@ export function DialTracker() {
         e
           ? {
               dials: e.dials ?? 0,
+              leads: e.leads ?? 0,
               contacts: e.contacts ?? 0,
               appointments: e.appointments ?? 0,
               presentations: e.presentations ?? 0,
@@ -121,7 +124,7 @@ export function DialTracker() {
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Live</p>
           <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
-            Dial Tracker
+            Daily Tracker
           </h1>
           <p className="mt-2 max-w-xl text-sm text-subtle">
             Tap as you go. Everything you log here updates your dashboard, projections, and analytics

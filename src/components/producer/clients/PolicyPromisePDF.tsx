@@ -61,10 +61,8 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
   const issuedOn = formatIssueDate(client.issue_date);
   const monthlyPaymentDate = derivePaymentDate(client.monthly_payment_date, client.issue_date);
 
-  const paymentSource = client.payment_method === "credit_card" ? client.cc_number : client.account_number;
-  const last4 = (paymentSource ?? "").replace(/\D/g, "").slice(-4);
-  const paymentLabel = client.payment_method === "credit_card" ? "Credit Card" : "Bank Draft";
-  const paymentMethodDisplay = last4 ? `${paymentLabel} (Ending in ${last4})` : paymentLabel;
+  // Policy notes (riders etc.) print here. Private/internal notes are
+  // intentionally never surfaced on this client-facing summary.
   const notes = client.policy_notes?.trim() || "";
 
   const beneficiaries = (client.beneficiaries ?? []).filter(
@@ -103,7 +101,6 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
             <Detail label="Policy Written On" value={writtenOn} />
             <Detail label="Policy Issued On" value={issuedOn} />
             <Detail label="Monthly Payment (Date/Day)" value={monthlyPaymentDate} />
-            <Detail label="Payment Method" value={paymentMethodDisplay} />
           </View>
         </View>
 

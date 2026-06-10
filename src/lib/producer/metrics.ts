@@ -1,11 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { zonedParts, zonedIsoDay } from "@/lib/producer/time";
 
-// Closed-loop producer metrics. Ported from the LifeLeads dashboard/analytics
-// routes but scoped to a single producer (person_id) and sourced only from the
-// OS tables: sales_lead, tracker_entry, sale, issued_policy, deposit,
-// contact_attempt. There is no separate "clients" write-up source here — sale
-// + issued_policy are the single source of truth for AP / IP / sale counts.
+// Closed-loop producer metrics, sourced from the data producers actually enter:
+//
+//   - tracker_entry      → daily activity counts (dials, leads, contacts,
+//                          appointments, presentations, sales). "Leads" is now a
+//                          punched-in daily field, not a derived lead-row count.
+//   - clients            → the book of business. Each closed client (sale_status
+//                          = 'sale') is one sale; annual_premium is the AP. A
+//                          client with an issue_date is an issued policy (IP).
+//   - client_deposits    → money in (status = 'successful', actual_amount).
+//   - lead_purchases     → real lead spend (amount, dated by purchase_date).
+//
+// The old frozen funnel (sales_lead / sale / issued_policy / deposit /
+// contact_attempt) is no longer read — those tables were never written by the
+// app. There is no per-call contact heatmap anymore (no per-call data exists).
 
 export type RangeKey = "today" | "wtd" | "mtd" | "ytd" | "all" | "custom";
 
@@ -15,11 +24,6 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-// Each producer table carries the AP-bearing premium. $7.50/lead is the
-// working cost-per-lead default for final-expense exclusives until a spend
-// table ships.
-const PRICE_PER_LEAD_CENTS = 750;
-
 export const AGE_BANDS: Array<{ band: string; min: number; max: number }> = [
   { band: "50–59", min: 50, max: 59 },
   { band: "60–64", min: 60, max: 64 },
@@ -28,9 +32,61 @@ export const AGE_BANDS: Array<{ band: string; min: number; max: number }> = [
   { band: "75–80", min: 75, max: 80 },
 ];
 
-export const HEATMAP_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-// Rows are Mon..Sun: Date dow (0=Sun..6=Sat) → row index (0=Mon..6=Sun).
-const DOW_TO_ROW = [6, 0, 1, 2, 3, 4, 5];
+// ---------------------------------------------------------------------------
+// Money / date helpers for the clients + deposits + lead_purchases tables.
+// ---------------------------------------------------------------------------
+
+// clients store premiums as plain numeric dollars (annual_premium) or as
+// free-form quote strings ("$50", "50/mo"). Normalize either to integer cents.
+function dollarsToCents(v: number | string | null | undefined): number {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+// Date-typed columns ('YYYY-MM-DD') — the calendar day IS the value.
+function dayOfDateCol(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.slice(0, 10);
+  return ISO_DATE.test(s) ? s : null;
+}
+
+// timestamptz columns — convert to the viewer's local calendar day.
+function dayOfTs(v: string | null | undefined, tz: string): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  return zonedIsoDay(d, tz);
+}
+
+type ClientRow = {
+  annual_premium: number | null;
+  sale_status: string | null;
+  submit_date: string | null;
+  date: string | null;
+  created_at: string | null;
+  issue_date: string | null;
+  state: string | null;
+  age: number | null;
+  quotes: Array<{ carrier?: string | null; premium?: string | null; coverage?: string | null }> | null;
+  chosen_quote_index: number | null;
+};
+
+const CLIENT_COLS =
+  "annual_premium, sale_status, submit_date, date, created_at, issue_date, state, age, quotes, chosen_quote_index";
+
+// The day a client counts as a sale: when the policy was written, falling back
+// to the record date, then the row's creation day.
+function saleDay(c: ClientRow, tz: string): string | null {
+  return dayOfDateCol(c.submit_date) ?? dayOfDateCol(c.date) ?? dayOfTs(c.created_at, tz);
+}
+function isSale(c: ClientRow): boolean {
+  return (c.sale_status ?? "sale") === "sale";
+}
+function chosenQuote(c: ClientRow): { carrier?: string | null; premium?: string | null; coverage?: string | null } {
+  const qs = Array.isArray(c.quotes) ? c.quotes : [];
+  const idx = c.chosen_quote_index;
+  return (idx != null ? qs[idx] : undefined) ?? qs.find((q) => q?.carrier) ?? qs[0] ?? {};
+}
 
 export function resolveRange(
   key: RangeKey,
@@ -78,37 +134,29 @@ function expandDates(from: string, to: string): string[] {
   return out;
 }
 
-// Earliest activity date across the producer's tables — lower bound for ALL.
-async function findEarliestActivityDate(
-  supabase: SupabaseClient,
-  personId: string,
-): Promise<string | null> {
-  const [leads, tracker, sales, deposits] = await Promise.all([
-    supabase.from("sales_lead").select("received_at").eq("person_id", personId).order("received_at", { ascending: true }).limit(1).maybeSingle(),
-    supabase.from("tracker_entry").select("entry_date").eq("person_id", personId).order("entry_date", { ascending: true }).limit(1).maybeSingle(),
-    supabase.from("sale").select("created_at").eq("person_id", personId).order("created_at", { ascending: true }).limit(1).maybeSingle(),
-    supabase.from("deposit").select("received_at").eq("person_id", personId).order("received_at", { ascending: true }).limit(1).maybeSingle(),
-  ]);
-  const candidates: string[] = [];
-  const push = (v: string | null | undefined) => {
-    if (v) candidates.push(v.slice(0, 10));
-  };
-  push(leads.data?.received_at as string | undefined);
-  push(tracker.data?.entry_date as string | undefined);
-  push(sales.data?.created_at as string | undefined);
-  push(deposits.data?.received_at as string | undefined);
-  if (candidates.length === 0) return null;
-  return candidates.sort()[0];
-}
-
-// Window the SQL query ±24h around the local-day bounds so any timestamp that
-// lands in the local [from..to] range (after tz conversion) is captured; we
-// filter back to the exact local day in JS.
+// Window timestamptz queries ±24h around the local-day bounds so any timestamp
+// that lands in the local [from..to] range (after tz conversion) is captured;
+// we filter back to the exact local day in JS.
 function sqlWindow(from: string, to: string): { fromTs: string; toTs: string } {
   return {
     fromTs: new Date(`${from}T00:00:00Z`).toISOString().slice(0, -1),
     toTs: new Date(new Date(`${to}T00:00:00Z`).getTime() + 48 * 3600_000).toISOString().slice(0, -1),
   };
+}
+
+// Earliest activity day for the producer — lower bound for the ALL range.
+async function findEarliestActivityDate(
+  supabase: SupabaseClient,
+  personId: string,
+): Promise<string | null> {
+  const [tracker, clients] = await Promise.all([
+    supabase.from("tracker_entry").select("entry_date").eq("person_id", personId).order("entry_date", { ascending: true }).limit(1).maybeSingle(),
+    supabase.from("clients").select("created_at").eq("person_id", personId).order("created_at", { ascending: true }).limit(1).maybeSingle(),
+  ]);
+  const candidates: string[] = [];
+  if (tracker.data?.entry_date) candidates.push((tracker.data.entry_date as string).slice(0, 10));
+  if (clients.data?.created_at) candidates.push((clients.data.created_at as string).slice(0, 10));
+  return candidates.length ? candidates.sort()[0] : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,86 +190,54 @@ export async function computeDashboard(
   const earliestAll = rangeKey === "all" ? await findEarliestActivityDate(supabase, personId) : null;
   const { from, to } = resolveRange(rangeKey, tz, opts.from, opts.to, earliestAll);
   const isHourly = rangeKey === "today";
-  const { fromTs, toTs } = sqlWindow(from, to);
 
   const currentHourKey = (() => {
     const p = zonedParts(new Date(), tz);
     return `${from}T${pad2(p.h)}:00`;
   })();
 
-  function bucketKey(ts: string | null | undefined): string | null {
-    if (!ts) return null;
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return null;
-    if (!isHourly) return zonedIsoDay(d, tz);
-    const p = zonedParts(d, tz);
-    const ymd = `${p.y}-${pad2(p.m)}-${pad2(p.day)}`;
-    if (ymd !== from) return null;
-    return `${ymd}T${pad2(p.h)}:00`;
-  }
-  function dateOnlyKey(ymd: string | null | undefined): string | null {
-    if (!ymd) return null;
-    if (isHourly) return currentHourKey;
-    return ymd.slice(0, 10);
+  // tracker is date-grained; clients are attributed by calendar day. On the
+  // hourly "today" view everything collapses onto the current hour.
+  function dayBucket(day: string | null | undefined): string | null {
+    if (!day || day < from || day > to) return null;
+    return isHourly ? currentHourKey : day;
   }
 
-  const [leadsRes, trackerRes, salesRes, policyRes] = await Promise.all([
-    supabase.from("sales_lead").select("received_at").eq("person_id", personId).gte("received_at", fromTs).lte("received_at", toTs),
-    supabase.from("tracker_entry").select("entry_date, dials, contacts, appointments, presentations, sales").eq("person_id", personId).gte("entry_date", from).lte("entry_date", to),
-    supabase.from("sale").select("created_at, annual_premium_cents").eq("person_id", personId).gte("created_at", fromTs).lte("created_at", toTs),
-    supabase.from("issued_policy").select("issued_at, status, sale:sale_id(annual_premium_cents)").eq("person_id", personId).gte("issued_at", fromTs).lte("issued_at", toTs),
+  const [trackerRes, clientsRes] = await Promise.all([
+    supabase.from("tracker_entry").select("entry_date, dials, contacts, appointments, presentations, sales, leads").eq("person_id", personId).gte("entry_date", from).lte("entry_date", to),
+    supabase.from("clients").select(CLIENT_COLS).eq("person_id", personId),
   ]);
-  if (leadsRes.error) throw new Error(leadsRes.error.message);
   if (trackerRes.error) throw new Error(trackerRes.error.message);
-  if (salesRes.error) throw new Error(salesRes.error.message);
-  if (policyRes.error) throw new Error(policyRes.error.message);
+  if (clientsRes.error) throw new Error(clientsRes.error.message);
 
-  const leadsPerBucket = new Map<string, number>();
-  for (const r of leadsRes.data ?? []) {
-    const key = bucketKey(r.received_at as string);
-    if (key) leadsPerBucket.set(key, (leadsPerBucket.get(key) ?? 0) + 1);
-  }
-
-  const trackerByBucket = new Map<string, { dials: number; contacts: number; appointments: number; presentations: number; sales: number }>();
+  type TrackerAgg = { leads: number; dials: number; contacts: number; appointments: number; presentations: number; sales: number };
+  const trackerByBucket = new Map<string, TrackerAgg>();
   for (const r of (trackerRes.data ?? []) as Array<Record<string, number | string | null>>) {
-    const key = dateOnlyKey(r.entry_date as string);
+    const key = dayBucket((r.entry_date as string)?.slice(0, 10));
     if (!key) continue;
-    const existing = trackerByBucket.get(key);
-    const vals = {
-      dials: Number(r.dials ?? 0),
-      contacts: Number(r.contacts ?? 0),
-      appointments: Number(r.appointments ?? 0),
-      presentations: Number(r.presentations ?? 0),
-      sales: Number(r.sales ?? 0),
-    };
-    if (existing) {
-      existing.dials += vals.dials;
-      existing.contacts += vals.contacts;
-      existing.appointments += vals.appointments;
-      existing.presentations += vals.presentations;
-      existing.sales += vals.sales;
-    } else {
-      trackerByBucket.set(key, vals);
-    }
+    const e = trackerByBucket.get(key) ?? { leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
+    e.leads += Number(r.leads ?? 0);
+    e.dials += Number(r.dials ?? 0);
+    e.contacts += Number(r.contacts ?? 0);
+    e.appointments += Number(r.appointments ?? 0);
+    e.presentations += Number(r.presentations ?? 0);
+    e.sales += Number(r.sales ?? 0);
+    trackerByBucket.set(key, e);
   }
 
   const apCentsPerBucket = new Map<string, number>();
   const salesCountPerBucket = new Map<string, number>();
-  for (const r of (salesRes.data ?? []) as Array<{ created_at: string; annual_premium_cents: number | null }>) {
-    const key = bucketKey(r.created_at);
-    if (!key) continue;
-    apCentsPerBucket.set(key, (apCentsPerBucket.get(key) ?? 0) + (r.annual_premium_cents ?? 0));
-    salesCountPerBucket.set(key, (salesCountPerBucket.get(key) ?? 0) + 1);
-  }
-
   const ipCentsPerBucket = new Map<string, number>();
-  for (const p of (policyRes.data ?? []) as Array<{ issued_at: string; status: string | null; sale: { annual_premium_cents?: number | null } | Array<{ annual_premium_cents?: number | null }> | null }>) {
-    if (p.status !== "issued" && p.status !== "lapsed") continue;
-    const joined = Array.isArray(p.sale) ? p.sale[0] : p.sale;
-    const ap = joined?.annual_premium_cents ?? 0;
-    if (!ap) continue;
-    const key = bucketKey(p.issued_at);
-    if (key) ipCentsPerBucket.set(key, (ipCentsPerBucket.get(key) ?? 0) + ap);
+  for (const c of (clientsRes.data ?? []) as ClientRow[]) {
+    if (isSale(c)) {
+      const key = dayBucket(saleDay(c, tz));
+      if (key) {
+        apCentsPerBucket.set(key, (apCentsPerBucket.get(key) ?? 0) + dollarsToCents(c.annual_premium));
+        salesCountPerBucket.set(key, (salesCountPerBucket.get(key) ?? 0) + 1);
+      }
+    }
+    const issueKey = dayBucket(dayOfDateCol(c.issue_date));
+    if (issueKey) ipCentsPerBucket.set(issueKey, (ipCentsPerBucket.get(issueKey) ?? 0) + dollarsToCents(c.annual_premium));
   }
 
   const buckets = isHourly
@@ -233,7 +249,7 @@ export async function computeDashboard(
     const derivedSales = salesCountPerBucket.get(key) ?? 0;
     return {
       date: key,
-      leads: leadsPerBucket.get(key) ?? 0,
+      leads: t?.leads ?? 0,
       dials: t?.dials ?? 0,
       contacts: t?.contacts ?? 0,
       appointments: t?.appointments ?? 0,
@@ -262,7 +278,8 @@ export async function computeDashboard(
 }
 
 // ---------------------------------------------------------------------------
-// Analytics: totals + state/age/carrier breakdowns + contact heatmap.
+// Analytics: totals + state/age/carrier breakdowns.
+// (The per-call contact heatmap was removed — no per-call data is captured.)
 // ---------------------------------------------------------------------------
 export type AnalyticsResult = {
   range: { key: RangeKey; from: string; to: string };
@@ -279,10 +296,11 @@ export type AnalyticsResult = {
     deposits_cents: number;
     leadSpend_cents: number;
   };
+  // `leads` is retained for shape compatibility but is always 0 — leads are a
+  // daily total now, with no per-state/per-age dimension.
   state_perf: Array<{ state: string; leads: number; sales: number; ap_cents: number }>;
   age_bands: Array<{ band: string; leads: number; sales: number; ap_cents: number }>;
   carrier_perf: Array<{ name: string; sales: number; ap_cents: number; avg_monthly_premium_cents: number; avg_face_amount_cents: number }>;
-  heatmap: number[][];
 };
 
 export async function computeAnalytics(
@@ -294,38 +312,26 @@ export async function computeAnalytics(
   const earliestAll = rangeKey === "all" ? await findEarliestActivityDate(supabase, personId) : null;
   const { from, to } = resolveRange(rangeKey, tz, opts.from, opts.to, earliestAll);
   const { fromTs, toTs } = sqlWindow(from, to);
+  const inRange = (day: string | null) => !!day && day >= from && day <= to;
 
-  function inLocalRange(ts: string | null | undefined): boolean {
-    if (!ts) return false;
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return false;
-    const day = zonedIsoDay(d, tz);
-    return day >= from && day <= to;
-  }
-
-  const [leadsRes, trackerRes, salesRes, policyRes, depositRes, attemptRes] = await Promise.all([
-    supabase.from("sales_lead").select("state, age, received_at").eq("person_id", personId).gte("received_at", fromTs).lte("received_at", toTs),
-    supabase.from("tracker_entry").select("dials, contacts, appointments, presentations, sales").eq("person_id", personId).gte("entry_date", from).lte("entry_date", to),
-    supabase.from("sale").select("carrier, annual_premium_cents, monthly_premium_cents, face_amount_cents, created_at, lead:lead_id(state, age)").eq("person_id", personId).gte("created_at", fromTs).lte("created_at", toTs),
-    supabase.from("issued_policy").select("status, issued_at, sale:sale_id(annual_premium_cents)").eq("person_id", personId).gte("issued_at", fromTs).lte("issued_at", toTs),
-    supabase.from("deposit").select("amount_cents, status, received_at").eq("person_id", personId).gte("received_at", fromTs).lte("received_at", toTs),
-    supabase.from("contact_attempt").select("created_at, outcome").eq("person_id", personId).gte("created_at", fromTs).lte("created_at", toTs),
+  const [trackerRes, clientsRes, depositRes, spendRes] = await Promise.all([
+    supabase.from("tracker_entry").select("dials, contacts, appointments, presentations, sales, leads").eq("person_id", personId).gte("entry_date", from).lte("entry_date", to),
+    supabase.from("clients").select(CLIENT_COLS).eq("person_id", personId),
+    supabase.from("client_deposits").select("actual_amount, status, updated_at, created_at").eq("person_id", personId).gte("updated_at", fromTs).lte("updated_at", toTs),
+    supabase.from("lead_purchases").select("amount, purchase_date").eq("person_id", personId).gte("purchase_date", from).lte("purchase_date", to),
   ]);
-  if (leadsRes.error) throw new Error(leadsRes.error.message);
   if (trackerRes.error) throw new Error(trackerRes.error.message);
-  if (salesRes.error) throw new Error(salesRes.error.message);
-  if (policyRes.error) throw new Error(policyRes.error.message);
+  if (clientsRes.error) throw new Error(clientsRes.error.message);
   if (depositRes.error) throw new Error(depositRes.error.message);
-  if (attemptRes.error) throw new Error(attemptRes.error.message);
+  if (spendRes.error) throw new Error(spendRes.error.message);
 
-  const leadsRows = (leadsRes.data ?? []).filter((r: { received_at: string }) => inLocalRange(r.received_at)) as Array<{ state: string | null; age: number | null }>;
-  const salesRows = (salesRes.data ?? []).filter((r: { created_at: string }) => inLocalRange(r.created_at)) as Array<{ carrier: string | null; annual_premium_cents: number | null; monthly_premium_cents: number | null; face_amount_cents: number | null; lead: { state?: string | null; age?: number | null } | Array<{ state?: string | null; age?: number | null }> | null }>;
-  const policyRows = (policyRes.data ?? []).filter((r: { issued_at: string }) => inLocalRange(r.issued_at)) as Array<{ status: string | null; sale: { annual_premium_cents?: number | null } | Array<{ annual_premium_cents?: number | null }> | null }>;
-  const depositRows = (depositRes.data ?? []).filter((r: { received_at: string }) => inLocalRange(r.received_at)) as Array<{ amount_cents: number | null; status: string | null }>;
-  const attemptRows = (attemptRes.data ?? []).filter((r: { created_at: string }) => inLocalRange(r.created_at)) as Array<{ created_at: string; outcome: string | null }>;
+  const clients = (clientsRes.data ?? []) as ClientRow[];
+  const saleRows = clients.filter((c) => isSale(c) && inRange(saleDay(c, tz)));
+  const issuedRows = clients.filter((c) => inRange(dayOfDateCol(c.issue_date)));
 
-  const tracker = { dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
+  const tracker = { leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
   for (const r of (trackerRes.data ?? []) as Array<Record<string, number | null>>) {
+    tracker.leads += r.leads ?? 0;
     tracker.dials += r.dials ?? 0;
     tracker.contacts += r.contacts ?? 0;
     tracker.appointments += r.appointments ?? 0;
@@ -334,32 +340,32 @@ export async function computeAnalytics(
   }
 
   let ap_cents = 0;
-  for (const s of salesRows) ap_cents += s.annual_premium_cents ?? 0;
+  for (const c of saleRows) ap_cents += dollarsToCents(c.annual_premium);
 
   let ip_cents = 0;
-  let issuedCount = 0;
-  for (const p of policyRows) {
-    if (p.status === "issued" || p.status === "lapsed") {
-      issuedCount++;
-      const joined = Array.isArray(p.sale) ? p.sale[0] : p.sale;
-      ip_cents += joined?.annual_premium_cents ?? 0;
-    }
-  }
+  for (const c of issuedRows) ip_cents += dollarsToCents(c.annual_premium);
+  const issuedCount = issuedRows.length;
 
   let deposits_cents = 0;
-  for (const d of depositRows) {
-    if (d.status === "received") deposits_cents += d.amount_cents ?? 0;
+  for (const d of (depositRes.data ?? []) as Array<{ actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>) {
+    if (d.status !== "successful") continue;
+    if (!inRange(dayOfTs(d.updated_at, tz) ?? dayOfTs(d.created_at, tz))) continue;
+    deposits_cents += dollarsToCents(d.actual_amount);
   }
 
-  const leadSpend_cents = leadsRows.length * PRICE_PER_LEAD_CENTS;
+  let leadSpend_cents = 0;
+  for (const p of (spendRes.data ?? []) as Array<{ amount: number | null; purchase_date: string | null }>) {
+    if (!inRange(dayOfDateCol(p.purchase_date))) continue;
+    leadSpend_cents += dollarsToCents(p.amount);
+  }
 
   const totals = {
-    leads: leadsRows.length,
+    leads: tracker.leads,
     dials: tracker.dials,
     contacts: tracker.contacts,
     appointments: tracker.appointments,
     presentations: tracker.presentations,
-    sales: Math.max(tracker.sales, salesRows.length),
+    sales: Math.max(tracker.sales, saleRows.length),
     ap_cents,
     ip_cents,
     issuedCount,
@@ -367,30 +373,22 @@ export async function computeAnalytics(
     leadSpend_cents,
   };
 
-  // State performance
+  // State performance (sales + AP by the client's state)
   type StateAgg = { state: string; leads: number; sales: number; ap_cents: number };
   const stateMap = new Map<string, StateAgg>();
-  for (const l of leadsRows) {
-    const st = (l.state ?? "").toUpperCase().trim();
-    if (!st) continue;
-    const e = stateMap.get(st) ?? { state: st, leads: 0, sales: 0, ap_cents: 0 };
-    e.leads++;
-    stateMap.set(st, e);
-  }
-  for (const s of salesRows) {
-    const joined = Array.isArray(s.lead) ? s.lead[0] : s.lead;
-    const st = (joined?.state ?? "").toUpperCase().trim();
+  for (const c of saleRows) {
+    const st = (c.state ?? "").toUpperCase().trim();
     if (!st) continue;
     const e = stateMap.get(st) ?? { state: st, leads: 0, sales: 0, ap_cents: 0 };
     e.sales++;
-    e.ap_cents += s.annual_premium_cents ?? 0;
+    e.ap_cents += dollarsToCents(c.annual_premium);
     stateMap.set(st, e);
   }
   const state_perf = Array.from(stateMap.values())
-    .sort((a, b) => b.ap_cents - a.ap_cents || b.leads - a.leads)
+    .sort((a, b) => b.ap_cents - a.ap_cents || b.sales - a.sales)
     .slice(0, 10);
 
-  // Age bands
+  // Age bands (sales + AP by the client's age)
   const age_bands = AGE_BANDS.map((b) => ({ band: b.band, leads: 0, sales: 0, ap_cents: 0 }));
   function bandIndex(age: number | null | undefined): number {
     if (age == null) return -1;
@@ -399,29 +397,25 @@ export async function computeAnalytics(
     }
     return -1;
   }
-  for (const l of leadsRows) {
-    const i = bandIndex(l.age);
-    if (i >= 0) age_bands[i].leads++;
-  }
-  for (const s of salesRows) {
-    const joined = Array.isArray(s.lead) ? s.lead[0] : s.lead;
-    const i = bandIndex(joined?.age);
+  for (const c of saleRows) {
+    const i = bandIndex(c.age);
     if (i >= 0) {
       age_bands[i].sales++;
-      age_bands[i].ap_cents += s.annual_premium_cents ?? 0;
+      age_bands[i].ap_cents += dollarsToCents(c.annual_premium);
     }
   }
 
-  // Carrier performance
+  // Carrier performance (from each sold client's chosen quote)
   type CarrierAgg = { name: string; sales: number; ap_cents: number; monthly_total_cents: number; face_total_cents: number };
   const carrierMap = new Map<string, CarrierAgg>();
-  for (const s of salesRows) {
-    const name = (s.carrier ?? "Other").trim() || "Other";
+  for (const c of saleRows) {
+    const q = chosenQuote(c);
+    const name = (q.carrier ?? "Other").trim() || "Other";
     const e = carrierMap.get(name) ?? { name, sales: 0, ap_cents: 0, monthly_total_cents: 0, face_total_cents: 0 };
     e.sales++;
-    e.ap_cents += s.annual_premium_cents ?? 0;
-    e.monthly_total_cents += s.monthly_premium_cents ?? 0;
-    e.face_total_cents += s.face_amount_cents ?? 0;
+    e.ap_cents += dollarsToCents(c.annual_premium);
+    e.monthly_total_cents += dollarsToCents(q.premium);
+    e.face_total_cents += dollarsToCents(q.coverage);
     carrierMap.set(name, e);
   }
   const carrier_perf = Array.from(carrierMap.values())
@@ -434,28 +428,15 @@ export async function computeAnalytics(
     }))
     .sort((a, b) => b.ap_cents - a.ap_cents);
 
-  // Heatmap: connected contact_attempts per (row=dow Mon..Sun, col=hour 8..19)
-  const heatmap: number[][] = Array.from({ length: 7 }, () => Array(HEATMAP_HOURS.length).fill(0));
-  for (const a of attemptRows) {
-    if (a.outcome !== "connected") continue;
-    const d = new Date(a.created_at);
-    if (isNaN(d.getTime())) continue;
-    const p = zonedParts(d, tz);
-    const row = DOW_TO_ROW[p.dow];
-    const col = HEATMAP_HOURS.indexOf(p.h);
-    if (col >= 0) heatmap[row][col]++;
-  }
-
-  return { range: { key: rangeKey, from, to }, totals, state_perf, age_bands, carrier_perf, heatmap };
+  return { range: { key: rangeKey, from, to }, totals, state_perf, age_bands, carrier_perf };
 }
 
 // ---------------------------------------------------------------------------
 // Leaderboard: org-wide per-producer ranking over a range.
 //
-// Unlike the dashboard/analytics computations this is NOT scoped to one
-// person_id — it aggregates every producer so the ranking is the same for
-// everyone. Call it with a service-role client; RLS would otherwise clip the
-// result to the viewer's own downline.
+// Not scoped to one person_id — it aggregates every producer so the ranking is
+// the same for everyone. Call it with a service-role client; RLS would
+// otherwise clip the result to the viewer's own downline.
 // ---------------------------------------------------------------------------
 export type LeaderboardMetric =
   | "ap_cents"
@@ -486,15 +467,14 @@ export type LeaderboardResult = {
   rows: LeaderboardRow[];
 };
 
-// Earliest activity date across ALL producers — lower bound for the ALL range.
 async function findEarliestActivityDateAll(supabase: SupabaseClient): Promise<string | null> {
-  const [tracker, sales] = await Promise.all([
+  const [tracker, clients] = await Promise.all([
     supabase.from("tracker_entry").select("entry_date").order("entry_date", { ascending: true }).limit(1).maybeSingle(),
-    supabase.from("sale").select("created_at").order("created_at", { ascending: true }).limit(1).maybeSingle(),
+    supabase.from("clients").select("created_at").order("created_at", { ascending: true }).limit(1).maybeSingle(),
   ]);
   const candidates: string[] = [];
   if (tracker.data?.entry_date) candidates.push((tracker.data.entry_date as string).slice(0, 10));
-  if (sales.data?.created_at) candidates.push((sales.data.created_at as string).slice(0, 10));
+  if (clients.data?.created_at) candidates.push((clients.data.created_at as string).slice(0, 10));
   return candidates.length ? candidates.sort()[0] : null;
 }
 
@@ -507,23 +487,16 @@ export async function computeLeaderboard(
   const earliestAll = rangeKey === "all" ? await findEarliestActivityDateAll(supabase) : null;
   const { from, to } = resolveRange(rangeKey, tz, opts.from, opts.to, earliestAll);
   const { fromTs, toTs } = sqlWindow(from, to);
+  const inRange = (day: string | null) => !!day && day >= from && day <= to;
 
-  function inLocalRange(ts: string | null | undefined): boolean {
-    if (!ts) return false;
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return false;
-    const day = zonedIsoDay(d, tz);
-    return day >= from && day <= to;
-  }
-
-  const [salesRes, policyRes, trackerRes, depositRes] = await Promise.all([
-    supabase.from("sale").select("person_id, annual_premium_cents, created_at").gte("created_at", fromTs).lte("created_at", toTs),
-    supabase.from("issued_policy").select("person_id, status, issued_at, sale:sale_id(annual_premium_cents)").gte("issued_at", fromTs).lte("issued_at", toTs),
+  const [clientsRes, trackerRes, depositRes] = await Promise.all([
+    // All clients org-wide; we attribute each to a day in JS (sale vs issue
+    // dates can diverge from created_at, so we don't bound by created_at here).
+    supabase.from("clients").select(`person_id, ${CLIENT_COLS}`),
     supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to),
-    supabase.from("deposit").select("person_id, amount_cents, status, received_at").gte("received_at", fromTs).lte("received_at", toTs),
+    supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs),
   ]);
-  if (salesRes.error) throw new Error(salesRes.error.message);
-  if (policyRes.error) throw new Error(policyRes.error.message);
+  if (clientsRes.error) throw new Error(clientsRes.error.message);
   if (trackerRes.error) throw new Error(trackerRes.error.message);
   if (depositRes.error) throw new Error(depositRes.error.message);
 
@@ -538,20 +511,17 @@ export async function computeLeaderboard(
     return a;
   };
 
-  for (const r of (salesRes.data ?? []) as Array<{ person_id: string; annual_premium_cents: number | null; created_at: string }>) {
-    if (!inLocalRange(r.created_at)) continue;
-    const a = bump(r.person_id);
-    a.ap_cents += r.annual_premium_cents ?? 0;
-    a.saleCount += 1;
-  }
-
-  for (const p of (policyRes.data ?? []) as Array<{ person_id: string; status: string | null; issued_at: string; sale: { annual_premium_cents?: number | null } | Array<{ annual_premium_cents?: number | null }> | null }>) {
-    if (p.status !== "issued" && p.status !== "lapsed") continue;
-    if (!inLocalRange(p.issued_at)) continue;
-    const joined = Array.isArray(p.sale) ? p.sale[0] : p.sale;
-    const a = bump(p.person_id);
-    a.ip_cents += joined?.annual_premium_cents ?? 0;
-    a.policies += 1;
+  for (const c of (clientsRes.data ?? []) as Array<ClientRow & { person_id: string }>) {
+    if (isSale(c) && inRange(saleDay(c, tz))) {
+      const a = bump(c.person_id);
+      a.ap_cents += dollarsToCents(c.annual_premium);
+      a.saleCount += 1;
+    }
+    if (inRange(dayOfDateCol(c.issue_date))) {
+      const a = bump(c.person_id);
+      a.ip_cents += dollarsToCents(c.annual_premium);
+      a.policies += 1;
+    }
   }
 
   for (const t of (trackerRes.data ?? []) as Array<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>) {
@@ -562,10 +532,10 @@ export async function computeLeaderboard(
     a.presentations += Number(t.presentations ?? 0);
   }
 
-  for (const d of (depositRes.data ?? []) as Array<{ person_id: string; amount_cents: number | null; status: string | null; received_at: string }>) {
-    if (d.status !== "received") continue;
-    if (!inLocalRange(d.received_at)) continue;
-    bump(d.person_id).deposits_cents += d.amount_cents ?? 0;
+  for (const d of (depositRes.data ?? []) as Array<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>) {
+    if (d.status !== "successful") continue;
+    if (!inRange(dayOfTs(d.updated_at, tz) ?? dayOfTs(d.created_at, tz))) continue;
+    bump(d.person_id).deposits_cents += dollarsToCents(d.actual_amount);
   }
 
   const ids = Array.from(byPerson.keys());
@@ -615,23 +585,13 @@ export async function computeCalendar(
   const fromIso = `${ym}-01`;
   const lastDay = new Date(y, m, 0).getDate();
   const toIso = `${ym}-${pad2(lastDay)}`;
-  const { fromTs, toTs } = sqlWindow(fromIso, toIso);
+  const inMonth = (day: string | null) => !!day && day >= fromIso && day <= toIso;
 
-  function dayIfInMonth(ts: string | null | undefined): string | null {
-    if (!ts) return null;
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return null;
-    const day = zonedIsoDay(d, tz);
-    return day >= fromIso && day <= toIso ? day : null;
-  }
-
-  const [salesRes, policyRes, trackerRes] = await Promise.all([
-    supabase.from("sale").select("created_at, annual_premium_cents").eq("person_id", personId).gte("created_at", fromTs).lte("created_at", toTs),
-    supabase.from("issued_policy").select("status, issued_at, sale:sale_id(annual_premium_cents)").eq("person_id", personId).gte("issued_at", fromTs).lte("issued_at", toTs),
+  const [clientsRes, trackerRes] = await Promise.all([
+    supabase.from("clients").select(CLIENT_COLS).eq("person_id", personId),
     supabase.from("tracker_entry").select("entry_date").eq("person_id", personId).gte("entry_date", fromIso).lte("entry_date", toIso),
   ]);
-  if (salesRes.error) throw new Error(salesRes.error.message);
-  if (policyRes.error) throw new Error(policyRes.error.message);
+  if (clientsRes.error) throw new Error(clientsRes.error.message);
   if (trackerRes.error) throw new Error(trackerRes.error.message);
 
   const days: Record<string, CalendarDay> = {};
@@ -643,22 +603,20 @@ export async function computeCalendar(
     return next;
   };
 
-  for (const s of (salesRes.data ?? []) as Array<{ created_at: string | null; annual_premium_cents: number | null }>) {
-    const iso = dayIfInMonth(s.created_at);
-    if (!iso) continue;
-    const d = bumpDay(iso);
-    d.ap_cents += s.annual_premium_cents ?? 0;
-    d.sales += 1;
-  }
-  for (const p of (policyRes.data ?? []) as Array<{ status: string | null; issued_at: string | null; sale: { annual_premium_cents?: number | null } | Array<{ annual_premium_cents?: number | null }> | null }>) {
-    if (p.status !== "issued" && p.status !== "lapsed") continue;
-    const iso = dayIfInMonth(p.issued_at);
-    if (!iso) continue;
-    const joined = Array.isArray(p.sale) ? p.sale[0] : p.sale;
-    bumpDay(iso).ip_cents += joined?.annual_premium_cents ?? 0;
+  for (const c of (clientsRes.data ?? []) as ClientRow[]) {
+    if (isSale(c)) {
+      const day = saleDay(c, tz);
+      if (inMonth(day)) {
+        const d = bumpDay(day!);
+        d.ap_cents += dollarsToCents(c.annual_premium);
+        d.sales += 1;
+      }
+    }
+    const issueDay = dayOfDateCol(c.issue_date);
+    if (inMonth(issueDay)) bumpDay(issueDay!).ip_cents += dollarsToCents(c.annual_premium);
   }
   for (const t of (trackerRes.data ?? []) as Array<{ entry_date: string }>) {
-    bumpDay(t.entry_date).submitted = true;
+    bumpDay((t.entry_date as string).slice(0, 10)).submitted = true;
   }
 
   return { month: ym, days };

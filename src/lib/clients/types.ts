@@ -44,8 +44,6 @@ export const DEPOSIT_STATUS_LABEL: Record<DepositStatus, string> = {
   failed: "Failed",
 };
 
-export type PaymentMethod = "bank_draft" | "credit_card";
-
 export type SaleStatus = "in_progress" | "missed" | "sale";
 
 export type AdvanceOption = {
@@ -83,7 +81,6 @@ export type Client = {
 
   client_name: string;
   date: string | null;
-  ssn: string | null;
   dob: string | null;
   age: number | null;
   phone: string | null;
@@ -110,14 +107,9 @@ export type Client = {
   monthly_payment_date: string | null;
   policy_notes: string | null;
 
-  payment_method: PaymentMethod;
-  bank_name: string | null;
-  routing_number: string | null;
-  account_number: string | null;
-  cc_name: string | null;
-  cc_number: string | null;
-  cc_expiry: string | null;
-  cc_cvv: string | null;
+  // Internal/private notes — for anything sensitive (e.g. SSN, banking) the
+  // producer wants on file. NEVER rendered on the client-facing policy summary.
+  private_notes: string | null;
 
   quotes: Quote[];
   chosen_quote_index: number | null;
@@ -142,7 +134,6 @@ export const EMPTY_DRAFT: ClientDraft = {
   // `new Date()` here would run at module load on the server (UTC) and then
   // stick for the lifetime of the process — wrong tz and stale.
   date: "",
-  ssn: null,
   dob: null,
   age: null,
   phone: null,
@@ -166,14 +157,7 @@ export const EMPTY_DRAFT: ClientDraft = {
   issue_date: null,
   monthly_payment_date: null,
   policy_notes: null,
-  payment_method: "bank_draft",
-  bank_name: null,
-  routing_number: null,
-  account_number: null,
-  cc_name: null,
-  cc_number: null,
-  cc_expiry: null,
-  cc_cvv: null,
+  private_notes: null,
   quotes: [{}],
   chosen_quote_index: 0,
   beneficiaries: [],

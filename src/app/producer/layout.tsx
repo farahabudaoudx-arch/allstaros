@@ -16,7 +16,7 @@ function buildNav(isBuilder: boolean): NavItem[] {
     {
       label: "Tracking",
       children: [
-        { label: "Dial Tracker", href: "/producer/tracker" },
+        { label: "Daily Tracker", href: "/producer/tracker" },
         { label: "Analytics", href: "/producer/analytics" },
         { label: "Lead Spend", href: "/producer/lead-spend" },
         { label: "Clients", href: "/producer/clients" },

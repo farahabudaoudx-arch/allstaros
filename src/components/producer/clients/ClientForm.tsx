@@ -181,9 +181,6 @@ export function ClientForm({ clientId, initialClient }: Props) {
             <input className="input tnum" value={draft.phone ?? ""} onChange={(e) => set("phone", e.target.value || null)} placeholder="555-555-5555" />
           </Field>
         </Grid>
-        <Field label="SSN">
-          <input className="input" value={draft.ssn ?? ""} onChange={(e) => set("ssn", e.target.value || null)} placeholder="XXX-XX-XXXX" />
-        </Field>
         <Field label="Email">
           <input className="input" type="email" value={draft.email ?? ""} onChange={(e) => set("email", e.target.value || null)} placeholder="email@example.com" />
         </Field>
@@ -384,6 +381,24 @@ export function ClientForm({ clientId, initialClient }: Props) {
             </button>
           </div>
         </div>
+      </Section>
+
+      {/* PRIVATE NOTES — internal only, never printed on the policy summary */}
+      <Section title="Private notes">
+        <span className="text-xs" style={{ color: "var(--ink-3)", marginTop: -4 }}>
+          Internal only. Use this for anything sensitive you want on file (e.g. SSN,
+          banking details). This <strong>never</strong> appears on the policy summary.
+        </span>
+        <Field label="Notes">
+          <textarea
+            className="input"
+            rows={5}
+            value={draft.private_notes ?? ""}
+            onChange={(e) => set("private_notes", e.target.value || null)}
+            placeholder="Private notes for your eyes only — not shown to the client…"
+            style={{ resize: "vertical", minHeight: 120, fontFamily: "inherit" }}
+          />
+        </Field>
       </Section>
 
       {/* COMMISSION */}
