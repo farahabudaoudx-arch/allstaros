@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -10,6 +11,7 @@ type Msg = {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  underwriting?: boolean;
 };
 
 function MarkdownMessage({ content }: { content: string }) {
@@ -57,7 +59,12 @@ export function AllStarChat() {
       }
       setMessages([
         ...next,
-        { role: "assistant", content: data.answer, sources: data.sources ?? [] },
+        {
+          role: "assistant",
+          content: data.answer,
+          sources: data.sources ?? [],
+          underwriting: data.underwriting ?? false,
+        },
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -114,6 +121,15 @@ export function AllStarChat() {
                 <MarkdownMessage content={m.content} />
               ) : (
                 <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+              )}
+              {m.role === "assistant" && m.underwriting && (
+                <Link
+                  href="/underwriting"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-background transition hover:opacity-90"
+                >
+                  Open the Underwriting Wizard
+                  <span aria-hidden>→</span>
+                </Link>
               )}
               {m.role === "assistant" && m.sources && m.sources.length > 0 && (
                 <div className="mt-3 border-t border-hairline pt-2">
