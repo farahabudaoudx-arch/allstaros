@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { AddToCalendarButton } from "add-to-calendar-button-react";
 
-const TIME_ZONE = "America/Chicago";
-const ZOOM_URL =
-  "https://us02web.zoom.us/j/87144901286?pwd=Q0FuQXFDbXJ3ZjFSbVV1Wm95ZzNsUT09";
-
+// The display shape now comes from the database (training_schedule), mapped in
+// src/lib/producer/schedule.ts. Kept structurally identical to the old hardcoded
+// items, plus per-event timeZone / zoomUrl.
 type EventItem = {
   slug: string;
   day: string;
@@ -20,61 +19,12 @@ type EventItem = {
   host: string;
   initials: string;
   image: string;
+  timeZone: string;
+  zoomUrl: string;
 };
 
-const events: EventItem[] = [
-  {
-    slug: "ring-of-objections",
-    day: "Mon",
-    date: "5/11",
-    startDate: "2026-05-11",
-    startTime: "08:30",
-    endTime: "09:00",
-    kicker: "Special Training",
-    title: "Ring of Objections",
-    host: "Preston Beck",
-    initials: "PB",
-    image: "/events/ring-of-objections.png",
-  },
-  {
-    slug: "the-why",
-    day: "Tue",
-    date: "5/12",
-    startDate: "2026-05-12",
-    startTime: "08:30",
-    endTime: "09:00",
-    title: "The Why",
-    host: "Graham Hatley",
-    initials: "GH",
-    image: "/events/the-why.png",
-  },
-  {
-    slug: "financial-inventory",
-    day: "Wed",
-    date: "5/13",
-    startDate: "2026-05-13",
-    startTime: "08:30",
-    endTime: "09:00",
-    title: "Financial Inventory",
-    host: "Ethan Fox",
-    initials: "EF",
-    image: "/events/financial-inventory.png",
-  },
-  {
-    slug: "application-close",
-    day: "Thu",
-    date: "5/14",
-    startDate: "2026-05-14",
-    startTime: "08:30",
-    endTime: "09:00",
-    title: "Application & Close",
-    host: "Aidan Abell",
-    initials: "AA",
-    image: "/events/application-close.png",
-  },
-];
-
-export function EventSchedule() {
+export function EventSchedule({ events }: { events: EventItem[] }) {
+  if (events.length === 0) return null;
   return (
     <section className="mt-12">
       <div className="flex items-end justify-between gap-4">
@@ -123,9 +73,9 @@ function EventCard({ event }: { event: EventItem }) {
           startDate={event.startDate}
           startTime={event.startTime}
           endTime={event.endTime}
-          timeZone={TIME_ZONE}
-          location={ZOOM_URL}
-          description={`Live training with ${event.host}.[br][br]Join on Zoom: [url]${ZOOM_URL}|Join Zoom Meeting[/url]`}
+          timeZone={event.timeZone}
+          location={event.zoomUrl}
+          description={`Live training with ${event.host}.[br][br]Join on Zoom: [url]${event.zoomUrl}|Join Zoom Meeting[/url]`}
           options={["Apple", "Google", "Outlook.com", "iCal"]}
           buttonStyle="text"
           size="3"

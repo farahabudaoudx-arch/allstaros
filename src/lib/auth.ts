@@ -17,11 +17,14 @@ export async function resolveLandingPath(
 ): Promise<string> {
   const { data: person } = await supabase
     .from("person")
-    .select("id, is_builder, is_producer")
+    .select("id, is_builder, is_producer, is_admin, is_super_admin")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
   if (!person) return "/onboarding/pending";
+  // Admins/super-admins still log in to their normal home (builders → producer
+  // portal). The /admin area is opt-in: reach it by going to /admin directly,
+  // where the guard lets admins in and bounces everyone else back to /producer.
   if (person.is_builder || person.is_producer) return "/producer";
   return "/portal";
 }

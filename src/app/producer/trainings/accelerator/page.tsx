@@ -1,6 +1,7 @@
 import { CoursePlatform } from "@/components/producer/CoursePlatform";
-import { getProgram } from "@/lib/producer/trainings";
+import { resolveProgram } from "@/lib/producer/training-content";
 
-export default function AcceleratorPage() {
-  return <CoursePlatform program={getProgram("accelerator")} />;
+export default async function AcceleratorPage() {
+  const program = await resolveProgram("accelerator");
+  return <CoursePlatform program={program} />;
 }

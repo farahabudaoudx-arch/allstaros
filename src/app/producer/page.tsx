@@ -4,10 +4,12 @@ import { DashboardGreeting } from "@/components/producer/DashboardGreeting";
 import { ProducerGoals } from "@/components/producer/ProducerGoals";
 import { TodaySnapshot } from "@/components/producer/TodaySnapshot";
 import { getCurrentPerson } from "@/lib/auth";
+import { getScheduleEvents } from "@/lib/producer/schedule";
 
 export default async function ProducerDashboard() {
   const person = await getCurrentPerson();
   const firstName = person?.full_name?.trim()?.split(/\s+/)[0] ?? "there";
+  const scheduleEvents = await getScheduleEvents();
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -17,7 +19,7 @@ export default async function ProducerDashboard() {
 
       <ProducerGoals />
 
-      <EventSchedule />
+      <EventSchedule events={scheduleEvents} />
 
       <DashboardOverview />
     </main>
