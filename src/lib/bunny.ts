@@ -50,18 +50,23 @@ type BunnyListResponse = {
 
 /** Which Bunny library to talk to. Each app has its own library id + API key:
  *   "recruiting" → BUNNY_RECRUITING_* (the recruiting-app library)
- *   "live"       → BUNNY_LIVE_*       (the All Star Live Training library) */
-export type BunnyApp = "recruiting" | "live";
+ *   "live"       → BUNNY_LIVE_*       (the All Star Live Training library)
+ *   "tutorials"  → BUNNY_TUTORIALS_*  (the licensing how-to videos) */
+export type BunnyApp = "recruiting" | "live" | "tutorials";
 
 function config(app: BunnyApp = "recruiting"): { libraryId: string; apiKey: string } | null {
   const libraryId =
     app === "live"
       ? process.env.BUNNY_LIVE_LIBRARY_ID
-      : process.env.BUNNY_RECRUITING_LIBRARY_ID;
+      : app === "tutorials"
+        ? process.env.BUNNY_TUTORIALS_LIBRARY_ID
+        : process.env.BUNNY_RECRUITING_LIBRARY_ID;
   const apiKey =
     app === "live"
       ? process.env.BUNNY_LIVE_API_KEY
-      : process.env.BUNNY_RECRUITING_API_KEY;
+      : app === "tutorials"
+        ? process.env.BUNNY_TUTORIALS_API_KEY
+        : process.env.BUNNY_RECRUITING_API_KEY;
   if (!libraryId || !apiKey) return null;
   return { libraryId, apiKey };
 }
@@ -101,7 +106,9 @@ async function resolveCdnHost(
   const fromEnv =
     app === "live"
       ? process.env.BUNNY_LIVE_CDN_HOSTNAME
-      : process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
+      : app === "tutorials"
+        ? process.env.BUNNY_TUTORIALS_CDN_HOSTNAME
+        : process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
   if (fromEnv) {
     return fromEnv.replace(/^https?:\/\//, "").replace(/\/+$/, "");
   }
@@ -189,6 +196,16 @@ export async function listBunnyVideos(
   }
 
   return out;
+}
+
+/**
+ * The licensing tutorial videos, ordered by the numeric filename prefix
+ * (01, 02, …) so each one lines up with its licensing step. Returns [] when the
+ * tutorials library isn't configured, so the page falls back to placeholders.
+ */
+export async function listTutorialVideos(): Promise<BunnyVideo[]> {
+  const videos = await listBunnyVideos("tutorials");
+  return videos.sort(byFilenameOrder);
 }
 
 const TONES: Tone[] = ["coral", "gold", "green", "sky", "violet", "rose"];

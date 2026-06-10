@@ -73,7 +73,7 @@ export default async function PortalCheckInPage({
             rows={3}
             required
             defaultValue={todays?.summary ?? ""}
-            placeholder="e.g. Two hours on the property/casualty section + 1 dial session."
+            placeholder="e.g. Two hours on the whole vs. term life section + 1 dial session."
           />
           <Button type="submit" variant="primary" className="self-start">
             {todays ? "Update check-in" : "Save check-in"}
