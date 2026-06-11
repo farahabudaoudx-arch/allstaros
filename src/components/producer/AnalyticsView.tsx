@@ -1196,7 +1196,10 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
         </div>
       </div>
 
-      <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr)) 110px" }}>
+      {/* The 7-day grid + week column can't compress to phone width without
+          cutting off the per-day money; let it scroll horizontally instead. */}
+      <div className="overflow-x-auto">
+      <div className="grid gap-1 min-w-[560px]" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr)) 110px" }}>
         {DAY_SHORT_HEADER.map((d) => (
           <div key={d} className="text-[10px] text-center uppercase tracking-wider py-1" style={{ color: "var(--ink-3)" }}>
             {d}
@@ -1296,6 +1299,7 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
             </div>
           </Fragment>
         ))}
+      </div>
       </div>
 
       <div className="flex items-center gap-4 text-[10px] pt-3" style={{ color: "var(--ink-3)", borderTop: "1px solid var(--line-1)" }}>
