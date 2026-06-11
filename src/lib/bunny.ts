@@ -106,9 +106,7 @@ async function resolveCdnHost(
   const fromEnv =
     app === "live"
       ? process.env.BUNNY_LIVE_CDN_HOSTNAME
-      : app === "tutorials"
-        ? process.env.BUNNY_TUTORIALS_CDN_HOSTNAME
-        : process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
+      : process.env.BUNNY_RECRUITING_CDN_HOSTNAME;
   if (fromEnv) {
     return fromEnv.replace(/^https?:\/\//, "").replace(/\/+$/, "");
   }

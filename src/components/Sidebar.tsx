@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { BugReportModal } from "@/components/BugReportModal";
 
 export type NavItem = {
   label: string;
@@ -248,8 +247,6 @@ export function Sidebar({
             <span className="truncate text-sm text-subtle">{userName}</span>
           ) : null}
         </div>
-
-        <BugReportModal collapsed={collapsed} />
 
         {!collapsed ? (
           <form action="/auth/signout" method="post">

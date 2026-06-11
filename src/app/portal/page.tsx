@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import LicensingView from "./_components/licensing-view";
-import { listTutorialVideos } from "@/lib/bunny";
 import OnboardingView from "./_components/onboarding-view";
 import BootcampView from "./_components/bootcamp-view";
 import GraduatedView from "./_components/graduated-view";
@@ -129,26 +128,6 @@ export default async function PortalPage({
   const platformUnlocked =
     recruit.phase === "licensing" &&
     (recruit.phase_step === "studying" || recruit.phase_step === "exam_passed");
-
-  // Pull the licensing how-to videos from the Bunny tutorials library, ordered
-  // by filename prefix (01, 02, …), and map them onto the five licensing steps.
-  // When the library isn't configured the array is empty and LicensingView
-  // falls back to its placeholders. Only fetched during the licensing phase.
-  //
-  // All five step iframes are mounted at once (locked ones are just blurred), so
-  // autoplay must stay OFF — otherwise every video would play over the others.
-  // Force it off in the embed URL; the iframe also drops the autoplay permission.
-  const noAutoplay = (url: string | undefined): string | null =>
-    url ? `${url}${url.includes("?") ? "&" : "?"}autoplay=false` : null;
-  const tutorialVideos =
-    recruit.phase === "licensing" ? await listTutorialVideos() : [];
-  const stepVideos = {
-    intro: noAutoplay(tutorialVideos[0]?.embedUrl),
-    schedule: noAutoplay(tutorialVideos[1]?.embedUrl),
-    study: noAutoplay(tutorialVideos[2]?.embedUrl),
-    exam: noAutoplay(tutorialVideos[3]?.embedUrl),
-    sircon: noAutoplay(tutorialVideos[4]?.embedUrl),
-  };
 
   return (
     <PortalShell

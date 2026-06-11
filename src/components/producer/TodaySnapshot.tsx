@@ -31,7 +31,6 @@ const EMPTY_ROW: Row = { dials: 0, leads: 0, contacts: 0, presentations: 0, sale
 const FIELDS: Array<{ key: keyof Row; label: string; money?: boolean }> = [
   { key: "leads", label: "Leads" },
   { key: "dials", label: "Dials" },
-  { key: "leads", label: "Leads" },
   { key: "contacts", label: "Contacts" },
   { key: "presentations", label: "Presentations" },
   { key: "sales", label: "Policies" },

@@ -60,7 +60,6 @@ export default function LicensingView({
   adminEmail,
   videos,
   justUnlocked,
-  stepVideos,
 }: {
   recruit: Recruit;
   // The recruit's upline (builder) name, shown on the closing success card.
@@ -73,15 +72,7 @@ export default function LicensingView({
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
-  // Per-step tutorial embed URLs from the Bunny tutorials library.
-  stepVideos?: StepVideos;
 }) {
-  // Resolve each step's video, falling back to the placeholder when missing.
-  const introVideo = stepVideos?.intro ?? PLACEHOLDER_VIDEO;
-  const scheduleVideo = stepVideos?.schedule ?? PLACEHOLDER_VIDEO;
-  const studyVideo = stepVideos?.study ?? PLACEHOLDER_VIDEO;
-  const examVideo = stepVideos?.exam ?? PLACEHOLDER_VIDEO;
-  const sirconVideo = stepVideos?.sircon ?? PLACEHOLDER_VIDEO;
   // How far along the recruit is, straight from phase_step. Saving an exam date
   // no longer advances the step on its own — the recruit has to click "Mark as
   // completed", which is what moves logged_in → exam_scheduled.
