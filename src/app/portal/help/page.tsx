@@ -44,9 +44,9 @@ export default async function PortalHelpPage({
     <PortalShell
       heading={
         <PortalHeading
-          eyebrow="All Star AI"
-          title="Meet Casey"
-          subtitle="Your AI guide — she knows exactly where you are in your journey. Ask anything, any time. Need a human? Message your builder from the Messages tab."
+          eyebrow="All Star Sidekick"
+          title="All Star Sidekick"
+          subtitle="Your AI guide — it knows exactly where you are in your journey. Ask anything, any time. Need a human? Message your builder from the Messages tab."
         />
       }
     >
@@ -60,7 +60,7 @@ export default async function PortalHelpPage({
 
       <Card className="mt-6">
         <h2 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-          Ask Casey
+          Ask All Star Sidekick
         </h2>
         <p className="mt-1 text-xs text-subtle">
           Knows your phase and step. Three sentences max.

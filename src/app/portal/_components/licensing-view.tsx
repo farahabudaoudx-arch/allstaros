@@ -40,11 +40,15 @@ const STEP_ORDER: Record<LicensingStep, number> = {
 export default function LicensingView({
   recruit,
   uplineName,
+  adminEmail,
   justUnlocked,
 }: {
   recruit: Recruit;
   // The recruit's upline (builder) name, shown on the closing success card.
   uplineName?: string | null;
+  // The builder's admin email — where the recruit sends contracting info,
+  // shown as a copy field on the "Get contracted" step.
+  adminEmail?: string | null;
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
@@ -299,9 +303,9 @@ export default function LicensingView({
           </div>
         </TimelineStep>
 
-        {/* 04 — Pass the exam */}
+        {/* 04 — Pass the exam + apply for the license on Sircon */}
         <TimelineStep
-          title="Step 4: Pass Your Exam + Get Your Fingerprints!"
+          title="Step 4: Pass Your Exam + Get Your License"
           status={step04}
           animateUnlock={animateStep === "04"}
         >
@@ -316,33 +320,6 @@ export default function LicensingView({
               />
             </div>
             {step04 === "active" ? (
-              <form action={markExamPassedForm}>
-                <input type="hidden" name="recruitId" value={recruit.id} />
-                <SubmitButton variant="primary" pendingLabel="Saving…">
-                  Mark as completed
-                </SubmitButton>
-              </form>
-            ) : null}
-          </div>
-        </TimelineStep>
-
-        {/* 05 — Apply for the license on Sircon */}
-        <TimelineStep
-          title="Final Step: Apply For Your License On Sircon"
-          status={step05}
-          animateUnlock={animateStep === "05"}
-        >
-          <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
-              <iframe
-                src={SIRCON_VIDEO}
-                title="How to apply for your license on Sircon"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
-            {step05 === "active" ? (
               <>
                 <a
                   href={SIRCON_URL}
@@ -350,8 +327,48 @@ export default function LicensingView({
                   rel="noopener noreferrer"
                   className={buttonClass("secondary")}
                 >
-                  Apply on Sircon →
+                  Apply for your license on Sircon →
                 </a>
+                <form action={markExamPassedForm}>
+                  <input type="hidden" name="recruitId" value={recruit.id} />
+                  <SubmitButton variant="primary" pendingLabel="Saving…">
+                    I passed my exam
+                  </SubmitButton>
+                </form>
+              </>
+            ) : null}
+          </div>
+        </TimelineStep>
+
+        {/* 05 — Get contracted (send contracting info to the builder's admin) */}
+        <TimelineStep
+          title="Final Step: Get Contracted"
+          status={step05}
+          animateUnlock={animateStep === "05"}
+        >
+          <div className="space-y-4">
+            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
+              <iframe
+                src={SIRCON_VIDEO}
+                title="How to get contracted"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            </div>
+            {step05 === "active" ? (
+              <>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                      Send your contracting info to
+                    </p>
+                    <p className="mt-1 truncate font-mono text-lg font-semibold tracking-[0.04em] text-ink">
+                      {adminEmail || "Ask your upline for the admin email"}
+                    </p>
+                  </div>
+                  {adminEmail ? <CopyButton value={adminEmail} /> : null}
+                </div>
                 <form action={markLicensingSubmittedForm}>
                   <input type="hidden" name="recruitId" value={recruit.id} />
                   <SubmitButton variant="primary" pendingLabel="Saving…">

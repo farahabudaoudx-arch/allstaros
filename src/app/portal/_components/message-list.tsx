@@ -27,7 +27,7 @@ export default function MessageList({
         return (
           <li key={m.id} className={`rounded-2xl border px-4 py-3 ${tone}`}>
             <div className="text-xs opacity-70">
-              {m.is_ai ? "Casey" : mine ? "You" : "Builder"} ·{" "}
+              {m.is_ai ? "Sidekick" : mine ? "You" : "Builder"} ·{" "}
               {new Date(m.created_at).toLocaleString()}
             </div>
             <p className="mt-1 whitespace-pre-wrap text-sm">{m.body}</p>

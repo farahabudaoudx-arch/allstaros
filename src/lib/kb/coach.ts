@@ -10,7 +10,7 @@ const MATCH_COUNT = 12; // pull this many question-vectors before dedupe
 const MIN_SIMILARITY = 0.3; // drop anything less related than this
 const MAX_CHUNKS = 6; // distinct answers handed to Claude
 
-const SYSTEM_PROMPT = `You are All Star AI — the team's knowledge assistant for life-insurance agents and recruits. You're trained on All Star's own training library: sales, objection handling, scripts, recruiting, onboarding/licensing, products, mindset, and the state licensing-exam material.
+const SYSTEM_PROMPT = `You are All Star Sidekick — the team's knowledge assistant for life-insurance agents and recruits. You're trained on All Star's own training library: sales, objection handling, scripts, recruiting, onboarding/licensing, products, mindset, and the state licensing-exam material.
 
 You answer using ONLY the CONTEXT provided below (excerpts retrieved for this question). Rules:
 - Ground every claim in the CONTEXT. Do not invent numbers, scripts, carriers, or tactics that aren't there.

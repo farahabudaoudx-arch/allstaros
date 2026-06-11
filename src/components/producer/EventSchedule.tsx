@@ -42,6 +42,8 @@ export function EventSchedule({
   heading = "Training Schedule",
   emptyState = null,
   viewAllHref,
+  singleColumn = false,
+  showAvatar = true,
 }: {
   events: EventItem[];
   heading?: string;
@@ -49,6 +51,10 @@ export function EventSchedule({
   emptyState?: ReactNode;
   /** When set, a "View all upcoming live trainings →" link shows in the header. */
   viewAllHref?: string;
+  /** One training per row (the full Upcoming list) instead of a multi-col grid. */
+  singleColumn?: boolean;
+  /** Show the presenter initials avatar. Off for the plain Upcoming list. */
+  showAvatar?: boolean;
 }) {
   if (events.length === 0) return <>{emptyState}</>;
   return (
@@ -68,21 +74,21 @@ export function EventSchedule({
           </Link>
         )}
       </div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`mt-6 grid gap-3 ${singleColumn ? "grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {events.map((e) => (
-          <EventCard key={e.slug} event={e} />
+          <EventCard key={e.slug} event={e} showAvatar={showAvatar} />
         ))}
       </div>
     </section>
   );
 }
 
-function EventCard({ event }: { event: EventItem }) {
+function EventCard({ event, showAvatar = true }: { event: EventItem; showAvatar?: boolean }) {
   return (
-    <div className="group flex flex-col rounded-2xl border border-hairline bg-card p-5 transition hover:border-mute hover:bg-card-hi">
-      <Link href={`/producer/events/${event.slug}`} className="flex flex-col">
+    <div className="group flex h-full flex-col rounded-2xl border border-hairline bg-card p-5 transition hover:border-mute hover:bg-card-hi">
+      <Link href={`/producer/events/${event.slug}`} className="flex flex-1 flex-col">
         <div className="flex items-center gap-4">
-          <Avatar src={event.image} initials={event.initials} />
+          {showAvatar && <Avatar src={event.image} initials={event.initials} />}
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
               {event.day} {event.date}
@@ -98,7 +104,7 @@ function EventCard({ event }: { event: EventItem }) {
           <h3 className="text-lg font-semibold uppercase leading-tight tracking-[0.01em] text-ink">
             {event.title}
           </h3>
-          <p className="mt-1.5 text-sm italic text-subtle">— {event.host}</p>
+          <p className="mt-1.5 text-sm font-medium text-subtle">{event.host}</p>
           <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-mute">
             <span>{formatTime(event.startTime)} CST</span>
             <span aria-hidden>·</span>
@@ -106,6 +112,8 @@ function EventCard({ event }: { event: EventItem }) {
           </div>
         </div>
       </Link>
+      {/* The Link above is flex-1, so it grows and pins this button to the card
+          bottom — lining up across cards of different title lengths. */}
       <div className="mt-4 border-t border-hairline pt-4">
         <CalendarButton event={event} />
       </div>

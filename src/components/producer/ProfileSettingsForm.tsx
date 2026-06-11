@@ -94,7 +94,7 @@ export function ProfileSettingsForm() {
       <label className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Phone</span>
         <span className="block text-xs text-mute">
-          Your account phone number. Optional.
+          Your account phone number, for your upline to reach out to you.
         </span>
         <input
           type="tel"

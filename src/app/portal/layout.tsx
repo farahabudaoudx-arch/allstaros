@@ -29,7 +29,7 @@ export default async function PortalLayout({
     { label: "License", href: "/portal" },
     { label: "Training", href: "/portal/training", locked },
     { label: "Check-in", href: "/portal/check-in", locked },
-    { label: "All Star AI", href: "/portal/help", locked },
+    { label: "All Star Sidekick", href: "/portal/help", locked },
     { label: "Messages", href: "/portal/messages" },
   ];
 

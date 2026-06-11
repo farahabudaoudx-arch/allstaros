@@ -3,7 +3,7 @@ import { PageShell, SectionHeading } from "@/components/ui";
 import { AllStarChat } from "@/components/AllStarChat";
 
 export const metadata = {
-  title: "All Star AI — All Star OS",
+  title: "All Star Sidekick — All Star OS",
 };
 
 export default function AllStarAIPage() {
@@ -17,7 +17,7 @@ export default function AllStarAIPage() {
       </Link>
       <SectionHeading
         kicker="Trained on the All Star training library"
-        title="All Star AI"
+        title="All Star Sidekick"
       />
       <AllStarChat />
     </PageShell>

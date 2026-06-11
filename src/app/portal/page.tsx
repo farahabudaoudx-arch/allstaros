@@ -50,13 +50,16 @@ export default async function PortalPage({
   const recruit = recruitRow as Recruit | null;
   if (!recruit) redirect("/onboarding/pending");
 
-  // The recruit's upline (their builder) — shown on the licensing finale card.
+  // The recruit's upline (their builder) — name shown on the licensing finale
+  // card, admin email shown on the "Get contracted" step as a copy field.
   const { data: uplineRow } = await supabase
     .from("person")
-    .select("full_name")
+    .select("full_name, admin_email")
     .eq("id", recruit.builder_id)
     .maybeSingle();
-  const uplineName = (uplineRow as { full_name: string } | null)?.full_name ?? null;
+  const upline = uplineRow as { full_name: string; admin_email: string | null } | null;
+  const uplineName = upline?.full_name ?? null;
+  const adminEmail = upline?.admin_email ?? null;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -147,7 +150,7 @@ export default async function PortalPage({
         </div>
       ) : null}
       {recruit.phase === "licensing" ? (
-        <LicensingView recruit={recruit} uplineName={uplineName} />
+        <LicensingView recruit={recruit} uplineName={uplineName} adminEmail={adminEmail} />
       ) : recruit.phase === "onboarding" ? (
         <OnboardingView
           recruit={recruit}
