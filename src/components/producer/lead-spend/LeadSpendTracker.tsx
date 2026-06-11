@@ -348,6 +348,12 @@ function LogSpendModal({
               onChange={(e) => set("purchase_date", e.target.value)}
               className="input"
             />
+            {draft.purchase_date && draft.purchase_date > localIsoDate() ? (
+              <p className="mt-1.5 text-xs" style={{ color: "var(--warn)" }}>
+                ⚠ This date is in the future — this spend won&apos;t count toward
+                Cost Analysis or ROI until {fmtDate(draft.purchase_date)}.
+              </p>
+            ) : null}
           </Field>
 
           {error ? (

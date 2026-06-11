@@ -149,13 +149,22 @@ async function findEarliestActivityDate(
   supabase: SupabaseClient,
   personId: string,
 ): Promise<string | null> {
-  const [tracker, clients] = await Promise.all([
+  const [tracker, clients, spendByDate, spendByCreated] = await Promise.all([
     supabase.from("tracker_entry").select("entry_date").eq("person_id", personId).order("entry_date", { ascending: true }).limit(1).maybeSingle(),
     supabase.from("clients").select("created_at").eq("person_id", personId).order("created_at", { ascending: true }).limit(1).maybeSingle(),
+    // Lead spend often predates the first tracked dial/client. If the "All"
+    // range didn't reach back to it, the spend was silently excluded from Cost
+    // Analysis / ROI — the bug where logged spend "never showed up". Consider
+    // both the entered purchase_date and the row's created_at (for undated rows).
+    supabase.from("lead_purchases").select("purchase_date").eq("person_id", personId).not("purchase_date", "is", null).order("purchase_date", { ascending: true }).limit(1).maybeSingle(),
+    supabase.from("lead_purchases").select("created_at").eq("person_id", personId).order("created_at", { ascending: true }).limit(1).maybeSingle(),
   ]);
   const candidates: string[] = [];
   if (tracker.data?.entry_date) candidates.push((tracker.data.entry_date as string).slice(0, 10));
   if (clients.data?.created_at) candidates.push((clients.data.created_at as string).slice(0, 10));
+  const spendDay = dayOfDateCol(spendByDate.data?.purchase_date as string | undefined);
+  if (spendDay) candidates.push(spendDay);
+  if (spendByCreated.data?.created_at) candidates.push((spendByCreated.data.created_at as string).slice(0, 10));
   return candidates.length ? candidates.sort()[0] : null;
 }
 
