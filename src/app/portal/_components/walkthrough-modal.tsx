@@ -68,13 +68,14 @@ export function VideoModal({
             ✕
           </button>
         </div>
-        <div className="aspect-video w-full bg-black">
+        <div className="aspect-video w-full overflow-hidden bg-black">
           <iframe
-            src={videoUrl}
+            src={`${videoUrl}${videoUrl.includes("?") ? "&" : "?"}autoplay=false`}
             title={title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             className="h-full w-full"
+            style={{ border: 0 }}
           />
         </div>
         {children ? <div className="px-5 py-4">{children}</div> : null}

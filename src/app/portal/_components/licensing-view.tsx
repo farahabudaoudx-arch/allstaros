@@ -27,16 +27,20 @@ const XCEL_CODE = "FFLALLSTAR-NGBNCR";
 const SIRCON_URL = "https://www.sircon.com";
 
 // Renders a step's video player, or nothing if that video isn't in Bunny yet.
+// autoplay=false so videos never fire on load; border:0 + no container border
+// so the Bunny player has no white edge lines.
 function StepVideo({ url, title }: { url: string | null; title: string }) {
   if (!url) return null;
   return (
-    <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
+    <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
       <iframe
-        src={url}
+        src={`${url}?autoplay=false&preload=true`}
         title={title}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        loading="lazy"
+        allow="accelerometer; gyroscope; encrypted-media; picture-in-picture; fullscreen"
         allowFullScreen
         className="h-full w-full"
+        style={{ border: 0 }}
       />
     </div>
   );

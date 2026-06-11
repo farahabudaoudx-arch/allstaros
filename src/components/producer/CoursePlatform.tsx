@@ -35,15 +35,16 @@ function Player({ course }: { course: Course }) {
   // A real embed (Bunny Stream) when we have one; otherwise the faux player.
   if (course.embedUrl) {
     return (
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-hairline bg-black">
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
         <iframe
           key={course.id}
           src={`${course.embedUrl}?autoplay=false&preload=true`}
           title={course.title}
           loading="lazy"
-          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allow="accelerometer; gyroscope; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
           className="absolute inset-0 h-full w-full"
+          style={{ border: 0 }}
         />
       </div>
     );
