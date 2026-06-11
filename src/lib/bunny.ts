@@ -49,19 +49,24 @@ type BunnyListResponse = {
 };
 
 /** Which Bunny library to talk to. Each app has its own library id + API key:
- *   "recruiting" → BUNNY_RECRUITING_* (the recruiting-app library)
- *   "live"       → BUNNY_LIVE_*       (the All Star Live Training library) */
-export type BunnyApp = "recruiting" | "live";
+ *   "recruiting" → BUNNY_RECRUITING_* (the recruiting-app training library)
+ *   "live"       → BUNNY_LIVE_*       (the All Star Live Training library)
+ *   "tutorials"  → BUNNY_TUTORIALS_*  (the 5 licensing-flow how-to videos) */
+export type BunnyApp = "recruiting" | "live" | "tutorials";
 
 function config(app: BunnyApp = "recruiting"): { libraryId: string; apiKey: string } | null {
   const libraryId =
     app === "live"
       ? process.env.BUNNY_LIVE_LIBRARY_ID
-      : process.env.BUNNY_RECRUITING_LIBRARY_ID;
+      : app === "tutorials"
+        ? process.env.BUNNY_TUTORIALS_LIBRARY_ID
+        : process.env.BUNNY_RECRUITING_LIBRARY_ID;
   const apiKey =
     app === "live"
       ? process.env.BUNNY_LIVE_API_KEY
-      : process.env.BUNNY_RECRUITING_API_KEY;
+      : app === "tutorials"
+        ? process.env.BUNNY_TUTORIALS_API_KEY
+        : process.env.BUNNY_RECRUITING_API_KEY;
   if (!libraryId || !apiKey) return null;
   return { libraryId, apiKey };
 }
@@ -189,6 +194,38 @@ export async function listBunnyVideos(
   }
 
   return out;
+}
+
+/** Embed URLs for the 5 licensing-flow videos, keyed by step. Pulled from the
+ *  "tutorials" Bunny library, mapped by the leading number in each title
+ *  ("1. Intro", "2. Scheduling Exam", "3. Xcel", "4. License", "5. Contracting").
+ *  Any video that's missing comes back null so the step can hide its player. */
+export type LicensingVideos = {
+  intro: string | null;
+  schedule: string | null;
+  study: string | null;
+  exam: string | null;
+  contracting: string | null;
+};
+
+export async function getLicensingVideos(): Promise<LicensingVideos> {
+  let vids: BunnyVideo[] = [];
+  try {
+    vids = await listBunnyVideos("tutorials");
+  } catch {
+    vids = [];
+  }
+  const byNum = (n: number): string | null => {
+    const v = vids.find((x) => x.title.trim().match(new RegExp(`^${n}\\s*[.)-]`)));
+    return v?.embedUrl ?? null;
+  };
+  return {
+    intro: byNum(1),
+    schedule: byNum(2),
+    study: byNum(3),
+    exam: byNum(4),
+    contracting: byNum(5),
+  };
 }
 
 const TONES: Tone[] = ["coral", "gold", "green", "sky", "violet", "rose"];

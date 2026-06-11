@@ -7,6 +7,7 @@ import {
   markGuideReadForm,
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
+import type { LicensingVideos } from "@/lib/bunny";
 import { Input, buttonClass } from "@/components/ui";
 import { examSiteForState } from "@/lib/exam-sites";
 import { US_STATES } from "@/lib/us-states";
@@ -19,15 +20,27 @@ import {
 import { SubmitButton } from "./submit-button";
 import { CopyButton } from "./copy-button";
 
-// Placeholder external links + videos — swap these for the real destinations.
+// External links. Videos now come from the Bunny "tutorials" library (passed
+// in via the `videos` prop), not hardcoded placeholders.
 const XCEL_LOGIN_URL = "https://www.xcelsolutions.com/";
 const XCEL_CODE = "FFLALLSTAR-NGBNCR";
 const SIRCON_URL = "https://www.sircon.com";
-const INTRO_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-const SCHEDULE_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-const STUDY_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-const EXAM_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-const SIRCON_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+
+// Renders a step's video player, or nothing if that video isn't in Bunny yet.
+function StepVideo({ url, title }: { url: string | null; title: string }) {
+  if (!url) return null;
+  return (
+    <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
+      <iframe
+        src={url}
+        title={title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="h-full w-full"
+      />
+    </div>
+  );
+}
 
 // Linear progression of the licensing phase. One timeline step per rung.
 const STEP_ORDER: Record<LicensingStep, number> = {
@@ -41,6 +54,7 @@ export default function LicensingView({
   recruit,
   uplineName,
   adminEmail,
+  videos,
   justUnlocked,
 }: {
   recruit: Recruit;
@@ -49,6 +63,8 @@ export default function LicensingView({
   // The builder's admin email — where the recruit sends contracting info,
   // shown as a copy field on the "Get contracted" step.
   adminEmail?: string | null;
+  // The 5 licensing how-to videos from the Bunny "tutorials" library.
+  videos: LicensingVideos;
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
@@ -129,15 +145,7 @@ export default function LicensingView({
           status={stepGuide}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
-              <iframe
-                src={INTRO_VIDEO}
-                title="How to pass your exam on the first try"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
+            <StepVideo url={videos.intro} title="Watch this before you do anything" />
             {stepGuide === "active" ? (
               <form action={markGuideReadForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
@@ -156,15 +164,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "02"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
-              <iframe
-                src={SCHEDULE_VIDEO}
-                title="How to schedule your state exam"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
+            <StepVideo url={videos.schedule} title="How to schedule your state exam" />
 
             {examSite ? (
               <div className="space-y-3">
@@ -262,15 +262,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "03"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
-              <iframe
-                src={STUDY_VIDEO}
-                title="How to get your study login"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
+            <StepVideo url={videos.study} title="How to get your study login" />
 
             <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
               <div className="min-w-0">
@@ -310,15 +302,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "04"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
-              <iframe
-                src={EXAM_VIDEO}
-                title="Passing your state exam"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
+            <StepVideo url={videos.exam} title="Passing your state exam + getting your license" />
             {step04 === "active" ? (
               <>
                 <a
@@ -347,15 +331,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "05"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-black">
-              <iframe
-                src={SIRCON_VIDEO}
-                title="How to get contracted"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
+            <StepVideo url={videos.contracting} title="How to get contracted" />
             {step05 === "active" ? (
               <>
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">

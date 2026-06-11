@@ -10,6 +10,7 @@ import { SubmitButton } from "./_components/submit-button";
 import { phaseLabel } from "@/lib/pipeline/labels";
 import { devAccountByRole } from "@/lib/devLogin";
 import { resetLicensingForm, showFullFlowForm } from "@/lib/actions/portal";
+import { getLicensingVideos } from "@/lib/bunny";
 import { UnlockCelebration } from "./_components/unlock-celebration";
 import type {
   CheckIn,
@@ -60,6 +61,9 @@ export default async function PortalPage({
   const upline = uplineRow as { full_name: string; admin_email: string | null } | null;
   const uplineName = upline?.full_name ?? null;
   const adminEmail = upline?.admin_email ?? null;
+
+  // The 5 licensing how-to videos from the Bunny "tutorials" library.
+  const licensingVideos = await getLicensingVideos();
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -150,7 +154,7 @@ export default async function PortalPage({
         </div>
       ) : null}
       {recruit.phase === "licensing" ? (
-        <LicensingView recruit={recruit} uplineName={uplineName} adminEmail={adminEmail} />
+        <LicensingView recruit={recruit} uplineName={uplineName} adminEmail={adminEmail} videos={licensingVideos} />
       ) : recruit.phase === "onboarding" ? (
         <OnboardingView
           recruit={recruit}
