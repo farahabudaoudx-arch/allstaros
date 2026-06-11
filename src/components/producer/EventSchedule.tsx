@@ -23,15 +23,32 @@ type EventItem = {
   zoomUrl: string;
 };
 
+// "08:30" → "8:30 AM". Time is uniform (8:30 AM CST) across live trainings.
+function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h)) return hhmm;
+  const ap = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(m ?? 0).padStart(2, "0")} ${ap}`;
+}
+
+// "https://AllStarDials.com" → "AllStarDials.com".
+function prettyLocation(url: string): string {
+  return url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+}
+
 export function EventSchedule({
   events,
   heading = "Training Schedule",
   emptyState = null,
+  viewAllHref,
 }: {
   events: EventItem[];
   heading?: string;
   /** Rendered when there are no events. Defaults to nothing (section hides). */
   emptyState?: ReactNode;
+  /** When set, a "View all upcoming live trainings →" link shows in the header. */
+  viewAllHref?: string;
 }) {
   if (events.length === 0) return <>{emptyState}</>;
   return (
@@ -42,6 +59,14 @@ export function EventSchedule({
             {heading}
           </h2>
         </div>
+        {viewAllHref && (
+          <Link
+            href={viewAllHref}
+            className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-soft"
+          >
+            View all upcoming live trainings →
+          </Link>
+        )}
       </div>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {events.map((e) => (
@@ -74,6 +99,11 @@ function EventCard({ event }: { event: EventItem }) {
             {event.title}
           </h3>
           <p className="mt-1.5 text-sm italic text-subtle">— {event.host}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-mute">
+            <span>{formatTime(event.startTime)} CST</span>
+            <span aria-hidden>·</span>
+            <span>{prettyLocation(event.zoomUrl)}</span>
+          </div>
         </div>
       </Link>
       <div className="mt-4 border-t border-hairline pt-4">
@@ -84,7 +114,7 @@ function EventCard({ event }: { event: EventItem }) {
           endTime={event.endTime}
           timeZone={event.timeZone}
           location={event.zoomUrl}
-          description={`Live training with ${event.host}.[br][br]Join on Zoom: [url]${event.zoomUrl}|Join Zoom Meeting[/url]`}
+          description={`Live training with ${event.host}.[br][br]Join at [url]${event.zoomUrl}|${prettyLocation(event.zoomUrl)}[/url]`}
           options={["Apple", "Google", "Outlook.com", "iCal"]}
           buttonStyle="text"
           size="3"
