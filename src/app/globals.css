@@ -20,6 +20,17 @@
   --color-neg: #ef4444;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Motion tokens (Emil Kowalski's design-engineering curves). The built-in
+     CSS easings are too weak; these stronger curves give animations the punch
+     that makes them feel intentional. Overriding --ease-* and the --default-
+     transition-* vars retunes every `transition` / `ease-*` utility across the
+     whole app at once — one edit, app-wide reach. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --default-transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  --default-transition-duration: 160ms;
 }
 
 :root {
@@ -62,6 +73,61 @@ body {
 ::selection {
   background: var(--color-accent);
   color: #000;
+}
+
+/* ----------------------------------------------------------------------------
+   Global press feedback. Buttons must feel responsive to press — a subtle
+   scale-down on :active confirms the interface heard the user. Applied to every
+   pressable control app-wide. Opt out with [data-no-press]. The .ll-analytics
+   design system defines its own press feel below, so it's excluded here.
+---------------------------------------------------------------------------- */
+button:not([data-no-press]),
+[role="button"]:not([data-no-press]) {
+  transition: transform 140ms var(--ease-out);
+}
+.ll-analytics button,
+.ll-analytics [role="button"] {
+  transition: revert;
+}
+button:not(:disabled):not([data-no-press]):active,
+[role="button"]:not([aria-disabled="true"]):not([data-no-press]):active {
+  transform: scale(0.96);
+}
+
+/* ----------------------------------------------------------------------------
+   Page entrance. Content fades and rises in on every route change (via the
+   <PageTransition> wrapper, which re-keys on pathname so this replays). Uses
+   `backwards` fill so no transform lingers afterward — keeps sticky/fixed
+   descendants intact once settled. ease-out = starts fast, feels responsive.
+---------------------------------------------------------------------------- */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: page-enter 420ms var(--ease-out) backwards;
+}
+
+/* Reduced motion: keep gentle opacity/color fades that aid comprehension, drop
+   movement. Reduced means fewer and gentler animations, not zero. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  button:active,
+  [role="button"]:active {
+    transform: none;
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -180,13 +246,14 @@ body {
   font-weight: 500;
   font-size: 0.875rem;
   line-height: 1;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out), transform 0.14s var(--ease-out);
   border: 1px solid transparent;
   white-space: nowrap;
   cursor: pointer;
 }
-.ll-analytics .btn:active {
-  transform: translateY(1px);
+.ll-analytics .btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .ll-analytics .btn:disabled {
   opacity: 0.5;
@@ -271,7 +338,7 @@ body {
   border-radius: 999px;
   font-size: 0.85rem;
   color: var(--ink-2);
-  transition: all 0.15s;
+  transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
   cursor: pointer;
 }
 .ll-analytics .tab-pills button:hover {
@@ -417,10 +484,14 @@ body {
   background: var(--surface-soft);
   color: var(--ink-1);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out), transform 0.14s var(--ease-out);
 }
 .ll-analytics .hbtn:hover:not(:disabled) {
   background: var(--surface-strong);
+}
+.ll-analytics .hbtn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .ll-analytics .hbtn:disabled {
   opacity: 0.5;

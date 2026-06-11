@@ -62,8 +62,8 @@ export function Card({
         accent ? "border-accent/40 bg-accent/[0.04]" : "border-hairline bg-card",
         interactive &&
           (accent
-            ? "transition hover:border-accent"
-            : "transition hover:border-mute hover:bg-card-hi"),
+            ? "transition duration-200 hover:-translate-y-0.5 hover:border-accent hover:shadow-lg hover:shadow-accent/10"
+            : "transition duration-200 hover:-translate-y-0.5 hover:border-mute hover:bg-card-hi hover:shadow-lg hover:shadow-black/30"),
         className,
       )}
     >

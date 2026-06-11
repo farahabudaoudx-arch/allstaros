@@ -279,7 +279,7 @@ export function AnalyticsView({
       </div>
 
       {/* Controls — timeframe, custom range, layout settings */}
-      <div className="flex items-center justify-end gap-2 flex-wrap relative">
+      <div className="flex items-center justify-start sm:justify-end gap-2 flex-wrap relative">
         <div className="tab-pills">
           {TIMEFRAMES.map((t) => (
             <button
@@ -343,12 +343,12 @@ export function AnalyticsView({
         const sections: Record<SectionKey, React.ReactNode> = {
           overview: (
             <Section title="Overview">
-              <div className="flex items-stretch gap-0 flex-wrap lg:flex-nowrap">
+              <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:gap-0">
                 <div className="card-lime p-5 lg:w-48 flex-shrink-0 relative lg:rounded-r-none">
                   <span className="text-xs opacity-70">New Leads</span>
                   <div className="display text-5xl tnum mt-2 leading-none">{fmtInt(m.leads)}</div>
                 </div>
-                <div className="card flex-1 py-5 pr-5 pl-0 min-w-0 lg:rounded-l-none lg:border-l-0">
+                <div className="card flex-1 p-5 lg:py-5 lg:pr-5 lg:pl-0 min-w-0 lg:rounded-l-none lg:border-l-0">
                   <FunnelChart
                     stages={[
                       { label: "Dials", value: fmtInt(m.dials), conversion: null },

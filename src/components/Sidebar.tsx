@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export type NavItem = {
@@ -39,6 +39,204 @@ function bestMatch(pathname: string, hrefs: string[]): string | undefined {
     .sort((a, b) => b.length - a.length)[0];
 }
 
+/**
+ * Nav body shared by the desktop sidebar and the mobile drawer. `onNavigate`
+ * fires when a leaf link is tapped so the mobile drawer can close itself; the
+ * desktop sidebar passes nothing. `collapsed` only applies to the desktop rail.
+ */
+function NavBody({
+  items,
+  active,
+  open,
+  toggleGroup,
+  collapsed,
+  onNavigate,
+}: {
+  items: NavItem[];
+  active: string | undefined;
+  open: Record<string, boolean>;
+  toggleGroup: (label: string) => void;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
+      {items.map((it) => {
+        if (it.children?.length) {
+          const childHrefs = leafHrefs(it.children);
+          const groupActive = childHrefs.includes(active ?? "");
+          const isOpen = !collapsed && open[it.label];
+          return (
+            <div key={it.label}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(it.label)}
+                title={collapsed ? it.label : undefined}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                  collapsed ? "justify-center" : ""
+                } ${
+                  groupActive
+                    ? "text-ink"
+                    : "text-subtle hover:bg-card-hi/60 hover:text-ink"
+                }`}
+              >
+                {collapsed ? (
+                  <span className="text-sm font-semibold">
+                    {it.label.trim()[0]?.toUpperCase()}
+                  </span>
+                ) : (
+                  <>
+                    <span className="flex-1 truncate text-left">{it.label}</span>
+                    <span
+                      aria-hidden
+                      className={`text-mute transition-transform ${
+                        isOpen ? "rotate-90" : ""
+                      }`}
+                    >
+                      ›
+                    </span>
+                  </>
+                )}
+              </button>
+              {isOpen ? (
+                <div className="ml-5 mt-1 flex flex-col gap-0.5 border-l border-hairline pl-3">
+                  {it.children.map((child) =>
+                    child.locked ? (
+                      <div
+                        key={child.label}
+                        title={`${child.label} is locked`}
+                        className="flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm text-mute/70"
+                      >
+                        <span className="flex-1 truncate">{child.label}</span>
+                        <LockIcon />
+                      </div>
+                    ) : child.external ? (
+                      <a
+                        key={child.label}
+                        href={child.href ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onNavigate}
+                        className="flex items-center gap-1 truncate rounded-lg px-3 py-2 text-sm text-subtle transition hover:bg-card-hi/60 hover:text-ink"
+                      >
+                        <span className="truncate">{child.label}</span>
+                        <span aria-hidden className="text-mute">
+                          ↗
+                        </span>
+                      </a>
+                    ) : (
+                      <Link
+                        key={child.href}
+                        href={child.href ?? "#"}
+                        onClick={onNavigate}
+                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                          active === child.href
+                            ? "bg-card-hi text-ink ring-1 ring-hairline"
+                            : "text-subtle hover:bg-card-hi/60 hover:text-ink"
+                        }`}
+                      >
+                        <span className="flex-1 truncate">{child.label}</span>
+                        {child.dot ? <UnreadDot /> : null}
+                      </Link>
+                    ),
+                  )}
+                </div>
+              ) : null}
+            </div>
+          );
+        }
+
+        if (it.locked) {
+          return (
+            <div
+              key={it.label}
+              title={`${it.label} unlocks once you schedule your exam and get your study login`}
+              className={`flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-mute/70 ${
+                collapsed ? "justify-center" : ""
+              }`}
+            >
+              {collapsed ? (
+                <LockIcon />
+              ) : (
+                <>
+                  <span className="flex-1 truncate">{it.label}</span>
+                  <LockIcon />
+                </>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <Link
+            key={it.href}
+            href={it.href ?? "#"}
+            onClick={onNavigate}
+            title={collapsed ? it.label : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+              collapsed ? "justify-center" : ""
+            } ${
+              active === it.href
+                ? "bg-card-hi text-ink ring-1 ring-hairline"
+                : "text-subtle hover:bg-card-hi/60 hover:text-ink"
+            }`}
+          >
+            {collapsed ? (
+              <span className="relative text-sm font-semibold">
+                {it.label.trim()[0]?.toUpperCase()}
+                {it.dot ? (
+                  <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent" />
+                ) : null}
+              </span>
+            ) : (
+              <>
+                <span className="flex-1 truncate">{it.label}</span>
+                {it.dot ? <UnreadDot /> : null}
+              </>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function SidebarFooter({
+  initial,
+  userName,
+  collapsed,
+}: {
+  initial: string;
+  userName?: string;
+  collapsed: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-hairline px-3 py-4">
+      <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card-hi text-sm font-semibold text-ink ring-1 ring-hairline">
+          {initial}
+        </div>
+        {!collapsed && userName ? (
+          <span className="truncate text-sm text-subtle">{userName}</span>
+        ) : null}
+      </div>
+
+      {!collapsed ? (
+        <form action="/auth/signout" method="post">
+          <button
+            type="submit"
+            className="w-full rounded-full border border-hairline px-3.5 py-2 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+          >
+            Sign out
+          </button>
+        </form>
+      ) : null}
+
+      <ThemeToggle collapsed={collapsed} />
+    </div>
+  );
+}
+
 export function Sidebar({
   items,
   tag,
@@ -53,7 +251,9 @@ export function Sidebar({
   const allHrefs = leafHrefs(items);
   const active = bestMatch(pathname, allHrefs);
 
-  const [collapsed, setCollapsed] = useState(false);
+  // Desktop rail is always expanded for now; mobile uses the drawer instead.
+  const collapsed = false;
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const it of items) {
@@ -64,204 +264,145 @@ export function Sidebar({
     return init;
   });
 
+  // Close the mobile drawer whenever the route changes (a link was tapped).
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Lock background scroll while the drawer is open.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
   function toggleGroup(label: string) {
-    if (collapsed) setCollapsed(false);
     setOpen((o) => ({ ...o, [label]: !o[label] }));
   }
 
-  return (
-    <aside
-      className={`sticky top-0 flex h-dvh shrink-0 flex-col border-r border-hairline bg-card/30 transition-[width] duration-200 ${
-        collapsed ? "w-[72px]" : "w-60"
-      }`}
+  const brand = (
+    <Link
+      href={items[0]?.href ?? "/"}
+      className="flex items-center gap-3 overflow-hidden"
+      onClick={() => setMobileOpen(false)}
     >
-      <div className="flex items-center justify-between gap-2 px-4 py-4">
-        <Link
-          href={items[0]?.href ?? "/"}
-          className="flex items-center gap-3 overflow-hidden"
+      <Image
+        src="/logo.png"
+        alt="All Star OS"
+        width={120}
+        height={68}
+        priority
+        className="app-logo h-9 w-auto shrink-0"
+      />
+      {tag ? (
+        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-mute">
+          {tag}
+        </span>
+      ) : null}
+    </Link>
+  );
+
+  return (
+    <>
+      {/* Desktop rail (md and up) */}
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-hairline bg-card/30 md:flex">
+        <div className="flex items-center justify-between gap-2 px-4 py-4">{brand}</div>
+        <NavBody
+          items={items}
+          active={active}
+          open={open}
+          toggleGroup={toggleGroup}
+          collapsed={collapsed}
+        />
+        <SidebarFooter initial={initial} userName={userName} collapsed={collapsed} />
+      </aside>
+
+      {/* Mobile top bar (below md) */}
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-hairline bg-background/80 px-4 backdrop-blur-md md:hidden">
+        {brand}
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-hairline text-ink transition hover:bg-card-hi"
         >
-          <Image
-            src="/logo.png"
-            alt="All Star OS"
-            width={120}
-            height={68}
-            priority
-            className="app-logo h-9 w-auto shrink-0"
-          />
-          {!collapsed && tag ? (
-            <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-mute">
-              {tag}
-            </span>
-          ) : null}
-        </Link>
-      </div>
+          <MenuIcon />
+        </button>
+      </header>
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
-        {items.map((it) => {
-          if (it.children?.length) {
-            const childHrefs = leafHrefs(it.children);
-            const groupActive = childHrefs.includes(active ?? "");
-            const isOpen = !collapsed && open[it.label];
-            return (
-              <div key={it.label}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(it.label)}
-                  title={collapsed ? it.label : undefined}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-                    collapsed ? "justify-center" : ""
-                  } ${
-                    groupActive
-                      ? "text-ink"
-                      : "text-subtle hover:bg-card-hi/60 hover:text-ink"
-                  }`}
-                >
-                  {collapsed ? (
-                    <span className="text-sm font-semibold">
-                      {it.label.trim()[0]?.toUpperCase()}
-                    </span>
-                  ) : (
-                    <>
-                      <span className="flex-1 truncate text-left">
-                        {it.label}
-                      </span>
-                      <span
-                        aria-hidden
-                        className={`text-mute transition-transform ${
-                          isOpen ? "rotate-90" : ""
-                        }`}
-                      >
-                        ›
-                      </span>
-                    </>
-                  )}
-                </button>
-                {isOpen ? (
-                  <div className="mt-1 flex flex-col gap-0.5 border-l border-hairline pl-3 ml-5">
-                    {it.children.map((child) =>
-                      child.locked ? (
-                        <div
-                          key={child.label}
-                          title={`${child.label} is locked`}
-                          className="flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm text-mute/70"
-                        >
-                          <span className="flex-1 truncate">{child.label}</span>
-                          <LockIcon />
-                        </div>
-                      ) : child.external ? (
-                        <a
-                          key={child.label}
-                          href={child.href ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 truncate rounded-lg px-3 py-2 text-sm text-subtle transition hover:bg-card-hi/60 hover:text-ink"
-                        >
-                          <span className="truncate">{child.label}</span>
-                          <span aria-hidden className="text-mute">
-                            ↗
-                          </span>
-                        </a>
-                      ) : (
-                        <Link
-                          key={child.href}
-                          href={child.href ?? "#"}
-                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-                            active === child.href
-                              ? "bg-card-hi text-ink ring-1 ring-hairline"
-                              : "text-subtle hover:bg-card-hi/60 hover:text-ink"
-                          }`}
-                        >
-                          <span className="flex-1 truncate">{child.label}</span>
-                          {child.dot ? <UnreadDot /> : null}
-                        </Link>
-                      ),
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            );
-          }
-
-          if (it.locked) {
-            return (
-              <div
-                key={it.label}
-                title={`${it.label} unlocks once you schedule your exam and get your study login`}
-                className={`flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-mute/70 ${
-                  collapsed ? "justify-center" : ""
-                }`}
-              >
-                {collapsed ? (
-                  <LockIcon />
-                ) : (
-                  <>
-                    <span className="flex-1 truncate">{it.label}</span>
-                    <LockIcon />
-                  </>
-                )}
-              </div>
-            );
-          }
-
-          return (
-            <Link
-              key={it.href}
-              href={it.href ?? "#"}
-              title={collapsed ? it.label : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-                collapsed ? "justify-center" : ""
-              } ${
-                active === it.href
-                  ? "bg-card-hi text-ink ring-1 ring-hairline"
-                  : "text-subtle hover:bg-card-hi/60 hover:text-ink"
-              }`}
-            >
-              {collapsed ? (
-                <span className="relative text-sm font-semibold">
-                  {it.label.trim()[0]?.toUpperCase()}
-                  {it.dot ? (
-                    <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent" />
-                  ) : null}
-                </span>
-              ) : (
-                <>
-                  <span className="flex-1 truncate">{it.label}</span>
-                  {it.dot ? <UnreadDot /> : null}
-                </>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="flex flex-col gap-3 border-t border-hairline px-3 py-4">
+      {/* Mobile drawer + backdrop (below md). Kept mounted so the slide
+          transitions both in and out; CSS transitions are interruptible. */}
+      <div
+        className={`fixed inset-0 z-50 md:hidden ${
+          mobileOpen ? "" : "pointer-events-none"
+        }`}
+        aria-hidden={!mobileOpen}
+      >
         <div
-          className={`flex items-center gap-3 ${
-            collapsed ? "justify-center" : ""
+          onClick={() => setMobileOpen(false)}
+          className={`absolute inset-0 bg-black/60 transition-opacity duration-300 ${
+            mobileOpen ? "opacity-100" : "opacity-0"
           }`}
+        />
+        <div
+          className={`absolute left-0 top-0 flex h-dvh w-[82%] max-w-xs flex-col border-r border-hairline bg-card transition-transform duration-300 ${
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          style={{ transitionTimingFunction: "var(--ease-drawer)" }}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card-hi text-sm font-semibold text-ink ring-1 ring-hairline">
-            {initial}
-          </div>
-          {!collapsed && userName ? (
-            <span className="truncate text-sm text-subtle">{userName}</span>
-          ) : null}
-        </div>
-
-        {!collapsed ? (
-          <form action="/auth/signout" method="post">
+          <div className="flex items-center justify-between gap-2 px-4 py-4">
+            {brand}
             <button
-              type="submit"
-              className="w-full rounded-full border border-hairline px-3.5 py-2 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-hairline text-ink transition hover:bg-card-hi"
             >
-              Sign out
+              <CloseIcon />
             </button>
-          </form>
-        ) : null}
-
-        <ThemeToggle collapsed={collapsed} />
+          </div>
+          <NavBody
+            items={items}
+            active={active}
+            open={open}
+            toggleGroup={toggleGroup}
+            collapsed={collapsed}
+            onNavigate={() => setMobileOpen(false)}
+          />
+          <SidebarFooter initial={initial} userName={userName} collapsed={collapsed} />
+        </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

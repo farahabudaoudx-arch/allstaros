@@ -83,6 +83,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // The dev admin has no producer/recruit home, so resolveLandingPath would
+  // bounce it. Send it straight into the console (the /admin guard re-checks the
+  // admin flags). Production login behaviour is unchanged.
+  if (account.role === "admin") {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
   const path = await resolveLandingPath(supabase, data.user.id);
   return NextResponse.redirect(new URL(path, request.url));
 }

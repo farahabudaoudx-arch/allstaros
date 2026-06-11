@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { Sidebar, type NavItem } from "@/components/Sidebar";
+import { PageTransition } from "@/components/PageTransition";
 
 /**
  * Admin navigation. Routes that land in later phases are marked `locked` so the
@@ -76,7 +77,9 @@ export default async function AdminLayout({
         tag={person.is_super_admin ? "Super Admin" : "Admin"}
         userName={person.full_name}
       />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+        {children}
+      </PageTransition>
     </div>
   );
 }

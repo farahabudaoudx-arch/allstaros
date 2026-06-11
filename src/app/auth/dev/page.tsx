@@ -36,8 +36,8 @@ export default async function DevLoginPage({
             Pick a version
           </h1>
           <p className="mt-3 text-sm text-subtle">
-            Local only. Jumps straight into the recruit, producer, or builder
-            experience.
+            Local only. Jumps straight into the recruit, producer, builder, or
+            admin experience.
           </p>
         </div>
 

@@ -32,7 +32,7 @@ export function devLoginAuthorized(key: string | null | undefined): boolean {
   return DEV_LOGIN_SECRET.length > 0 && key === DEV_LOGIN_SECRET;
 }
 
-export type DevRole = "builder" | "producer" | "recruit";
+export type DevRole = "builder" | "producer" | "recruit" | "admin";
 
 export type DevAccount = {
   role: DevRole;
@@ -40,6 +40,9 @@ export type DevAccount = {
   fullName: string;
   is_builder: boolean;
   is_producer: boolean;
+  /** Optional admin flags; default false for the recruit/producer/builder seeds. */
+  is_admin?: boolean;
+  is_super_admin?: boolean;
   label: string;
   description: string;
 };

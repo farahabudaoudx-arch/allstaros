@@ -71,6 +71,8 @@ for (const acc of accounts) {
         email: acc.email,
         is_builder: acc.is_builder,
         is_producer: acc.is_producer,
+        is_admin: acc.is_admin ?? false,
+        is_super_admin: acc.is_super_admin ?? false,
         status: "active",
       },
       { onConflict: "auth_user_id" },

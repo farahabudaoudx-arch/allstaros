@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, type NavItem } from "@/components/Sidebar";
+import { PageTransition } from "@/components/PageTransition";
 import { portalFeaturesUnlocked } from "@/lib/portal/access";
 import type { Recruit } from "@/lib/db/types";
 
@@ -36,7 +37,9 @@ export default async function PortalLayout({
   return (
     <div className="flex min-h-full flex-1">
       <Sidebar items={nav} tag="Recruit" userName={person.full_name} />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+        {children}
+      </PageTransition>
     </div>
   );
 }
