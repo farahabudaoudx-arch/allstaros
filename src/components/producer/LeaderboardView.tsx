@@ -97,8 +97,7 @@ export function LeaderboardView() {
     <section>
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Producer</p>
-          <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
             Leaderboard
           </h1>
           {myRank ? (

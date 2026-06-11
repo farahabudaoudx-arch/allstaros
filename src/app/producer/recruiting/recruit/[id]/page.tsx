@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { type Person, type Recruit } from "@/lib/db/types";
 import { phaseLabel, phaseStepLabel } from "@/lib/pipeline/labels";
 import { deriveFunnelStage, funnelStageLabel } from "@/lib/pipeline/funnel";
+import { removeRecruitForm } from "@/lib/actions/flagging";
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 
 type RecruitWithPerson = Recruit & { person: Pick<Person, "full_name" | "email"> };
 
@@ -125,13 +127,31 @@ export default async function RecruitProfilePage({
         <Fact label="Bootcamp" value={<ResultValue result={bootcampResult(recruit)} />} />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <Link
           href={`/producer/messages/${recruit.id}`}
           className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
         >
           Message {recruit.person.full_name.trim().split(/\s+/)[0]}
         </Link>
+
+        {recruit.removed_at ? (
+          <span className="inline-flex items-center rounded-full border border-neg/40 bg-neg/[0.08] px-4 py-2 text-sm text-neg">
+            Removed {new Date(recruit.removed_at).toLocaleDateString()}
+          </span>
+        ) : (
+          <form action={removeRecruitForm}>
+            <input type="hidden" name="recruitId" value={recruit.id} />
+            <input type="hidden" name="returnTo" value="/producer/recruiting" />
+            <ConfirmSubmit
+              label="Remove recruit"
+              title="Remove this recruit?"
+              message="Once you remove them you can't bring them back — all of their data will be removed. Make sure you're absolutely certain this is what you want to do."
+              confirmLabel="Yes, remove them"
+              className="inline-flex items-center rounded-full border border-neg/50 px-4 py-2 text-sm font-medium text-neg transition hover:bg-neg/[0.08]"
+            />
+          </form>
+        )}
       </div>
     </main>
   );

@@ -31,10 +31,13 @@ async function setRoleFlags(
   const supabase = await createClient();
   const { data: visible } = await supabase
     .from("person")
-    .select("id")
+    .select("id, upline_id")
     .eq("id", targetPersonId)
     .maybeSingle();
   if (!visible) return { ok: false, error: "Not in your downline." };
+  if (visible.upline_id !== caller.id) {
+    return { ok: false, error: "Only their direct upline can do that." };
+  }
 
   const admin = createServiceRoleClient();
   const { error } = await admin

@@ -36,6 +36,9 @@ export async function GET(req: Request) {
 }
 
 // POST /api/producer/tracker — upsert a day's manual activity counts.
+// NOTE: `sales` is intentionally NOT written here. Policies sold are driven
+// solely by the Clients book (see the clients_sync_tracker DB trigger), so the
+// tracker only owns the activity counters a producer taps in by hand.
 export async function POST(req: Request) {
   const person = await getCurrentPerson();
   if (!person) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
@@ -64,7 +67,6 @@ export async function POST(req: Request) {
           contacts: clampInt(body.contacts),
           appointments: clampInt(body.appointments),
           presentations: clampInt(body.presentations),
-          sales: clampInt(body.sales),
           leads: clampInt(body.leads),
         },
         { onConflict: "person_id,entry_date" },

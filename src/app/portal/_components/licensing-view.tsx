@@ -7,6 +7,7 @@ import {
   markGuideReadForm,
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
+import type { LicensingVideos } from "@/lib/bunny";
 import { Input, buttonClass } from "@/components/ui";
 import { examSiteForState } from "@/lib/exam-sites";
 import { US_STATES } from "@/lib/us-states";
@@ -19,26 +20,31 @@ import {
 import { SubmitButton } from "./submit-button";
 import { CopyButton } from "./copy-button";
 
-// Placeholder external links + videos — swap these for the real destinations.
+// External links. Videos now come from the Bunny "tutorials" library (passed
+// in via the `videos` prop), not hardcoded placeholders.
 const XCEL_LOGIN_URL = "https://www.xcelsolutions.com/";
 const XCEL_CODE = "FFLALLSTAR-NGBNCR";
 const SIRCON_URL = "https://www.sircon.com";
 
-// Fallback embeds, used only when the Bunny tutorials library isn't configured
-// (or a step's video is missing). Real per-step videos come in via `stepVideos`,
-// fetched server-side from the BUNNY_TUTORIALS_* Stream library.
-const PLACEHOLDER_VIDEO = "https://www.youtube.com/embed/dQw4w9WgXcQ";
-
-// One licensing step → one tutorial video. The page resolves these from the
-// tutorials library (in filename order) and passes them down; any slot left
-// undefined falls back to the placeholder above.
-export type StepVideos = {
-  intro?: string | null;
-  schedule?: string | null;
-  study?: string | null;
-  exam?: string | null;
-  sircon?: string | null;
-};
+// Renders a step's video player, or nothing if that video isn't in Bunny yet.
+// autoplay=false so videos never fire on load; border:0 + no container border
+// so the Bunny player has no white edge lines.
+function StepVideo({ url, title }: { url: string | null; title: string }) {
+  if (!url) return null;
+  return (
+    <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
+      <iframe
+        src={`${url}?autoplay=false&preload=true`}
+        title={title}
+        loading="lazy"
+        allow="accelerometer; gyroscope; encrypted-media; picture-in-picture; fullscreen"
+        allowFullScreen
+        className="h-full w-full"
+        style={{ border: 0 }}
+      />
+    </div>
+  );
+}
 
 // Linear progression of the licensing phase. One timeline step per rung.
 const STEP_ORDER: Record<LicensingStep, number> = {
@@ -51,12 +57,19 @@ const STEP_ORDER: Record<LicensingStep, number> = {
 export default function LicensingView({
   recruit,
   uplineName,
+  adminEmail,
+  videos,
   justUnlocked,
   stepVideos,
 }: {
   recruit: Recruit;
   // The recruit's upline (builder) name, shown on the closing success card.
   uplineName?: string | null;
+  // The builder's admin email — where the recruit sends contracting info,
+  // shown as a copy field on the "Get contracted" step.
+  adminEmail?: string | null;
+  // The 5 licensing how-to videos from the Bunny "tutorials" library.
+  videos: LicensingVideos;
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
@@ -145,24 +158,7 @@ export default function LicensingView({
           status={stepGuide}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
-              <iframe
-                src={introVideo}
-                title="How to pass your exam on the first try"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full border-0"
-                // Oversize the player by 2px on every side so the faint border
-                // the Bunny player draws at its own edge falls outside the
-                // container's rounded overflow-hidden clip and disappears.
-                style={{
-                  width: "calc(100% + 4px)",
-                  height: "calc(100% + 4px)",
-                  marginLeft: "-2px",
-                  marginTop: "-2px",
-                }}
-              />
-            </div>
+            <StepVideo url={videos.intro} title="Watch this before you do anything" />
             {stepGuide === "active" ? (
               <form action={markGuideReadForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
@@ -181,24 +177,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "02"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
-              <iframe
-                src={scheduleVideo}
-                title="How to schedule your state exam"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full border-0"
-                // Oversize the player by 2px on every side so the faint border
-                // the Bunny player draws at its own edge falls outside the
-                // container's rounded overflow-hidden clip and disappears.
-                style={{
-                  width: "calc(100% + 4px)",
-                  height: "calc(100% + 4px)",
-                  marginLeft: "-2px",
-                  marginTop: "-2px",
-                }}
-              />
-            </div>
+            <StepVideo url={videos.schedule} title="How to schedule your state exam" />
 
             {examSite ? (
               <div className="space-y-3">
@@ -296,24 +275,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "03"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
-              <iframe
-                src={studyVideo}
-                title="How to get your study login"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full border-0"
-                // Oversize the player by 2px on every side so the faint border
-                // the Bunny player draws at its own edge falls outside the
-                // container's rounded overflow-hidden clip and disappears.
-                style={{
-                  width: "calc(100% + 4px)",
-                  height: "calc(100% + 4px)",
-                  marginLeft: "-2px",
-                  marginTop: "-2px",
-                }}
-              />
-            </div>
+            <StepVideo url={videos.study} title="How to get your study login" />
 
             <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
               <div className="min-w-0">
@@ -346,68 +308,15 @@ export default function LicensingView({
           </div>
         </TimelineStep>
 
-        {/* 04 — Pass the exam */}
+        {/* 04 — Pass the exam + apply for the license on Sircon */}
         <TimelineStep
-          title="Step 4: Pass Your Exam + Get Your Fingerprints!"
+          title="Step 4: Pass Your Exam + Get Your License"
           status={step04}
           animateUnlock={animateStep === "04"}
         >
           <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
-              <iframe
-                src={examVideo}
-                title="Passing your state exam"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full border-0"
-                // Oversize the player by 2px on every side so the faint border
-                // the Bunny player draws at its own edge falls outside the
-                // container's rounded overflow-hidden clip and disappears.
-                style={{
-                  width: "calc(100% + 4px)",
-                  height: "calc(100% + 4px)",
-                  marginLeft: "-2px",
-                  marginTop: "-2px",
-                }}
-              />
-            </div>
+            <StepVideo url={videos.exam} title="Passing your state exam + getting your license" />
             {step04 === "active" ? (
-              <form action={markExamPassedForm}>
-                <input type="hidden" name="recruitId" value={recruit.id} />
-                <SubmitButton variant="primary" pendingLabel="Saving…">
-                  Mark as completed
-                </SubmitButton>
-              </form>
-            ) : null}
-          </div>
-        </TimelineStep>
-
-        {/* 05 — Apply for the license on Sircon */}
-        <TimelineStep
-          title="Final Step: Apply For Your License On Sircon"
-          status={step05}
-          animateUnlock={animateStep === "05"}
-        >
-          <div className="space-y-4">
-            <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
-              <iframe
-                src={sirconVideo}
-                title="How to apply for your license on Sircon"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full border-0"
-                // Oversize the player by 2px on every side so the faint border
-                // the Bunny player draws at its own edge falls outside the
-                // container's rounded overflow-hidden clip and disappears.
-                style={{
-                  width: "calc(100% + 4px)",
-                  height: "calc(100% + 4px)",
-                  marginLeft: "-2px",
-                  marginTop: "-2px",
-                }}
-              />
-            </div>
-            {step05 === "active" ? (
               <>
                 <a
                   href={SIRCON_URL}
@@ -415,8 +324,40 @@ export default function LicensingView({
                   rel="noopener noreferrer"
                   className={buttonClass("secondary")}
                 >
-                  Apply on Sircon →
+                  Apply for your license on Sircon →
                 </a>
+                <form action={markExamPassedForm}>
+                  <input type="hidden" name="recruitId" value={recruit.id} />
+                  <SubmitButton variant="primary" pendingLabel="Saving…">
+                    I passed my exam
+                  </SubmitButton>
+                </form>
+              </>
+            ) : null}
+          </div>
+        </TimelineStep>
+
+        {/* 05 — Get contracted (send contracting info to the builder's admin) */}
+        <TimelineStep
+          title="Final Step: Get Contracted"
+          status={step05}
+          animateUnlock={animateStep === "05"}
+        >
+          <div className="space-y-4">
+            <StepVideo url={videos.contracting} title="How to get contracted" />
+            {step05 === "active" ? (
+              <>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                      Send your contracting info to
+                    </p>
+                    <p className="mt-1 truncate font-mono text-lg font-semibold tracking-[0.04em] text-ink">
+                      {adminEmail || "Ask your upline for the admin email"}
+                    </p>
+                  </div>
+                  {adminEmail ? <CopyButton value={adminEmail} /> : null}
+                </div>
                 <form action={markLicensingSubmittedForm}>
                   <input type="hidden" name="recruitId" value={recruit.id} />
                   <SubmitButton variant="primary" pendingLabel="Saving…">

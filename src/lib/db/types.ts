@@ -63,6 +63,15 @@ export type Person = {
   is_admin: boolean;
   is_super_admin: boolean;
   status: PersonStatus;
+  // Builder-only settings (see migration 20260610000100_builder_settings.sql).
+  admin_email: string | null;
+  xcel_code: string | null;
+  discord_webhook_url: string | null;
+  // Policy-summary contact override (see 20260611000300_policy_contact.sql).
+  // Falls back to full_name/email/phone when blank.
+  policy_contact_name: string | null;
+  policy_contact_email: string | null;
+  policy_contact_phone: string | null;
   created_at: string;
   updated_at: string;
 };

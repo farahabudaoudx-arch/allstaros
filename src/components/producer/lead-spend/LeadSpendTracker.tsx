@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { LEAD_TYPES, type LeadPurchase } from "@/lib/lead-spend/types";
+import { localIsoDate } from "@/lib/producer/time";
 
 function fmtMoney(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return "$0";
@@ -31,7 +32,9 @@ type Draft = {
 };
 
 function emptyDraft(): Draft {
-  return { vendor: "", amount: "", lead_count: "", lead_type: "", purchase_date: "" };
+  // Pre-fill today's date so spend is always dated — an undated purchase falls
+  // outside every analytics range and would silently never show up in ROI.
+  return { vendor: "", amount: "", lead_count: "", lead_type: "", purchase_date: localIsoDate() };
 }
 
 export function LeadSpendTracker({
@@ -198,7 +201,7 @@ function LogSpendModal({
         amount: Number(draft.amount) || 0,
         lead_count: Math.round(Number(draft.lead_count)) || 0,
         lead_type: draft.lead_type.trim() || null,
-        purchase_date: draft.purchase_date || null,
+        purchase_date: draft.purchase_date || localIsoDate(),
       };
       // person_id is filled by the auth_person_id() column default under RLS.
       const { data, error: dbError } = await supabase

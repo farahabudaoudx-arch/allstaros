@@ -75,8 +75,6 @@ export function ClientsList({
 
   const sales = clients.filter((c) => c.sale_status === "sale");
   const totalAP = sales.reduce((s, c) => s + (Number(c.annual_premium) || 0), 0);
-  // Total IP = total income paid = sum of actual_amount on successful deposits.
-  const totalIP = depositTotals.successfulSum;
 
   return (
     <div className="ll-analytics space-y-6 pt-2">
@@ -110,7 +108,6 @@ export function ClientsList({
         </div>
         <div className="col-span-4 flex flex-col gap-2.5">
           <StackedBubble label="Total AP" value={fmtMoney(totalAP)} />
-          <StackedBubble label="Total IP" value={fmtMoney(totalIP)} />
         </div>
         <div className="col-span-5 flex flex-col gap-2.5">
           <RowBubble

@@ -235,7 +235,6 @@ export function AnalyticsView({
   const contactRate = pct(m.contacts, m.dials);
   const presentationRate = pct(m.presentations, m.dials);
   const closeRate = pct(m.sales, m.presentations);
-  const issueRate = pct(m.ip, m.ap);
 
   const dialsPerSale = safeDiv(m.dials, m.sales);
   const contactsPerSale = safeDiv(m.contacts, m.sales);
@@ -247,21 +246,13 @@ export function AnalyticsView({
   const apPerAppointment = safeDiv(m.ap, m.appointments);
   const apPerPresentation = safeDiv(m.ap, m.presentations);
 
-  const ipPerDial = safeDiv(m.ip, m.dials);
-  const ipPerContact = safeDiv(m.ip, m.contacts);
-  const ipPerAppointment = safeDiv(m.ip, m.appointments);
-  const ipPerPresentation = safeDiv(m.ip, m.presentations);
-
   const avgAPPerSale = safeDiv(m.ap, m.sales);
-  const avgIPPerSale = safeDiv(m.ip, m.sales);
   const roi = m.leadSpend > 0 ? ((m.deposits - m.leadSpend) / m.leadSpend) * 100 : 0;
-  const projectedROI = m.leadSpend > 0 ? ((m.ap - m.leadSpend) / m.leadSpend) * 100 : 0;
 
   const costPerContact = safeDiv(m.leadSpend, m.contacts);
   const costPerAppointment = safeDiv(m.leadSpend, m.appointments);
   const costPerPresentation = safeDiv(m.leadSpend, m.presentations);
   const costPerSale = safeDiv(m.leadSpend, m.sales);
-  const costPerIssued = safeDiv(m.leadSpend, m.issuedCount);
 
   function applyCustomRange() {
     setCustomRange({ from: customFrom, to: customTo });
@@ -291,28 +282,26 @@ export function AnalyticsView({
       <div className="flex items-center justify-end gap-2 flex-wrap relative">
         <div className="tab-pills">
           {TIMEFRAMES.map((t) => (
-            <button key={t.key} onClick={() => { setTf(t.key); setCustomRange(null); }} data-active={tf === t.key}>
+            <button
+              key={t.key}
+              onClick={() => { setTf(t.key); setCustomRange(null); setCalOpen(false); }}
+              data-active={tf === t.key}
+            >
               {t.label}
             </button>
           ))}
-          {tf === "custom" && (
-            <button data-active={true} title={customRange ? `${customRange.from} → ${customRange.to}` : undefined}>
-              {customRange ? `${customRange.from.slice(5)} → ${customRange.to.slice(5)}` : "Custom"}
-            </button>
-          )}
+          {/* Custom is a pill like the rest: clicking it highlights it + opens the picker;
+              clicking any preset closes the picker and moves the highlight back. */}
+          <button
+            onClick={() => setCalOpen((v) => !v)}
+            data-active={tf === "custom" || calOpen}
+            title={customRange ? `${customRange.from} → ${customRange.to}` : "Custom range"}
+            className="inline-flex items-center gap-1"
+          >
+            <CalendarIcon />
+            {tf === "custom" && customRange ? `${customRange.from.slice(5)} → ${customRange.to.slice(5)}` : "Custom"}
+          </button>
         </div>
-        <button
-          onClick={() => setCalOpen((v) => !v)}
-          className="btn-icon"
-          aria-label="Custom date range"
-          title="Custom date range"
-          style={{
-            borderColor: tf === "custom" ? "var(--lime)" : undefined,
-            color: tf === "custom" ? "var(--lime)" : undefined,
-          }}
-        >
-          <CalendarIcon />
-        </button>
         <button
           onClick={() => setLayoutOpen((v) => !v)}
           className="btn-icon"
@@ -328,7 +317,7 @@ export function AnalyticsView({
             <div className="space-y-2.5">
               <div>
                 <label className="block text-xs mb-1" style={{ color: "var(--ink-2)" }}>From</label>
-                <input type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="input text-sm [color-scheme:dark]" />
+                <input type="date" value={customFrom} min="2000-01-01" max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="input text-sm [color-scheme:dark]" />
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: "var(--ink-2)" }}>To</label>
@@ -368,7 +357,6 @@ export function AnalyticsView({
                       { label: "Presentations", value: fmtInt(m.presentations), conversion: `${pct(m.presentations, m.dials).toFixed(1)}% of dials` },
                       { label: "Sales", value: fmtInt(m.sales), conversion: `${pct(m.sales, m.presentations).toFixed(1)}% close` },
                       { label: "Total AP", value: fmtMoney(m.ap), conversion: `${fmtMoneyExact(avgAPPerSale)} avg` },
-                      { label: "Total IP", value: fmtMoney(m.ip), conversion: `${issueRate.toFixed(1)}% issue` },
                     ]}
                   />
                 </div>
@@ -378,11 +366,10 @@ export function AnalyticsView({
 
           percentages: (
             <Section title="Percentages">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <PercentMetric label="Contact Rate" value={contactRate} />
                 <PercentMetric label="Presentation Rate" value={presentationRate} />
                 <PercentMetric label="Close Rate" value={closeRate} />
-                <PercentMetric label="Issue Rate" value={issueRate} />
               </div>
             </Section>
           ),
@@ -404,11 +391,11 @@ export function AnalyticsView({
             <Section title="Cost Analysis">
               <CostAnalysisBoard
                 stages={[
-                  { stage: "Dial", verb: "make", ap: apPerDial, ip: ipPerDial },
-                  { stage: "Contact", verb: "get", ap: apPerContact, ip: ipPerContact, cost: costPerContact },
-                  { stage: "Appointment", verb: "get", ap: apPerAppointment, ip: ipPerAppointment, cost: costPerAppointment },
-                  { stage: "Presentation", verb: "get", ap: apPerPresentation, ip: ipPerPresentation, cost: costPerPresentation },
-                  { stage: "Sale", verb: "close", ap: avgAPPerSale, ip: avgIPPerSale, cost: costPerSale, issuedCost: costPerIssued },
+                  { stage: "Dial", verb: "make", ap: apPerDial },
+                  { stage: "Contact", verb: "get", ap: apPerContact, cost: costPerContact },
+                  { stage: "Appointment", verb: "get", ap: apPerAppointment, cost: costPerAppointment },
+                  { stage: "Presentation", verb: "get", ap: apPerPresentation, cost: costPerPresentation },
+                  { stage: "Sale", verb: "close", ap: avgAPPerSale, cost: costPerSale },
                 ]}
               />
             </Section>
@@ -426,16 +413,13 @@ export function AnalyticsView({
                 <div className="card flex-1 p-5 min-w-0 lg:rounded-none lg:border-x-0 overflow-hidden">
                   <RoiFlow
                     ap={m.ap}
-                    ip={m.ip}
-                    issueRate={issueRate}
                     avgAPPerSale={avgAPPerSale}
-                    avgIPPerSale={avgIPPerSale}
                     leadSpend={m.leadSpend}
                   />
                 </div>
 
                 <div className="card-lime lg:w-44 flex-shrink-0 lg:rounded-l-none flex flex-col overflow-hidden">
-                  <div className="p-4 flex-1 flex flex-col justify-center min-w-0" style={{ borderBottom: "1px solid rgba(0,0,0,0.12)" }}>
+                  <div className="p-5 flex-1 flex flex-col justify-center min-w-0">
                     <span className="text-xs opacity-70">ROI</span>
                     <div
                       className="display tnum mt-1 leading-none truncate"
@@ -447,16 +431,6 @@ export function AnalyticsView({
                       {fmtRoi(roi)}
                     </div>
                     <div className="text-[11px] opacity-70 mt-1">collected</div>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col justify-center min-w-0">
-                    <span className="text-xs opacity-70">Projected ROI</span>
-                    <div
-                      className="display tnum mt-1 leading-none truncate"
-                      style={{ fontSize: roiFontSize(projectedROI) }}
-                    >
-                      {fmtRoi(projectedROI)}
-                    </div>
-                    <div className="text-[11px] opacity-70 mt-1">at full AP</div>
                   </div>
                 </div>
               </div>
@@ -604,14 +578,12 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 }
 
 function RoiFlow({
-  ap, ip, issueRate, avgAPPerSale, avgIPPerSale, leadSpend,
+  ap, avgAPPerSale, leadSpend,
 }: {
-  ap: number; ip: number;
-  issueRate: number;
-  avgAPPerSale: number; avgIPPerSale: number;
+  ap: number;
+  avgAPPerSale: number;
   leadSpend: number;
 }) {
-  const maxVal = Math.max(ap, 1);
   const apMultiple = leadSpend > 0 ? ap / leadSpend : 0;
   const bars = [
     {
@@ -619,12 +591,6 @@ function RoiFlow({
       valueA: fmtMoney(ap), valueB: fmtMoneyExact(avgAPPerSale),
       width: 100,
       sub: `${apMultiple.toFixed(1)}× spend`,
-    },
-    {
-      titleA: "Total IP", titleB: "Avg IP Per Sale",
-      valueA: fmtMoney(ip), valueB: fmtMoneyExact(avgIPPerSale),
-      width: (ip / maxVal) * 100,
-      sub: `${issueRate.toFixed(1)}% issue rate`,
     },
   ];
 
@@ -760,9 +726,7 @@ function CostAnalysisBoard({
     stage: "Dial" | "Contact" | "Appointment" | "Presentation" | "Sale";
     verb: string;
     ap: number;
-    ip: number;
     cost?: number;
-    issuedCost?: number;
   }>;
 }) {
   return (
@@ -783,22 +747,10 @@ function CostAnalysisBoard({
               <p className="display leading-snug" style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em" }}>
                 For every {stageLower} you {s.verb}, you earn{" "}
                 <span className="tnum">{fmtMoneyExact(s.ap)}</span>{" "}
-                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>AP</span>{" "}
-                and{" "}
-                <span className="tnum" style={{ color: "var(--lime)" }}>{fmtMoneyExact(s.ip)}</span>{" "}
-                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>IP</span>.
+                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>AP</span>.
               </p>
 
-              {s.stage === "Sale" && s.cost !== undefined && s.issuedCost !== undefined ? (
-                <p
-                  className="display leading-snug"
-                  style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em", borderTop: "1px solid var(--line-1)", paddingTop: 12 }}
-                >
-                  Your cost to submit a policy is{" "}
-                  <span className="tnum">{fmtMoneyExact(s.cost)}</span>, and your cost to issue a policy is{" "}
-                  <span className="tnum">{fmtMoneyExact(s.issuedCost)}</span>.
-                </p>
-              ) : s.cost !== undefined ? (
+              {s.cost !== undefined ? (
                 <p
                   className="display leading-snug"
                   style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em", borderTop: "1px solid var(--line-1)", paddingTop: 12 }}
@@ -1171,13 +1123,12 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
     weeks.push({ cells: weekCells, totalAP, totalIP, loggedDays });
   }
 
-  let monthAP = 0, monthIP = 0, submittedDays = 0, activeDays = 0;
+  let monthAP = 0, submittedDays = 0, activeDays = 0;
   for (const c of cells) {
     if (!c.inMonth) continue;
     const info = days[c.iso];
     if (!info) continue;
     monthAP += info.ap_cents;
-    monthIP += info.ip_cents;
     if (info.submitted) submittedDays++;
     if (info.submitted || info.ap_cents > 0 || info.ip_cents > 0) activeDays++;
   }
@@ -1200,7 +1151,6 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
         </div>
         <div className="flex items-center gap-4 text-xs tnum" style={{ color: "var(--ink-3)" }}>
           <span>AP <span className="text-white">{fmtCents(monthAP) || "$0"}</span></span>
-          <span>IP <span className="text-white">{fmtCents(monthIP) || "$0"}</span></span>
           <span>Logged <span className="text-white">{submittedDays}d</span></span>
           <span>Active <span className="text-white">{activeDays}d</span></span>
         </div>

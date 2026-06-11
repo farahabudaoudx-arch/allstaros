@@ -19,6 +19,20 @@ export async function sendMessageForm(formData: FormData) {
   if (!person) redirect("/auth/signin");
 
   const supabase = await createClient();
+
+  // Only the recruit's DIRECT upline (their builder) or the recruit themselves
+  // may post to a thread. An indirect upline can view analytics but not message.
+  const { data: recruit } = await supabase
+    .from("recruit")
+    .select("builder_id, person_id")
+    .eq("id", recruitId)
+    .maybeSingle();
+  if (!recruit) redirect(`${returnTo}?error=recruit-not-found`);
+  const r = recruit as { builder_id: string; person_id: string };
+  if (person.id !== r.builder_id && person.id !== r.person_id) {
+    redirect(`${returnTo}?error=not-allowed`);
+  }
+
   const { error } = await supabase.from("message").insert({
     recruit_id: recruitId,
     sender_person_id: person.id,
@@ -30,6 +44,31 @@ export async function sendMessageForm(formData: FormData) {
 
   revalidatePath(returnTo);
   redirect(`${returnTo}?ok=sent`);
+}
+
+/**
+ * Stamp the current person's read receipt for a thread to now(). Called when
+ * they open a thread (MessageThread mount + on each new message while viewing),
+ * so the unread dot clears only once every message has been seen.
+ */
+export async function markThreadRead(recruitId: string) {
+  if (!recruitId) return;
+  const person = await getCurrentPerson();
+  if (!person) return;
+  const supabase = await createClient();
+  await supabase.from("message_read").upsert(
+    {
+      person_id: person.id,
+      recruit_id: recruitId,
+      last_read_at: new Date().toISOString(),
+    },
+    { onConflict: "person_id,recruit_id" },
+  );
+  // The nav unread dots are computed in the producer/portal layouts (persistent
+  // server components). Revalidate them so the dot clears right after reading,
+  // instead of lingering until a full page reload.
+  revalidatePath("/producer", "layout");
+  revalidatePath("/portal", "layout");
 }
 
 export async function askAssistantForm(formData: FormData) {

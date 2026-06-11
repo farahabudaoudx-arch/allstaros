@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { localIsoDate } from "@/lib/producer/time";
 
@@ -122,8 +123,7 @@ export function DialTracker() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Live</p>
-          <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
             Daily Tracker
           </h1>
           <p className="mt-2 max-w-xl text-sm text-subtle">
@@ -160,9 +160,9 @@ export function DialTracker() {
         disabled={loading}
       />
 
-      {/* Remaining metrics */}
+      {/* Remaining metrics — sales is excluded here; it's driven by Clients. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        {METRICS.filter((m) => m.key !== "dials").map((m) => (
+        {METRICS.filter((m) => m.key !== "dials" && m.key !== "sales").map((m) => (
           <CounterCard
             key={m.key}
             label={m.label}
@@ -173,7 +173,45 @@ export function DialTracker() {
             disabled={loading}
           />
         ))}
+        <PoliciesSoldCard value={counts.sales} target={target?.sales ?? 0} />
       </div>
+    </div>
+  );
+}
+
+// Policies sold is read-only on the tracker: the only way to log one is to add a
+// client. The count is kept in sync server-side from the Clients book.
+function PoliciesSoldCard({ value, target }: { value: number; target: number }) {
+  const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
+  const hit = target > 0 && value >= target;
+  return (
+    <div className="rounded-2xl border border-hairline bg-card p-5">
+      <div className="flex items-baseline justify-between">
+        <p className="text-xs uppercase tracking-[0.12em] text-mute">Policies Sold</p>
+        {target > 0 && (
+          <p className={`text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
+            {value} / {target}
+          </p>
+        )}
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-4">
+        <p className="min-w-[2ch] text-4xl font-semibold tabular-nums text-ink">{value}</p>
+        <Link
+          href="/producer/clients/new"
+          className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-background transition hover:bg-accent-soft"
+        >
+          + Add New Client
+        </Link>
+      </div>
+      <p className="mt-3 text-xs text-mute">Logged automatically when you add a client.</p>
+      {target > 0 && (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-card-hi">
+          <div
+            className={`h-full rounded-full ${hit ? "bg-pos" : "bg-accent"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

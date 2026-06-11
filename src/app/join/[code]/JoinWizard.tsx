@@ -353,26 +353,8 @@ function WelcomeCard({
         Welcome to the team
       </h1>
       <p className="mt-1.5 text-sm text-subtle">
-        Watch this quick tour, then get started.
+        You&apos;re all set — let&apos;s get started.
       </p>
-
-      {/* Video placeholder (16:9) */}
-      <div className="relative mt-5 aspect-video w-full overflow-hidden rounded-2xl border border-hairline bg-gradient-to-br from-card-hi to-black">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <button
-            type="button"
-            aria-label="Play tour video"
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-black shadow-lg transition hover:scale-105"
-          >
-            <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7" fill="currentColor" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </button>
-        </div>
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-10">
-          <p className="text-left font-mono text-[11px] text-white/80">Platform tour · 2:14</p>
-        </div>
-      </div>
 
       {demo ? (
         <form action={finishDemoFlowForm} className="mt-6">

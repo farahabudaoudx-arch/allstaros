@@ -318,7 +318,7 @@ export async function computeAnalytics(
     supabase.from("tracker_entry").select("dials, contacts, appointments, presentations, sales, leads").eq("person_id", personId).gte("entry_date", from).lte("entry_date", to),
     supabase.from("clients").select(CLIENT_COLS).eq("person_id", personId),
     supabase.from("client_deposits").select("actual_amount, status, updated_at, created_at").eq("person_id", personId).gte("updated_at", fromTs).lte("updated_at", toTs),
-    supabase.from("lead_purchases").select("amount, purchase_date").eq("person_id", personId).gte("purchase_date", from).lte("purchase_date", to),
+    supabase.from("lead_purchases").select("amount, purchase_date, created_at").eq("person_id", personId),
   ]);
   if (trackerRes.error) throw new Error(trackerRes.error.message);
   if (clientsRes.error) throw new Error(clientsRes.error.message);
@@ -354,8 +354,12 @@ export async function computeAnalytics(
   }
 
   let leadSpend_cents = 0;
-  for (const p of (spendRes.data ?? []) as Array<{ amount: number | null; purchase_date: string | null }>) {
-    if (!inRange(dayOfDateCol(p.purchase_date))) continue;
+  for (const p of (spendRes.data ?? []) as Array<{ amount: number | null; purchase_date: string | null; created_at: string | null }>) {
+    // Fall back to created_at when purchase_date is missing, so an undated
+    // lead-spend entry still counts (the SQL date filter used to drop it
+    // entirely, which is why $2k of spend never reached ROI).
+    const day = dayOfDateCol(p.purchase_date) ?? dayOfTs(p.created_at, tz);
+    if (!inRange(day)) continue;
     leadSpend_cents += dollarsToCents(p.amount);
   }
 

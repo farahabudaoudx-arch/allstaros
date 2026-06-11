@@ -1,12 +1,13 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { SetupForm } from "./SetupForm";
 
 /**
  * Account setup — where an invited recruit lands after clicking their invite
- * link. The link already signed them in via /auth/callback, so we just need a
- * user here. They fill in their name, phone, state, and a password.
+ * link. The link already signed them in via /auth/confirm and already knows
+ * their email, so we don't ask for it again — we just confirm who invited them
+ * and which email their account is under, then collect name/phone/state/password.
  */
 export default async function WelcomePage() {
   const supabase = await createClient();
@@ -14,6 +15,27 @@ export default async function WelcomePage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/signin?next=/welcome");
+
+  const email = user.email ?? "";
+
+  // Who invited them = their upline builder. RLS doesn't let a fresh recruit
+  // read up the tree, so look up the builder's name with the service role.
+  let inviterName = "";
+  const { data: me } = await supabase
+    .from("person")
+    .select("upline_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  const uplineId = (me as { upline_id?: string | null } | null)?.upline_id;
+  if (uplineId) {
+    const admin = createServiceRoleClient();
+    const { data: builder } = await admin
+      .from("person")
+      .select("full_name")
+      .eq("id", uplineId)
+      .maybeSingle();
+    inviterName = (builder as { full_name?: string } | null)?.full_name ?? "";
+  }
 
   return (
     <div className="flex min-h-dvh flex-1 items-center justify-center px-6 py-16">
@@ -30,9 +52,18 @@ export default async function WelcomePage() {
           <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">
             Set up your account
           </h1>
-          <p className="mt-3 text-sm text-subtle">
-            A few details and a password, and you’re in.
-          </p>
+          {inviterName ? (
+            <p className="mt-3 text-sm text-subtle">
+              You were invited by{" "}
+              <span className="font-medium text-ink">{inviterName}</span>.
+            </p>
+          ) : null}
+          {email ? (
+            <p className="mt-1 text-sm text-subtle">
+              Your account will be under{" "}
+              <span className="font-medium text-ink">{email}</span>.
+            </p>
+          ) : null}
         </div>
 
         <SetupForm />

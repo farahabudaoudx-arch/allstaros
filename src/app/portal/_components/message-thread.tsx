@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { markThreadRead } from "@/lib/actions/messages";
 import type { Message } from "@/lib/db/types";
 
 /**
@@ -62,6 +63,12 @@ export default function MessageThread({
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length]);
+
+  // Mark the thread read when opened and whenever a new message arrives while
+  // it's on screen, so the nav unread dot clears once everything's been seen.
+  useEffect(() => {
+    void markThreadRead(recruitId);
+  }, [recruitId, messages.length]);
 
   async function send() {
     const text = body.trim();

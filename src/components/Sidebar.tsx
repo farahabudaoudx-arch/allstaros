@@ -14,7 +14,18 @@ export type NavItem = {
   locked?: boolean;
   /** Opens in a new tab via a plain anchor (e.g. an external dashboard). */
   external?: boolean;
+  /** Shows an unread dot on the item (e.g. new messages). */
+  dot?: boolean;
 };
+
+function UnreadDot() {
+  return (
+    <span
+      className="h-2 w-2 shrink-0 rounded-full bg-accent"
+      aria-label="Unread"
+    />
+  );
+}
 
 function leafHrefs(items: NavItem[]): string[] {
   return items.flatMap((it) =>
@@ -155,13 +166,14 @@ export function Sidebar({
                         <Link
                           key={child.href}
                           href={child.href ?? "#"}
-                          className={`truncate rounded-lg px-3 py-2 text-sm transition ${
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                             active === child.href
                               ? "bg-card-hi text-ink ring-1 ring-hairline"
                               : "text-subtle hover:bg-card-hi/60 hover:text-ink"
                           }`}
                         >
-                          {child.label}
+                          <span className="flex-1 truncate">{child.label}</span>
+                          {child.dot ? <UnreadDot /> : null}
                         </Link>
                       ),
                     )}
@@ -206,11 +218,17 @@ export function Sidebar({
               }`}
             >
               {collapsed ? (
-                <span className="text-sm font-semibold">
+                <span className="relative text-sm font-semibold">
                   {it.label.trim()[0]?.toUpperCase()}
+                  {it.dot ? (
+                    <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent" />
+                  ) : null}
                 </span>
               ) : (
-                <span className="truncate">{it.label}</span>
+                <>
+                  <span className="flex-1 truncate">{it.label}</span>
+                  {it.dot ? <UnreadDot /> : null}
+                </>
               )}
             </Link>
           );
