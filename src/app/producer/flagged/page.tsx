@@ -7,13 +7,14 @@ import { computeTeamFlags, type FlagCategory, type FlagItem } from "@/lib/produc
 export const dynamic = "force-dynamic";
 
 const CATEGORY_LABEL: Record<FlagCategory, string> = {
+  exam: "Exam not scheduled",
   checkin: "Check-ins",
-  data: "Missing data",
   activity: "Inactive",
-  manual: "Flagged for review",
+  projection: "Missed projections",
+  log: "Missing log",
 };
 
-const CATEGORY_ORDER: FlagCategory[] = ["manual", "checkin", "activity", "data"];
+const CATEGORY_ORDER: FlagCategory[] = ["exam", "checkin", "activity", "projection", "log"];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -42,8 +43,8 @@ export default async function FlaggedPage() {
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">My Team</p>
           <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">Flagged</h1>
           <p className="mt-3 max-w-2xl text-sm text-subtle">
-            People in your downline who may need a nudge — stale check-ins, missing activity logs,
-            and anyone you&apos;ve flagged for review.
+            People in your downline who may need a nudge — recruits stalling on their exam or
+            check-ins, and producers missing their log, projections, or activity.
           </p>
         </div>
         {flags.length > 0 ? (

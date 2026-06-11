@@ -14,6 +14,10 @@ export async function computeStalls() {
 export async function removeRecruitForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim() || null;
+  // Where to send the builder afterwards. The producer pipeline passes
+  // "/producer/recruiting"; the dashboard recruit page leaves it blank.
+  const returnTo = String(formData.get("returnTo") ?? "");
+  const errBack = returnTo || `/dashboard/recruits/${recruitId}`;
   if (!recruitId) redirect("/dashboard");
 
   const supabase = await createClient();
@@ -22,12 +26,11 @@ export async function removeRecruitForm(formData: FormData) {
     p_reason: reason,
   });
   if (error) {
-    redirect(
-      `/dashboard/recruits/${recruitId}?error=${encodeURIComponent(error.message)}`,
-    );
+    redirect(`${errBack}?error=${encodeURIComponent(error.message)}`);
   }
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/flagged");
+  revalidatePath("/producer/recruiting");
   revalidatePath(`/dashboard/recruits/${recruitId}`);
-  redirect(`/dashboard/recruits/${recruitId}?ok=removed`);
+  redirect(`${returnTo || `/dashboard/recruits/${recruitId}`}?ok=removed`);
 }

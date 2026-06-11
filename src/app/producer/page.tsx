@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EventSchedule } from "@/components/producer/EventSchedule";
 import { DashboardOverview } from "@/components/producer/DashboardOverview";
 import { DashboardGreeting } from "@/components/producer/DashboardGreeting";
@@ -19,7 +20,26 @@ export default async function ProducerDashboard() {
 
       <ProducerGoals />
 
-      <EventSchedule events={scheduleEvents} />
+      <EventSchedule
+        events={scheduleEvents}
+        heading="Upcoming Live Trainings"
+        emptyState={
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
+              Upcoming Live Trainings
+            </h2>
+            <div className="mt-6 rounded-2xl border border-hairline bg-card px-5 py-10 text-center">
+              <p className="text-sm text-subtle">No live trainings scheduled right now.</p>
+              <Link
+                href="/producer/trainings/upcoming"
+                className="mt-3 inline-block text-sm font-medium text-accent hover:text-accent-soft"
+              >
+                See all trainings →
+              </Link>
+            </div>
+          </section>
+        }
+      />
 
       <DashboardOverview />
     </main>

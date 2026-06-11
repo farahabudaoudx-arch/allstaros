@@ -12,19 +12,6 @@ type Totals = {
   ap_cents: number;
 };
 
-// Final-expense telesales fallbacks, used when a producer has no history yet to
-// derive their own ratios from.
-const FALLBACK = {
-  apPerSaleCents: 100_000, // avg AP per client
-  presPerSale: 4, // 1 sale per 4 presentations
-  contactsPerSale: 19, // contacts worked per sale
-  dialsPerSale: 76, // dials made per sale
-};
-
-function ratio(numr: number, denr: number, fallback: number): number {
-  return denr > 0 && numr > 0 ? numr / denr : fallback;
-}
-
 function remainingBusinessDays(now: Date): number {
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -94,23 +81,37 @@ export function ProducerGoals() {
 
   const needs = useMemo(() => {
     if (!goalAp || goalAp <= 0 || !hist) return null;
+
+    // We can only reverse-engineer the daily numbers from the producer's OWN
+    // history. Without at least one closed sale (and the AP it produced) there's
+    // no AP-per-sale ratio to work backwards from — so we say "not enough data"
+    // rather than inventing numbers from generic industry averages.
+    if (hist.sales <= 0 || hist.ap_cents <= 0) {
+      return { insufficient: true as const };
+    }
+
     const daysLeft = remainingBusinessDays(new Date());
     const remainingAp = Math.max(0, goalAp - mtdAp);
     const apPerDay = remainingAp / daysLeft;
 
-    const apPerSale = ratio(hist.ap_cents, hist.sales, FALLBACK.apPerSaleCents);
-    const presPerSale = ratio(hist.presentations, hist.sales, FALLBACK.presPerSale);
-    const contactsPerSale = ratio(hist.contacts, hist.sales, FALLBACK.contactsPerSale);
-    const dialsPerSale = ratio(hist.dials, hist.sales, FALLBACK.dialsPerSale);
+    const apPerSale = hist.ap_cents / hist.sales;
+    const salesPerDay = apPerDay / apPerSale;
 
-    const salesPerDay = apPerSale > 0 ? apPerDay / apPerSale : 0;
+    // Each activity line needs that activity's own history to derive a ratio.
+    // If a producer has logged sales but never logged, say, presentations, that
+    // one card reads N/A instead of guessing.
+    const perSale = (activity: number) => (activity > 0 ? activity / hist.sales : null);
+    const dialsPerSale = perSale(hist.dials);
+    const contactsPerSale = perSale(hist.contacts);
+    const presPerSale = perSale(hist.presentations);
 
     return {
+      insufficient: false as const,
       daysLeft,
-      dials: Math.ceil(salesPerDay * dialsPerSale),
-      contacts: Math.ceil(salesPerDay * contactsPerSale),
-      presentations: Math.ceil(salesPerDay * presPerSale),
       sales: Math.ceil(salesPerDay),
+      dials: dialsPerSale != null ? Math.ceil(salesPerDay * dialsPerSale) : null,
+      contacts: contactsPerSale != null ? Math.ceil(salesPerDay * contactsPerSale) : null,
+      presentations: presPerSale != null ? Math.ceil(salesPerDay * presPerSale) : null,
     };
   }, [goalAp, mtdAp, hist]);
 
@@ -163,7 +164,20 @@ export function ProducerGoals() {
             <p className="mt-3 text-xs text-mute">Annual premium, month to date.</p>
           </div>
 
-          {needs && (
+          {needs?.insufficient && (
+            <div className="mt-8 rounded-2xl border border-hairline bg-card p-6">
+              <h3 className="text-lg font-semibold tracking-[-0.01em] text-ink">
+                Not enough data yet
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm text-subtle">
+                We work backwards from your own numbers — once you&apos;ve logged some activity and
+                closed at least one sale, we&apos;ll know your dials, contacts, and presentations per
+                sale and show exactly what you need each day to hit this goal.
+              </p>
+            </div>
+          )}
+
+          {needs && !needs.insufficient && (
             <div className="mt-8">
               <h3 className="text-lg font-semibold tracking-[-0.01em] text-ink">
                 Based on your current data, to hit your goal you need to:
@@ -172,21 +186,25 @@ export function ProducerGoals() {
                 {needs.daysLeft} working {needs.daysLeft === 1 ? "day" : "days"} left this month.
               </p>
               <div className="mt-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
-                <NeedCard value={num(needs.dials)} label="Dials per day" sub="Based on avg performance" />
                 <NeedCard
-                  value={num(needs.contacts)}
-                  label="People talked to per day"
-                  sub="Based on avg contact:sale ratio"
+                  value={needs.dials != null ? num(needs.dials) : "N/A"}
+                  label="Dials per day"
+                  sub={needs.dials != null ? "Based on your dials:sale ratio" : "Not enough data"}
                 />
                 <NeedCard
-                  value={num(needs.presentations)}
+                  value={needs.contacts != null ? num(needs.contacts) : "N/A"}
+                  label="People talked to per day"
+                  sub={needs.contacts != null ? "Based on your contact:sale ratio" : "Not enough data"}
+                />
+                <NeedCard
+                  value={needs.presentations != null ? num(needs.presentations) : "N/A"}
                   label="Presentations per day"
-                  sub="Based on avg conversion rate"
+                  sub={needs.presentations != null ? "Based on your presentation:sale ratio" : "Not enough data"}
                 />
                 <NeedCard
                   value={num(needs.sales)}
                   label="Policies sold per day"
-                  sub="Based on avg AP per client"
+                  sub="Based on your avg AP per sale"
                 />
               </div>
             </div>

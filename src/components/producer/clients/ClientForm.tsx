@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { notifyNewClient } from "@/lib/actions/discord";
 import { localIsoDate } from "@/lib/producer/time";
 import {
   ADVANCE_OPTIONS,
@@ -33,6 +34,12 @@ function draftFromClient(c: Client): ClientDraft {
     beneficiaries: rest.beneficiaries ?? [],
   };
 }
+
+// Input sanitizers — keep certain fields numeric so nothing weird (letters, a
+// stray "%") makes it onto the printed policy summary.
+const digitsOnly = (s: string) => s.replace(/[^0-9]/g, "");
+const phoneChars = (s: string) => s.replace(/[^0-9+()\-.\s]/g, "");
+const moneyChars = (s: string) => s.replace(/[^0-9.]/g, "");
 
 function calcAge(dob: string | null | undefined): number | null {
   if (!dob) return null;
@@ -130,7 +137,15 @@ export function ClientForm({ clientId, initialClient }: Props) {
         alert(`Save failed: ${error.message}`);
         return;
       }
-      if (data) savedId = (data as Client).id;
+      if (data) {
+        savedId = (data as Client).id;
+        // Ping the upline's Discord channel on a new signed client (no PII).
+        try {
+          await notifyNewClient(savedId);
+        } catch {
+          /* never block the save on a notification failure */
+        }
+      }
     }
     setSaving(false);
     setSavedFlash(true);
@@ -178,12 +193,9 @@ export function ClientForm({ clientId, initialClient }: Props) {
             <input className="input" value={draft.client_name} onChange={(e) => set("client_name", e.target.value)} placeholder="Full name" />
           </Field>
           <Field label="Phone">
-            <input className="input tnum" value={draft.phone ?? ""} onChange={(e) => set("phone", e.target.value || null)} placeholder="555-555-5555" />
+            <input className="input tnum" inputMode="tel" value={draft.phone ?? ""} onChange={(e) => set("phone", phoneChars(e.target.value) || null)} placeholder="555-555-5555" />
           </Field>
         </Grid>
-        <Field label="SSN">
-          <input className="input" value={draft.ssn ?? ""} onChange={(e) => set("ssn", e.target.value || null)} placeholder="XXX-XX-XXXX" />
-        </Field>
         <Field label="Email">
           <input className="input" type="email" value={draft.email ?? ""} onChange={(e) => set("email", e.target.value || null)} placeholder="email@example.com" />
         </Field>
@@ -193,7 +205,7 @@ export function ClientForm({ clientId, initialClient }: Props) {
         <Grid cols={3}>
           <Field label="City"><input className="input" value={draft.city ?? ""} onChange={(e) => set("city", e.target.value || null)} placeholder="City" /></Field>
           <Field label="State"><input className="input" value={draft.state ?? ""} onChange={(e) => set("state", e.target.value || null)} placeholder="State" /></Field>
-          <Field label="ZIP"><input className="input tnum" value={draft.postal_code ?? ""} onChange={(e) => set("postal_code", e.target.value || null)} placeholder="ZIP" /></Field>
+          <Field label="ZIP"><input className="input tnum" inputMode="numeric" maxLength={5} value={draft.postal_code ?? ""} onChange={(e) => set("postal_code", digitsOnly(e.target.value) || null)} placeholder="ZIP" /></Field>
         </Grid>
       </Section>
 
@@ -212,7 +224,15 @@ export function ClientForm({ clientId, initialClient }: Props) {
             />
           </Field>
           <Field label="Age">
-            <input className="input tnum" value={draft.age?.toString() ?? ""} onChange={(e) => set("age", e.target.value ? Number(e.target.value) : null)} />
+            <input
+              className="input tnum"
+              value={draft.age?.toString() ?? ""}
+              readOnly
+              tabIndex={-1}
+              placeholder="—"
+              title="Calculated from date of birth"
+              style={{ opacity: 0.7, cursor: "not-allowed" }}
+            />
           </Field>
         </Grid>
         <Field label="Height & weight">
@@ -256,6 +276,7 @@ export function ClientForm({ clientId, initialClient }: Props) {
             value={draft.monthly_payment_date ?? ""}
             issueDate={draft.issue_date ?? ""}
             onChange={(v) => set("monthly_payment_date", v || null)}
+            onIssueDateChange={(iso) => set("issue_date", iso)}
           />
         </Field>
         <Field label="Policy notes / riders">
@@ -280,8 +301,8 @@ export function ClientForm({ clientId, initialClient }: Props) {
                   placeholder="Policy type"
                   options={POLICY_TYPES as readonly string[]}
                 />
-                <input className="input tnum" value={q.coverage ?? ""} onChange={(e) => updateQuote(i, { coverage: e.target.value })} placeholder="Coverage $" />
-                <input className="input tnum" value={q.premium ?? ""} onChange={(e) => updateQuote(i, { premium: e.target.value })} placeholder="Premium $/mo" />
+                <input className="input tnum" inputMode="decimal" value={q.coverage ?? ""} onChange={(e) => updateQuote(i, { coverage: moneyChars(e.target.value) })} placeholder="Coverage $" />
+                <input className="input tnum" inputMode="decimal" value={q.premium ?? ""} onChange={(e) => updateQuote(i, { premium: moneyChars(e.target.value) })} placeholder="Premium $/mo" />
                 <input className="input" value={q.notes ?? ""} onChange={(e) => updateQuote(i, { notes: e.target.value })} placeholder="Notes" />
               </Grid>
             </div>
@@ -336,7 +357,7 @@ export function ClientForm({ clientId, initialClient }: Props) {
                       className="input tnum"
                       inputMode="decimal"
                       value={b.share ?? ""}
-                      onChange={(e) => updateBeneficiary(i, { share: e.target.value })}
+                      onChange={(e) => updateBeneficiary(i, { share: moneyChars(e.target.value) })}
                       placeholder="e.g. 50"
                       style={{ paddingRight: 28 }}
                     />
@@ -370,8 +391,9 @@ export function ClientForm({ clientId, initialClient }: Props) {
                 <Field label="Phone (optional)">
                   <input
                     className="input tnum"
+                    inputMode="tel"
                     value={b.phone ?? ""}
-                    onChange={(e) => updateBeneficiary(i, { phone: e.target.value })}
+                    onChange={(e) => updateBeneficiary(i, { phone: phoneChars(e.target.value) })}
                     placeholder="555-555-5555"
                   />
                 </Field>
@@ -384,6 +406,23 @@ export function ClientForm({ clientId, initialClient }: Props) {
             </button>
           </div>
         </div>
+      </Section>
+
+      {/* PRIVATE NOTES — internal only, never printed on the policy summary */}
+      <Section title="Private notes">
+        <span className="text-xs" style={{ color: "var(--ink-3)", marginTop: -4 }}>
+          Internal only. This <strong>never</strong> appears on the policy summary.
+        </span>
+        <Field label="Notes">
+          <textarea
+            className="input"
+            rows={5}
+            value={draft.private_notes ?? ""}
+            onChange={(e) => set("private_notes", e.target.value || null)}
+            placeholder="Private notes for your eyes only — not shown to the client…"
+            style={{ resize: "vertical", minHeight: 120, fontFamily: "inherit" }}
+          />
+        </Field>
       </Section>
 
       {/* COMMISSION */}
@@ -653,7 +692,8 @@ function nextNthWeekday(weekdayIdx: number, n: number): Date {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   let d = nthWeekdayOf(today.getFullYear(), today.getMonth(), weekdayIdx, n);
-  if (d < today) d = nthWeekdayOf(today.getFullYear(), today.getMonth() + 1, weekdayIdx, n);
+  // Strictly future: if this month's occurrence is today or past, roll to next.
+  if (d <= today) d = nthWeekdayOf(today.getFullYear(), today.getMonth() + 1, weekdayIdx, n);
   return d;
 }
 
@@ -690,17 +730,26 @@ function MonthlyPaymentPicker({
   value,
   issueDate,
   onChange,
+  onIssueDateChange,
 }: {
   value: string;
   issueDate: string;
   onChange: (v: string) => void;
+  onIssueDateChange: (iso: string) => void;
 }) {
   const weekday = parseWeekdayValue(value);
   const mode: "auto" | "weekday" = weekday ? "weekday" : "auto";
 
+  // Picking an "Nth weekday" recurrence also stamps "Policy issued on" with the
+  // next occurrence of that day — e.g. 3rd Friday → 6/19/2026. Still editable.
+  const applyRecurrence = (ordinal: number, weekdayIdx: number) => {
+    onChange(`${ORDINALS[ordinal - 1]} ${WEEKDAYS[weekdayIdx]} of every month`);
+    onIssueDateChange(localIsoDate(nextNthWeekday(weekdayIdx, ordinal)));
+  };
+
   const setMode = (next: "auto" | "weekday") => {
     if (next === "auto") onChange("");
-    else onChange(`${ORDINALS[0]} ${WEEKDAYS[3]} of every month`);
+    else applyRecurrence(1, 3); // First Wednesday
   };
 
   const issueDay = dayFromIssueDate(issueDate);
@@ -711,7 +760,7 @@ function MonthlyPaymentPicker({
     <div className="flex flex-col gap-2">
       <select className="input" value={mode} onChange={(e) => setMode(e.target.value as "auto" | "weekday")}>
         <option value="auto">Same day as Policy Issued On</option>
-        <option value="weekday">Nth weekday of every month</option>
+        <option value="weekday">Nth day of every month</option>
       </select>
 
       {mode === "auto" && (
@@ -727,14 +776,14 @@ function MonthlyPaymentPicker({
             <select
               className="input"
               value={ORDINALS[weekday.ordinal - 1]}
-              onChange={(e) => onChange(`${e.target.value} ${WEEKDAYS[weekday.weekday]} of every month`)}
+              onChange={(e) => applyRecurrence(ORDINALS.indexOf(e.target.value as typeof ORDINALS[number]) + 1, weekday.weekday)}
             >
               {ORDINALS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
             <select
               className="input"
               value={WEEKDAYS[weekday.weekday]}
-              onChange={(e) => onChange(`${ORDINALS[weekday.ordinal - 1]} ${e.target.value} of every month`)}
+              onChange={(e) => applyRecurrence(weekday.ordinal, WEEKDAYS.indexOf(e.target.value as typeof WEEKDAYS[number]))}
             >
               {WEEKDAYS.map((w) => <option key={w} value={w}>{w}</option>)}
             </select>

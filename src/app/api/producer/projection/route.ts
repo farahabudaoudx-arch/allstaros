@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("daily_projection")
-      .select("dials, contacts, appointments, presentations, sales, ap_cents")
+      .select("dials, contacts, appointments, presentations, sales, ap_cents, leads")
       .eq("person_id", person.id)
       .eq("entry_date", date)
       .maybeSingle();
@@ -66,6 +66,7 @@ export async function POST(req: Request) {
           presentations: clampInt(body.presentations),
           sales: clampInt(body.sales),
           ap_cents: clampInt(body.ap_cents),
+          leads: clampInt(body.leads),
         },
         { onConflict: "person_id,entry_date" },
       );

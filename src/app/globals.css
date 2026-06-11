@@ -247,6 +247,16 @@ body {
   border-color: var(--lime);
   background: rgba(246, 201, 69, 0.04);
 }
+/* Native <select> arrow crowds the value at the right edge and looks broken.
+   Replace it with a custom chevron and add room so the text clears it. */
+.ll-analytics select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  padding-right: 2.5rem;
+}
 
 /* Tab pills */
 .ll-analytics .tab-pills {

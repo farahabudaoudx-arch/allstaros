@@ -84,7 +84,15 @@ export async function inviteRecruitByEmail(
     email: clean,
     options: { redirectTo: `${getAppUrl()}/auth/callback?next=/welcome` },
   });
-  const setupUrl = link?.properties?.action_link;
+  // Build a CLEAN link on our own domain from the one-time token hash, rather
+  // than handing the recruit Supabase's long /auth/v1/verify action_link. Our
+  // /auth/confirm route verifies the token server-side (establishing the
+  // session) and drops them straight on /welcome — the action_link's redirect
+  // came back without a code and bounced them to sign-in.
+  const tokenHash = link?.properties?.hashed_token;
+  const setupUrl = tokenHash
+    ? `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=invite&next=${encodeURIComponent("/welcome")}`
+    : null;
   if (linkErr || !setupUrl) {
     await admin.from("recruit").delete().eq("person_id", person.id);
     await admin.from("person").delete().eq("id", person.id);

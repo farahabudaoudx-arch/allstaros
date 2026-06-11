@@ -22,7 +22,9 @@ export async function resolveLandingPath(
     .maybeSingle();
 
   if (!person) return "/onboarding/pending";
-  if (person.is_admin || person.is_super_admin) return "/admin";
+  // Admins/super-admins still log in to their normal home (builders → producer
+  // portal). The /admin area is opt-in: reach it by going to /admin directly,
+  // where the guard lets admins in and bounces everyone else back to /producer.
   if (person.is_builder || person.is_producer) return "/producer";
   return "/portal";
 }

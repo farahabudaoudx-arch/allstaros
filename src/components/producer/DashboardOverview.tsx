@@ -104,8 +104,7 @@ export function DashboardOverview() {
     <section className="mt-12">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Live</p>
-          <h2 className="mt-1.5 text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
             Activity Dashboard
           </h2>
         </div>

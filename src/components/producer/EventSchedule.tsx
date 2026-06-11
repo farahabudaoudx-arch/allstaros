@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { AddToCalendarButton } from "add-to-calendar-button-react";
 
 // The display shape now comes from the database (training_schedule), mapped in
@@ -23,14 +23,23 @@ type EventItem = {
   zoomUrl: string;
 };
 
-export function EventSchedule({ events }: { events: EventItem[] }) {
-  if (events.length === 0) return null;
+export function EventSchedule({
+  events,
+  heading = "Training Schedule",
+  emptyState = null,
+}: {
+  events: EventItem[];
+  heading?: string;
+  /** Rendered when there are no events. Defaults to nothing (section hides). */
+  emptyState?: ReactNode;
+}) {
+  if (events.length === 0) return <>{emptyState}</>;
   return (
     <section className="mt-12">
       <div className="flex items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
-            Training Schedule
+            {heading}
           </h2>
         </div>
       </div>

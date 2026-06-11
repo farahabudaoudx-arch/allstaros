@@ -60,7 +60,7 @@ export function ProfileSettingsForm() {
       <label className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Name</span>
         <span className="block text-xs text-mute">
-          Shown to clients on the policy summary you send them.
+          The name on your account.
         </span>
         <input
           type="text"
@@ -77,7 +77,7 @@ export function ProfileSettingsForm() {
       <label className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Email</span>
         <span className="block text-xs text-mute">
-          The contact email clients see on the policy summary.
+          The email you sign in with.
         </span>
         <input
           type="email"
@@ -94,7 +94,7 @@ export function ProfileSettingsForm() {
       <label className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Phone</span>
         <span className="block text-xs text-mute">
-          The contact phone number clients see on the policy summary. Optional.
+          Your account phone number. Optional.
         </span>
         <input
           type="tel"

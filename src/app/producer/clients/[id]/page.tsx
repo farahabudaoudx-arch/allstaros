@@ -31,9 +31,10 @@ export default async function ClientOverviewPage({
         clientId={id}
         initialClient={data as Client}
         agent={{
-          name: person.full_name || person.email,
-          email: person.email,
-          phone: person.phone ?? undefined,
+          // Prefer the Policy Info contact override; fall back to the account.
+          name: person.policy_contact_name || person.full_name || person.email,
+          email: person.policy_contact_email || person.email,
+          phone: person.policy_contact_phone || person.phone || undefined,
         }}
       />
     </main>

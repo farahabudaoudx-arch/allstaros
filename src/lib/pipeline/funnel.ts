@@ -9,10 +9,8 @@ export type FunnelStage =
   | "watched_video"
   | "scheduled_exam"
   | "studying"
-  | "exam_result"
-  | "license_pending"
-  | "license_approved"
-  | "contracting"
+  | "got_license"
+  | "submitted_contracting"
   | "in_bootcamp"
   | "bootcamp_result";
 
@@ -21,21 +19,15 @@ export type FunnelOutcome = "passed" | "failed";
 export const FUNNEL_STAGES: {
   key: FunnelStage;
   label: string;
-  /** Stages rendered as two side-by-side boxes (Exam, Bootcamp). */
+  /** Stages rendered as two side-by-side boxes (Bootcamp). */
   split?: { passed: string; failed: string };
 }[] = [
   { key: "signed_up", label: "Signed Up" },
   { key: "watched_video", label: "Watched 1st Video" },
   { key: "scheduled_exam", label: "Scheduled Exam" },
   { key: "studying", label: "Studying" },
-  {
-    key: "exam_result",
-    label: "Exam",
-    split: { passed: "Passed Exam", failed: "Failed Exam" },
-  },
-  { key: "license_pending", label: "License Pending" },
-  { key: "license_approved", label: "License Approved" },
-  { key: "contracting", label: "Contracting" },
+  { key: "got_license", label: "Got Their License" },
+  { key: "submitted_contracting", label: "Submitted Contracting Info" },
   { key: "in_bootcamp", label: "In Bootcamp" },
   {
     key: "bootcamp_result",
@@ -76,21 +68,18 @@ export function deriveFunnelStage(r: DerivableRecruit): {
   }
 
   if (r.phase === "onboarding") {
-    // Reaching onboarding means the license was approved.
+    // Reaching onboarding means they're licensed. Contracting step = they've
+    // submitted their contracting info; everything before that is "Got license".
     return r.phase_step === "contracting"
-      ? { stage: "contracting" }
-      : { stage: "license_approved" };
+      ? { stage: "submitted_contracting" }
+      : { stage: "got_license" };
   }
 
   if (r.phase === "licensing") {
-    if (r.phase_step === "exam_passed") {
-      // Passed the exam; once the license application is submitted they're
-      // waiting on approval.
-      return r.licensing_submitted_at
-        ? { stage: "license_pending" }
-        : { stage: "exam_result", outcome: "passed" };
-    }
-    if (r.exam_failures > 0) return { stage: "exam_result", outcome: "failed" };
+    // Passing the exam puts them on the licensing track — shown as "Got license".
+    if (r.phase_step === "exam_passed") return { stage: "got_license" };
+    // A failed attempt means they're back to studying for the retake.
+    if (r.exam_failures > 0) return { stage: "studying" };
     if (r.phase_step === "studying") return { stage: "studying" };
     if (r.phase_step === "exam_scheduled") return { stage: "scheduled_exam" };
     return r.guide_read_at ? { stage: "watched_video" } : { stage: "signed_up" };

@@ -48,7 +48,6 @@ type ServerMetrics = {
     name: string; sales: number; ap_cents: number;
     avg_monthly_premium_cents: number; avg_face_amount_cents: number;
   }>;
-  heatmap: number[][];
 };
 
 const EMPTY_METRICS: RawMetrics = {
@@ -56,10 +55,6 @@ const EMPTY_METRICS: RawMetrics = {
   presentations: 0, sales: 0, ap: 0, ip: 0, issuedCount: 0,
   deposits: 0, leadSpend: 0,
 };
-
-const HEATMAP_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-const HEATMAP_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const EMPTY_HEATMAP: number[][] = Array.from({ length: 7 }, () => Array(HEATMAP_HOURS.length).fill(0));
 
 function toMetrics(s: ServerMetrics["totals"]): RawMetrics {
   return {
@@ -236,12 +231,10 @@ export function AnalyticsView({
     })),
     [server],
   );
-  const HEATMAP: number[][] = server?.heatmap ?? EMPTY_HEATMAP;
 
   const contactRate = pct(m.contacts, m.dials);
   const presentationRate = pct(m.presentations, m.dials);
   const closeRate = pct(m.sales, m.presentations);
-  const issueRate = pct(m.ip, m.ap);
 
   const dialsPerSale = safeDiv(m.dials, m.sales);
   const contactsPerSale = safeDiv(m.contacts, m.sales);
@@ -253,21 +246,13 @@ export function AnalyticsView({
   const apPerAppointment = safeDiv(m.ap, m.appointments);
   const apPerPresentation = safeDiv(m.ap, m.presentations);
 
-  const ipPerDial = safeDiv(m.ip, m.dials);
-  const ipPerContact = safeDiv(m.ip, m.contacts);
-  const ipPerAppointment = safeDiv(m.ip, m.appointments);
-  const ipPerPresentation = safeDiv(m.ip, m.presentations);
-
   const avgAPPerSale = safeDiv(m.ap, m.sales);
-  const avgIPPerSale = safeDiv(m.ip, m.sales);
   const roi = m.leadSpend > 0 ? ((m.deposits - m.leadSpend) / m.leadSpend) * 100 : 0;
-  const projectedROI = m.leadSpend > 0 ? ((m.ap - m.leadSpend) / m.leadSpend) * 100 : 0;
 
   const costPerContact = safeDiv(m.leadSpend, m.contacts);
   const costPerAppointment = safeDiv(m.leadSpend, m.appointments);
   const costPerPresentation = safeDiv(m.leadSpend, m.presentations);
   const costPerSale = safeDiv(m.leadSpend, m.sales);
-  const costPerIssued = safeDiv(m.leadSpend, m.issuedCount);
 
   function applyCustomRange() {
     setCustomRange({ from: customFrom, to: customTo });
@@ -297,28 +282,26 @@ export function AnalyticsView({
       <div className="flex items-center justify-end gap-2 flex-wrap relative">
         <div className="tab-pills">
           {TIMEFRAMES.map((t) => (
-            <button key={t.key} onClick={() => { setTf(t.key); setCustomRange(null); }} data-active={tf === t.key}>
+            <button
+              key={t.key}
+              onClick={() => { setTf(t.key); setCustomRange(null); setCalOpen(false); }}
+              data-active={tf === t.key}
+            >
               {t.label}
             </button>
           ))}
-          {tf === "custom" && (
-            <button data-active={true} title={customRange ? `${customRange.from} → ${customRange.to}` : undefined}>
-              {customRange ? `${customRange.from.slice(5)} → ${customRange.to.slice(5)}` : "Custom"}
-            </button>
-          )}
+          {/* Custom is a pill like the rest: clicking it highlights it + opens the picker;
+              clicking any preset closes the picker and moves the highlight back. */}
+          <button
+            onClick={() => setCalOpen((v) => !v)}
+            data-active={tf === "custom" || calOpen}
+            title={customRange ? `${customRange.from} → ${customRange.to}` : "Custom range"}
+            className="inline-flex items-center gap-1"
+          >
+            <CalendarIcon />
+            {tf === "custom" && customRange ? `${customRange.from.slice(5)} → ${customRange.to.slice(5)}` : "Custom"}
+          </button>
         </div>
-        <button
-          onClick={() => setCalOpen((v) => !v)}
-          className="btn-icon"
-          aria-label="Custom date range"
-          title="Custom date range"
-          style={{
-            borderColor: tf === "custom" ? "var(--lime)" : undefined,
-            color: tf === "custom" ? "var(--lime)" : undefined,
-          }}
-        >
-          <CalendarIcon />
-        </button>
         <button
           onClick={() => setLayoutOpen((v) => !v)}
           className="btn-icon"
@@ -334,7 +317,7 @@ export function AnalyticsView({
             <div className="space-y-2.5">
               <div>
                 <label className="block text-xs mb-1" style={{ color: "var(--ink-2)" }}>From</label>
-                <input type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="input text-sm [color-scheme:dark]" />
+                <input type="date" value={customFrom} min="2000-01-01" max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="input text-sm [color-scheme:dark]" />
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: "var(--ink-2)" }}>To</label>
@@ -374,7 +357,6 @@ export function AnalyticsView({
                       { label: "Presentations", value: fmtInt(m.presentations), conversion: `${pct(m.presentations, m.dials).toFixed(1)}% of dials` },
                       { label: "Sales", value: fmtInt(m.sales), conversion: `${pct(m.sales, m.presentations).toFixed(1)}% close` },
                       { label: "Total AP", value: fmtMoney(m.ap), conversion: `${fmtMoneyExact(avgAPPerSale)} avg` },
-                      { label: "Total IP", value: fmtMoney(m.ip), conversion: `${issueRate.toFixed(1)}% issue` },
                     ]}
                   />
                 </div>
@@ -384,11 +366,10 @@ export function AnalyticsView({
 
           percentages: (
             <Section title="Percentages">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <PercentMetric label="Contact Rate" value={contactRate} />
                 <PercentMetric label="Presentation Rate" value={presentationRate} />
                 <PercentMetric label="Close Rate" value={closeRate} />
-                <PercentMetric label="Issue Rate" value={issueRate} />
               </div>
             </Section>
           ),
@@ -410,11 +391,11 @@ export function AnalyticsView({
             <Section title="Cost Analysis">
               <CostAnalysisBoard
                 stages={[
-                  { stage: "Dial", verb: "make", ap: apPerDial, ip: ipPerDial },
-                  { stage: "Contact", verb: "get", ap: apPerContact, ip: ipPerContact, cost: costPerContact },
-                  { stage: "Appointment", verb: "get", ap: apPerAppointment, ip: ipPerAppointment, cost: costPerAppointment },
-                  { stage: "Presentation", verb: "get", ap: apPerPresentation, ip: ipPerPresentation, cost: costPerPresentation },
-                  { stage: "Sale", verb: "close", ap: avgAPPerSale, ip: avgIPPerSale, cost: costPerSale, issuedCost: costPerIssued },
+                  { stage: "Dial", verb: "make", ap: apPerDial },
+                  { stage: "Contact", verb: "get", ap: apPerContact, cost: costPerContact },
+                  { stage: "Appointment", verb: "get", ap: apPerAppointment, cost: costPerAppointment },
+                  { stage: "Presentation", verb: "get", ap: apPerPresentation, cost: costPerPresentation },
+                  { stage: "Sale", verb: "close", ap: avgAPPerSale, cost: costPerSale },
                 ]}
               />
             </Section>
@@ -432,16 +413,13 @@ export function AnalyticsView({
                 <div className="card flex-1 p-5 min-w-0 lg:rounded-none lg:border-x-0 overflow-hidden">
                   <RoiFlow
                     ap={m.ap}
-                    ip={m.ip}
-                    issueRate={issueRate}
                     avgAPPerSale={avgAPPerSale}
-                    avgIPPerSale={avgIPPerSale}
                     leadSpend={m.leadSpend}
                   />
                 </div>
 
                 <div className="card-lime lg:w-44 flex-shrink-0 lg:rounded-l-none flex flex-col overflow-hidden">
-                  <div className="p-4 flex-1 flex flex-col justify-center min-w-0" style={{ borderBottom: "1px solid rgba(0,0,0,0.12)" }}>
+                  <div className="p-5 flex-1 flex flex-col justify-center min-w-0">
                     <span className="text-xs opacity-70">ROI</span>
                     <div
                       className="display tnum mt-1 leading-none truncate"
@@ -453,16 +431,6 @@ export function AnalyticsView({
                       {fmtRoi(roi)}
                     </div>
                     <div className="text-[11px] opacity-70 mt-1">collected</div>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col justify-center min-w-0">
-                    <span className="text-xs opacity-70">Projected ROI</span>
-                    <div
-                      className="display tnum mt-1 leading-none truncate"
-                      style={{ fontSize: roiFontSize(projectedROI) }}
-                    >
-                      {fmtRoi(projectedROI)}
-                    </div>
-                    <div className="text-[11px] opacity-70 mt-1">at full AP</div>
                   </div>
                 </div>
               </div>
@@ -481,11 +449,10 @@ export function AnalyticsView({
                   <UsStateMap
                     metricLabel="Total AP"
                     data={STATE_PERF.reduce<Record<string, StateDatum>>((acc, r) => {
-                      const closePct = pct(r.sales, r.leads);
                       acc[r.state] = {
                         value: r.ap,
                         display: fmtMoney(r.ap),
-                        sub: `${r.sales} sales · ${closePct.toFixed(1)}% close`,
+                        sub: `${r.sales} sales`,
                       };
                       return acc;
                     }, {})}
@@ -503,14 +470,13 @@ export function AnalyticsView({
                       const maxAp = Math.max(...AGE_BANDS.map((b) => b.ap), 1);
                       return AGE_BANDS.map((b) => {
                         const widthPct = (b.ap / maxAp) * 100;
-                        const closePct = pct(b.sales, b.leads);
                         return (
                           <div key={b.band} className="flex flex-col gap-1.5">
                             <div className="flex items-baseline justify-between gap-3">
                               <div className="flex items-baseline gap-3">
                                 <span className="display text-lg text-white tnum">{b.band}</span>
                                 <span className="text-xs tnum" style={{ color: "var(--ink-3)" }}>
-                                  {b.sales} sales · {closePct.toFixed(1)}% close · {b.leads} leads
+                                  {b.sales} sales
                                 </span>
                               </div>
                               <span className="display text-xl text-white tnum">{fmtMoney(b.ap)}</span>
@@ -535,7 +501,7 @@ export function AnalyticsView({
                 </div>
 
                 {/* Carrier performance — scrollable */}
-                <div className="card lg:col-span-6 overflow-hidden flex flex-col">
+                <div className="card lg:col-span-12 overflow-hidden flex flex-col">
                   <div className="p-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--line-1)" }}>
                     <span className="section-label">Carrier Performance</span>
                   </div>
@@ -567,49 +533,6 @@ export function AnalyticsView({
                         )}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-
-                {/* Contact performance heatmap */}
-                <div className="card lg:col-span-6 p-5 flex flex-col">
-                  <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4 flex-shrink-0">
-                    <span className="section-label">Contact Performance (Hour / Day)</span>
-                    <div className="flex items-center gap-2 text-xs" style={{ color: "var(--ink-3)" }}>
-                      <span>Low</span>
-                      <div className="flex gap-0.5">
-                        {[0.15, 0.35, 0.55, 0.75, 1].map((a) => (
-                          <div key={a} style={{ width: 12, height: 10, background: `rgba(246, 201, 69, ${a})`, borderRadius: 2 }} />
-                        ))}
-                      </div>
-                      <span>High</span>
-                    </div>
-                  </div>
-                  <div className="grid gap-1 flex-1" style={{ gridTemplateColumns: `36px repeat(${HEATMAP_HOURS.length}, minmax(0, 1fr))`, gridAutoRows: "1fr" }}>
-                    <div />
-                    {HEATMAP_HOURS.map((h) => (
-                      <div key={h} className="text-[10px] text-center tnum flex items-end justify-center pb-1" style={{ color: "var(--ink-3)" }}>
-                        {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
-                      </div>
-                    ))}
-                    {(() => {
-                      const heatMax = Math.max(1, ...HEATMAP.flat());
-                      return HEATMAP_DAYS.map((day, di) => (
-                        <Fragment key={day}>
-                          <div className="text-xs flex items-center" style={{ color: "var(--ink-2)" }}>{day}</div>
-                          {(HEATMAP[di] ?? []).map((v, hi) => (
-                            <div
-                              key={`${day}-${hi}`}
-                              title={`${day} ${HEATMAP_HOURS[hi]}:00 · ${v} connected`}
-                              className="rounded"
-                              style={{
-                                background: `rgba(246, 201, 69, ${v === 0 ? 0.04 : Math.max(0.12, v / heatMax)})`,
-                                border: "1px solid rgba(255,255,255,0.04)",
-                              }}
-                            />
-                          ))}
-                        </Fragment>
-                      ));
-                    })()}
                   </div>
                 </div>
               </div>
@@ -655,14 +578,12 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 }
 
 function RoiFlow({
-  ap, ip, issueRate, avgAPPerSale, avgIPPerSale, leadSpend,
+  ap, avgAPPerSale, leadSpend,
 }: {
-  ap: number; ip: number;
-  issueRate: number;
-  avgAPPerSale: number; avgIPPerSale: number;
+  ap: number;
+  avgAPPerSale: number;
   leadSpend: number;
 }) {
-  const maxVal = Math.max(ap, 1);
   const apMultiple = leadSpend > 0 ? ap / leadSpend : 0;
   const bars = [
     {
@@ -670,12 +591,6 @@ function RoiFlow({
       valueA: fmtMoney(ap), valueB: fmtMoneyExact(avgAPPerSale),
       width: 100,
       sub: `${apMultiple.toFixed(1)}× spend`,
-    },
-    {
-      titleA: "Total IP", titleB: "Avg IP Per Sale",
-      valueA: fmtMoney(ip), valueB: fmtMoneyExact(avgIPPerSale),
-      width: (ip / maxVal) * 100,
-      sub: `${issueRate.toFixed(1)}% issue rate`,
     },
   ];
 
@@ -811,9 +726,7 @@ function CostAnalysisBoard({
     stage: "Dial" | "Contact" | "Appointment" | "Presentation" | "Sale";
     verb: string;
     ap: number;
-    ip: number;
     cost?: number;
-    issuedCost?: number;
   }>;
 }) {
   return (
@@ -834,22 +747,10 @@ function CostAnalysisBoard({
               <p className="display leading-snug" style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em" }}>
                 For every {stageLower} you {s.verb}, you earn{" "}
                 <span className="tnum">{fmtMoneyExact(s.ap)}</span>{" "}
-                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>AP</span>{" "}
-                and{" "}
-                <span className="tnum" style={{ color: "var(--lime)" }}>{fmtMoneyExact(s.ip)}</span>{" "}
-                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>IP</span>.
+                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>AP</span>.
               </p>
 
-              {s.stage === "Sale" && s.cost !== undefined && s.issuedCost !== undefined ? (
-                <p
-                  className="display leading-snug"
-                  style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em", borderTop: "1px solid var(--line-1)", paddingTop: 12 }}
-                >
-                  Your cost to submit a policy is{" "}
-                  <span className="tnum">{fmtMoneyExact(s.cost)}</span>, and your cost to issue a policy is{" "}
-                  <span className="tnum">{fmtMoneyExact(s.issuedCost)}</span>.
-                </p>
-              ) : s.cost !== undefined ? (
+              {s.cost !== undefined ? (
                 <p
                   className="display leading-snug"
                   style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em", borderTop: "1px solid var(--line-1)", paddingTop: 12 }}
@@ -1222,13 +1123,12 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
     weeks.push({ cells: weekCells, totalAP, totalIP, loggedDays });
   }
 
-  let monthAP = 0, monthIP = 0, submittedDays = 0, activeDays = 0;
+  let monthAP = 0, submittedDays = 0, activeDays = 0;
   for (const c of cells) {
     if (!c.inMonth) continue;
     const info = days[c.iso];
     if (!info) continue;
     monthAP += info.ap_cents;
-    monthIP += info.ip_cents;
     if (info.submitted) submittedDays++;
     if (info.submitted || info.ap_cents > 0 || info.ip_cents > 0) activeDays++;
   }
@@ -1251,7 +1151,6 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
         </div>
         <div className="flex items-center gap-4 text-xs tnum" style={{ color: "var(--ink-3)" }}>
           <span>AP <span className="text-white">{fmtCents(monthAP) || "$0"}</span></span>
-          <span>IP <span className="text-white">{fmtCents(monthIP) || "$0"}</span></span>
           <span>Logged <span className="text-white">{submittedDays}d</span></span>
           <span>Active <span className="text-white">{activeDays}d</span></span>
         </div>
@@ -1377,6 +1276,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const today = useMemo(() => calIsoDay(new Date()), []);
   const [date, setDate] = useState(today);
   const [dials, setDials] = useState(0);
+  const [leads, setLeads] = useState(0);
   const [contacts, setContacts] = useState(0);
   const [appointments, setAppointments] = useState(0);
   const [presentations, setPresentations] = useState(0);
@@ -1398,6 +1298,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         if (aborted) return;
         if (!j.ok || !j.entry) return;
         setDials(j.entry.dials ?? 0);
+        setLeads(j.entry.leads ?? 0);
         setContacts(j.entry.contacts ?? 0);
         setAppointments(j.entry.appointments ?? 0);
         setPresentations(j.entry.presentations ?? 0);
@@ -1414,7 +1315,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       const res = await fetch("/api/producer/tracker", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ date, dials, contacts, appointments, presentations, sales }),
+        body: JSON.stringify({ date, dials, leads, contacts, appointments, presentations, sales }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error ?? "Save failed");
@@ -1459,6 +1360,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           </div>
           <div className="grid grid-cols-2 gap-3">
             <AddDataField label="Dials" value={dials} onChange={setDials} />
+            <AddDataField label="Leads" value={leads} onChange={setLeads} />
             <AddDataField label="Contacts" value={contacts} onChange={setContacts} />
             <AddDataField label="Appointments" value={appointments} onChange={setAppointments} />
             <AddDataField label="Presentations" value={presentations} onChange={setPresentations} />
