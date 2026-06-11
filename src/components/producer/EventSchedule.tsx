@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AddToCalendarButton } from "add-to-calendar-button-react";
 
 // The display shape now comes from the database (training_schedule), mapped in
@@ -107,22 +107,34 @@ function EventCard({ event }: { event: EventItem }) {
         </div>
       </Link>
       <div className="mt-4 border-t border-hairline pt-4">
-        <AddToCalendarButton
-          name={`${event.title} — ${event.host}`}
-          startDate={event.startDate}
-          startTime={event.startTime}
-          endTime={event.endTime}
-          timeZone={event.timeZone}
-          location={event.zoomUrl}
-          description={`Live training with ${event.host}.[br][br]Join at [url]${event.zoomUrl}|${prettyLocation(event.zoomUrl)}[/url]`}
-          options={["Apple", "Google", "Outlook.com", "iCal"]}
-          buttonStyle="text"
-          size="3"
-          lightMode="dark"
-          label="Add to calendar"
-        />
+        <CalendarButton event={event} />
       </div>
     </div>
+  );
+}
+
+// The add-to-calendar web component rewrites its own attributes on the client
+// after init, which trips React hydration when server-rendered. Render it only
+// after mount so there's no SSR markup to mismatch against.
+function CalendarButton({ event }: { event: EventItem }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <span className="text-sm text-mute">Add to calendar</span>;
+  return (
+    <AddToCalendarButton
+      name={`${event.title} — ${event.host}`}
+      startDate={event.startDate}
+      startTime={event.startTime}
+      endTime={event.endTime}
+      timeZone={event.timeZone}
+      location={event.zoomUrl}
+      description={`Live training with ${event.host}.[br][br]Join at [url]${event.zoomUrl}|${prettyLocation(event.zoomUrl)}[/url]`}
+      options={["Apple", "Google", "Outlook.com", "iCal"]}
+      buttonStyle="text"
+      size="3"
+      lightMode="dark"
+      label="Add to calendar"
+    />
   );
 }
 
@@ -131,7 +143,7 @@ function Avatar({ src, initials }: { src: string; initials: string }) {
   return (
     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-black">
       <span className="text-sm font-bold tracking-wide">{initials}</span>
-      {!failed && (
+      {!failed && src && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
