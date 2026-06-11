@@ -40,13 +40,13 @@ export default async function ProducerDashboard() {
         viewAllHref="/producer/trainings/upcoming"
         emptyState={
           <section className="mt-12">
-            <div className="flex items-end justify-between gap-4">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
               <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
                 This Week&apos;s Live Trainings
               </h2>
               <Link
                 href="/producer/trainings/upcoming"
-                className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-soft"
+                className="text-sm font-medium text-accent hover:text-accent-soft"
               >
                 View all upcoming live trainings →
               </Link>

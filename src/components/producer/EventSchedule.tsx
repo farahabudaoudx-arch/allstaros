@@ -59,16 +59,14 @@ export function EventSchedule({
   if (events.length === 0) return <>{emptyState}</>;
   return (
     <section className="mt-12">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
-            {heading}
-          </h2>
-        </div>
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
+          {heading}
+        </h2>
         {viewAllHref && (
           <Link
             href={viewAllHref}
-            className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-soft"
+            className="text-sm font-medium text-accent hover:text-accent-soft"
           >
             View all upcoming live trainings →
           </Link>

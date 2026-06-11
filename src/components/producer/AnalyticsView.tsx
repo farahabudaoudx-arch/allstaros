@@ -366,10 +366,14 @@ export function AnalyticsView({
 
           percentages: (
             <Section title="Percentages">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <PercentMetric label="Contact Rate" value={contactRate} />
                 <PercentMetric label="Presentation Rate" value={presentationRate} />
-                <PercentMetric label="Close Rate" value={closeRate} />
+                {/* Close Rate centers beneath the other two on mobile (trinity)
+                    instead of sitting alone in the left column. */}
+                <div className="col-span-2 mx-auto w-1/2 md:col-span-1 md:mx-0 md:w-auto">
+                  <PercentMetric label="Close Rate" value={closeRate} />
+                </div>
               </div>
             </Section>
           ),
@@ -403,14 +407,16 @@ export function AnalyticsView({
 
           roi: (
             <Section title="Return On Investment">
-              <div className="flex items-stretch gap-0 flex-wrap lg:flex-nowrap overflow-hidden rounded-2xl">
-                <div className="card-lime p-5 lg:w-44 flex-shrink-0 lg:rounded-r-none flex flex-col justify-center min-w-0 overflow-hidden">
+              {/* Stacks vertically on mobile (full-width cards, no truncation)
+                  and joins into one horizontal bar at lg+. */}
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-0 lg:overflow-hidden lg:rounded-2xl">
+                <div className="card-lime rounded-2xl p-5 lg:w-44 flex-shrink-0 lg:rounded-2xl lg:rounded-r-none flex flex-col justify-center min-w-0">
                   <span className="text-xs opacity-70">Lead Spend</span>
-                  <div className="display text-4xl tnum mt-2 leading-none truncate">{fmtMoney(m.leadSpend)}</div>
+                  <div className="display text-4xl tnum mt-2 leading-none">{fmtMoney(m.leadSpend)}</div>
                   <div className="text-xs opacity-70 mt-3">invested</div>
                 </div>
 
-                <div className="card flex-1 p-5 min-w-0 lg:rounded-none lg:border-x-0 overflow-hidden">
+                <div className="card rounded-2xl flex-1 p-5 min-w-0 lg:rounded-none lg:border-x-0">
                   <RoiFlow
                     ap={m.ap}
                     avgAPPerSale={avgAPPerSale}
@@ -418,11 +424,11 @@ export function AnalyticsView({
                   />
                 </div>
 
-                <div className="card-lime lg:w-44 flex-shrink-0 lg:rounded-l-none flex flex-col overflow-hidden">
+                <div className="card-lime rounded-2xl lg:w-44 flex-shrink-0 lg:rounded-2xl lg:rounded-l-none flex flex-col">
                   <div className="p-5 flex-1 flex flex-col justify-center min-w-0">
                     <span className="text-xs opacity-70">ROI</span>
                     <div
-                      className="display tnum mt-1 leading-none truncate"
+                      className="display tnum mt-1 leading-none"
                       style={{
                         color: roi < 0 ? "#5a1a1a" : undefined,
                         fontSize: roiFontSize(roi),
@@ -636,37 +642,39 @@ function ActivityCard({ rows }: { rows: Array<{ label: string; value: number; un
         {rows.map((row) => {
           const widthPct = (row.value / maxVal) * 100;
           return (
-            <div key={row.label} className="flex items-center gap-4">
-              <div className="w-32 flex-shrink-0 text-sm" style={{ color: "var(--ink-2)" }}>
+            <div key={row.label} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <div className="text-sm sm:w-32 sm:flex-shrink-0" style={{ color: "var(--ink-2)" }}>
                 {row.label}
               </div>
-              <div className="flex-1 relative h-12">
-                <motion.div
-                  className="absolute inset-y-0 left-0 rounded-md flex items-center px-4"
-                  initial={{ width: 96 }}
-                  animate={{ width: `${Math.max(6, widthPct)}%` }}
-                  transition={{ duration: 0.9, ease: "easeOut" }}
-                  style={{
-                    minWidth: 96,
-                    background: "linear-gradient(90deg, rgba(246,201,69,0.12), rgba(246,201,69,0.55))",
-                    border: "1px solid rgba(246,201,69,0.35)",
-                  }}
-                >
-                  <div className="flex items-baseline gap-2">
-                    <span className="display text-2xl tnum text-white leading-none">{row.value.toFixed(1)}</span>
-                    <span className="text-xs" style={{ color: "var(--ink-3)" }}>{row.unit}</span>
-                  </div>
-                </motion.div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm" style={{ color: "var(--ink-3)" }}>→</span>
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: "var(--lime)", boxShadow: "0 0 16px rgba(246,201,69,0.55)" }}
-                >
-                  <span className="text-sm font-bold" style={{ color: "var(--lime-deep)" }}>1</span>
+              <div className="flex flex-1 items-center gap-3">
+                <div className="flex-1 relative h-12">
+                  <motion.div
+                    className="absolute inset-y-0 left-0 rounded-md flex items-center px-4"
+                    initial={{ width: 96 }}
+                    animate={{ width: `${Math.max(6, widthPct)}%` }}
+                    transition={{ duration: 0.9, ease: "easeOut" }}
+                    style={{
+                      minWidth: 96,
+                      background: "linear-gradient(90deg, rgba(246,201,69,0.12), rgba(246,201,69,0.55))",
+                      border: "1px solid rgba(246,201,69,0.35)",
+                    }}
+                  >
+                    <div className="flex items-baseline gap-2">
+                      <span className="display text-2xl tnum text-white leading-none">{row.value.toFixed(1)}</span>
+                      <span className="text-xs" style={{ color: "var(--ink-3)" }}>{row.unit}</span>
+                    </div>
+                  </motion.div>
                 </div>
-                <span className="text-xs" style={{ color: "var(--ink-3)" }}>sale</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-sm" style={{ color: "var(--ink-3)" }}>→</span>
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: "var(--lime)", boxShadow: "0 0 16px rgba(246,201,69,0.55)" }}
+                  >
+                    <span className="text-sm font-bold" style={{ color: "var(--lime-deep)" }}>1</span>
+                  </div>
+                  <span className="text-xs" style={{ color: "var(--ink-3)" }}>sale</span>
+                </div>
               </div>
             </div>
           );
@@ -730,40 +738,35 @@ function CostAnalysisBoard({
   }>;
 }) {
   return (
-    <div className="card p-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-6">
-        {stages.map((s, i) => {
-          const stageLower = s.stage.toLowerCase();
-          return (
-            <div
-              key={s.stage}
-              className="flex flex-col gap-3 min-w-0 lg:pl-6"
-              style={i === 0 ? undefined : { borderLeft: "1px solid var(--line-1)" }}
-            >
-              <h2 className="display text-white" style={{ fontSize: "1.125rem", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-                {s.stage}
-              </h2>
+    // Each stage is its own gold box with dark text (like the New Leads bubble)
+    // — far more legible on mobile than the old hairline-divided columns.
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {stages.map((s) => {
+        const stageLower = s.stage.toLowerCase();
+        return (
+          <div key={s.stage} className="card-lime flex flex-col gap-3 p-5 min-w-0">
+            <h3 className="display" style={{ fontSize: "1.125rem", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+              {s.stage}
+            </h3>
 
-              <p className="display leading-snug" style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em" }}>
-                For every {stageLower} you {s.verb}, you earn{" "}
-                <span className="tnum">{fmtMoneyExact(s.ap)}</span>{" "}
-                <span className="text-[11px]" style={{ color: "var(--ink-3)" }}>AP</span>.
+            <p className="leading-snug" style={{ fontWeight: 500, fontSize: "0.9rem", letterSpacing: "-0.005em" }}>
+              For every {stageLower} you {s.verb}, you earn{" "}
+              <span className="tnum font-semibold">{fmtMoneyExact(s.ap)}</span> AP.
+            </p>
+
+            {s.cost !== undefined ? (
+              <p
+                className="leading-snug"
+                style={{ fontWeight: 500, fontSize: "0.9rem", letterSpacing: "-0.005em", borderTop: "1px solid rgba(0,0,0,0.18)", paddingTop: 12 }}
+              >
+                It costs{" "}
+                <span className="tnum font-semibold">{fmtMoneyExact(s.cost)}</span>{" "}
+                to {s.verb} each {stageLower}.
               </p>
-
-              {s.cost !== undefined ? (
-                <p
-                  className="display leading-snug"
-                  style={{ color: "var(--ink-1)", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.005em", borderTop: "1px solid var(--line-1)", paddingTop: 12 }}
-                >
-                  It costs you{" "}
-                  <span className="tnum">{fmtMoneyExact(s.cost)}</span>{" "}
-                  to {s.verb} each {stageLower}.
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -817,6 +820,42 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
 
   return (
     <div className="w-full">
+      {/* Mobile: vertical stage list — a horizontal funnel can't fit 6 labels. */}
+      <div className="lg:hidden flex flex-col gap-1.5">
+        {stages.map((s, i) => {
+          const w = (heightAt(i) / startH) * 100;
+          return (
+            <div
+              key={`m-${s.label}`}
+              className="rounded-xl px-4 py-3"
+              style={{ background: "var(--surface-soft)", border: "1px solid var(--line-1)" }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--ink-3)" }}>
+                  {s.label}
+                </span>
+                <span className="display text-2xl text-white tnum leading-none flex-shrink-0">
+                  {s.value}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(246,201,69,0.1)" }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${w}%`, background: "linear-gradient(90deg, rgba(246,201,69,0.85), rgba(246,201,69,0.3))" }}
+                />
+              </div>
+              {s.conversion ? (
+                <div className="text-[11px] tnum mt-1.5" style={{ color: "var(--lime)" }}>
+                  {s.conversion}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: horizontal funnel. */}
+      <div className="hidden lg:block">
       <div className="grid gap-1 mb-3" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
         {stages.map((s) => (
           <div key={`label-${s.label}`} className="text-center px-1">
@@ -858,6 +897,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
             {s.conversion ?? "—"}
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

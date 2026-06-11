@@ -340,7 +340,7 @@ export function Sidebar({
         className={`fixed inset-0 z-50 md:hidden ${
           mobileOpen ? "" : "pointer-events-none"
         }`}
-        aria-hidden={!mobileOpen}
+        inert={!mobileOpen}
       >
         <div
           onClick={() => setMobileOpen(false)}

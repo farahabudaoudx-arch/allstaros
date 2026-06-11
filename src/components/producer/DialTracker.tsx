@@ -168,7 +168,6 @@ export function DialTracker() {
             label={m.label}
             value={counts[m.key]}
             target={target?.[m.key] ?? 0}
-            steps={m.steps}
             onBump={(d) => bump(m.key, d)}
             disabled={loading}
           />
@@ -281,63 +280,44 @@ function CounterCard({
   label,
   value,
   target,
-  steps,
   onBump,
   disabled,
 }: {
   label: string;
   value: number;
   target: number;
-  steps: number[];
   onBump: (delta: number) => void;
   disabled: boolean;
 }) {
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="rounded-2xl border border-hairline bg-card p-5">
-      <div className="flex items-baseline justify-between">
-        <p className="text-xs uppercase tracking-[0.12em] text-mute">{label}</p>
-        {target > 0 && (
-          <p className={`text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
-            {value} / {target}
-          </p>
-        )}
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <SmallTap onClick={() => onBump(-1)} disabled={disabled || value <= 0} label={`Remove ${label}`}>
-            −
-          </SmallTap>
-          <p className="min-w-[2ch] text-center text-4xl font-semibold tabular-nums text-ink">
-            {value}
-          </p>
-          <SmallTap onClick={() => onBump(1)} disabled={disabled} label={`Add ${label}`} primary>
-            +
-          </SmallTap>
-        </div>
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {steps
-            .filter((s) => s > 1)
-            .map((s) => (
-              <button
-                key={s}
-                type="button"
-                disabled={disabled}
-                onClick={() => onBump(s)}
-                className="rounded-full border border-hairline px-3 py-1 text-xs font-semibold text-subtle transition hover:border-accent hover:text-accent disabled:opacity-50"
-              >
-                +{s}
-              </button>
-            ))}
-        </div>
+    <div className="rounded-2xl border border-hairline bg-card p-6">
+      <p className="text-center text-xs uppercase tracking-[0.12em] text-mute">{label}</p>
+      {/* Centered −/value/+ controls — bigger tap targets, value front-and-center. */}
+      <div className="mt-4 flex items-center justify-center gap-6">
+        <SmallTap onClick={() => onBump(-1)} disabled={disabled || value <= 0} label={`Remove ${label}`}>
+          −
+        </SmallTap>
+        <p className="min-w-[2.5ch] text-center text-5xl font-semibold tabular-nums text-ink">
+          {value}
+        </p>
+        <SmallTap onClick={() => onBump(1)} disabled={disabled} label={`Add ${label}`} primary>
+          +
+        </SmallTap>
       </div>
       {target > 0 && (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-card-hi">
-          <div
-            className={`h-full rounded-full ${hit ? "bg-pos" : "bg-accent"}`}
-            style={{ width: `${pct}%` }}
-          />
+        <div className="mt-5">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-card-hi">
+            <div
+              className={`h-full rounded-full ${hit ? "bg-pos" : "bg-accent"}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          {/* Progress count sits under the bar so it reads as the bar's label. */}
+          <p className={`mt-2 text-center text-sm font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
+            {value} / {target}
+          </p>
         </div>
       )}
     </div>
@@ -393,7 +373,7 @@ function SmallTap({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`flex h-10 w-10 items-center justify-center rounded-full text-xl font-semibold leading-none transition active:scale-95 disabled:opacity-40 ${
+      className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl font-semibold leading-none transition active:scale-95 disabled:opacity-40 ${
         primary
           ? "bg-accent text-background hover:bg-accent-soft"
           : "border border-hairline text-subtle hover:border-mute hover:text-ink"
