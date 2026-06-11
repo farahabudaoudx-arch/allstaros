@@ -388,19 +388,20 @@ export function UnderwritingWizard({
         </div>
       )}
 
-      <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
-      >
-        <VitalInput
-          label="Date of birth"
-          placeholder="MM/DD/YYYY"
-          value={vitals.dob}
-          onChange={(v) => onVitalsChange({ ...vitals, dob: v })}
-          compact={compact}
-          type="date"
-          suffix={ageFromDob(vitals.dob) ? `Age ${ageFromDob(vitals.dob)}` : undefined}
-        />
+      {/* On phones the DOB field (date input + "Age" suffix) needs full width;
+          height & weight share the row beneath it. Single row at sm+. */}
+      <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+        <div className="col-span-2 sm:col-span-1">
+          <VitalInput
+            label="Date of birth"
+            placeholder="MM/DD/YYYY"
+            value={vitals.dob}
+            onChange={(v) => onVitalsChange({ ...vitals, dob: v })}
+            compact={compact}
+            type="date"
+            suffix={ageFromDob(vitals.dob) ? `Age ${ageFromDob(vitals.dob)}` : undefined}
+          />
+        </div>
         <VitalInput
           label="Height"
           placeholder={`5'8"`}

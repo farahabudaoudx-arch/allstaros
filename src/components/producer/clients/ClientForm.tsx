@@ -428,15 +428,15 @@ export function ClientForm({ clientId, initialClient }: Props) {
       {/* COMMISSION */}
       <Section title="Commission estimate">
         <div className="card-soft p-5 rounded-2xl">
-          <div className="grid gap-3" style={{ gridTemplateColumns: "1fr auto 1fr auto 1.4fr", alignItems: "end" }}>
+          <div className="grid gap-3 md:items-end md:[grid-template-columns:1fr_auto_1fr_auto_1.4fr]">
             <Field label="Annual premium">
               <CurrencyInput value={draft.annual_premium} onChange={(v) => set("annual_premium", v)} />
             </Field>
-            <TimesGlyph />
+            <div className="hidden md:flex md:items-center md:pb-3"><TimesGlyph /></div>
             <Field label="Product comp %">
               <PercentInput value={draft.product_comp_pct} onChange={(v) => set("product_comp_pct", v)} />
             </Field>
-            <TimesGlyph />
+            <div className="hidden md:flex md:items-center md:pb-3"><TimesGlyph /></div>
             <Field label="Advance">
               <select
                 className="input"
@@ -449,7 +449,7 @@ export function ClientForm({ clientId, initialClient }: Props) {
               </select>
             </Field>
           </div>
-          <div className="flex justify-between items-center mt-4">
+          <div className="flex flex-col gap-2 mt-4 sm:flex-row sm:justify-between sm:items-center">
             <span className="text-xs" style={{ color: "var(--ink-3)" }}>
               Formula: AP × Comp Rate × Advance Rate
             </span>
@@ -537,11 +537,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Grid({ cols, children }: { cols: number; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-      {children}
-    </div>
-  );
+  // Cramped multi-column rows (e.g. the 4-up Selected Policy row) collapse on
+  // phones so inputs aren't cut off; plain 2-up rows stay 2-up.
+  const cls =
+    cols >= 4
+      ? "grid-cols-2 md:grid-cols-4"
+      : cols === 3
+        ? "grid-cols-1 sm:grid-cols-3"
+        : "grid-cols-2";
+  return <div className={`grid gap-3 ${cls}`}>{children}</div>;
 }
 
 function Field({ label, required, children, suffix }: { label: string; required?: boolean; children: React.ReactNode; suffix?: React.ReactNode }) {
@@ -615,7 +619,7 @@ function CarrierPicker({
   const finalNames = CARRIERS as readonly string[];
 
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${finalNames.length}, minmax(0, 1fr))` }}>
+    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(78px, 1fr))" }}>
       {finalNames.map((name) => {
         const logo = CARRIER_LOGOS[name];
         const isSelected = selected === name;

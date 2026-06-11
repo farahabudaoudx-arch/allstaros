@@ -45,6 +45,7 @@ export function LeadSpendTracker({
   const supabase = useMemo(() => createSupabaseClient(), []);
   const [purchases, setPurchases] = useState<LeadPurchase[]>(initialPurchases);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<LeadPurchase | null>(null);
 
   const totalSpend = purchases.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const totalLeads = purchases.reduce((s, p) => s + (Number(p.lead_count) || 0), 0);
@@ -61,13 +62,33 @@ export function LeadSpendTracker({
     }
   }
 
-  function handleCreated(row: LeadPurchase) {
-    // Keep the table sorted by purchase_date desc (nulls last), matching the
-    // server query, so a freshly logged batch lands in the right place.
-    setPurchases((prev) =>
-      [row, ...prev].sort((a, b) => (b.purchase_date ?? "").localeCompare(a.purchase_date ?? "")),
-    );
+  function handleSaved(row: LeadPurchase) {
+    // Replace the edited row in place, or prepend a new one; keep the table
+    // sorted by purchase_date desc (nulls last) to match the server query.
+    setPurchases((prev) => {
+      const exists = prev.some((x) => x.id === row.id);
+      const merged = exists
+        ? prev.map((x) => (x.id === row.id ? row : x))
+        : [row, ...prev];
+      return merged.sort((a, b) => (b.purchase_date ?? "").localeCompare(a.purchase_date ?? ""));
+    });
     setOpen(false);
+    setEditing(null);
+  }
+
+  function openCreate() {
+    setEditing(null);
+    setOpen(true);
+  }
+
+  function openEdit(p: LeadPurchase) {
+    setEditing(p);
+    setOpen(true);
+  }
+
+  function closeModal() {
+    setOpen(false);
+    setEditing(null);
   }
 
   return (
@@ -78,7 +99,7 @@ export function LeadSpendTracker({
         <span className="text-sm tnum" style={{ color: "var(--ink-2)" }}>
           {purchases.length.toLocaleString()} {purchases.length === 1 ? "entry" : "entries"}
         </span>
-        <button type="button" onClick={() => setOpen(true)} className="btn btn-primary ml-auto">
+        <button type="button" onClick={openCreate} className="btn btn-primary ml-auto">
           <PlusIcon /> Log lead spend
         </button>
       </div>
@@ -101,7 +122,7 @@ export function LeadSpendTracker({
           <div className="text-center py-14 px-6" style={{ color: "var(--ink-3)" }}>
             <div className="flex flex-col items-center gap-3">
               <span className="text-sm">No lead spend logged yet.</span>
-              <button type="button" onClick={() => setOpen(true)} className="btn btn-primary">
+              <button type="button" onClick={openCreate} className="btn btn-primary">
                 <PlusIcon /> Log your first purchase
               </button>
             </div>
@@ -117,7 +138,7 @@ export function LeadSpendTracker({
                   <th>Amount</th>
                   <th>Cost / lead</th>
                   <th>Purchased</th>
-                  <th style={{ width: 60 }}></th>
+                  <th style={{ width: 96 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -140,16 +161,27 @@ export function LeadSpendTracker({
                         {fmtDate(p.purchase_date)}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(p)}
-                          className="btn-icon"
-                          aria-label="Delete entry"
-                          title="Delete entry"
-                          style={{ color: "var(--danger)" }}
-                        >
-                          <TrashIcon />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(p)}
+                            className="btn-icon"
+                            aria-label="Edit entry"
+                            title="Edit entry"
+                          >
+                            <PencilIcon />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(p)}
+                            className="btn-icon"
+                            aria-label="Delete entry"
+                            title="Delete entry"
+                            style={{ color: "var(--danger)" }}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -162,8 +194,9 @@ export function LeadSpendTracker({
 
       {open ? (
         <LogSpendModal
-          onClose={() => setOpen(false)}
-          onCreated={handleCreated}
+          initial={editing}
+          onClose={closeModal}
+          onSaved={handleSaved}
           supabase={supabase}
         />
       ) : null}
@@ -172,15 +205,27 @@ export function LeadSpendTracker({
 }
 
 function LogSpendModal({
+  initial,
   onClose,
-  onCreated,
+  onSaved,
   supabase,
 }: {
+  initial?: LeadPurchase | null;
   onClose: () => void;
-  onCreated: (row: LeadPurchase) => void;
+  onSaved: (row: LeadPurchase) => void;
   supabase: ReturnType<typeof createSupabaseClient>;
 }) {
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [draft, setDraft] = useState<Draft>(() =>
+    initial
+      ? {
+          vendor: initial.vendor ?? "",
+          amount: initial.amount != null ? String(initial.amount) : "",
+          lead_count: initial.lead_count != null ? String(initial.lead_count) : "",
+          lead_type: initial.lead_type ?? "",
+          purchase_date: initial.purchase_date ?? localIsoDate(),
+        }
+      : emptyDraft(),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -204,13 +249,20 @@ function LogSpendModal({
         purchase_date: draft.purchase_date || localIsoDate(),
       };
       // person_id is filled by the auth_person_id() column default under RLS.
-      const { data, error: dbError } = await supabase
-        .from("lead_purchases")
-        .insert(payload)
-        .select()
-        .single();
+      const { data, error: dbError } = initial
+        ? await supabase
+            .from("lead_purchases")
+            .update(payload)
+            .eq("id", initial.id)
+            .select()
+            .single()
+        : await supabase
+            .from("lead_purchases")
+            .insert(payload)
+            .select()
+            .single();
       if (dbError) throw dbError;
-      onCreated(data as LeadPurchase);
+      onSaved(data as LeadPurchase);
     } catch (e) {
       setError((e as Error).message || "Could not save.");
       setSaving(false);
@@ -232,7 +284,7 @@ function LogSpendModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="display text-white">Log lead spend</h2>
+          <h2 className="display text-white">{initial ? "Edit lead spend" : "Log lead spend"}</h2>
           <button type="button" onClick={onClose} className="btn-icon" aria-label="Close">
             <CloseIcon />
           </button>
@@ -310,7 +362,7 @@ function LogSpendModal({
             Cancel
           </button>
           <button type="button" onClick={handleSave} className="btn btn-primary" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : initial ? "Update" : "Save"}
           </button>
         </div>
       </div>
@@ -412,6 +464,15 @@ function TrashIcon() {
       <path d="M10 11v6" />
       <path d="M14 11v6" />
       <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }

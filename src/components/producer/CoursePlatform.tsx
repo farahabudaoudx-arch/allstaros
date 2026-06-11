@@ -147,6 +147,9 @@ export function CoursePlatform({
   const [tab, setTab] = useState<string>(tabs[0]?.key ?? "all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(program.courses[0]?.id ?? "");
+  // Mobile is master-detail: show the list, tap a course to open the player,
+  // and a back button returns to the list. Desktop shows both side by side.
+  const [mobileShowPlayer, setMobileShowPlayer] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -173,8 +176,12 @@ export function CoursePlatform({
         fill === "parent" ? "h-full" : "h-dvh"
       }`}
     >
-      {/* Left: course list */}
-      <div className="flex min-h-0 flex-col border-hairline lg:w-[400px] lg:shrink-0 lg:border-r">
+      {/* Left: course list (master) — hidden on mobile once a video is open */}
+      <div
+        className={`min-h-0 flex-col border-hairline lg:flex lg:w-[400px] lg:shrink-0 lg:border-r ${
+          mobileShowPlayer ? "hidden" : "flex"
+        }`}
+      >
         <div className="px-5 pt-8 md:px-8">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -236,7 +243,10 @@ export function CoursePlatform({
                 key={c.id}
                 course={c}
                 selected={selected?.id === c.id}
-                onSelect={() => setSelectedId(c.id)}
+                onSelect={() => {
+                  setSelectedId(c.id);
+                  setMobileShowPlayer(true);
+                }}
               />
             ))
           )}
@@ -246,9 +256,20 @@ export function CoursePlatform({
       {/* Right: player + detail. The player stays put while the left list
        * scrolls — `lg:my-auto` centers it vertically and collapses to allow
        * scrolling only if the detail ever overflows a short viewport. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-8 md:px-8">
+      <div
+        className={`min-h-0 flex-1 flex-col overflow-y-auto px-5 py-8 md:px-8 lg:flex ${
+          mobileShowPlayer ? "flex" : "hidden"
+        }`}
+      >
         {selected ? (
           <div className="mx-auto w-full max-w-4xl lg:my-auto">
+            <button
+              type="button"
+              onClick={() => setMobileShowPlayer(false)}
+              className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-subtle transition hover:text-ink lg:hidden"
+            >
+              <span aria-hidden>←</span> Back to trainings
+            </button>
             <Player course={selected} />
 
             <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
