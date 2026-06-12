@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import MessageThread from "../_components/message-thread";
 import type { Message, Recruit } from "@/lib/db/types";
 
@@ -23,14 +23,17 @@ export default async function PortalMessagesPage() {
   const recruit = recruitRow as Recruit | null;
   if (!recruit) redirect("/onboarding/pending");
 
-  // Resolve the builder's name for the thread header / bubble labels.
-  const { data: builderRow } = await supabase
+  // Resolve the builder's name for the thread header / bubble labels. RLS won't
+  // let a recruit read UP the tree, so resolve the name with the service role
+  // (same pattern as /welcome) — otherwise it falls back to "Your builder".
+  const admin = createServiceRoleClient();
+  const { data: builderRow } = await admin
     .from("person")
     .select("full_name")
     .eq("id", recruit.builder_id)
     .maybeSingle();
   const builderName =
-    (builderRow as { full_name: string } | null)?.full_name ?? "Your builder";
+    (builderRow as { full_name: string } | null)?.full_name?.trim() || "Your builder";
 
   const { data: messagesRows } = await supabase
     .from("message")

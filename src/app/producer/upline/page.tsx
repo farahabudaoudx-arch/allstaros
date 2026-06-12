@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import MessageThread from "@/app/portal/_components/message-thread";
 import type { Message, Recruit } from "@/lib/db/types";
 
@@ -23,16 +23,19 @@ export default async function ProducerUplineMessagesPage() {
     .maybeSingle();
   const recruit = recruitRow as Recruit | null;
 
-  // Resolve the upline's name for the thread header / bubble labels.
+  // Resolve the upline's name for the thread header / bubble labels. RLS won't
+  // let a producer read UP the tree, so resolve the name with the service role
+  // (same pattern as /welcome) — otherwise it falls back to "Your upline".
   let uplineName = "Your upline";
   if (recruit) {
-    const { data: builderRow } = await supabase
+    const admin = createServiceRoleClient();
+    const { data: builderRow } = await admin
       .from("person")
       .select("full_name")
       .eq("id", recruit.builder_id)
       .maybeSingle();
     uplineName =
-      (builderRow as { full_name: string } | null)?.full_name ?? uplineName;
+      (builderRow as { full_name: string } | null)?.full_name?.trim() || uplineName;
   }
 
   let messages: Message[] = [];
