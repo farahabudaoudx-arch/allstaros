@@ -151,7 +151,9 @@ export async function adminUpdateProfile(formData: FormData) {
  * would 404 once the person is gone.
  */
 export async function adminDeletePerson(formData: FormData) {
-  const dest = "/admin/people/recruits";
+  // Land on a list page after deleting — the profile would 404 once the person
+  // is gone. Caller passes the relevant roster (producers / builders / recruits).
+  const dest = String(formData.get("back") ?? "/admin/people/recruits") || "/admin/people/recruits";
   const caller = await requireSuperAdmin();
   const targetPersonId = String(formData.get("personId") ?? "");
   if (!targetPersonId) done(dest, `error=${encodeURIComponent("Missing person.")}`);

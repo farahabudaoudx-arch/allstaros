@@ -11,9 +11,18 @@ import { passwordResetEmail } from "@/lib/emails/password-reset";
 
 const BACK = "/admin/auth-ops";
 
-function done(query: string): never {
-  revalidatePath(BACK);
-  redirect(`${BACK}?${query}`);
+function done(query: string, backPath: string = BACK): never {
+  revalidatePath(backPath);
+  redirect(`${backPath}?${query}`);
+}
+
+// A CLEAN link on our own domain built from the one-time token hash — our
+// /auth/confirm route verifies it server-side — instead of Supabase's long
+// /auth/v1/verify action_link. Mirrors lib/actions/recruits.ts.
+function confirmLink(hash: string | undefined, type: "invite" | "recovery", next: string): string | undefined {
+  return hash
+    ? `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(hash)}&type=${type}&next=${encodeURIComponent(next)}`
+    : undefined;
 }
 
 function firstNameOf(full: string | null): string | undefined {
@@ -35,8 +44,9 @@ async function personEmail(personId: string) {
 export async function adminResendInvite(formData: FormData) {
   await requireAdmin();
   const personId = String(formData.get("personId") ?? "");
+  const b = String(formData.get("back") ?? BACK) || BACK;
   const person = await personEmail(personId);
-  if (!person?.email) done(`error=${encodeURIComponent("No email on file.")}`);
+  if (!person?.email) done(`error=${encodeURIComponent("No email on file.")}`, b);
 
   const admin = createServiceRoleClient();
   const { data: link, error } = await admin.auth.admin.generateLink({
@@ -44,9 +54,9 @@ export async function adminResendInvite(formData: FormData) {
     email: person.email,
     options: { redirectTo: `${getAppUrl()}/auth/callback?next=/welcome` },
   });
-  const setupUrl = link?.properties?.action_link;
+  const setupUrl = confirmLink(link?.properties?.hashed_token, "invite", "/welcome");
   if (error || !setupUrl) {
-    done(`error=${encodeURIComponent(error?.message ?? "Could not mint link.")}`);
+    done(`error=${encodeURIComponent(error?.message ?? "Could not mint link.")}`, b);
   }
 
   const mail = welcomeEmail({ firstName: firstNameOf(person.full_name), setupUrl });
@@ -56,16 +66,17 @@ export async function adminResendInvite(formData: FormData) {
     html: mail.html,
     text: mail.text,
   });
-  if (!sent.ok) done(`error=${encodeURIComponent(`Email failed: ${sent.error}`)}`);
-  done("ok=invited");
+  if (!sent.ok) done(`error=${encodeURIComponent(`Email failed: ${sent.error}`)}`, b);
+  done("ok=invited", b);
 }
 
 /** Mint a recovery link and send the branded password-reset email. */
 export async function adminSendPasswordReset(formData: FormData) {
   await requireAdmin();
   const personId = String(formData.get("personId") ?? "");
+  const b = String(formData.get("back") ?? BACK) || BACK;
   const person = await personEmail(personId);
-  if (!person?.email) done(`error=${encodeURIComponent("No email on file.")}`);
+  if (!person?.email) done(`error=${encodeURIComponent("No email on file.")}`, b);
 
   const admin = createServiceRoleClient();
   const { data: link, error } = await admin.auth.admin.generateLink({
@@ -75,9 +86,9 @@ export async function adminSendPasswordReset(formData: FormData) {
       redirectTo: `${getAppUrl()}/auth/callback?next=/auth/reset/confirm`,
     },
   });
-  const resetUrl = link?.properties?.action_link;
+  const resetUrl = confirmLink(link?.properties?.hashed_token, "recovery", "/auth/reset/confirm");
   if (error || !resetUrl) {
-    done(`error=${encodeURIComponent(error?.message ?? "Could not mint link.")}`);
+    done(`error=${encodeURIComponent(error?.message ?? "Could not mint link.")}`, b);
   }
 
   const mail = passwordResetEmail({
@@ -90,6 +101,6 @@ export async function adminSendPasswordReset(formData: FormData) {
     html: mail.html,
     text: mail.text,
   });
-  if (!sent.ok) done(`error=${encodeURIComponent(`Email failed: ${sent.error}`)}`);
-  done("ok=reset");
+  if (!sent.ok) done(`error=${encodeURIComponent(`Email failed: ${sent.error}`)}`, b);
+  done("ok=pwreset", b);
 }

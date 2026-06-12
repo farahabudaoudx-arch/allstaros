@@ -64,7 +64,9 @@ export default async function AdminProducersPage({
         <p className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-accent">
           {flash.skipped !== undefined
             ? `Invited ${flash.ok}, skipped ${flash.skipped}.`
-            : "Done."}
+            : flash.ok === "deleted"
+              ? "Person permanently deleted."
+              : "Done."}
         </p>
       ) : null}
       {flash.warn ? (

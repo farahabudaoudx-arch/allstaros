@@ -9,7 +9,15 @@ import {
   adminRestoreRecruit,
   adminResetRecruitPortal,
 } from "@/lib/actions/admin/recruits";
-import { adminDeletePerson } from "@/lib/actions/admin/people";
+import {
+  adminDeletePerson,
+  adminSetStatus,
+  adminUpdateProfile,
+} from "@/lib/actions/admin/people";
+import {
+  adminResendInvite,
+  adminSendPasswordReset,
+} from "@/lib/actions/admin/auth-ops";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { PHASES } from "@/lib/db/types";
 
@@ -46,6 +54,8 @@ const FLASH: Record<string, string> = {
   role: "Role updated.",
   status: "Status updated.",
   profile: "Profile saved.",
+  invited: "Invite email sent.",
+  pwreset: "Password-reset email sent.",
 };
 
 function Badge({ label }: { label: string }) {
@@ -130,6 +140,18 @@ export default async function PersonProfilePage({
       : recruit
         ? "Recruit"
         : "Person";
+
+  const isSelf = me.id === person.id;
+  // Where Delete permanently lands once this person no longer exists.
+  const listPage = person.is_builder
+    ? "/admin/people/builders"
+    : person.is_producer
+      ? "/admin/people/producers"
+      : "/admin/people/recruits";
+  // Leadership rows (admin / super-admin / owner) are protected: only a
+  // super-admin may run account actions against them.
+  const isLeadership = person.is_admin || person.is_super_admin || person.is_owner;
+  const canManage = !isSelf && (me.is_super_admin || !isLeadership);
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -232,6 +254,113 @@ export default async function PersonProfilePage({
         </form>
       </section>
 
+      {/* Account controls — apply to every person (producer, builder, recruit). */}
+      <section className="mt-4 rounded-2xl border border-hairline bg-card p-5">
+        <h2 className="text-sm font-semibold text-ink">Account controls</h2>
+        <p className="mt-1 text-xs text-mute">
+          Status: {person.status === "removed" ? "removed" : "active"} · {person.email}
+        </p>
+
+        {canManage ? (
+          <form action={adminUpdateProfile} className="mt-3 flex flex-wrap items-end gap-2">
+            <input type="hidden" name="personId" value={id} />
+            <input type="hidden" name="back" value={back} />
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-mute">Name</span>
+              <input
+                name="full_name"
+                defaultValue={person.full_name}
+                className="rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-mute">Email</span>
+              <input
+                name="email"
+                type="email"
+                defaultValue={person.email}
+                className="rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-mute">Phone</span>
+              <input
+                name="phone"
+                defaultValue={person.phone ?? ""}
+                className="rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-black transition hover:opacity-90"
+            >
+              Save
+            </button>
+          </form>
+        ) : null}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <form action={adminResendInvite}>
+            <input type="hidden" name="personId" value={id} />
+            <input type="hidden" name="back" value={back} />
+            <button
+              type="submit"
+              className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+            >
+              Resend invite
+            </button>
+          </form>
+          <form action={adminSendPasswordReset}>
+            <input type="hidden" name="personId" value={id} />
+            <input type="hidden" name="back" value={back} />
+            <button
+              type="submit"
+              className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+            >
+              Send password reset
+            </button>
+          </form>
+          {canManage ? (
+            <form action={adminSetStatus}>
+              <input type="hidden" name="personId" value={id} />
+              <input type="hidden" name="back" value={back} />
+              <input
+                type="hidden"
+                name="status"
+                value={person.status === "removed" ? "active" : "removed"}
+              />
+              <button
+                type="submit"
+                className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+              >
+                {person.status === "removed" ? "Reactivate" : "Deactivate"}
+              </button>
+            </form>
+          ) : null}
+          {me.is_super_admin && canManage ? (
+            <form action={adminDeletePerson}>
+              <input type="hidden" name="personId" value={id} />
+              <input type="hidden" name="back" value={listPage} />
+              <ConfirmSubmit
+                label="Delete permanently"
+                title="Delete this person?"
+                message={`This permanently erases ${person.full_name} (${person.email}) — their login, recruit record, and any sales or client data. This cannot be undone.`}
+                confirmLabel="Yes, delete permanently"
+                className="rounded-full border border-red-500/50 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
+              />
+            </form>
+          ) : null}
+        </div>
+
+        {!canManage ? (
+          <p className="mt-3 text-xs text-mute">
+            {isSelf
+              ? "You can't run account actions on your own row here."
+              : "Only a super-admin can manage this person."}
+          </p>
+        ) : null}
+      </section>
+
       {/* Recruit controls */}
       {recruit ? (
         <section className="mt-4 rounded-2xl border border-hairline bg-card p-5">
@@ -312,18 +441,6 @@ export default async function PersonProfilePage({
                 >
                   Restore
                 </button>
-              </form>
-            ) : null}
-            {me.is_super_admin ? (
-              <form action={adminDeletePerson}>
-                <input type="hidden" name="personId" value={id} />
-                <ConfirmSubmit
-                  label="Delete permanently"
-                  title="Delete this person?"
-                  message={`This permanently erases ${person.full_name} (${person.email}) — their login, recruit record, and any sales or client data. This cannot be undone.`}
-                  confirmLabel="Yes, delete permanently"
-                  className="rounded-full border border-red-500/50 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
-                />
               </form>
             ) : null}
           </div>

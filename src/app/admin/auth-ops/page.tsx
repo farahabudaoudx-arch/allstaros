@@ -14,7 +14,7 @@ type Row = {
 
 const FLASH: Record<string, string> = {
   invited: "Invite email sent.",
-  reset: "Password-reset email sent.",
+  pwreset: "Password-reset email sent.",
 };
 
 export default async function AdminAuthOpsPage({
