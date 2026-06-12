@@ -147,14 +147,30 @@ async function invitePerson(
   // exists for this email (e.g. a half-finished earlier invite), that call comes
   // back empty, so fall back to a recovery link — a leftover login should never
   // block the add.
+  //
+  // Build a CLEAN link on our own domain from the one-time token hash — our
+  // /auth/confirm route verifies it server-side and lands them on /welcome —
+  // rather than mailing Supabase's long /auth/v1/verify action_link (matches the
+  // builder recruit-invite flow in lib/actions/recruits.ts).
   const redirectTo = `${getAppUrl()}/auth/callback?next=/welcome`;
-  let setupUrl = (
-    await admin.auth.admin.generateLink({ type: "invite", email: p.email, options: { redirectTo } })
-  ).data?.properties?.action_link;
+  const confirmLink = (hash: string | undefined, type: "invite" | "recovery") =>
+    hash
+      ? `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(hash)}&type=${type}&next=${encodeURIComponent("/welcome")}`
+      : undefined;
+
+  const invite = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: p.email,
+    options: { redirectTo },
+  });
+  let setupUrl = confirmLink(invite.data?.properties?.hashed_token, "invite");
   if (!setupUrl) {
-    setupUrl = (
-      await admin.auth.admin.generateLink({ type: "recovery", email: p.email, options: { redirectTo } })
-    ).data?.properties?.action_link;
+    const recovery = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: p.email,
+      options: { redirectTo },
+    });
+    setupUrl = confirmLink(recovery.data?.properties?.hashed_token, "recovery");
   }
   if (!setupUrl) {
     await rollback();
