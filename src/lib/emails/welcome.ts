@@ -30,9 +30,8 @@ const LOGO_URL = "https://app.allstarlifegroup.com/logo.png";
 export function welcomeEmail(params: {
   firstName?: string; // recruit's first name; may be undefined → generic greeting
   setupUrl: string; // the one-time setup link; primary CTA button href
-  expiryHours?: number; // how long the link is valid, for the fine print
 }): { subject: string; html: string; text: string } {
-  const { firstName, setupUrl, expiryHours = 24 } = params;
+  const { firstName, setupUrl } = params;
 
   const greeting = firstName
     ? `Welcome to All Star, ${firstName}.`
@@ -125,7 +124,7 @@ export function welcomeEmail(params: {
             <tr>
               <td style="padding:24px 40px 36px 40px;">
                 <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.6;color:${MUTE};">
-                  This link expires in ${expiryHours} hours. If you weren't expecting this invitation, you can safely ignore this email.
+                  For your security, this link can only be used once and expires after a while. If you weren't expecting this invitation, you can safely ignore this email.
                 </p>
                 <p style="margin:12px 0 0 0;font-family:${FONT};font-size:11px;letter-spacing:0.05em;color:${MUTE};">
                   © All Star Life Group
@@ -148,7 +147,7 @@ export function welcomeEmail(params: {
     "Set up my account:",
     setupUrl,
     "",
-    `This link expires in ${expiryHours} hours. If you weren't expecting this invitation, you can safely ignore this email.`,
+    "For your security, this link can only be used once and expires after a while. If you weren't expecting this invitation, you can safely ignore this email.",
     "",
     "© All Star Life Group",
   ].join("\n");
