@@ -28,6 +28,11 @@ All Star agents sell WHOLE LIFE and INDEXED UNIVERSAL LIFE (IUL), plus certain r
 
 Speak in second person ("you"). No preamble, no "based on the context" throat-clearing — just answer.`;
 
+// Swapped in for the CONTEXT block when library retrieval is unavailable (e.g.
+// no OpenAI embeddings key) so the assistant still answers on Claude alone
+// instead of refusing for lack of context.
+const NO_CONTEXT_NOTE = `No training-library excerpts were retrieved for this question (library search is unavailable right now). For THIS turn, override the "answer using ONLY the CONTEXT" rule: answer from your own general knowledge of insurance sales, scripts, objection handling, recruiting, onboarding/licensing, and licensing-exam material. Keep it practical and concrete. The PRODUCT SCOPE rule still applies in full, with no exceptions. If something is a very All-Star-specific detail you genuinely can't know, say so briefly and point them to their builder.`;
+
 export type CoachSource = {
   chunk_id: number;
   topic: string;
@@ -116,9 +121,9 @@ export type CoachInput = {
 };
 
 export async function askCoach(input: CoachInput): Promise<CoachResult> {
-  if (!process.env.OPENAI_API_KEY) {
-    return { ok: false, error: "OPENAI_API_KEY is not set on the server." };
-  }
+  // The answer comes from Claude Haiku — that's the only hard requirement.
+  // OpenAI is used only for the optional training-library retrieval below; a
+  // missing OPENAI_API_KEY must NOT take the whole assistant down.
   if (!process.env.ANTHROPIC_API_KEY) {
     return { ok: false, error: "ANTHROPIC_API_KEY is not set on the server." };
   }
@@ -129,19 +134,26 @@ export async function askCoach(input: CoachInput): Promise<CoachResult> {
     return { ok: true, answer: UNDERWRITING_REDIRECT, sources: [], underwriting: true };
   }
 
-  let chunks: MatchRow[];
-  try {
-    chunks = await retrieve(input.question);
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "retrieval failed" };
+  // Best-effort RAG: it needs OpenAI embeddings. If the key is missing or the
+  // lookup errors, fall back to Claude answering from its own knowledge.
+  let chunks: MatchRow[] = [];
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      chunks = await retrieve(input.question);
+    } catch (err) {
+      console.error("[coach] retrieval failed; answering without library context:", err);
+    }
   }
 
-  const context =
-    chunks.length === 0
-      ? "(no relevant excerpts found in the training library)"
-      : chunks
-          .map((c, i) => `[${i + 1}] (${c.topic})\n${c.answer}`)
-          .join("\n\n");
+  const hasContext = chunks.length > 0;
+  const contextBlock = hasContext
+    ? {
+        type: "text" as const,
+        text:
+          "CONTEXT:\n" +
+          chunks.map((c, i) => `[${i + 1}] (${c.topic})\n${c.answer}`).join("\n\n"),
+      }
+    : { type: "text" as const, text: NO_CONTEXT_NOTE };
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -151,7 +163,7 @@ export async function askCoach(input: CoachInput): Promise<CoachResult> {
       max_tokens: 1024,
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-        { type: "text", text: `CONTEXT:\n${context}` },
+        contextBlock,
       ],
       messages: [
         ...input.history.map((m) => ({ role: m.role, content: m.content })),
