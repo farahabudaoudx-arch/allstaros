@@ -1,20 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { askAssistantForm } from "@/lib/actions/messages";
 import PortalShell, { PortalHeading } from "../_components/portal-shell";
-import MessageList from "../_components/message-list";
 import { portalFeaturesUnlocked } from "@/lib/portal/access";
-import type { Message, Recruit } from "@/lib/db/types";
-import { Card, Textarea, Button } from "@/components/ui";
+import { AllStarChat } from "@/components/AllStarChat";
+import type { Recruit } from "@/lib/db/types";
 
-const RETURN_TO = "/portal/help";
-
-export default async function PortalHelpPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ ok?: string; error?: string }>;
-}) {
+export default async function PortalHelpPage() {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/portal/help");
   if (person.is_builder) redirect("/producer");
@@ -30,55 +22,20 @@ export default async function PortalHelpPage({
   if (!recruit) redirect("/onboarding/pending");
   if (!portalFeaturesUnlocked(recruit)) redirect("/portal");
 
-  const { data: messagesRows } = await supabase
-    .from("message")
-    .select("*")
-    .eq("recruit_id", recruit.id)
-    .eq("channel", "assistant")
-    .order("created_at", { ascending: true });
-
-  const messages = (messagesRows ?? []) as Message[];
-  const params = await searchParams;
-
+  // Same AI as the builder platform's Resources → All Star Sidekick: the
+  // RAG-backed AllStarChat component (hits /api/allstar-ai → askCoach over the
+  // training library), not the old phase-navigation form assistant.
   return (
     <PortalShell
       heading={
         <PortalHeading
-          eyebrow="All Star Sidekick"
+          eyebrow="Trained on the All Star training library"
           title="All Star Sidekick"
-          subtitle="Your AI guide — it knows exactly where you are in your journey. Ask anything, any time. Need a human? Message your builder from the Messages tab."
+          subtitle="Your AI coach — sales, scripts, objections, products, licensing, and more. Need a human? Message your builder from the Messages tab."
         />
       }
     >
-      {params.error ? (
-        <div className="mb-6 rounded-xl border border-neg/40 bg-neg/[0.08] px-4 py-3 text-sm text-neg">
-          {decodeURIComponent(params.error)}
-        </div>
-      ) : null}
-
-      <MessageList messages={messages} currentPersonId={person.id} />
-
-      <Card className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-          Ask All Star Sidekick
-        </h2>
-        <p className="mt-1 text-xs text-subtle">
-          Knows your phase and step. Three sentences max.
-        </p>
-        <form action={askAssistantForm} className="mt-3 flex flex-col gap-3">
-          <input type="hidden" name="recruitId" value={recruit.id} />
-          <input type="hidden" name="returnTo" value={RETURN_TO} />
-          <Textarea
-            name="question"
-            rows={2}
-            required
-            placeholder="e.g. What do I do after the exam?"
-          />
-          <Button type="submit" variant="primary" className="self-start">
-            Ask
-          </Button>
-        </form>
-      </Card>
+      <AllStarChat />
     </PortalShell>
   );
 }

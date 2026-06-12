@@ -123,6 +123,10 @@ export default async function RecruitProfilePage({
         <Fact label="State" value={recruit.state || "—"} />
         <Fact label="Exam date" value={fmtDate(recruit.exam_date)} />
         <Fact label="Exam" value={<ResultValue result={examResult(recruit)} />} />
+        <Fact
+          label="Submitted contracting?"
+          value={recruit.licensing_submitted_at ? "Yes" : "—"}
+        />
         <Fact label="Bootcamp started" value={fmtDate(recruit.bootcamp_started_at)} />
         <Fact label="Bootcamp" value={<ResultValue result={bootcampResult(recruit)} />} />
       </div>
