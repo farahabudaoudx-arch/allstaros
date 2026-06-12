@@ -74,7 +74,13 @@ export async function completeAccountSetup(
   }
 
   if (person) {
-    await admin.from("recruit").update({ phone, state }).eq("person_id", person.id);
+    const { error: recruitErr } = await admin
+      .from("recruit")
+      .update({ phone, state })
+      .eq("person_id", person.id);
+    if (recruitErr) {
+      return { ok: false, error: recruitErr.message };
+    }
   }
 
   return { ok: true, next: "/portal" };

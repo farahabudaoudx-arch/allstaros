@@ -253,16 +253,16 @@ export function CoursePlatform({
         </div>
       </div>
 
-      {/* Right: player + detail. The player stays put while the left list
-       * scrolls — `lg:my-auto` centers it vertically and collapses to allow
-       * scrolling only if the detail ever overflows a short viewport. */}
+      {/* Right: player + detail. Top-aligned so the video sits at the top of the
+       * pane (not floating in the vertical middle) while the left list scrolls
+       * independently. */}
       <div
         className={`min-h-0 flex-1 flex-col overflow-y-auto px-5 py-8 md:px-8 lg:flex ${
           mobileShowPlayer ? "flex" : "hidden"
         }`}
       >
         {selected ? (
-          <div className="mx-auto w-full max-w-4xl lg:my-auto">
+          <div className="mx-auto w-full max-w-4xl">
             <button
               type="button"
               onClick={() => setMobileShowPlayer(false)}

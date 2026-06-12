@@ -43,7 +43,6 @@ export function EventSchedule({
   emptyState = null,
   viewAllHref,
   singleColumn = false,
-  showAvatar = true,
 }: {
   events: EventItem[];
   heading?: string;
@@ -53,8 +52,6 @@ export function EventSchedule({
   viewAllHref?: string;
   /** One training per row (the full Upcoming list) instead of a multi-col grid. */
   singleColumn?: boolean;
-  /** Show the presenter initials avatar. Off for the plain Upcoming list. */
-  showAvatar?: boolean;
 }) {
   if (events.length === 0) return <>{emptyState}</>;
   return (
@@ -74,29 +71,28 @@ export function EventSchedule({
       </div>
       <div className={`mt-6 grid gap-3 ${singleColumn ? "grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {events.map((e) => (
-          <EventCard key={e.slug} event={e} showAvatar={showAvatar} />
+          <EventCard key={e.slug} event={e} />
         ))}
       </div>
     </section>
   );
 }
 
-function EventCard({ event, showAvatar = true }: { event: EventItem; showAvatar?: boolean }) {
+// Upcoming trainings are informational only — not clickable (there's no event
+// detail page). The single action is "Add to calendar" at the bottom.
+function EventCard({ event }: { event: EventItem }) {
   return (
-    <div className="group flex h-full flex-col rounded-2xl border border-hairline bg-card p-5 transition hover:border-mute hover:bg-card-hi">
-      <Link href={`/producer/events/${event.slug}`} className="flex flex-1 flex-col">
-        <div className="flex items-center gap-4">
-          {showAvatar && <Avatar src={event.image} initials={event.initials} />}
-          <div className="min-w-0">
-            <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-              {event.day} {event.date}
+    <div className="flex h-full flex-col rounded-2xl border border-hairline bg-card p-5">
+      <div className="flex flex-1 flex-col">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+            {event.day} {event.date}
+          </p>
+          {event.kicker && (
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
+              {event.kicker}
             </p>
-            {event.kicker && (
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-                {event.kicker}
-              </p>
-            )}
-          </div>
+          )}
         </div>
         <div className="mt-5">
           <h3 className="text-lg font-semibold uppercase leading-tight tracking-[0.01em] text-ink">
@@ -109,9 +105,9 @@ function EventCard({ event, showAvatar = true }: { event: EventItem; showAvatar?
             <span>{prettyLocation(event.zoomUrl)}</span>
           </div>
         </div>
-      </Link>
-      {/* The Link above is flex-1, so it grows and pins this button to the card
-          bottom — lining up across cards of different title lengths. */}
+      </div>
+      {/* flex-1 above grows so this button lines up at the card bottom across
+          cards of different title lengths. */}
       <div className="mt-4 border-t border-hairline pt-4">
         <CalendarButton event={event} />
       </div>
@@ -144,20 +140,3 @@ function CalendarButton({ event }: { event: EventItem }) {
   );
 }
 
-function Avatar({ src, initials }: { src: string; initials: string }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-black">
-      <span className="text-sm font-bold tracking-wide">{initials}</span>
-      {!failed && src && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      )}
-    </div>
-  );
-}

@@ -9,7 +9,6 @@ export default async function UpcomingLiveTrainingsPage() {
         events={events}
         heading="Upcoming Live Trainings"
         singleColumn
-        showAvatar={false}
         emptyState={
           <section>
             <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
