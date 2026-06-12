@@ -52,8 +52,9 @@ A required lint/typecheck pass before anything ships. Near-free, catches a class
 When a bug hits all 100 at once, you want a calm one-click "undo," not a scramble. Vercel rollback is ~one click — confirm the flow and know where the button is *before* day one.
 > **Done 2026-06-12:** wrote `INCIDENT_RUNBOOK.md` with the exact current Vercel Instant Rollback flow (overview → Production Deployment tile → **Instant Rollback** → pick deployment → **Confirm Rollback**; instant, no rebuild). Captured the key gotcha: **after a rollback Vercel turns OFF auto-deploy** of the prod branch until you hit **Undo Rollback** — and that rollback reverts the build, not env vars. Also covers where to look (Sentry/Vercel runtime logs/Supabase logs). **Nick to do:** open the Vercel dashboard once and locate the Instant Rollback button so it's muscle memory before launch.
 
-**7. Targeted tests on highest-stakes logic** 🔲
+**7. Targeted tests on highest-stakes logic** ✅
 Not chasing coverage — protecting the spots where a *silent wrong answer* hurts: underwriting knockouts/carrier matching, and the Supabase seam where All Star OS and Agency meet.
+> **Done 2026-06-12:** added Vitest (`npm run test`, wired into CI). 22 tests, all green: **build knockouts** (`parseHeightInches`/`parseWeightLbs`/`classifyBuild` band boundaries — inclusive cutoffs + off-chart clamping, since a wrong band = wrong carrier eligibility); **carrier-matrix integrity** (287 conditions × 11 FEX / 2 SIUL; lookup returns the full grid for known conditions and silently skips unknown ones — never invents a row); **AI cost math** (`estimateCostUsd` at published Haiku/Opus rates, cached reads at 0.1×, unknown model → 0). The Supabase read/write seam itself was exercised live in #3 (read + write verified) rather than unit-mocked.
 
 **8. Usage cap / rate limit on the AI features** 🟢 (migration applied + enforcement tested; needs code deploy to go live)
 > **Enforcement verified 2026-06-12:** migration applied to the shared Supabase; ran a live test against the real table — temporarily set the Sidekick daily cap to 3, fired 4 questions: calls 1-3 answered (200), call 4 returned **429 "You've reached today's limit… resets tomorrow"** and was blocked *before* any paid AI call. Cap restored to 120. **Last step: deploy the code** (still uncommitted on `dev`) for it to apply to real users.
@@ -205,7 +206,7 @@ Ran a structural slop audit on ~28k lines of app code. **Verdict: NOT slop — c
 - [x] #9 AI conversation logging ✅ 2026-06-12 (Sidekick only; UW excluded) — migration applied; logs once code deploys
 - [x] #11 (do-now) Dashboard query row-cap + `clients (person_id, created_at)` index ✅ 2026-06-12 — index needs migration applied
 - [x] #2 PostHog core funnel events ✅ 2026-06-12 — live in prod, verified (events 200 to PostHog)
-- [ ] #7 Targeted tests on underwriting + Supabase seam
+- [x] #7 Targeted tests on underwriting + Supabase seam ✅ 2026-06-12 — Vitest, 22 tests (build knockouts, carrier matrix, AI cost math)
 - [x] 4(a) Turn on / verify prompt caching on the AI tools ✅ 2026-06-12 — underwriting list now cached (8.5k tok/call from cache); Sidekick is too small to cache on Haiku (no-op, fine)
 
 **Soon after:**
