@@ -63,12 +63,6 @@ function uniqueEmail(prefix) {
   return `${prefix}-${_nameSeq++}@${DEMO_DOMAIN}`;
 }
 
-// Split `total` into `n` non-negative ints that sum to exactly `total`.
-function distribute(total, n) {
-  const base = Math.floor(total / n);
-  let rem = total - base * n;
-  return Array.from({ length: n }, () => base + (rem-- > 0 ? 1 : 0));
-}
 // Split `total` proportional to random weights; sums to exactly `total`.
 function weightedDistribute(total, n, lo = 0.6, hi = 1.4) {
   const weights = Array.from({ length: n }, () => lo + Math.random() * (hi - lo));

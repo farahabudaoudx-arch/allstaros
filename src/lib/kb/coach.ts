@@ -1,8 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import type { Usage } from "@/lib/ai/usage";
 
 // Answers come from Haiku (fast/cheap), matching the in-portal help assistant.
 const MODEL = "claude-haiku-4-5-20251001";
+// Exported so the API route can attribute usage to the right model.
+export const SIDEKICK_MODEL = MODEL;
 const EMBED_MODEL = "text-embedding-3-small";
 
 // Retrieval tuning.
@@ -41,7 +44,7 @@ export type CoachSource = {
 };
 
 export type CoachResult =
-  | { ok: true; answer: string; sources: CoachSource[]; underwriting?: boolean }
+  | { ok: true; answer: string; sources: CoachSource[]; underwriting?: boolean; usage?: Usage }
   | { ok: false; error: string };
 
 type MatchRow = {
@@ -184,7 +187,13 @@ export async function askCoach(input: CoachInput): Promise<CoachResult> {
       similarity: c.similarity,
     }));
 
-    return { ok: true, answer: answer || "(empty response)", sources };
+    const usage: Usage = {
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+    };
+
+    return { ok: true, answer: answer || "(empty response)", sources, usage };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "generation failed" };
   }

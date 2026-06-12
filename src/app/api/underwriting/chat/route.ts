@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentPerson } from "@/lib/auth";
 import { searchConditionsByTerms } from "@/lib/underwriting/data";
-import { buildRulesContext, extractConditions, generateChatResponse } from "@/lib/underwriting/llm";
+import {
+  addUsage,
+  buildRulesContext,
+  extractConditions,
+  generateChatResponse,
+  UNDERWRITING_MODEL,
+} from "@/lib/underwriting/llm";
+import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/usage";
 import type { ChatResponse, Toolkit } from "@/lib/underwriting/types";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +17,22 @@ export const maxDuration = 60;
 const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL"]);
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  const person = await getCurrentPerson();
+  if (!person) {
     return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
+  }
+
+  const limit = await checkAiRateLimit(person.id, "underwriting_chat");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { ok: false, error: limit.reason },
+      {
+        status: 429,
+        headers: limit.retryAfterSeconds
+          ? { "Retry-After": String(limit.retryAfterSeconds) }
+          : undefined,
+      },
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -49,9 +68,9 @@ export async function POST(req: Request) {
 
   const rulesContext = carrierResults.length > 0 ? buildRulesContext(carrierResults) : "";
 
-  let aiMessage: string;
+  let chat;
   try {
-    aiMessage = await generateChatResponse({
+    chat = await generateChatResponse({
       toolkit,
       rulesContext,
       history,
@@ -61,6 +80,15 @@ export async function POST(req: Request) {
     console.error("[underwriting/chat] chat failed:", e);
     return NextResponse.json({ ok: false, error: `chat: ${e?.message ?? "unknown"}` }, { status: 502 });
   }
+  const aiMessage = chat.reply;
+
+  // One request = two Opus calls (extract + generate); record their combined spend.
+  await recordAiUsage({
+    personId: person.id,
+    tool: "underwriting_chat",
+    model: UNDERWRITING_MODEL,
+    usage: addUsage(extracted.usage, chat.usage),
+  });
 
   const payload: ChatResponse = {
     aiMessage,

@@ -3,11 +3,32 @@
 // schema-shaped JSON; generateChatResponse is a plain messages call.
 
 import Anthropic from "@anthropic-ai/sdk";
+import type { Usage } from "@/lib/ai/usage";
 
 const MODEL = "claude-opus-4-7";
+// Exported so the API routes can attribute usage to the right model.
+export const UNDERWRITING_MODEL = MODEL;
 
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
+
+/** Map an Anthropic usage block to our ledger's Usage shape. */
+function usageOf(u: Anthropic.Usage): Usage {
+  return {
+    inputTokens: u.input_tokens,
+    outputTokens: u.output_tokens,
+    cacheReadTokens: u.cache_read_input_tokens ?? 0,
+  };
+}
+
+/** Sum token usage across the multiple model calls a single request may make. */
+export function addUsage(a: Usage, b: Usage): Usage {
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens: (a.cacheReadTokens ?? 0) + (b.cacheReadTokens ?? 0),
+  };
+}
 
 type ExtractionShape = {
   conditions: string[];
@@ -65,7 +86,7 @@ async function structured(opts: {
   toolName: string;
   schema: Record<string, unknown>;
   maxTokens: number;
-}): Promise<Record<string, unknown> | null> {
+}): Promise<{ data: Record<string, unknown> | null; usage: Usage }> {
   const res = await client().messages.create({
     model: MODEL,
     max_tokens: opts.maxTokens,
@@ -81,13 +102,17 @@ async function structured(opts: {
     messages: opts.messages,
   });
   const block = res.content.find((b) => b.type === "tool_use");
-  return block && block.type === "tool_use"
-    ? (block.input as Record<string, unknown>)
-    : null;
+  const data =
+    block && block.type === "tool_use"
+      ? (block.input as Record<string, unknown>)
+      : null;
+  return { data, usage: usageOf(res.usage) };
 }
 
-export async function extractConditions(message: string): Promise<ExtractionShape> {
-  const parsed = await structured({
+export type ExtractionResult = ExtractionShape & { usage: Usage };
+
+export async function extractConditions(message: string): Promise<ExtractionResult> {
+  const { data: parsed, usage } = await structured({
     system: EXTRACTION_SYSTEM,
     messages: [{ role: "user", content: message }],
     toolName: "extracted_conditions",
@@ -95,12 +120,13 @@ export async function extractConditions(message: string): Promise<ExtractionShap
     maxTokens: 1024,
   });
 
-  if (!parsed) return { conditions: [], timings: {}, medications: [], severity: {} };
+  if (!parsed) return { conditions: [], timings: {}, medications: [], severity: {}, usage };
   return {
     conditions: Array.isArray(parsed.conditions) ? (parsed.conditions as string[]) : [],
     timings: toRecord(parsed.timings),
     medications: Array.isArray(parsed.medications) ? (parsed.medications as string[]) : [],
     severity: toRecord(parsed.severity),
+    usage,
   };
 }
 
@@ -122,7 +148,7 @@ export async function generateChatResponse(opts: {
   rulesContext: string;
   history: Message[];
   userMessage: string;
-}): Promise<string> {
+}): Promise<{ reply: string; usage: Usage }> {
   const system = `You are an expert life insurance underwriting assistant helping agents place clients with the right carrier.
 
 You have access to underwriting rules for ${opts.toolkit} carriers. When analyzing a client:
@@ -153,7 +179,10 @@ Format your response clearly with the best options first. Use plain language, no
     .map((b) => b.text)
     .join("")
     .trim();
-  return reply || "I couldn't generate a response. Please try again.";
+  return {
+    reply: reply || "I couldn't generate a response. Please try again.",
+    usage: usageOf(res.usage),
+  };
 }
 
 export function buildRulesContext(carrierResults: Array<{
@@ -241,26 +270,29 @@ export async function analyzeNotes(opts: {
   text: string;
   toolkit: string;
   canonicalConditions: Array<{ condition: string; category: string }>;
-}): Promise<{ conditions: string[]; summary: string; noConditionsMentioned: boolean }> {
+}): Promise<{ conditions: string[]; summary: string; noConditionsMentioned: boolean; usage: Usage }> {
   const list = opts.canonicalConditions
     .map((c) => `- ${c.condition} [${c.category}]`)
     .join("\n");
 
-  const userMessage = `Toolkit: ${opts.toolkit}
-
-Canonical condition list (you MUST pick exact names from this list):
-${list}
-
-Client notes:
-${opts.text}`;
-
-  // The system prompt + canonical list are stable across requests for a given
-  // toolkit, so cache that prefix; only the client notes vary per call.
-  const parsed = await structured({
+  // Prompt caching (PRE_LAUNCH_ROADMAP §4a). The instructions AND the ~287-row
+  // canonical list are identical for every call on a toolkit, so both live in
+  // the cached system prefix (two breakpoints: shared instructions, then the
+  // per-toolkit list). Only the client notes vary, so they're the user turn
+  // after the breakpoints. Same information to the model — zero quality change —
+  // but repeat calls read the big stable block from cache (~0.1x) instead of
+  // re-paying full Opus input price. Min cacheable prefix on Opus is 4096 tokens;
+  // instructions (~2.3k) + list (~6k) clear it comfortably.
+  const { data: parsed, usage } = await structured({
     system: [
       { type: "text", text: ANALYZE_SYSTEM, cache_control: { type: "ephemeral" } },
+      {
+        type: "text",
+        text: `Toolkit: ${opts.toolkit}\n\nCanonical condition list (you MUST pick exact names from this list):\n${list}`,
+        cache_control: { type: "ephemeral" },
+      },
     ],
-    messages: [{ role: "user", content: userMessage }],
+    messages: [{ role: "user", content: `Client notes:\n${opts.text}` }],
     toolName: "underwriting_analysis",
     schema: ANALYZE_SCHEMA,
     maxTokens: 1024,
@@ -268,7 +300,7 @@ ${opts.text}`;
 
   // Filter out any names the LLM made up that aren't actually in the canonical list.
   const valid = new Set(opts.canonicalConditions.map((c) => c.condition));
-  if (!parsed) return { conditions: [], summary: "", noConditionsMentioned: false };
+  if (!parsed) return { conditions: [], summary: "", noConditionsMentioned: false, usage };
   const conditions = Array.isArray(parsed.conditions)
     ? (parsed.conditions as unknown[])
         .filter((c): c is string => typeof c === "string")
@@ -278,5 +310,5 @@ ${opts.text}`;
   const noConditionsMentioned = typeof parsed.noConditionsMentioned === "boolean"
     ? parsed.noConditionsMentioned
     : false;
-  return { conditions, summary, noConditionsMentioned };
+  return { conditions, summary, noConditionsMentioned, usage };
 }

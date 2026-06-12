@@ -84,7 +84,6 @@ export function LeaderboardView() {
 
   const rows = data?.rows ?? [];
   const podium = rows.slice(0, 3);
-  const rest = rows.slice(3);
   const meId = data?.meId;
 
   const myRank = useMemo(() => {

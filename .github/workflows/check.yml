@@ -1,0 +1,22 @@
+# Static-analysis gate (PRE_LAUNCH_ROADMAP §1 #4): typecheck + lint on every
+# push and PR. Next 16's `next build` no longer runs ESLint, so this is where
+# lint is enforced as a visible CI signal. The build itself also runs eslint
+# (see package.json "build"), so a lint *error* additionally blocks deploys.
+name: check
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check

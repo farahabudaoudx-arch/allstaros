@@ -12,6 +12,7 @@ import {
 } from "@/lib/underwriting/build-chart";
 import { portalUrlForCarrier } from "@/lib/carrier-portals";
 import { useTheme } from "@/lib/use-theme";
+import { track } from "@/lib/analytics";
 
 // Guaranteed-issue products (e.g. Corebridge GIWL) issue regardless of build
 // or health, so they're exempt from the over-limit build knockout below.
@@ -252,6 +253,13 @@ export function UnderwritingWizard({
       .then((json) => {
         if (ctrl.signal.aborted) return;
         setAnalysis(json);
+        if (json.results.length > 0) {
+          // Funnel signal only — counts + toolkit, never the medical notes.
+          track("underwriting_wizard_completed", {
+            toolkit,
+            conditions: json.conditions.length,
+          });
+        }
       })
       .catch((e) => {
         if (e?.name === "AbortError") return;
@@ -931,6 +939,7 @@ function CarrierTile({
       style={tileStyle}
       onMouseEnter={showTip}
       onMouseLeave={hideTip}
+      onClick={() => track("carrier_link_clicked", { carrier })}
     >
       {inner}
       {tip}

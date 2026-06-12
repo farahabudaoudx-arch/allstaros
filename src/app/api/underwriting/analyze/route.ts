@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { analyzeNotes } from "@/lib/underwriting/llm";
+import { getCurrentPerson } from "@/lib/auth";
+import { analyzeNotes, UNDERWRITING_MODEL } from "@/lib/underwriting/llm";
+import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/usage";
 import { getConditionsForToolkit, lookupCarrierOutcomes } from "@/lib/underwriting/data";
 import type { Toolkit } from "@/lib/underwriting/types";
 
@@ -14,16 +15,28 @@ const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL"]);
 //
 // Pipeline:
 //   1. Load the canonical condition list for the toolkit (~287 rows).
-//   2. Hand the list + the notes to gpt-4o-mini with a strict clinical prompt.
+//   2. Hand the list + the notes to Claude (Opus 4.7) with a strict clinical prompt.
 //   3. The LLM picks exact condition names from the list (post-filtered against
 //      the canonical set to drop any hallucinations).
 //   4. Look up carrier outcomes for the matched conditions.
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  const person = await getCurrentPerson();
+  if (!person) {
     return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
+  }
+
+  const limit = await checkAiRateLimit(person.id, "underwriting_analyze");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { ok: false, error: limit.reason },
+      {
+        status: 429,
+        headers: limit.retryAfterSeconds
+          ? { "Retry-After": String(limit.retryAfterSeconds) }
+          : undefined,
+      },
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -48,13 +61,21 @@ export async function POST(req: Request) {
   }
 
   // Step 2: LLM analysis.
-  let analysis: { conditions: string[]; summary: string; noConditionsMentioned: boolean };
+  let analysis: Awaited<ReturnType<typeof analyzeNotes>>;
   try {
     analysis = await analyzeNotes({ text, toolkit, canonicalConditions });
   } catch (e: any) {
     console.error("[underwriting/analyze] LLM call failed:", e);
     return NextResponse.json({ ok: false, stage: "llm", error: e?.message ?? "LLM failed" }, { status: 502 });
   }
+
+  // Record what the model call spent (best-effort; the model ran, so count it).
+  await recordAiUsage({
+    personId: person.id,
+    tool: "underwriting_analyze",
+    model: UNDERWRITING_MODEL,
+    usage: analysis.usage,
+  });
 
   if (analysis.conditions.length === 0) {
     return NextResponse.json({

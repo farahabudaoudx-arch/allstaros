@@ -8,6 +8,12 @@ import { SectionHeading, Badge } from "@/components/ui";
 
 type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
 
+// This roster loads on every dashboard visit. Cap the query so a large downline
+// can't pull an unbounded result set on each login (PRE_LAUNCH_ROADMAP §1 #11).
+// 200 is generous for a downline roster; if it's ever hit we say so rather than
+// silently truncating.
+const ROSTER_LIMIT = 200;
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -20,9 +26,11 @@ export default async function DashboardPage({
   const { data: recruitData } = await supabase
     .from("recruit")
     .select("*, person:person_id(full_name, email, status)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(ROSTER_LIMIT);
 
   const rows = (recruitData ?? []) as unknown as Row[];
+  const capped = rows.length === ROSTER_LIMIT;
 
   // Fetch latest check-in per recruit (one query, group client-side).
   const recruitIds = rows.map((r) => r.id);
@@ -145,6 +153,13 @@ export default async function DashboardPage({
           </tbody>
         </table>
       </div>
+
+      {capped ? (
+        <p className="mt-3 text-xs text-mute">
+          Showing the {ROSTER_LIMIT} most recent recruits. Older ones aren&apos;t
+          listed here.
+        </p>
+      ) : null}
     </div>
   );
 }

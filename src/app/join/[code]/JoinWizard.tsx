@@ -6,6 +6,7 @@ import { signUpViaReferral } from "@/lib/actions/recruit-signup";
 import { finishDemoFlowForm } from "@/lib/actions/portal";
 import { US_STATES } from "@/lib/us-states";
 import { HeroVideo } from "@/components/HeroVideo";
+import { track } from "@/lib/analytics";
 
 type Form = {
   firstName: string;
@@ -83,6 +84,7 @@ export function JoinWizard({
     startTransition(async () => {
       const result = await signUpViaReferral({ code, ...form });
       if (result.ok) {
+        track("signup_completed", { state: form.state });
         setDone(true);
       } else {
         setError(result.error);
@@ -323,7 +325,6 @@ function Field({
       <input
         type={type}
         value={value}
-        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus={autoFocus}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}

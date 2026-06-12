@@ -1,17 +1,29 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { askCoach } from "@/lib/kb/coach";
+import { getCurrentPerson } from "@/lib/auth";
+import { askCoach, SIDEKICK_MODEL } from "@/lib/kb/coach";
+import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/usage";
+import { logSidekickConversation } from "@/lib/ai/conversation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const person = await getCurrentPerson();
+  if (!person) {
     return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
+  }
+
+  const limit = await checkAiRateLimit(person.id, "sidekick");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { ok: false, error: limit.reason },
+      {
+        status: 429,
+        headers: limit.retryAfterSeconds
+          ? { "Retry-After": String(limit.retryAfterSeconds) }
+          : undefined,
+      },
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -45,6 +57,27 @@ export async function POST(req: Request) {
     console.error("[api/allstar-ai] failed:", result.error);
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
   }
+
+  // Record usage only when a model call actually happened (the underwriting
+  // redirect short-circuits with no usage).
+  if (result.usage) {
+    await recordAiUsage({
+      personId: person.id,
+      tool: "sidekick",
+      model: SIDEKICK_MODEL,
+      usage: result.usage,
+    });
+  }
+
+  // Compliance log (#9): keep a reviewable record of Sidekick Q&A. Covers both
+  // real answers and the underwriting-redirect (flagged), neither of which holds
+  // client medical data.
+  await logSidekickConversation({
+    personId: person.id,
+    question: message,
+    answer: result.answer,
+    redirected: result.underwriting === true,
+  });
 
   return NextResponse.json(result);
 }
