@@ -68,16 +68,23 @@ export function deriveFunnelStage(r: DerivableRecruit): {
   }
 
   if (r.phase === "onboarding") {
-    // Reaching onboarding means they're licensed. Contracting step = they've
-    // submitted their contracting info; everything before that is "Got license".
-    return r.phase_step === "contracting"
+    // Reaching onboarding means they're licensed. They've "submitted contracting"
+    // once they've stamped it from the portal (licensing_submitted_at) or hit the
+    // onboarding contracting step; before that it's "Got license".
+    return r.licensing_submitted_at || r.phase_step === "contracting"
       ? { stage: "submitted_contracting" }
       : { stage: "got_license" };
   }
 
   if (r.phase === "licensing") {
-    // Passing the exam puts them on the licensing track — shown as "Got license".
-    if (r.phase_step === "exam_passed") return { stage: "got_license" };
+    // Passing the exam puts them on the licensing track. Once they submit their
+    // contracting info from the portal (licensing_submitted_at), they move from
+    // "Got license" into "Submitted contracting info".
+    if (r.phase_step === "exam_passed") {
+      return r.licensing_submitted_at
+        ? { stage: "submitted_contracting" }
+        : { stage: "got_license" };
+    }
     // A failed attempt means they're back to studying for the retake.
     if (r.exam_failures > 0) return { stage: "studying" };
     if (r.phase_step === "studying") return { stage: "studying" };
