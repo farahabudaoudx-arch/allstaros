@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import LicensingView from "./_components/licensing-view";
 import OnboardingView from "./_components/onboarding-view";
 import BootcampView from "./_components/bootcamp-view";
@@ -52,8 +52,12 @@ export default async function PortalPage({
   if (!recruit) redirect("/onboarding/pending");
 
   // The recruit's upline (their builder) — name shown on the licensing finale
-  // card, admin email shown on the "Get contracted" step as a copy field.
-  const { data: uplineRow } = await supabase
+  // card, admin email shown on the "Get contracted" step as a copy field. RLS
+  // won't let a recruit read UP the tree, so resolve via the service role (same
+  // pattern as /welcome) — otherwise both come back null and the step shows
+  // "Ask your upline for the admin email".
+  const admin = createServiceRoleClient();
+  const { data: uplineRow } = await admin
     .from("person")
     .select("full_name, admin_email")
     .eq("id", recruit.builder_id)
