@@ -16,9 +16,8 @@ import {
 export function passwordResetEmail(params: {
   firstName?: string; // recipient's first name; optional → generic greeting
   resetUrl: string; // the one-time reset link; primary CTA button href
-  expiryHours?: number; // how long the link is valid (default 24)
 }): { subject: string; html: string; text: string } {
-  const { firstName, resetUrl, expiryHours = 24 } = params;
+  const { firstName, resetUrl } = params;
 
   const heading = firstName
     ? `Reset your password, ${escapeHtml(firstName)}.`
@@ -36,7 +35,7 @@ export function passwordResetEmail(params: {
       buttonRow("Reset my password", resetUrl),
       fallbackRow(resetUrl),
       footerRow(
-        `This link expires in ${expiryHours} hours. If you didn't request a password reset, you can safely ignore this email — your password won't change.`,
+        "For your security, this link can only be used once and expires after a while. If you didn't request a password reset, you can safely ignore this email — your password won't change.",
       ),
     ].join("\n"),
   });
@@ -49,7 +48,7 @@ export function passwordResetEmail(params: {
     "Reset my password:",
     resetUrl,
     "",
-    `This link expires in ${expiryHours} hours. If you didn't request a password reset, you can safely ignore this email — your password won't change.`,
+    "For your security, this link can only be used once and expires after a while. If you didn't request a password reset, you can safely ignore this email — your password won't change.",
     "",
     "© All Star Life Group",
   ].join("\n");
