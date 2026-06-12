@@ -6,9 +6,12 @@ import { type Person, type Recruit } from "@/lib/db/types";
 import { phaseLabel, phaseStepLabel } from "@/lib/pipeline/labels";
 import { deriveFunnelStage, funnelStageLabel } from "@/lib/pipeline/funnel";
 import { removeRecruitForm } from "@/lib/actions/flagging";
+import { promoteToProducerForm } from "@/lib/actions/downline";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 
-type RecruitWithPerson = Recruit & { person: Pick<Person, "full_name" | "email"> };
+type RecruitWithPerson = Recruit & {
+  person: Pick<Person, "full_name" | "email" | "is_producer">;
+};
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -63,10 +66,13 @@ function ResultValue({ result }: { result: ExamOutcome }) {
 
 export default async function RecruitProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const { id } = await params;
+  const flash = await searchParams;
   const me = await getCurrentPerson();
   if (!me) redirect(`/auth/signin?next=/producer/recruiting/recruit/${id}`);
   if (!me.is_builder) redirect("/producer");
@@ -74,7 +80,7 @@ export default async function RecruitProfilePage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("recruit")
-    .select("*, person:person_id(full_name, email)")
+    .select("*, person:person_id(full_name, email, is_producer)")
     .eq("id", id)
     .maybeSingle();
   const recruit = data as unknown as RecruitWithPerson | null;
@@ -82,6 +88,14 @@ export default async function RecruitProfilePage({
 
   const { stage, outcome } = deriveFunnelStage(recruit);
   const stageLabel = funnelStageLabel(stage, outcome);
+
+  // "Promote to Producer" unlocks once they've submitted their contracting info
+  // and is reserved to their own builder. Flips on the producer portal.
+  const canPromote =
+    !recruit.removed_at &&
+    recruit.builder_id === me.id &&
+    !!recruit.licensing_submitted_at &&
+    !recruit.person.is_producer;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -91,6 +105,17 @@ export default async function RecruitProfilePage({
       >
         ← Recruiting
       </Link>
+
+      {flash.ok === "promoted" ? (
+        <div className="mt-4 rounded-xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
+          Promoted to producer — their portal is now the producer portal.
+        </div>
+      ) : null}
+      {flash.error ? (
+        <div className="mt-4 rounded-xl border border-neg/40 bg-neg/[0.08] px-4 py-3 text-sm text-neg">
+          {decodeURIComponent(flash.error)}
+        </div>
+      ) : null}
 
       {/* Profile header */}
       <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-hairline bg-card p-5 md:p-6">
@@ -138,6 +163,22 @@ export default async function RecruitProfilePage({
         >
           Message {recruit.person.full_name.trim().split(/\s+/)[0]}
         </Link>
+
+        {canPromote ? (
+          <form action={promoteToProducerForm}>
+            <input type="hidden" name="recruitId" value={recruit.id} />
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-full border border-accent/50 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/[0.08]"
+            >
+              Promote to Producer
+            </button>
+          </form>
+        ) : recruit.person.is_producer ? (
+          <span className="inline-flex items-center rounded-full border border-pos/40 bg-pos/[0.08] px-4 py-2 text-sm text-pos">
+            Producer
+          </span>
+        ) : null}
 
         {recruit.removed_at ? (
           <span className="inline-flex items-center rounded-full border border-neg/40 bg-neg/[0.08] px-4 py-2 text-sm text-neg">

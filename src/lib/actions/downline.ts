@@ -70,6 +70,47 @@ export async function messageDownline(formData: FormData) {
   redirect(`/producer/messages/${recruitId}`);
 }
 
+/**
+ * Promote a contracted recruit to producer — flips on the producer portal.
+ *
+ * Allowed once the recruit has submitted their contracting info from the portal
+ * (licensing_submitted_at set). Sets is_producer on the person; the recruit
+ * portal then redirects them to /producer on their next load. Reserved to the
+ * recruit's own builder.
+ */
+export async function promoteToProducerForm(formData: FormData) {
+  const recruitId = String(formData.get("recruitId") ?? "");
+  const back = `/producer/recruiting/recruit/${recruitId}`;
+  const caller = await getCurrentPerson();
+  if (!caller) redirect("/auth/signin?next=/producer/recruiting");
+  if (!caller.is_builder) redirect("/producer");
+  if (!recruitId) redirect("/producer/recruiting");
+
+  const admin = createServiceRoleClient();
+  const { data: recruit } = await admin
+    .from("recruit")
+    .select("id, person_id, builder_id, licensing_submitted_at")
+    .eq("id", recruitId)
+    .maybeSingle();
+  if (!recruit) redirect(`${back}?error=${encodeURIComponent("Recruit not found.")}`);
+  if (recruit.builder_id !== caller.id) {
+    redirect(`${back}?error=${encodeURIComponent("Only their builder can promote them.")}`);
+  }
+  if (!recruit.licensing_submitted_at) {
+    redirect(`${back}?error=${encodeURIComponent("They need to submit their contracting info first.")}`);
+  }
+
+  const { error } = await admin
+    .from("person")
+    .update({ is_producer: true })
+    .eq("id", recruit.person_id);
+  if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath(back);
+  revalidatePath("/producer/recruiting");
+  redirect(`${back}?ok=promoted`);
+}
+
 /** Remove a producer from the team — marks the person (and any recruit row) removed. */
 export async function removeProducerForm(formData: FormData) {
   const personId = String(formData.get("personId") ?? "");
