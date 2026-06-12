@@ -87,18 +87,30 @@ function parseRoster(text: string): ParsedPerson[] {
   return out;
 }
 
+// The outcome of trying to add + invite one person. `ok:false` carries a
+// human-readable reason so the UI can say *why* it failed instead of a vague
+// catch-all. On `ok:true`, `emailed` says whether the invite email went out —
+// the account is created either way.
+type InviteOutcome =
+  | { ok: true; emailed: boolean; emailError?: string }
+  | { ok: false; reason: string };
+
 // Create one person under an upline with the role's flags and email them a
-// branded invite. Returns true if the invite was sent.
+// branded invite. The account is the goal; the email is best-effort — if it
+// can't be delivered we keep the account (they can sign in via "Forgot
+// password") rather than rolling everything back.
 async function invitePerson(
   admin: SupabaseClient,
   p: { name: string; email: string; uplineId: string | null; role: Role },
-): Promise<boolean> {
+): Promise<InviteOutcome> {
   const { data: existing } = await admin
     .from("person")
     .select("id")
     .ilike("email", p.email)
     .maybeSingle();
-  if (existing) return false;
+  if (existing) {
+    return { ok: false, reason: "Someone with that email is already in the system." };
+  }
 
   const flags = roleFlags(p.role);
   const { data: person, error: personErr } = await admin
@@ -112,7 +124,9 @@ async function invitePerson(
     })
     .select("id")
     .single();
-  if (personErr || !person) return false;
+  if (personErr || !person) {
+    return { ok: false, reason: personErr?.message ?? "Couldn't create the account." };
+  }
 
   if (p.role === "recruit") {
     await admin.from("recruit").insert({
@@ -122,22 +136,29 @@ async function invitePerson(
     });
   }
 
-  // Roll back the new rows if we can't actually deliver the invite, so a failure
-  // never leaves an un-invitable ghost account.
+  // Roll back the new rows only when we can't mint a sign-in link at all —
+  // that would leave a truly un-invitable ghost account.
   async function rollback() {
     await admin.from("recruit").delete().eq("person_id", person!.id);
     await admin.from("person").delete().eq("id", person!.id);
   }
 
-  const { data: link } = await admin.auth.admin.generateLink({
-    type: "invite",
-    email: p.email,
-    options: { redirectTo: `${getAppUrl()}/auth/callback?next=/welcome` },
-  });
-  const setupUrl = link?.properties?.action_link;
+  // Mint the setup link. type:"invite" creates the auth user; if a login already
+  // exists for this email (e.g. a half-finished earlier invite), that call comes
+  // back empty, so fall back to a recovery link — a leftover login should never
+  // block the add.
+  const redirectTo = `${getAppUrl()}/auth/callback?next=/welcome`;
+  let setupUrl = (
+    await admin.auth.admin.generateLink({ type: "invite", email: p.email, options: { redirectTo } })
+  ).data?.properties?.action_link;
+  if (!setupUrl) {
+    setupUrl = (
+      await admin.auth.admin.generateLink({ type: "recovery", email: p.email, options: { redirectTo } })
+    ).data?.properties?.action_link;
+  }
   if (!setupUrl) {
     await rollback();
-    return false;
+    return { ok: false, reason: "Couldn't generate a sign-in link for that email." };
   }
 
   const mail = welcomeEmail({ firstName: p.name.split(/\s+/)[0], setupUrl });
@@ -148,12 +169,18 @@ async function invitePerson(
     text: mail.text,
   });
   if (!sent.ok) {
-    const authUserId = link?.user?.id;
-    if (authUserId) await admin.auth.admin.deleteUser(authUserId).catch(() => {});
-    await rollback();
-    return false;
+    // Keep the account — the invite just didn't go out.
+    return { ok: true, emailed: false, emailError: sent.error };
   }
-  return true;
+  return { ok: true, emailed: true };
+}
+
+// "Added, but the invite email failed" message, shared by the single + bulk add.
+function emailFailedNote(detail: string): string {
+  return (
+    `couldn't send the invite email (${detail}). They can still sign in using ` +
+    `“Forgot password” on the login page, or you can re-invite them.`
+  );
 }
 
 function readRole(formData: FormData): Role {
@@ -175,14 +202,20 @@ export async function adminAddPerson(formData: FormData) {
   }
 
   const admin = createServiceRoleClient();
-  const ok = await invitePerson(admin, {
+  const res = await invitePerson(admin, {
     name: name || email.split("@")[0],
     email,
     uplineId,
     role,
   });
-  if (!ok) {
-    back(backPath, `error=${encodeURIComponent("Couldn't add — they may already exist, or the email failed.")}`);
+  if (!res.ok) {
+    back(backPath, `error=${encodeURIComponent(res.reason)}`);
+  }
+  if (!res.emailed) {
+    back(
+      backPath,
+      `ok=1&skipped=0&warn=${encodeURIComponent(`Added — but we ${emailFailedNote(res.emailError ?? "unknown error")}`)}`,
+    );
   }
   back(backPath, "ok=1&skipped=0");
 }
@@ -202,10 +235,19 @@ export async function adminBulkInvite(formData: FormData) {
   const admin = createServiceRoleClient();
   let invited = 0;
   let skipped = 0;
+  let noEmail = 0;
   for (const p of roster) {
-    const ok = await invitePerson(admin, { ...p, uplineId, role });
-    if (ok) invited++;
-    else skipped++;
+    const res = await invitePerson(admin, { ...p, uplineId, role });
+    if (!res.ok) {
+      skipped++;
+      continue;
+    }
+    invited++;
+    if (!res.emailed) noEmail++;
   }
-  back(backPath, `ok=${invited}&skipped=${skipped}`);
+  let query = `ok=${invited}&skipped=${skipped}`;
+  if (noEmail > 0) {
+    query += `&warn=${encodeURIComponent(`${noEmail} of them were added, but we ${emailFailedNote("delivery failed")}`)}`;
+  }
+  back(backPath, query);
 }

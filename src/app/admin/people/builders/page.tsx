@@ -9,7 +9,7 @@ type Builder = { id: string; full_name: string; email: string; upline_id: string
 export default async function AdminBuildersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; skipped?: string; error?: string }>;
+  searchParams: Promise<{ ok?: string; skipped?: string; warn?: string; error?: string }>;
 }) {
   await requireAdmin();
   const flash = await searchParams;
@@ -39,6 +39,11 @@ export default async function AdminBuildersPage({
           {flash.skipped !== undefined
             ? `Invited ${flash.ok}, skipped ${flash.skipped}.`
             : "Done."}
+        </p>
+      ) : null}
+      {flash.warn ? (
+        <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+          {flash.warn}
         </p>
       ) : null}
       {flash.error ? (

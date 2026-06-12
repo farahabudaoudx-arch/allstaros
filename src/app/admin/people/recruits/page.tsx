@@ -15,7 +15,7 @@ type RecruitRow = {
 export default async function AdminRecruitsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; skipped?: string; error?: string }>;
+  searchParams: Promise<{ ok?: string; skipped?: string; warn?: string; error?: string }>;
 }) {
   await requireAdmin();
   const flash = await searchParams;
@@ -71,6 +71,11 @@ export default async function AdminRecruitsListPage({
             : flash.ok === "deleted"
               ? "Person permanently deleted."
               : "Done."}
+        </p>
+      ) : null}
+      {flash.warn ? (
+        <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+          {flash.warn}
         </p>
       ) : null}
       {flash.error ? (
