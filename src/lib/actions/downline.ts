@@ -31,6 +31,45 @@ async function guardTarget(targetPersonId: string): Promise<Guard> {
   return { ok: true };
 }
 
+/**
+ * Open the message thread for a direct downline member — producer OR recruit.
+ *
+ * Conversations are stored against a recruit row (message.recruit_id). Recruits
+ * already have one; producers added straight to the team don't, so there's no
+ * thread to open. Here we reuse their recruit row if it exists, otherwise create
+ * a thread anchor (phase 'graduated', so it stays out of the active licensing
+ * pipeline), then drop the builder into the conversation.
+ */
+export async function messageDownline(formData: FormData) {
+  const personId = String(formData.get("personId") ?? "");
+  const back = `/producer/downline/${personId}`;
+  const guard = await guardTarget(personId);
+  if (!guard.ok) redirect(`${back}?error=${encodeURIComponent(guard.error)}`);
+
+  const admin = createServiceRoleClient();
+  const { data: existing } = await admin
+    .from("recruit")
+    .select("id")
+    .eq("person_id", personId)
+    .maybeSingle();
+
+  let recruitId = (existing as { id: string } | null)?.id;
+  if (!recruitId) {
+    const caller = await getCurrentPerson(); // guard already confirmed the direct upline
+    const { data: created, error } = await admin
+      .from("recruit")
+      .insert({ person_id: personId, builder_id: caller!.id, phase: "graduated" })
+      .select("id")
+      .single();
+    if (error || !created) {
+      redirect(`${back}?error=${encodeURIComponent(error?.message ?? "Couldn't open the conversation.")}`);
+    }
+    recruitId = created.id;
+  }
+
+  redirect(`/producer/messages/${recruitId}`);
+}
+
 /** Remove a producer from the team — marks the person (and any recruit row) removed. */
 export async function removeProducerForm(formData: FormData) {
   const personId = String(formData.get("personId") ?? "");

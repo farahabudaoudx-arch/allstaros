@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { removeProducerForm, upgradeToBuilderForm } from "@/lib/actions/downline";
+import { messageDownline, removeProducerForm, upgradeToBuilderForm } from "@/lib/actions/downline";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import type { Person, Recruit } from "@/lib/db/types";
 
@@ -123,13 +123,16 @@ export default async function DownlineProfilePage({
           View analytics
         </Link>
 
-        {isDirect && recruit ? (
-          <Link
-            href={`/producer/messages/${recruit.id}`}
-            className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
-          >
-            Message {firstName}
-          </Link>
+        {isDirect ? (
+          <form action={messageDownline}>
+            <input type="hidden" name="personId" value={person.id} />
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
+            >
+              Message {firstName}
+            </button>
+          </form>
         ) : null}
 
         {isDirect && person.is_producer && !person.is_builder ? (

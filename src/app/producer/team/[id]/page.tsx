@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AnalyticsView } from "@/components/producer/AnalyticsView";
-import type { Person, Recruit } from "@/lib/db/types";
+import { messageDownline } from "@/lib/actions/downline";
+import type { Person } from "@/lib/db/types";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -45,15 +46,9 @@ export default async function TeamMemberPage({
   if (!person) notFound();
 
   const isMe = person.id === me.id;
-  // Message is a direct-upline-only power and runs on the recruit's thread, so
-  // we need their recruit row (and them to be directly under you).
+  // Message is a direct-upline-only power. The thread itself is found/created by
+  // the messageDownline action, so producers without a recruit row work too.
   const isDirect = !isMe && person.upline_id === me.id;
-  const { data: recruitData } = await supabase
-    .from("recruit")
-    .select("id")
-    .eq("person_id", person.id)
-    .maybeSingle();
-  const recruit = recruitData as Pick<Recruit, "id"> | null;
   const firstName = person.full_name.trim().split(/\s+/)[0] || person.full_name;
   const role = person.is_builder ? "Builder" : "Producer";
 
@@ -89,18 +84,19 @@ export default async function TeamMemberPage({
         </span>
       </div>
 
-      {/* Message a direct recruit straight from their team profile. Promote /
-          remove still live on the Downline page. */}
-      {isDirect && recruit ? (
-        <div className="mt-6">
-          <Link
-            href={`/producer/messages/${recruit.id}`}
+      {/* Message a direct downline member (producer or recruit) straight from
+          their team profile. Promote / remove still live on the Downline page. */}
+      {isDirect ? (
+        <form action={messageDownline} className="mt-6">
+          <input type="hidden" name="personId" value={person.id} />
+          <button
+            type="submit"
             className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
           >
             Message {firstName}
-          </Link>
-        </div>
-      ) : !isMe && !isDirect ? (
+          </button>
+        </form>
+      ) : !isMe ? (
         <p className="mt-4 text-xs text-mute">
           {firstName} isn&apos;t directly under you — only their direct upline can message them.
         </p>
