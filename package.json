@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "check": "npm run typecheck && npm run lint",
     "seed:dev-users": "node --env-file=.env.local scripts/seed-dev-users.mjs",
     "set:passwords": "node --env-file=.env.local scripts/set-passwords.mjs",
@@ -41,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.6"
   }
 }

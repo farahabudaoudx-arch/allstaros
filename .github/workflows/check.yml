@@ -1,7 +1,8 @@
-# Static-analysis gate (PRE_LAUNCH_ROADMAP §1 #4): typecheck + lint on every
-# push and PR. Next 16's `next build` no longer runs ESLint, so this is where
-# lint is enforced as a visible CI signal. The build itself also runs eslint
-# (see package.json "build"), so a lint *error* additionally blocks deploys.
+# Static-analysis + test gate (PRE_LAUNCH_ROADMAP §1 #4, #7): typecheck + lint +
+# unit tests on every push and PR. Next 16's `next build` no longer runs ESLint,
+# so this is where lint is enforced as a visible CI signal. The build itself also
+# runs eslint (see package.json "build"), so a lint *error* additionally blocks
+# deploys. Tests cover the underwriting build/carrier logic and the AI cost math.
 name: check
 
 on:
@@ -20,3 +21,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run test
