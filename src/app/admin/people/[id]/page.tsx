@@ -6,10 +6,11 @@ import { adminReassignUpline } from "@/lib/actions/admin/team";
 import {
   adminSetFlag,
   adminSetPhase,
-  adminRemoveRecruit,
   adminRestoreRecruit,
   adminResetRecruitPortal,
 } from "@/lib/actions/admin/recruits";
+import { adminDeletePerson } from "@/lib/actions/admin/people";
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { PHASES } from "@/lib/db/types";
 
 type PersonRow = {
@@ -62,7 +63,7 @@ export default async function PersonProfilePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
-  await requireAdmin();
+  const me = await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
   const supabase = await createClient();
@@ -312,17 +313,19 @@ export default async function PersonProfilePage({
                   Restore
                 </button>
               </form>
-            ) : (
-              <form action={adminRemoveRecruit}>
-                <input type="hidden" name="recruitId" value={recruit.id} />
-                <button
-                  type="submit"
-                  className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-subtle transition hover:border-red-500/50 hover:text-red-400"
-                >
-                  Remove
-                </button>
+            ) : null}
+            {me.is_super_admin ? (
+              <form action={adminDeletePerson}>
+                <input type="hidden" name="personId" value={id} />
+                <ConfirmSubmit
+                  label="Delete permanently"
+                  title="Delete this person?"
+                  message={`This permanently erases ${person.full_name} (${person.email}) — their login, recruit record, and any sales or client data. This cannot be undone.`}
+                  confirmLabel="Yes, delete permanently"
+                  className="rounded-full border border-red-500/50 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
+                />
               </form>
-            )}
+            ) : null}
           </div>
         </section>
       ) : null}
