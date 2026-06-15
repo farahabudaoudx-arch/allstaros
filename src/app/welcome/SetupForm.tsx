@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { completeAccountSetup } from "@/lib/actions/account-setup";
 import { US_STATES } from "@/lib/us-states";
 import { Field, Input, Button } from "@/components/ui";
@@ -24,29 +25,36 @@ export function SetupForm() {
     }
     setStatus("saving");
     setError("");
-    try {
-      const result = await completeAccountSetup({
-        firstName,
-        lastName,
-        phone,
-        state,
-        password,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        setStatus("error");
+
+    // A dropped server-action request (the "TypeError: Load failed" people hit,
+    // then fix by refreshing and resubmitting) is the common failure here. The
+    // action is idempotent, so we retry once automatically before bothering the
+    // user — doing for them what they were already doing by hand.
+    const payload = { firstName, lastName, phone, state, password };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const result = await completeAccountSetup(payload);
+        if (!result.ok) {
+          // A returned error is a real, known problem (bad input, expired link)
+          // — surface it as-is; retrying won't help.
+          setError(result.error);
+          setStatus("error");
+          return;
+        }
+        // Full navigation so the server re-renders with the now-complete account.
+        window.location.href = result.next;
         return;
+      } catch (err) {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+        // Failed even after a retry — that's signal, not noise. Capture it so we
+        // can see the real cause, and tell the user it didn't go through.
+        Sentry.captureException(err);
+        setError("Something went wrong — check your connection and try again.");
+        setStatus("error");
       }
-      // Full navigation so the server re-renders with the now-complete account.
-      window.location.href = result.next;
-    } catch {
-      // A dropped connection mid-submit surfaces as "TypeError: Load failed" in
-      // Safari. Catch it so the spinner doesn't hang forever (and so it stops
-      // bubbling to window.onerror / Sentry) — let them simply try again.
-      setError(
-        "Something went wrong — check your connection and try again.",
-      );
-      setStatus("error");
     }
   }
 

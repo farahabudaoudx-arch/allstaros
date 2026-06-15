@@ -11,8 +11,7 @@ type Row = {
   is_builder: boolean;
   ap_cents: number;
   ip_cents: number;
-  sales: number;
-  policies: number;
+  policies_sold: number;
   deposits_cents: number;
   dials: number;
   contacts: number;
@@ -23,8 +22,7 @@ type Row = {
 type Totals = {
   ap_cents: number;
   ip_cents: number;
-  policies: number;
-  sales: number;
+  policies_sold: number;
   dials: number;
   contacts: number;
   appointments: number;
@@ -103,8 +101,7 @@ export function TeamView() {
     ok?.totals ?? {
       ap_cents: 0,
       ip_cents: 0,
-      policies: 0,
-      sales: 0,
+      policies_sold: 0,
       dials: 0,
       contacts: 0,
       appointments: 0,
@@ -117,7 +114,7 @@ export function TeamView() {
   const rows = [...(ok?.rows ?? [])].sort((a, b) =>
     isActivity
       ? b.dials - a.dials || b.contacts - a.contacts || a.full_name.localeCompare(b.full_name)
-      : b.ap_cents - a.ap_cents || b.policies - a.policies || a.full_name.localeCompare(b.full_name),
+      : b.ap_cents - a.ap_cents || b.policies_sold - a.policies_sold || a.full_name.localeCompare(b.full_name),
   );
 
   const kpis = isActivity
@@ -129,7 +126,7 @@ export function TeamView() {
       ]
     : [
         { label: "Team AP", value: money(totals.ap_cents) },
-        { label: "Policies", value: num(totals.policies) },
+        { label: "Policies Sold", value: num(totals.policies_sold) },
         { label: "Producers", value: num(ok?.producers ?? rows.length) },
       ];
 
@@ -214,7 +211,7 @@ export function TeamView() {
                     <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
                       {isActivity
                         ? `${num(row.contacts)} contacts · ${num(row.appointments)} appts · ${num(row.presentations)} pres`
-                        : `${num(row.policies)} policies · ${num(row.sales)} sales`}
+                        : `${num(row.policies_sold)} ${row.policies_sold === 1 ? "policy" : "policies"} sold`}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">

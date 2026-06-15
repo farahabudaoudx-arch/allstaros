@@ -44,6 +44,14 @@ function getFrom(): string {
   return from;
 }
 
+// Default reply-to for every email. The `from` address (notifications@…) is a
+// send-only identity, so without this, replies would bounce. Route them to a
+// real, monitored inbox instead. Override per-send with `replyTo`, or globally
+// via the RESEND_REPLY_TO env var.
+function getReplyTo(): string {
+  return process.env.RESEND_REPLY_TO || "nicholasverge@gmail.com";
+}
+
 export type EmailAttachment = {
   /** Filename shown to the recipient, e.g. "screenshot.png". */
   filename: string;
@@ -61,7 +69,8 @@ export type SendEmailParams = {
   html?: string;
   /** Plain-text body (good for deliverability and text-only clients). */
   text?: string;
-  /** Where replies should go. Defaults to the `from` address if omitted. */
+  /** Where replies should go. Defaults to the monitored reply-to inbox (see
+   * getReplyTo) when omitted — NOT the send-only `from` address. */
   replyTo?: string;
   /** Files to attach (e.g. a bug-report screenshot). */
   attachments?: EmailAttachment[];
@@ -97,7 +106,7 @@ export async function sendEmail(
       from: getFrom(),
       to,
       subject,
-      replyTo: replyTo ?? undefined,
+      replyTo: replyTo ?? getReplyTo(),
       attachments: attachments?.length
         ? attachments.map((a) => ({
             filename: a.filename,
