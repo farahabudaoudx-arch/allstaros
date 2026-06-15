@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { zonedParts, zonedIsoDay } from "@/lib/producer/time";
+import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 
 // Closed-loop producer metrics, sourced from the data producers actually enter:
 //
@@ -551,7 +552,9 @@ export async function computeLeaderboard(
     bump(d.person_id).deposits_cents += dollarsToCents(d.actual_amount);
   }
 
-  const ids = Array.from(byPerson.keys());
+  // Internal/test/owner rows never appear on any board — keep accounts alive,
+  // just exclude them from the ranked output. See leaderboardExclusions.ts.
+  const ids = Array.from(byPerson.keys()).filter((id) => !isLeaderboardExcluded(id));
   const nameById = new Map<string, string>();
   if (ids.length) {
     const peopleRes = await supabase.from("person").select("id, full_name").in("id", ids);

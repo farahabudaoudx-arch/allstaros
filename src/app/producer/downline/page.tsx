@@ -106,24 +106,31 @@ export default async function DownlinePage({
                       {pending ? p.email : p.full_name}
                     </div>
                     <div className="truncate text-xs text-mute">
-                      {direct ? (
-                        <span className="text-accent">Direct to you</span>
-                      ) : (
-                        <>Under {uplineName ?? "—"}</>
-                      )}
+                      {roleLabel(p)} · {direct ? "reports to you" : <>under {uplineName ?? "—"}</>}
                     </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                      direct
+                        ? "border-accent/40 bg-accent/[0.08] text-accent"
+                        : "border-hairline text-mute"
+                    }`}
+                    title={
+                      direct
+                        ? "A direct producer — reports straight to you"
+                        : `Indirect — in your downline, under ${uplineName ?? "another producer"}`
+                    }
+                  >
+                    {direct ? "Direct" : "Indirect"}
+                  </span>
+                  <span
+                    className={`hidden shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] sm:inline ${
                       pending
                         ? "border-warn/40 bg-warn/[0.08] text-warn"
                         : "border-pos/40 bg-pos/[0.08] text-pos"
                     }`}
                   >
                     {pending ? "Invite Sent" : "Active Profile"}
-                  </span>
-                  <span className="hidden shrink-0 rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-mute sm:inline">
-                    {roleLabel(p)}
                   </span>
                   <span className="shrink-0 text-mute" aria-hidden>→</span>
                 </Link>

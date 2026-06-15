@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
 import { computeLeaderboard, type RangeKey } from "@/lib/producer/metrics";
+import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 import { safeTz } from "@/lib/producer/time";
 
 // GET /api/producer/team?range=mtd&tz=America/Chicago
@@ -29,6 +30,8 @@ export async function GET(req: Request) {
       .eq("status", "active")
       .or("is_producer.eq.true,is_builder.eq.true");
     if (rosterErr) throw new Error(rosterErr.message);
+    // Drop internal/test/owner rows so the team board matches the leaderboards.
+    const visibleRoster = (roster ?? []).filter((p) => !isLeaderboardExcluded(p.id));
 
     // 2) Aggregates for the range (RLS clips to the same downline).
     const board = await computeLeaderboard(supabase, {
@@ -65,7 +68,7 @@ export async function GET(req: Request) {
 
     // 3) Left-join the roster onto the aggregates so zero-production producers
     //    still appear; sort by AP desc, then name.
-    const rows = (roster ?? [])
+    const rows = visibleRoster
       .map((p) => {
         const s = statsById.get(p.id);
         const act = activityById.get(p.id);
