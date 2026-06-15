@@ -145,9 +145,32 @@ export async function removeProducerForm(formData: FormData) {
 }
 
 /**
- * Edit a direct downline producer's profile — name, phone, and licensed state.
- * Name/phone live on the person row; state lives on the recruit row (created on
- * the fly for producers that don't have one yet). Direct-upline-only.
+ * Find the Supabase auth user id for an email. Pending invitees have an auth
+ * user (created by generateLink) but no person.auth_user_id yet — it's only
+ * linked when they first click their link — so we may have to look them up by
+ * email. Bounded to keep a server action snappy on a large user base.
+ */
+async function findAuthUserIdByEmail(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  email: string,
+): Promise<string | null> {
+  const target = email.trim().toLowerCase();
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) return null;
+    const match = data.users.find((u) => u.email?.toLowerCase() === target);
+    if (match) return match.id;
+    if (data.users.length < 200) return null;
+  }
+  return null;
+}
+
+/**
+ * Edit a direct downline producer's profile — name, email, phone, and licensed
+ * state. Name/phone/email live on the person row; state lives on the recruit row
+ * (created on the fly for producers that don't have one yet). Changing the email
+ * also updates their Supabase auth login, so a corrected address can be re-invited
+ * (the common "I typed the wrong email" fix). Direct-upline-only.
  */
 export async function updateProducerInfo(formData: FormData) {
   const personId = String(formData.get("personId") ?? "");
@@ -156,11 +179,15 @@ export async function updateProducerInfo(formData: FormData) {
   if (!guard.ok) redirect(`${back}?error=${encodeURIComponent(guard.error)}`);
 
   const fullName = String(formData.get("fullName") ?? "").replace(/\s+/g, " ").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
 
   if (!fullName) {
     redirect(`${back}?error=${encodeURIComponent("Please enter their name.")}`);
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    redirect(`${back}?error=${encodeURIComponent("Please enter a valid email address.")}`);
   }
   if (phone && (phone.match(/\d/g)?.length ?? 0) < 10) {
     redirect(`${back}?error=${encodeURIComponent("Please enter a valid phone number.")}`);
@@ -172,9 +199,40 @@ export async function updateProducerInfo(formData: FormData) {
   const caller = await getCurrentPerson(); // guard confirmed the direct upline
   const admin = createServiceRoleClient();
 
+  // If the email changed, keep the auth account in lockstep with the person row,
+  // otherwise a resend would target an address with no matching login.
+  const { data: current } = await admin
+    .from("person")
+    .select("email, auth_user_id")
+    .eq("id", personId)
+    .maybeSingle();
+  const emailChanged = !!current && (current.email ?? "").toLowerCase() !== email;
+  if (emailChanged) {
+    const { data: clash } = await admin
+      .from("person")
+      .select("id")
+      .ilike("email", email)
+      .neq("id", personId)
+      .maybeSingle();
+    if (clash) {
+      redirect(`${back}?error=${encodeURIComponent("Another account already uses that email.")}`);
+    }
+    const authUserId =
+      current!.auth_user_id ?? (await findAuthUserIdByEmail(admin, current!.email ?? ""));
+    if (authUserId) {
+      const { error: authErr } = await admin.auth.admin.updateUserById(authUserId, {
+        email,
+        email_confirm: true,
+      });
+      if (authErr) {
+        redirect(`${back}?error=${encodeURIComponent(`Couldn't update their login email: ${authErr.message}`)}`);
+      }
+    }
+  }
+
   const { error: personErr } = await admin
     .from("person")
-    .update({ full_name: fullName, phone: phone || null })
+    .update({ full_name: fullName, email, phone: phone || null })
     .eq("id", personId);
   if (personErr) redirect(`${back}?error=${encodeURIComponent(personErr.message)}`);
 

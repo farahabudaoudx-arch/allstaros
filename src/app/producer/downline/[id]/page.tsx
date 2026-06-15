@@ -233,6 +233,22 @@ export default async function DownlineProfilePage({
                 className="rounded-xl border border-hairline bg-card-hi px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
               />
             </label>
+            <label className="flex flex-col gap-1.5 sm:col-span-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">Email</span>
+              <input
+                name="email"
+                type="email"
+                required
+                defaultValue={person.email}
+                placeholder="name@example.com"
+                className="rounded-xl border border-hairline bg-card-hi px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
+              />
+              {pending ? (
+                <span className="text-[11px] text-mute">
+                  Wrong address? Fix it here, then use Resend invite to send a fresh link.
+                </span>
+              ) : null}
+            </label>
             <label className="flex flex-col gap-1.5">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">Phone</span>
               <input
