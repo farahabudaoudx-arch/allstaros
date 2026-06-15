@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { messageDownline, removeProducerForm, upgradeToBuilderForm } from "@/lib/actions/downline";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  messageDownline,
+  removeProducerForm,
+  resendProducerInvite,
+  updateProducerInfo,
+  upgradeToBuilderForm,
+} from "@/lib/actions/downline";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
+import { US_STATES } from "@/lib/us-states";
 import type { Person, Recruit } from "@/lib/db/types";
 
 function initials(name: string): string {
@@ -46,17 +53,20 @@ export default async function DownlineProfilePage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("person")
-    .select("id, full_name, email, phone, is_builder, is_producer, status, created_at, upline_id")
+    .select("id, full_name, email, phone, is_builder, is_producer, status, created_at, upline_id, auth_user_id")
     .eq("id", id)
     .maybeSingle();
   const person = data as Pick<
     Person,
-    "id" | "full_name" | "email" | "phone" | "is_builder" | "is_producer" | "status" | "created_at" | "upline_id"
+    "id" | "full_name" | "email" | "phone" | "is_builder" | "is_producer" | "status" | "created_at" | "upline_id" | "auth_user_id"
   > | null;
   if (!person) notFound();
 
-  // Their recruit row gives us state + the message thread to open.
-  const { data: recruitData } = await supabase
+  // Their recruit row gives us state + the message thread to open. Read it with
+  // the service role so state always resolves regardless of where in the tree
+  // they sit (the recruit-select RLS can be stricter than person-select).
+  const admin = createServiceRoleClient();
+  const { data: recruitData } = await admin
     .from("recruit")
     .select("id, state")
     .eq("person_id", person.id)
@@ -64,6 +74,8 @@ export default async function DownlineProfilePage({
   const recruit = recruitData as Pick<Recruit, "id" | "state"> | null;
 
   const isMe = person.id === me.id;
+  // No linked auth user => they've never accepted their invite yet.
+  const pending = !person.auth_user_id;
   // Message / promote / remove are direct-upline-only powers. An indirect
   // upline can still open this profile and view analytics.
   const isDirect = !isMe && person.upline_id === me.id;
@@ -87,6 +99,16 @@ export default async function DownlineProfilePage({
           Upgraded to builder.
         </div>
       ) : null}
+      {flash.ok === "saved" ? (
+        <div className="mt-4 rounded-xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
+          Changes saved.
+        </div>
+      ) : null}
+      {flash.ok === "resent" ? (
+        <div className="mt-4 rounded-xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
+          Invite resent.
+        </div>
+      ) : null}
 
       {/* Profile header */}
       <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-hairline bg-card p-5 md:p-6">
@@ -99,9 +121,20 @@ export default async function DownlineProfilePage({
           </h1>
           <p className="mt-1 truncate text-sm text-subtle">{person.email}</p>
         </div>
-        <span className="shrink-0 rounded-full border border-hairline px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
-          {role}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="rounded-full border border-hairline px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+            {role}
+          </span>
+          <span
+            className={`rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] ${
+              pending
+                ? "border-warn/40 bg-warn/[0.08] text-warn"
+                : "border-pos/40 bg-pos/[0.08] text-pos"
+            }`}
+          >
+            {pending ? "Invite Sent" : "Active Profile"}
+          </span>
+        </div>
       </div>
 
       {/* Their information */}
@@ -147,6 +180,18 @@ export default async function DownlineProfilePage({
           </form>
         ) : null}
 
+        {isDirect && pending ? (
+          <form action={resendProducerInvite}>
+            <input type="hidden" name="personId" value={person.id} />
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-full border border-hairline px-4 py-2 text-sm font-medium text-ink transition hover:border-mute"
+            >
+              Resend invite
+            </button>
+          </form>
+        ) : null}
+
         {isDirect ? (
           <form action={removeProducerForm}>
             <input type="hidden" name="personId" value={person.id} />
@@ -166,6 +211,63 @@ export default async function DownlineProfilePage({
           {firstName} isn&apos;t directly under you — only their direct upline can message, promote,
           or remove them.
         </p>
+      ) : null}
+
+      {isDirect ? (
+        <details className="mt-6 rounded-2xl border border-hairline bg-card p-5 md:p-6">
+          <summary className="cursor-pointer list-none text-sm font-medium text-ink">
+            <span className="inline-flex items-center gap-2">
+              <span className="text-mute" aria-hidden>✎</span> Edit {firstName}&rsquo;s info
+            </span>
+          </summary>
+          <form action={updateProducerInfo} className="mt-5 grid gap-4 sm:grid-cols-2">
+            <input type="hidden" name="personId" value={person.id} />
+            <label className="flex flex-col gap-1.5 sm:col-span-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">Full name</span>
+              <input
+                name="fullName"
+                type="text"
+                required
+                defaultValue={pending ? "" : person.full_name}
+                placeholder="First Last"
+                className="rounded-xl border border-hairline bg-card-hi px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">Phone</span>
+              <input
+                name="phone"
+                type="tel"
+                defaultValue={person.phone ?? ""}
+                placeholder="(555) 555-5555"
+                className="rounded-xl border border-hairline bg-card-hi px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">State</span>
+              <select
+                name="state"
+                defaultValue={recruit?.state ?? ""}
+                className="rounded-xl border border-hairline bg-card-hi px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
+              >
+                <option value="">—</option>
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
+              >
+                Save changes
+              </button>
+            </div>
+          </form>
+        </details>
       ) : null}
     </main>
   );

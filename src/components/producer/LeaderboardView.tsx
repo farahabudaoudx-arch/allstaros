@@ -21,7 +21,7 @@ const METRICS: Array<{
   hideSmall?: boolean;
 }> = [
   { key: "ap_cents", label: "Annual Premium", short: "AP", money: true },
-  { key: "sales", label: "Sales", short: "Sales" },
+  { key: "sales", label: "Policies Sold", short: "Policies" },
   { key: "dials", label: "Dials", short: "Dials", hideSmall: true },
   { key: "contacts", label: "Contacts", short: "Contacts", hideSmall: true },
   { key: "presentations", label: "Presentations", short: "Pres", hideSmall: true },

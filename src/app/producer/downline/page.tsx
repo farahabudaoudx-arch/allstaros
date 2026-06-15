@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Person } from "@/lib/db/types";
+import { InviteProducer } from "./InviteProducer";
 
 export const dynamic = "force-dynamic";
 
 type Row = Pick<
   Person,
-  "id" | "full_name" | "email" | "is_builder" | "is_producer" | "upline_id"
+  "id" | "full_name" | "email" | "is_builder" | "is_producer" | "upline_id" | "auth_user_id"
 >;
 
 function initials(name: string): string {
@@ -41,7 +42,7 @@ export default async function DownlinePage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("person")
-    .select("id, full_name, email, is_builder, is_producer, upline_id")
+    .select("id, full_name, email, is_builder, is_producer, upline_id, auth_user_id")
     .eq("status", "active")
     .or("is_producer.eq.true,is_builder.eq.true")
     .order("full_name", { ascending: true });
@@ -72,6 +73,8 @@ export default async function DownlinePage({
         {people.length} total · {directCount} direct.
       </p>
 
+      <InviteProducer />
+
       {flash.ok === "removed" ? (
         <div className="mt-4 rounded-xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
           Removed.
@@ -87,6 +90,8 @@ export default async function DownlinePage({
           {people.map((p) => {
             const direct = p.upline_id === me.id;
             const uplineName = p.upline_id ? nameById.get(p.upline_id) : null;
+            // No linked auth user => they've never accepted their invite yet.
+            const pending = !p.auth_user_id;
             return (
               <li key={p.id}>
                 <Link
@@ -97,7 +102,9 @@ export default async function DownlinePage({
                     {initials(p.full_name)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-ink">{p.full_name}</div>
+                    <div className="truncate font-medium text-ink">
+                      {pending ? p.email : p.full_name}
+                    </div>
                     <div className="truncate text-xs text-mute">
                       {direct ? (
                         <span className="text-accent">Direct to you</span>
@@ -106,7 +113,16 @@ export default async function DownlinePage({
                       )}
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                      pending
+                        ? "border-warn/40 bg-warn/[0.08] text-warn"
+                        : "border-pos/40 bg-pos/[0.08] text-pos"
+                    }`}
+                  >
+                    {pending ? "Invite Sent" : "Active Profile"}
+                  </span>
+                  <span className="hidden shrink-0 rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-mute sm:inline">
                     {roleLabel(p)}
                   </span>
                   <span className="shrink-0 text-mute" aria-hidden>→</span>

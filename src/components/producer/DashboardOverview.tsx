@@ -20,7 +20,7 @@ const METRICS: Array<{
   { key: "contacts", label: "Contacts", base: "dials" },
   { key: "appointments", label: "Appointments", base: "contacts" },
   { key: "presentations", label: "Presentations", base: "appointments" },
-  { key: "sales", label: "Sales", base: "presentations" },
+  { key: "sales", label: "Policies Sold", base: "presentations" },
   { key: "ap_cents", label: "AP", money: true },
 ];
 

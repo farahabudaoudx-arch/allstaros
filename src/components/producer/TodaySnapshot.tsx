@@ -33,7 +33,7 @@ const FIELDS: Array<{ key: keyof Row; label: string; money?: boolean }> = [
   { key: "dials", label: "Dials" },
   { key: "contacts", label: "Contacts" },
   { key: "presentations", label: "Presentations" },
-  { key: "sales", label: "Policies" },
+  { key: "sales", label: "Policies Sold" },
   { key: "ap_cents", label: "AP", money: true },
 ];
 

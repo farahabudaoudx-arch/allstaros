@@ -40,19 +40,22 @@ export async function GET(req: Request) {
     });
     const statsById = new Map(board.rows.map((r) => [r.person_id, r]));
 
-    // 2b) Activity aggregates (dials/contacts/appointments/presentations) come
-    //     from tracker_entry, which the leaderboard doesn't surface. Same range
-    //     and RLS scope as the production aggregates above.
-    type Activity = { dials: number; contacts: number; appointments: number; presentations: number };
+    // 2b) Activity aggregates come from tracker_entry, which the leaderboard
+    //     doesn't surface. This is ALSO the source of truth for "Policies Sold":
+    //     tracker_entry.sales is kept in sync from the Clients book by the
+    //     clients_sync_tracker DB trigger, so it's the exact number a producer
+    //     sees on their Daily Tracker. Same range and RLS scope as above.
+    type Activity = { sales: number; dials: number; contacts: number; appointments: number; presentations: number };
     const { data: trackerRows, error: trackerErr } = await supabase
       .from("tracker_entry")
-      .select("person_id, dials, contacts, appointments, presentations")
+      .select("person_id, sales, dials, contacts, appointments, presentations")
       .gte("entry_date", board.range.from)
       .lte("entry_date", board.range.to);
     if (trackerErr) throw new Error(trackerErr.message);
     const activityById = new Map<string, Activity>();
     for (const t of (trackerRows ?? []) as Array<{ person_id: string } & Partial<Activity>>) {
-      const a = activityById.get(t.person_id) ?? { dials: 0, contacts: 0, appointments: 0, presentations: 0 };
+      const a = activityById.get(t.person_id) ?? { sales: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0 };
+      a.sales += Number(t.sales ?? 0);
       a.dials += Number(t.dials ?? 0);
       a.contacts += Number(t.contacts ?? 0);
       a.appointments += Number(t.appointments ?? 0);
@@ -72,8 +75,10 @@ export async function GET(req: Request) {
           is_builder: !!p.is_builder,
           ap_cents: s?.ap_cents ?? 0,
           ip_cents: s?.ip_cents ?? 0,
-          sales: s?.sales ?? 0,
-          policies: s?.policies ?? 0,
+          // "Policies Sold" — the single production count we report on the team
+          // board. Sourced from tracker_entry.sales (Clients-synced) so it matches
+          // each producer's own Daily Tracker exactly.
+          policies_sold: act?.sales ?? 0,
           deposits_cents: s?.deposits_cents ?? 0,
           dials: act?.dials ?? 0,
           contacts: act?.contacts ?? 0,
@@ -84,7 +89,7 @@ export async function GET(req: Request) {
       .sort(
         (a, b) =>
           b.ap_cents - a.ap_cents ||
-          b.policies - a.policies ||
+          b.policies_sold - a.policies_sold ||
           a.full_name.localeCompare(b.full_name),
       );
 
@@ -92,14 +97,13 @@ export async function GET(req: Request) {
       (acc, r) => ({
         ap_cents: acc.ap_cents + r.ap_cents,
         ip_cents: acc.ip_cents + r.ip_cents,
-        policies: acc.policies + r.policies,
-        sales: acc.sales + r.sales,
+        policies_sold: acc.policies_sold + r.policies_sold,
         dials: acc.dials + r.dials,
         contacts: acc.contacts + r.contacts,
         appointments: acc.appointments + r.appointments,
         presentations: acc.presentations + r.presentations,
       }),
-      { ap_cents: 0, ip_cents: 0, policies: 0, sales: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0 },
+      { ap_cents: 0, ip_cents: 0, policies_sold: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0 },
     );
 
     return NextResponse.json({

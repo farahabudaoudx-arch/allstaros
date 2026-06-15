@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { notifyProducerPromotion } from "@/lib/notifications";
 
 type RoleFlags = { is_producer?: boolean; is_builder?: boolean };
 
@@ -58,6 +59,8 @@ export async function promoteToProducerForm(formData: FormData) {
   if (!result.ok) {
     redirect(`${back}?error=${encodeURIComponent(result.error)}`);
   }
+  // Congrats → the new producer; heads-up → their builder. Best-effort.
+  await notifyProducerPromotion(personId);
   revalidatePath(back);
   revalidatePath("/dashboard");
   redirect(`${back}?ok=promoted`);

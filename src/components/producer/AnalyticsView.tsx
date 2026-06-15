@@ -355,7 +355,7 @@ export function AnalyticsView({
                       { label: "Contacts", value: fmtInt(m.contacts), conversion: `${pct(m.contacts, m.dials).toFixed(1)}% of dials` },
                       { label: "Appointments", value: fmtInt(m.appointments), conversion: `${pct(m.appointments, m.dials).toFixed(1)}% of dials` },
                       { label: "Presentations", value: fmtInt(m.presentations), conversion: `${pct(m.presentations, m.dials).toFixed(1)}% of dials` },
-                      { label: "Sales", value: fmtInt(m.sales), conversion: `${pct(m.sales, m.presentations).toFixed(1)}% close` },
+                      { label: "Policies Sold", value: fmtInt(m.sales), conversion: `${pct(m.sales, m.presentations).toFixed(1)}% close` },
                       { label: "Total AP", value: fmtMoney(m.ap), conversion: `${fmtMoneyExact(avgAPPerSale)} avg` },
                     ]}
                   />
@@ -379,7 +379,7 @@ export function AnalyticsView({
           ),
 
           activity: (
-            <Section title="Activity Needed" subtitle="Per 1 sale">
+            <Section title="Activity Needed" subtitle="Per policy sold">
               <ActivityCard
                 rows={[
                   { label: "Dials", value: dialsPerSale, unit: "dials" },
@@ -458,7 +458,7 @@ export function AnalyticsView({
                       acc[r.state] = {
                         value: r.ap,
                         display: fmtMoney(r.ap),
-                        sub: `${r.sales} sales`,
+                        sub: `${r.sales} ${r.sales === 1 ? "policy" : "policies"}`,
                       };
                       return acc;
                     }, {})}
@@ -482,7 +482,7 @@ export function AnalyticsView({
                               <div className="flex items-baseline gap-3">
                                 <span className="display text-lg text-white tnum">{b.band}</span>
                                 <span className="text-xs tnum" style={{ color: "var(--ink-3)" }}>
-                                  {b.sales} sales
+                                  {b.sales} {b.sales === 1 ? "policy" : "policies"}
                                 </span>
                               </div>
                               <span className="display text-xl text-white tnum">{fmtMoney(b.ap)}</span>
@@ -516,7 +516,7 @@ export function AnalyticsView({
                       <thead>
                         <tr>
                           <th>Carrier</th>
-                          <th>Sales</th>
+                          <th>Policies Sold</th>
                           <th>AP</th>
                           <th>Avg Prem</th>
                           <th>Avg Face</th>
@@ -673,7 +673,7 @@ function ActivityCard({ rows }: { rows: Array<{ label: string; value: number; un
                   >
                     <span className="text-sm font-bold" style={{ color: "var(--lime-deep)" }}>1</span>
                   </div>
-                  <span className="text-xs" style={{ color: "var(--ink-3)" }}>sale</span>
+                  <span className="text-xs" style={{ color: "var(--ink-3)" }}>policy</span>
                 </div>
               </div>
             </div>
@@ -1324,7 +1324,6 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [contacts, setContacts] = useState(0);
   const [appointments, setAppointments] = useState(0);
   const [presentations, setPresentations] = useState(0);
-  const [sales, setSales] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1346,7 +1345,6 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         setContacts(j.entry.contacts ?? 0);
         setAppointments(j.entry.appointments ?? 0);
         setPresentations(j.entry.presentations ?? 0);
-        setSales(j.entry.sales ?? 0);
       })
       .catch(() => { /* leave fields at zero */ });
     return () => { aborted = true; };
@@ -1359,7 +1357,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       const res = await fetch("/api/producer/tracker", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ date, dials, leads, contacts, appointments, presentations, sales }),
+        body: JSON.stringify({ date, dials, leads, contacts, appointments, presentations }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error ?? "Save failed");
@@ -1408,8 +1406,10 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
             <AddDataField label="Contacts" value={contacts} onChange={setContacts} />
             <AddDataField label="Appointments" value={appointments} onChange={setAppointments} />
             <AddDataField label="Presentations" value={presentations} onChange={setPresentations} />
-            <AddDataField label="Sales" value={sales} onChange={setSales} />
           </div>
+          <p className="text-[10px] mt-1" style={{ color: "var(--ink-3)" }}>
+            Policies sold are logged automatically from your Clients book.
+          </p>
         </div>
 
         {error && (
