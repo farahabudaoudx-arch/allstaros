@@ -4,7 +4,7 @@ import { useState } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { completeAccountSetup } from "@/lib/actions/account-setup";
 import { US_STATES } from "@/lib/us-states";
-import { Field, Input, Button } from "@/components/ui";
+import { Field, Input, Button, Spinner } from "@/components/ui";
 
 export function SetupForm() {
   const [firstName, setFirstName] = useState("");
@@ -140,7 +140,14 @@ export function SetupForm() {
         disabled={status === "saving"}
         className="w-full py-2.5"
       >
-        {status === "saving" ? "Setting up…" : "Finish setup"}
+        {status === "saving" ? (
+          <>
+            <Spinner />
+            Setting up…
+          </>
+        ) : (
+          "Finish setup"
+        )}
       </Button>
 
       {status === "error" ? <p className="text-sm text-neg">{error}</p> : null}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { inviteProducerByEmail } from "@/lib/actions/recruits";
-import { Input, Button } from "@/components/ui";
+import { Input, Button, Spinner } from "@/components/ui";
 
 /**
  * Builder-facing "invite a producer" form on My Downline. The builder enters an
@@ -64,7 +64,14 @@ export function InviteProducer() {
           disabled={status === "sending"}
           className="shrink-0 px-5 py-2.5"
         >
-          {status === "sending" ? "Sending…" : "Send invite"}
+          {status === "sending" ? (
+            <>
+              <Spinner />
+              Sending…
+            </>
+          ) : (
+            "Send invite"
+          )}
         </Button>
       </form>
 

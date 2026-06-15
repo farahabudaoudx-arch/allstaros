@@ -1,11 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { Spinner } from "@/components/ui";
 
 /**
  * A destructive submit button that pops a confirmation dialog before actually
  * submitting its parent <form> (a server action). Drop it in place of a plain
- * <button type="submit"> inside a server-action form.
+ * <button type="submit"> inside a server-action form. Once confirmed, the
+ * trigger shows a spinner while the action runs.
  */
 export function ConfirmSubmit({
   label,
@@ -13,6 +16,7 @@ export function ConfirmSubmit({
   message,
   confirmLabel = "Yes, remove them",
   cancelLabel = "Cancel",
+  pendingLabel = "Removing…",
   className = "",
 }: {
   label: string;
@@ -20,10 +24,12 @@ export function ConfirmSubmit({
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  pendingLabel?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const { pending } = useFormStatus();
 
   function confirm() {
     setOpen(false);
@@ -36,9 +42,18 @@ export function ConfirmSubmit({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
+        disabled={pending}
+        aria-busy={pending}
         className={className}
       >
-        {label}
+        {pending ? (
+          <span className="inline-flex items-center gap-2">
+            <Spinner />
+            {pendingLabel}
+          </span>
+        ) : (
+          label
+        )}
       </button>
 
       {open && (

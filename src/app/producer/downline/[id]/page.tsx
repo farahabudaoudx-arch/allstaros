@@ -10,6 +10,7 @@ import {
   upgradeToBuilderForm,
 } from "@/lib/actions/downline";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
+import { SubmitButton } from "@/components/SubmitButton";
 import { US_STATES } from "@/lib/us-states";
 import type { Person, Recruit } from "@/lib/db/types";
 
@@ -159,36 +160,36 @@ export default async function DownlineProfilePage({
         {isDirect ? (
           <form action={messageDownline}>
             <input type="hidden" name="personId" value={person.id} />
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
+            <SubmitButton
+              pendingLabel="Opening…"
+              className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 disabled:opacity-60"
             >
               Message {firstName}
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
 
         {isDirect && person.is_producer && !person.is_builder ? (
           <form action={upgradeToBuilderForm}>
             <input type="hidden" name="personId" value={person.id} />
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-full border border-accent/50 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/[0.08]"
+            <SubmitButton
+              pendingLabel="Promoting…"
+              className="inline-flex items-center rounded-full border border-accent/50 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/[0.08] disabled:opacity-60"
             >
               Promote to Builder
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
 
         {isDirect && pending ? (
           <form action={resendProducerInvite}>
             <input type="hidden" name="personId" value={person.id} />
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-full border border-hairline px-4 py-2 text-sm font-medium text-ink transition hover:border-mute"
+            <SubmitButton
+              pendingLabel="Sending…"
+              className="inline-flex items-center rounded-full border border-hairline px-4 py-2 text-sm font-medium text-ink transition hover:border-mute disabled:opacity-60"
             >
               Resend invite
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
 
@@ -275,12 +276,12 @@ export default async function DownlineProfilePage({
               </select>
             </label>
             <div className="sm:col-span-2">
-              <button
-                type="submit"
-                className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
+              <SubmitButton
+                pendingLabel="Saving…"
+                className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 disabled:opacity-60"
               >
                 Save changes
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </details>

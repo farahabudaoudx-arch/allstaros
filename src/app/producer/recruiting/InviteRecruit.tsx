@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { inviteRecruitByEmail } from "@/lib/actions/recruits";
-import { Input, Button } from "@/components/ui";
+import { Input, Button, Spinner } from "@/components/ui";
 
 /**
  * Builder-facing "invite a recruit" form. The builder enters only an email; the
@@ -59,7 +59,14 @@ export function InviteRecruit() {
           disabled={status === "sending"}
           className="shrink-0 px-5 py-2.5"
         >
-          {status === "sending" ? "Sending…" : "Send invite"}
+          {status === "sending" ? (
+            <>
+              <Spinner />
+              Sending…
+            </>
+          ) : (
+            "Send invite"
+          )}
         </Button>
       </form>
 
