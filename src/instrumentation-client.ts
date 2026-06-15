@@ -15,6 +15,18 @@ if (dsn) {
     // Insurance app: no Session Replay. It would record the screen, which can
     // show client SSN / banking / card data. Deliberately omitted.
     sendDefaultPii: false,
+    // Drop benign browser/network noise — none of it is actionable on our end.
+    // These fire from aborted requests (a page navigating away while a fetch is
+    // still in flight — e.g. the post-signup redirect on /welcome surfaces as
+    // "Load failed" in WebKit), flaky connections, ad blockers, and adware/
+    // security extensions that intercept traffic (e.g. "safebrowse.io"). They
+    // reflect the visitor's device/network, not a bug in our code.
+    ignoreErrors: [
+      "Load failed", // WebKit/Safari: fetch aborted or failed
+      "Failed to fetch", // Chromium: same
+      "NetworkError when attempting to fetch resource", // Firefox: same
+      "AbortError",
+    ],
   });
 }
 

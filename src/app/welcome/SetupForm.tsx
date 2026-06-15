@@ -24,20 +24,30 @@ export function SetupForm() {
     }
     setStatus("saving");
     setError("");
-    const result = await completeAccountSetup({
-      firstName,
-      lastName,
-      phone,
-      state,
-      password,
-    });
-    if (!result.ok) {
-      setError(result.error);
+    try {
+      const result = await completeAccountSetup({
+        firstName,
+        lastName,
+        phone,
+        state,
+        password,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        setStatus("error");
+        return;
+      }
+      // Full navigation so the server re-renders with the now-complete account.
+      window.location.href = result.next;
+    } catch {
+      // A dropped connection mid-submit surfaces as "TypeError: Load failed" in
+      // Safari. Catch it so the spinner doesn't hang forever (and so it stops
+      // bubbling to window.onerror / Sentry) — let them simply try again.
+      setError(
+        "Something went wrong — check your connection and try again.",
+      );
       setStatus("error");
-      return;
     }
-    // Full navigation so the server re-renders with the now-complete account.
-    window.location.href = result.next;
   }
 
   return (
