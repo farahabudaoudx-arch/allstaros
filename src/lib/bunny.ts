@@ -33,6 +33,11 @@ export type BunnyVideo = {
    * the filename — that's the content's publish date). Used to find the most
    * recently added videos. */
   dateUploaded: string;
+  /** Source pixel dimensions Bunny reports for the video (0 if unknown). Used
+   * to size the embed to the video's true aspect ratio so the player never has
+   * to letterbox an off-16:9 clip (which shows as thin bars in the frame). */
+  width: number;
+  height: number;
 };
 
 type BunnyListResponse = {
@@ -45,6 +50,8 @@ type BunnyListResponse = {
     length?: number;
     status?: number;
     dateUploaded?: string;
+    width?: number;
+    height?: number;
   }>;
 };
 
@@ -176,6 +183,8 @@ export async function listBunnyVideos(
         embedUrl: `${BUNNY_EMBED_BASE}/${cfg.libraryId}/${item.guid}`,
         thumbnailUrl: null,
         dateUploaded: item.dateUploaded ?? "",
+        width: item.width ?? 0,
+        height: item.height ?? 0,
       });
     }
 
@@ -196,16 +205,24 @@ export async function listBunnyVideos(
   return out;
 }
 
-/** Embed URLs for the 5 licensing-flow videos, keyed by step. Pulled from the
- *  "tutorials" Bunny library, mapped by the leading number in each title
- *  ("1. Intro", "2. Scheduling Exam", "3. Xcel", "4. License", "5. Contracting").
- *  Any video that's missing comes back null so the step can hide its player. */
+/** One licensing-flow video: its embed URL plus the source aspect ratio, so the
+ *  player can be sized to the clip and never letterbox. Both null when missing. */
+export type LicensingVideo = {
+  url: string | null;
+  /** width / height, or null when Bunny hasn't reported dimensions. */
+  ratio: number | null;
+};
+
+/** The 5 licensing-flow videos, keyed by step. Pulled from the "tutorials"
+ *  Bunny library, mapped by the leading number in each title ("1. Intro",
+ *  "2. Scheduling Exam", "3. Xcel", "4. License", "5. Contracting").
+ *  Any video that's missing comes back as { url: null } so the step hides it. */
 export type LicensingVideos = {
-  intro: string | null;
-  schedule: string | null;
-  study: string | null;
-  exam: string | null;
-  contracting: string | null;
+  intro: LicensingVideo;
+  schedule: LicensingVideo;
+  study: LicensingVideo;
+  exam: LicensingVideo;
+  contracting: LicensingVideo;
 };
 
 export async function getLicensingVideos(): Promise<LicensingVideos> {
@@ -215,9 +232,12 @@ export async function getLicensingVideos(): Promise<LicensingVideos> {
   } catch {
     vids = [];
   }
-  const byNum = (n: number): string | null => {
+  const byNum = (n: number): LicensingVideo => {
     const v = vids.find((x) => x.title.trim().match(new RegExp(`^${n}\\s*[.)-]`)));
-    return v?.embedUrl ?? null;
+    return {
+      url: v?.embedUrl ?? null,
+      ratio: v && v.width && v.height ? v.width / v.height : null,
+    };
   };
   return {
     intro: byNum(1),

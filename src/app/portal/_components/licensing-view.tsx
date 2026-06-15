@@ -7,7 +7,7 @@ import {
   markGuideReadForm,
 } from "@/lib/actions/portal";
 import type { LicensingStep, Recruit } from "@/lib/db/types";
-import type { LicensingVideos } from "@/lib/bunny";
+import type { LicensingVideo, LicensingVideos } from "@/lib/bunny";
 import { Input, buttonClass } from "@/components/ui";
 import { examSiteForState } from "@/lib/exam-sites";
 import { US_STATES } from "@/lib/us-states";
@@ -23,18 +23,25 @@ import { CopyButton } from "./copy-button";
 // External links. Videos now come from the Bunny "tutorials" library (passed
 // in via the `videos` prop), not hardcoded placeholders.
 const XCEL_LOGIN_URL = "https://www.xcelsolutions.com/";
+const XCEL_REQUIREMENTS_URL =
+  "https://www.xcelsolutions.com/insurance-license/requirements";
 const XCEL_CODE = "FFLALLSTAR-NGBNCR";
 const SIRCON_URL = "https://www.sircon.com";
 
 // Renders a step's video player, or nothing if that video isn't in Bunny yet.
 // autoplay=false so videos never fire on load; border:0 + no container border
-// so the Bunny player has no white edge lines.
-function StepVideo({ url, title }: { url: string | null; title: string }) {
-  if (!url) return null;
+// so the Bunny player has no white edge lines. The frame is sized to the clip's
+// own aspect ratio (falling back to 16:9) so the player never letterboxes an
+// off-16:9 video — letterbox bars were showing as thin white lines in the frame.
+function StepVideo({ video, title }: { video: LicensingVideo; title: string }) {
+  if (!video.url) return null;
   return (
-    <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-xl bg-black">
+    <div
+      className="w-full max-w-2xl overflow-hidden rounded-xl bg-black"
+      style={{ aspectRatio: video.ratio ?? 16 / 9 }}
+    >
       <iframe
-        src={`${url}?autoplay=false&preload=true`}
+        src={`${video.url}?autoplay=false&preload=true`}
         title={title}
         loading="lazy"
         allow="accelerometer; gyroscope; encrypted-media; picture-in-picture; fullscreen"
@@ -149,7 +156,7 @@ export default function LicensingView({
           status={stepGuide}
         >
           <div className="space-y-4">
-            <StepVideo url={videos.intro} title="Watch this before you do anything" />
+            <StepVideo video={videos.intro} title="Watch this before you do anything" />
             {stepGuide === "active" ? (
               <form action={markGuideReadForm}>
                 <input type="hidden" name="recruitId" value={recruit.id} />
@@ -168,7 +175,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "02"}
         >
           <div className="space-y-4">
-            <StepVideo url={videos.schedule} title="How to schedule your state exam" />
+            <StepVideo video={videos.schedule} title="How to schedule your state exam" />
 
             {examSite ? (
               <div className="space-y-3">
@@ -266,7 +273,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "03"}
         >
           <div className="space-y-4">
-            <StepVideo url={videos.study} title="How to get your study login" />
+            <StepVideo video={videos.study} title="How to get your study login" />
 
             <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
               <div className="min-w-0">
@@ -306,7 +313,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "04"}
         >
           <div className="space-y-4">
-            <StepVideo url={videos.exam} title="Passing your state exam + getting your license" />
+            <StepVideo video={videos.exam} title="Passing your state exam + getting your license" />
             {step04 === "active" ? (
               <>
                 <a
@@ -317,10 +324,18 @@ export default function LicensingView({
                 >
                   Apply for your license on Sircon →
                 </a>
+                <a
+                  href={XCEL_REQUIREMENTS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClass("secondary")}
+                >
+                  View license requirements →
+                </a>
                 <form action={markExamPassedForm}>
                   <input type="hidden" name="recruitId" value={recruit.id} />
                   <SubmitButton variant="primary" pendingLabel="Saving…">
-                    I passed my exam
+                    Passed + Got My License
                   </SubmitButton>
                 </form>
               </>
@@ -335,7 +350,7 @@ export default function LicensingView({
           animateUnlock={animateStep === "05"}
         >
           <div className="space-y-4">
-            <StepVideo url={videos.contracting} title="How to get contracted" />
+            <StepVideo video={videos.contracting} title="How to get contracted" />
             {step05 === "active" ? (
               <>
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
