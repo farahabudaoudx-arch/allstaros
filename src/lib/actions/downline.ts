@@ -255,8 +255,12 @@ export async function updateProducerInfo(formData: FormData) {
 
 /**
  * Resend a producer's setup invite. The auth user already exists (it was created
- * with the first invite), so we mint a fresh magic-link token and route it
- * through our /auth/confirm interstitial to /welcome. Direct-upline-only.
+ * with the first invite), so an invite-type link comes back empty for them — we
+ * fall back to a recovery link, which signs an existing, not-yet-confirmed user
+ * in just the same. Routed through our /auth/confirm interstitial to /welcome.
+ * Mirrors the add-person flow in lib/actions/admin/team.ts; we deliberately do
+ * NOT use a magic-link here — recovery is the path proven to land stuck invitees.
+ * Direct-upline-only.
  */
 export async function resendProducerInvite(formData: FormData) {
   const personId = String(formData.get("personId") ?? "");
@@ -275,17 +279,30 @@ export async function resendProducerInvite(formData: FormData) {
   }
   const email = (person.email as string).toLowerCase();
 
-  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
-    type: "magiclink",
+  const redirectTo = `${getAppUrl()}/auth/callback?next=/welcome`;
+  const confirmLink = (hash: string | undefined, type: "invite" | "recovery") =>
+    hash
+      ? `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(hash)}&type=${type}&next=${encodeURIComponent("/welcome")}`
+      : null;
+
+  // invite covers the rare case the auth user is missing; recovery is the normal
+  // resend path (the login already exists, so invite returns empty for it).
+  const invite = await admin.auth.admin.generateLink({
+    type: "invite",
     email,
-    options: { redirectTo: `${getAppUrl()}/auth/callback?next=/welcome` },
+    options: { redirectTo },
   });
-  const tokenHash = link?.properties?.hashed_token;
-  const setupUrl = tokenHash
-    ? `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=magiclink&next=${encodeURIComponent("/welcome")}`
-    : null;
-  if (linkErr || !setupUrl) {
-    redirect(`${back}?error=${encodeURIComponent(linkErr?.message ?? "Could not generate a new invite link.")}`);
+  let setupUrl = confirmLink(invite.data?.properties?.hashed_token, "invite");
+  if (!setupUrl) {
+    const recovery = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo },
+    });
+    setupUrl = confirmLink(recovery.data?.properties?.hashed_token, "recovery");
+  }
+  if (!setupUrl) {
+    redirect(`${back}?error=${encodeURIComponent("Could not generate a new invite link.")}`);
   }
 
   const mail = welcomeEmail({ setupUrl });
