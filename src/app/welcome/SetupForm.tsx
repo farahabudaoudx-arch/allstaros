@@ -26,35 +26,29 @@ export function SetupForm() {
     setStatus("saving");
     setError("");
 
-    // A dropped server-action request (the "TypeError: Load failed" people hit,
-    // then fix by refreshing and resubmitting) is the common failure here. The
-    // action is idempotent, so we retry once automatically before bothering the
-    // user — doing for them what they were already doing by hand.
-    const payload = { firstName, lastName, phone, state, password };
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const result = await completeAccountSetup(payload);
-        if (!result.ok) {
-          // A returned error is a real, known problem (bad input, expired link)
-          // — surface it as-is; retrying won't help.
-          setError(result.error);
-          setStatus("error");
-          return;
-        }
-        // Full navigation so the server re-renders with the now-complete account.
-        window.location.href = result.next;
-        return;
-      } catch (err) {
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 1200));
-          continue;
-        }
-        // Failed even after a retry — that's signal, not noise. Capture it so we
-        // can see the real cause, and tell the user it didn't go through.
-        Sentry.captureException(err);
-        setError("Something went wrong — check your connection and try again.");
+    try {
+      const result = await completeAccountSetup({
+        firstName,
+        lastName,
+        phone,
+        state,
+        password,
+      });
+      if (!result.ok) {
+        // A returned error is a real, known problem (bad input, expired link).
+        setError(result.error);
         setStatus("error");
+        return;
       }
+      // Full navigation so the server re-renders with the now-complete account.
+      window.location.href = result.next;
+    } catch (err) {
+      // The action itself wraps Supabase failures into { ok: false }, so a throw
+      // here is a genuinely unexpected error. Capture it and tell the user
+      // honestly that it didn't go through.
+      Sentry.captureException(err);
+      setError("Something went wrong while saving your details. Please try again.");
+      setStatus("error");
     }
   }
 

@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { linkPersonByEmail } from "@/lib/auth";
+import { getCurrentPerson, linkPersonByEmail } from "@/lib/auth";
+import { recordLoginEvent } from "@/lib/auth/login-event";
 
 // The OTP types Supabase can hand us through an emailed link.
 const VALID_TYPES = new Set<EmailOtpType>([
@@ -25,7 +27,17 @@ const VALID_TYPES = new Set<EmailOtpType>([
  * the token intact until the user actually clicks Continue.
  *
  * verifyOtp establishes the session server-side (sets auth cookies via the SSR
- * client), then we hand off to the login recorder and on to `next`.
+ * client), then we record the login and redirect straight to `next`.
+ *
+ * We deliberately redirect DIRECTLY to the destination page rather than bouncing
+ * through the /auth/after-login route handler. A Server Action redirect that
+ * lands on a GET route handler (which then re-redirects) leaves the browser's
+ * URL pinned to that handler while it soft-renders the destination — so the very
+ * next Server Action POST (the /welcome setup form) is sent to /auth/after-login,
+ * which only implements GET and answers 405. That 405 surfaced to users as a
+ * fake "network error" that a refresh "fixed" (a full reload resolves the URL to
+ * /welcome). Recording the login inline keeps the monitoring parity that the
+ * after-login hop gave us, without the stale-URL trap.
  */
 export async function confirmOtp(formData: FormData) {
   const tokenHash = String(formData.get("token_hash") ?? "");
@@ -48,15 +60,24 @@ export async function confirmOtp(formData: FormData) {
       } = await supabase.auth.getUser();
       if (user?.email) {
         await linkPersonByEmail(user.id, user.email);
+        // Record the login here (best-effort) with the request headers, the
+        // same way /auth/after-login does for the password flow.
+        const person = await getCurrentPerson();
+        if (person) {
+          const hdrs = await headers();
+          const ip =
+            hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+          await recordLoginEvent({
+            personId: person.id,
+            ip,
+            userAgent: hdrs.get("user-agent"),
+          });
+        }
       }
       ok = true;
     }
   }
 
   // redirect() throws — keep it outside the try path above.
-  redirect(
-    ok
-      ? `/auth/after-login?next=${encodeURIComponent(next)}`
-      : "/auth/signin?error=invite",
-  );
+  redirect(ok ? next : "/auth/signin?error=invite");
 }
