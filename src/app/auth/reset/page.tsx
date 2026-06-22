@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Input, Button } from "@/components/ui";
+import { requestPasswordReset } from "./actions";
 
 export default function ResetPage() {
   const [email, setEmail] = useState("");
@@ -17,18 +17,16 @@ export default function ResetPage() {
     e.preventDefault();
     setStatus("sending");
     setError("");
-    const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=/auth/reset/confirm`;
-    const { error: err } = await supabase.auth.resetPasswordForEmail(
-      email.trim().toLowerCase(),
-      { redirectTo },
-    );
-    if (err) {
-      setError(err.message);
+    try {
+      // Server action mints a scanner-safe, device-independent reset link and
+      // emails it. It always resolves ok and never reveals whether the account
+      // exists, so we always show the same "check your inbox" confirmation.
+      await requestPasswordReset(email);
+      setStatus("sent");
+    } catch {
+      setError("Something went wrong. Please try again.");
       setStatus("error");
-      return;
     }
-    setStatus("sent");
   }
 
   return (
