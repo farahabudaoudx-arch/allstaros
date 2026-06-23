@@ -643,7 +643,7 @@ function ActivityCard({ rows }: { rows: Array<{ label: string; value: number; un
           const widthPct = (row.value / maxVal) * 100;
           return (
             <div key={row.label} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-              <div className="text-sm sm:w-32 sm:flex-shrink-0" style={{ color: "var(--ink-2)" }}>
+              <div className="text-sm font-semibold sm:w-32 sm:flex-shrink-0" style={{ color: "var(--ink-1)" }}>
                 {row.label}
               </div>
               <div className="flex flex-1 items-center gap-3">
@@ -660,8 +660,8 @@ function ActivityCard({ rows }: { rows: Array<{ label: string; value: number; un
                     }}
                   >
                     <div className="flex items-baseline gap-2 whitespace-nowrap">
-                      <span className="display text-2xl tnum text-white leading-none">{row.value.toFixed(1)}</span>
-                      <span className="text-xs" style={{ color: "var(--ink-3)" }}>{row.unit}</span>
+                      <span className="display text-2xl tnum leading-none" style={{ color: "var(--ink-1)" }}>{row.value.toFixed(1)}</span>
+                      <span className="text-xs font-medium" style={{ color: "var(--ink-1)" }}>{row.unit}</span>
                     </div>
                   </motion.div>
                 </div>
@@ -1254,7 +1254,7 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
                     {cell.day}
                   </div>
                   {cell.inMonth && info && info.ap_cents > 0 && (
-                    <div className="text-sm tnum font-medium mt-1.5 whitespace-nowrap" style={{ color: "var(--lime)" }}>
+                    <div className="text-xs tnum font-medium mt-1.5 whitespace-nowrap" style={{ color: "var(--lime)" }}>
                       +{fmtCents(info.ap_cents)}
                     </div>
                   )}

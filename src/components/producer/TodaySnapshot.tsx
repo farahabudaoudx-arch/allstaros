@@ -197,13 +197,13 @@ function MetricGrid({
   sub?: (f: (typeof FIELDS)[number]) => string | undefined;
 }) {
   return (
-    <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+    <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 sm:gap-x-6 lg:grid-cols-3">
       {FIELDS.map((f) => (
-        <div key={f.key}>
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-black/55">
+        <div key={f.key} className="min-w-0">
+          <p className="truncate text-[11px] font-medium uppercase tracking-[0.1em] text-black/55">
             {f.label}
           </p>
-          <p className="mt-0.5 text-2xl font-semibold tabular-nums leading-tight">{render(f)}</p>
+          <p className="mt-0.5 text-xl font-semibold tabular-nums leading-tight sm:text-2xl">{render(f)}</p>
           {sub && sub(f) && <p className="text-[11px] tabular-nums text-black/45">{sub(f)}</p>}
         </div>
       ))}
@@ -249,10 +249,10 @@ function ProjectionForm({
 
   return (
     <form onSubmit={submit}>
-      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
+      <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 sm:gap-x-5 lg:grid-cols-3">
         {FIELDS.map((f) => (
-          <label key={f.key}>
-            <span className="block text-[11px] font-medium uppercase tracking-[0.1em] text-black/55">
+          <label key={f.key} className="min-w-0">
+            <span className="block truncate text-[11px] font-medium uppercase tracking-[0.1em] text-black/55">
               {f.label}
             </span>
             <div className="mt-1 flex items-baseline rounded-lg border border-black/10 bg-black/5 px-2.5 py-1.5">

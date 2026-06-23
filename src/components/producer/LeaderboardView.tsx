@@ -94,7 +94,7 @@ export function LeaderboardView() {
 
   return (
     <section>
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
             Leaderboard
@@ -179,8 +179,8 @@ export function LeaderboardView() {
           ) : null}
 
           {/* Ranked table */}
-          <div className="mt-3 overflow-hidden rounded-2xl border border-hairline bg-card">
-            <table className="w-full text-sm">
+          <div className="no-scrollbar mt-3 overflow-x-auto rounded-2xl border border-hairline bg-card">
+            <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
                   <th className="px-5 py-3 font-normal">Rank</th>

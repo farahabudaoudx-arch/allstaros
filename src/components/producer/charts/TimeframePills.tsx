@@ -31,7 +31,7 @@ export function TimeframePills({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <div className="flex items-center gap-1 rounded-full border border-hairline bg-card p-1">
+      <div className="no-scrollbar flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-hairline bg-card p-1">
         {PRESETS.map((p) => {
           const active = !customActive && value.key === p.key;
           return (
@@ -42,7 +42,7 @@ export function TimeframePills({
                 setCustomOpen(false);
                 onChange({ key: p.key });
               }}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
                 active ? "bg-accent text-black" : "text-subtle hover:text-ink"
               }`}
             >
@@ -53,7 +53,7 @@ export function TimeframePills({
         <button
           type="button"
           onClick={() => setCustomOpen((o) => !o)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
             customActive ? "bg-accent text-black" : "text-subtle hover:text-ink"
           }`}
         >

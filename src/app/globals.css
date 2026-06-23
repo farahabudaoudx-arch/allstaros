@@ -502,3 +502,14 @@ button:not(:disabled):not([data-no-press]):active,
   background: rgba(246, 201, 69, 0.1);
   color: var(--lime);
 }
+
+/* Horizontal-scroll without a visible scrollbar — used by control rows
+   (timeframe pills, calendar) that must stay reachable on narrow / split
+   screens without clipping content off the right edge. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
