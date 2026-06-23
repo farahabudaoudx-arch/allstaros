@@ -20,8 +20,8 @@ export type AiTool = "sidekick" | "underwriting_analyze" | "underwriting_chat";
 // a runaway loop or a single abusive user, not to ration normal work. Tune here.
 const DAILY_LIMIT: Record<AiTool, number> = {
   sidekick: 120, // Haiku — cheap; this is an abuse ceiling
-  underwriting_analyze: 60, // Opus — 1 model call per request
-  underwriting_chat: 60, // Opus — 2 model calls per request
+  underwriting_analyze: 60, // Haiku — 1 model call per request
+  underwriting_chat: 60, // Haiku — 2 model calls per request
 };
 
 // Short-window BURST cap across ALL tools for one user — catches a tight loop

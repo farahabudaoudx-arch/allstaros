@@ -5,7 +5,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Usage } from "@/lib/ai/usage";
 
-const MODEL = "claude-opus-4-7";
+// Underwriting analyzer model. Switched from Opus 4.7 → Haiku 4.5 on 2026-06-22
+// after a 120-case accuracy bench (scripts/underwriting-accuracy-test.mjs): Haiku
+// matched/beat Opus on recall with zero critical misses at ~1/7th the cost and 3x
+// the speed. Re-run that bench before changing this again.
+const MODEL = "claude-haiku-4-5-20251001";
 // Exported so the API routes can attribute usage to the right model.
 export const UNDERWRITING_MODEL = MODEL;
 
@@ -281,7 +285,7 @@ export async function analyzeNotes(opts: {
   // per-toolkit list). Only the client notes vary, so they're the user turn
   // after the breakpoints. Same information to the model — zero quality change —
   // but repeat calls read the big stable block from cache (~0.1x) instead of
-  // re-paying full Opus input price. Min cacheable prefix on Opus is 4096 tokens;
+  // re-paying full input price. Min cacheable prefix on Haiku 4.5 is 4096 tokens;
   // instructions (~2.3k) + list (~6k) clear it comfortably.
   const { data: parsed, usage } = await structured({
     system: [

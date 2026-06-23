@@ -15,7 +15,7 @@ const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL"]);
 //
 // Pipeline:
 //   1. Load the canonical condition list for the toolkit (~287 rows).
-//   2. Hand the list + the notes to Claude (Opus 4.7) with a strict clinical prompt.
+//   2. Hand the list + the notes to Claude (Haiku 4.5) with a strict clinical prompt.
 //   3. The LLM picks exact condition names from the list (post-filtered against
 //      the canonical set to drop any hallucinations).
 //   4. Look up carrier outcomes for the matched conditions.
