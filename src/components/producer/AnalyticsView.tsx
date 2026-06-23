@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { UsStateMap, type StateDatum } from "@/components/producer/charts/UsStateMap";
 import { localIsoDate } from "@/lib/producer/time";
@@ -650,16 +650,16 @@ function ActivityCard({ rows }: { rows: Array<{ label: string; value: number; un
                 <div className="flex-1 relative h-12">
                   <motion.div
                     className="absolute inset-y-0 left-0 rounded-md flex items-center px-4"
-                    initial={{ width: 96 }}
+                    initial={{ width: 160 }}
                     animate={{ width: `${Math.max(6, widthPct)}%` }}
                     transition={{ duration: 0.9, ease: "easeOut" }}
                     style={{
-                      minWidth: 96,
+                      minWidth: 160,
                       background: "linear-gradient(90deg, rgba(246,201,69,0.12), rgba(246,201,69,0.55))",
                       border: "1px solid rgba(246,201,69,0.35)",
                     }}
                   >
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex items-baseline gap-2 whitespace-nowrap">
                       <span className="display text-2xl tnum text-white leading-none">{row.value.toFixed(1)}</span>
                       <span className="text-xs" style={{ color: "var(--ink-3)" }}>{row.unit}</span>
                     </div>
@@ -820,38 +820,32 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
 
   return (
     <div className="w-full">
-      {/* Mobile: vertical stage list — a horizontal funnel can't fit 6 labels. */}
+      {/* Mobile: vertical stage list — a horizontal funnel can't fit 6 labels.
+          Bars don't read as a funnel here, so we lead with the big number instead. */}
       <div className="lg:hidden flex flex-col gap-1.5">
-        {stages.map((s, i) => {
-          const w = (heightAt(i) / startH) * 100;
-          return (
-            <div
-              key={`m-${s.label}`}
-              className="rounded-xl px-4 py-3"
-              style={{ background: "var(--surface-soft)", border: "1px solid var(--line-1)" }}
-            >
-              <div className="flex items-center justify-between gap-3">
+        {stages.map((s) => (
+          <div
+            key={`m-${s.label}`}
+            className="rounded-xl px-4 py-3.5"
+            style={{ background: "var(--surface-soft)", border: "1px solid var(--line-1)" }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-1 min-w-0">
                 <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--ink-3)" }}>
                   {s.label}
                 </span>
-                <span className="display text-2xl text-white tnum leading-none flex-shrink-0">
-                  {s.value}
-                </span>
+                {s.conversion ? (
+                  <span className="text-[11px] tnum" style={{ color: "var(--lime)" }}>
+                    {s.conversion}
+                  </span>
+                ) : null}
               </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(246,201,69,0.1)" }}>
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${w}%`, background: "linear-gradient(90deg, rgba(246,201,69,0.85), rgba(246,201,69,0.3))" }}
-                />
-              </div>
-              {s.conversion ? (
-                <div className="text-[11px] tnum mt-1.5" style={{ color: "var(--lime)" }}>
-                  {s.conversion}
-                </div>
-              ) : null}
+              <span className="display text-4xl text-white tnum leading-none flex-shrink-0">
+                {s.value}
+              </span>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       {/* Desktop: horizontal funnel. */}
@@ -1101,6 +1095,10 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
   const [days, setDays] = useState<Record<string, CalendarDay>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The right-edge fade is an honest scroll hint: show it only when the grid
+  // actually overflows its container, never when the calendar fits.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [calScrollable, setCalScrollable] = useState(false);
 
   useEffect(() => {
     let aborted = false;
@@ -1120,6 +1118,16 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
       .finally(() => { if (!aborted) setLoading(false); });
     return () => { aborted = true; };
   }, [viewYear, viewMonth, reloadKey, personId]);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const check = () => setCalScrollable(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [days, viewMonth, viewYear]);
 
   function shiftMonth(delta: number) {
     let mo = viewMonth + delta;
@@ -1197,8 +1205,10 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
       </div>
 
       {/* The 7-day grid + week column can't compress to phone width without
-          cutting off the per-day money; let it scroll horizontally instead. */}
-      <div className="overflow-x-auto">
+          cutting off the per-day money; let it scroll horizontally instead.
+          A right-edge fade signals the scroll (macOS hides the scrollbar). */}
+      <div className="relative">
+      <div ref={scrollerRef} className="no-scrollbar overflow-x-auto">
       <div className="grid gap-1 min-w-[560px]" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr)) 110px" }}>
         {DAY_SHORT_HEADER.map((d) => (
           <div key={d} className="text-[10px] text-center uppercase tracking-wider py-1" style={{ color: "var(--ink-3)" }}>
@@ -1244,7 +1254,7 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
                     {cell.day}
                   </div>
                   {cell.inMonth && info && info.ap_cents > 0 && (
-                    <div className="text-sm tnum font-medium mt-1.5" style={{ color: "var(--lime)" }}>
+                    <div className="text-sm tnum font-medium mt-1.5 whitespace-nowrap" style={{ color: "var(--lime)" }}>
                       +{fmtCents(info.ap_cents)}
                     </div>
                   )}
@@ -1280,7 +1290,7 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
             >
               <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--ink-3)" }}>Week</div>
               {week.totalAP > 0 ? (
-                <div className="text-sm tnum font-medium mt-1" style={{ color: "var(--lime)" }}>
+                <div className="text-sm tnum font-medium mt-1 whitespace-nowrap" style={{ color: "var(--lime)" }}>
                   +{fmtCents(week.totalAP)}
                 </div>
               ) : (
@@ -1300,6 +1310,14 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
           </Fragment>
         ))}
       </div>
+      </div>
+      {calScrollable && (
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-10"
+          style={{ background: "linear-gradient(90deg, transparent, var(--card-1))" }}
+          aria-hidden
+        />
+      )}
       </div>
 
       <div className="flex items-center gap-4 text-[10px] pt-3" style={{ color: "var(--ink-3)", borderTop: "1px solid var(--line-1)" }}>

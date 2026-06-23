@@ -167,7 +167,7 @@ export function BugReportModal({ collapsed }: { collapsed?: boolean }) {
                     </h2>
                     <p className="mt-2 text-sm text-subtle">
                       Tell us what went wrong and attach a screenshot if you have
-                      one. It goes straight to the team.
+                      one.
                     </p>
                   </div>
 
