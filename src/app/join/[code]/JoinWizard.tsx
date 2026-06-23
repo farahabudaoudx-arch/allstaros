@@ -6,6 +6,7 @@ import { signUpViaReferral } from "@/lib/actions/recruit-signup";
 import { finishDemoFlowForm } from "@/lib/actions/portal";
 import { US_STATES } from "@/lib/us-states";
 import { HeroVideo } from "@/components/HeroVideo";
+import { HERO_VIDEO_URL } from "@/lib/storage-url";
 import { track } from "@/lib/analytics";
 
 type Form = {
@@ -104,7 +105,7 @@ export function JoinWizard({
     <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-background px-5 py-12">
       {/* Background video — same clip as the landing page hero. */}
       <HeroVideo
-        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/homepage%20video%20final.mp4"
+        src={HERO_VIDEO_URL}
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
       />
       {/* Dark tint so the wizard card and text stay readable over the video. */}

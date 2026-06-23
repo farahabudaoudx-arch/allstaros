@@ -5,6 +5,7 @@ import { resolveLandingPath } from "@/lib/auth";
 import { DEV_LOGIN_ENABLED } from "@/lib/devLogin";
 import { HeroVideo } from "@/components/HeroVideo";
 import { SignInModal } from "@/components/SignInModal";
+import { HERO_VIDEO_URL } from "@/lib/storage-url";
 
 export const metadata = {
   title: "All Star OS — Systems designed to turn you into an All Star",
@@ -18,7 +19,7 @@ function Hero() {
       {/* Background video. Muted + playsInline so it autoplays everywhere,
           incl. iOS — see HeroVideo for the mobile-autoplay handling. */}
       <HeroVideo
-        src="https://atgqjhfbhaptpendzddl.supabase.co/storage/v1/object/public/homepage/homepage%20video%20final.mp4"
+        src={HERO_VIDEO_URL}
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
       />
       {/* Dark tint so the headline and accent stay readable over the video. */}
