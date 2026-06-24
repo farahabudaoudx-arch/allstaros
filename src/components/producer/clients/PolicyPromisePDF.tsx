@@ -56,6 +56,7 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
   const insuredName = (client.client_name || "—").toUpperCase();
   const payorName = (client.payor_name?.trim() || client.client_name || "—").toUpperCase();
   const monthlyPremium = formatMoney(quote.premium);
+  const coverageAmount = formatMoney(quote.coverage);
   const policyNumber = client.policy_number?.trim() || "—";
   const writtenOn = formatIssueDate(client.submit_date);
   const issuedOn = formatIssueDate(client.issue_date);
@@ -91,6 +92,7 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
             <Text style={styles.sectionHeader}>Policy Details</Text>
             <Detail label="Insurance Company" value={carrier} />
             <Detail label="Policy Number" value={policyNumber} />
+            <Detail label="Coverage Amount" value={coverageAmount} />
             <Detail label="Monthly Premium" value={monthlyPremium} />
             <Detail label="Product Type" value={quote.policy_type ?? "Whole Life"} />
             <Detail label="Insured Name" value={insuredName} />
@@ -175,42 +177,42 @@ function Detail({ label, value }: { label: string; value: string }) {
 const navy = "#0a3d72";
 
 const styles = StyleSheet.create({
-  page: { padding: 36, fontSize: 10, color: "#1f2937", fontFamily: "Helvetica" },
+  page: { padding: 32, fontSize: 10, color: "#1f2937", fontFamily: "Helvetica" },
 
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
-    height: 60,
+    marginBottom: 8,
+    height: 46,
   },
-  logo: { width: 180, height: 50, objectFit: "contain" },
+  logo: { width: 170, height: 42, objectFit: "contain" },
 
-  hero: { backgroundColor: navy, color: "#fff", padding: 22, marginBottom: 18 },
-  heroTitle: { color: "#fff", fontSize: 24, fontWeight: 700, marginBottom: 10 },
-  heroBody: { color: "#dbeafe", fontSize: 10, lineHeight: 1.55 },
+  hero: { backgroundColor: navy, color: "#fff", padding: 14, marginBottom: 12 },
+  heroTitle: { color: "#fff", fontSize: 19, fontWeight: 700, marginBottom: 5 },
+  heroBody: { color: "#dbeafe", fontSize: 10, lineHeight: 1.4 },
 
-  detailsGrid: { flexDirection: "row", gap: 28, marginBottom: 18 },
+  detailsGrid: { flexDirection: "row", gap: 28, marginBottom: 10 },
   col: { flex: 1 },
-  sectionHeader: { fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8 },
+  sectionHeader: { fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 5 },
 
-  detail: { marginBottom: 12 },
+  detail: { marginBottom: 6 },
   detailLabel: { fontSize: 10, fontWeight: 700, color: "#0f172a", marginBottom: 2 },
   detailValue: { fontSize: 11, color: "#1f2937" },
 
-  notesBlock: { marginTop: 4, marginBottom: 14 },
+  notesBlock: { marginTop: 2, marginBottom: 8 },
   notesText: { fontSize: 11, color: "#1f2937", lineHeight: 1.4 },
 
-  beneBlock: { marginTop: 4, marginBottom: 14 },
-  beneRow: { marginBottom: 8 },
+  beneBlock: { marginTop: 2, marginBottom: 8 },
+  beneRow: { marginBottom: 5 },
   beneName: { fontSize: 11, fontWeight: 700, color: "#0f172a" },
   beneContact: { fontSize: 10, color: "#475569", marginTop: 1 },
 
-  divider: { height: 1, backgroundColor: "#0f172a", marginVertical: 12 },
+  divider: { height: 1, backgroundColor: "#0f172a", marginVertical: 8 },
 
-  supportHeadline: { fontSize: 14, fontWeight: 700, color: navy, marginBottom: 12 },
-  supportStack: { flexDirection: "column", gap: 12, marginBottom: 18 },
-  supportLabel: { fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 6 },
-  supportLine: { fontSize: 11, color: "#1f2937", marginTop: 2 },
+  supportHeadline: { fontSize: 14, fontWeight: 700, color: navy, marginBottom: 8 },
+  supportStack: { flexDirection: "column", gap: 8, marginBottom: 10 },
+  supportLabel: { fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 3 },
+  supportLine: { fontSize: 11, color: "#1f2937", marginTop: 1 },
   supportOrText: { fontSize: 12, fontStyle: "italic", color: "#64748b" },
 
   bottomBar: {

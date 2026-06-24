@@ -176,6 +176,7 @@ export const CARRIERS = [
   "Ethos",
   "InstaBrain",
   "Mutual of Omaha",
+  "National Life Group",
   "Transamerica",
 ] as const;
 
@@ -186,6 +187,7 @@ export const CARRIER_LOGOS: Record<string, string> = {
   "Ethos": "/carriers/ethos.png",
   "InstaBrain": "/carriers/instabrain.png",
   "Mutual of Omaha": "/carriers/mutual-of-omaha.png",
+  "National Life Group": "/carriers/national-life-group.png",
   "Transamerica": "/carriers/transamerica.jpg",
 };
 
@@ -197,6 +199,7 @@ export const CARRIER_SUPPORT_PHONES: Record<string, string> = {
   "Ethos": "877-913-8467",
   "InstaBrain": "800-806-9714",
   "Mutual of Omaha": "800-775-6000",
+  "National Life Group": "800-732-8939",
   "Transamerica": "800-851-9777",
 };
 
