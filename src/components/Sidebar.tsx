@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BugReportModal } from "@/components/BugReportModal";
 
 export type NavItem = {
   label: string;
@@ -231,6 +232,8 @@ function SidebarFooter({
           </button>
         </form>
       ) : null}
+
+      <BugReportModal collapsed={collapsed} />
 
       <ThemeToggle collapsed={collapsed} />
     </div>

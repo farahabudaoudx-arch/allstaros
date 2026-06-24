@@ -600,9 +600,9 @@ function YesNoSelector({ value, onChange }: { value: boolean; onChange: (v: bool
   );
 }
 
-// Initials shown behind the logo image as a fallback when the logo file is
-// missing (or while it loads). For 1-word names use first two letters; for
-// multi-word names use the first letter of the first two words.
+// Initials shown only as a fallback when the logo file is missing or fails to
+// load. For 1-word names use first two letters; for multi-word names use the
+// first letter of the first two words.
 function carrierInitials(name: string): string {
   const words = name.split(/\s+/).filter(Boolean);
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
@@ -617,11 +617,17 @@ function CarrierPicker({
   onSelect: (v: string) => void;
 }) {
   const finalNames = CARRIERS as readonly string[];
+  // Track which logos failed to load so we can swap in initials. We never paint
+  // initials *behind* a logo — transparent logos (e.g. Mutual of Omaha) would
+  // show the letters bleeding through. Initials appear only when there's no
+  // usable image.
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
 
   return (
     <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(78px, 1fr))" }}>
       {finalNames.map((name) => {
         const logo = CARRIER_LOGOS[name];
+        const showInitials = !logo || failed[name];
         const isSelected = selected === name;
         return (
           <button
@@ -648,31 +654,27 @@ function CarrierPicker({
               overflow: "hidden",
               position: "relative",
             }}>
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#1f2937",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  letterSpacing: 0.5,
-                }}
-              >
-                {carrierInitials(name)}
-              </span>
-              {logo ? (
+              {showInitials ? (
+                <span
+                  aria-hidden
+                  style={{
+                    color: "#1f2937",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {carrierInitials(name)}
+                </span>
+              ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={logo}
                   alt={name}
-                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", position: "relative", background: "#fff" }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                  onError={() => setFailed((f) => ({ ...f, [name]: true }))}
                 />
-              ) : null}
+              )}
             </div>
             <span className="text-xs text-center" style={{ color: isSelected ? "var(--lime)" : "var(--ink-2)", fontWeight: 500 }}>{name}</span>
           </button>
