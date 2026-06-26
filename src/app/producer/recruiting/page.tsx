@@ -9,7 +9,7 @@ import {
   funnelStageLabel,
   type FunnelStage,
 } from "@/lib/pipeline/funnel";
-import { InviteRecruit } from "./InviteRecruit";
+import { AddPerson } from "@/components/producer/AddPerson";
 import { RecruitTable, type RecruitListItem } from "./RecruitTable";
 
 type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
@@ -136,8 +136,10 @@ export default async function RecruitingPage({
         </div>
       </div>
 
-      {/* Invite a recruit by email — the only way an account is created. */}
-      <InviteRecruit />
+      {/* Add a recruit or an already-licensed producer — the only way an account
+          is created. The form forces an explicit choice so a new recruit can't be
+          invited straight onto the team as a graduated producer by mistake. */}
+      <AddPerson />
 
       {rows.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card px-5 py-16 text-center text-subtle">

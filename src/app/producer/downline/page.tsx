@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Person } from "@/lib/db/types";
-import { InviteProducer } from "./InviteProducer";
+import { AddPerson } from "@/components/producer/AddPerson";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,7 @@ export default async function DownlinePage({
         {people.length} total · {directCount} direct.
       </p>
 
-      <InviteProducer />
+      <AddPerson />
 
       {flash.ok === "removed" ? (
         <div className="mt-4 rounded-xl border border-pos/40 bg-pos/[0.08] px-4 py-3 text-sm text-pos">
