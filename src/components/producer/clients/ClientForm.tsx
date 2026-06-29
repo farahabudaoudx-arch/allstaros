@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
-import { notifyNewClient } from "@/lib/actions/discord";
+import { saveClient, deleteClient } from "@/app/producer/clients/_actions";
 import { localIsoDate } from "@/lib/producer/time";
 import {
   ADVANCE_OPTIONS,
@@ -53,7 +52,6 @@ function calcAge(dob: string | null | undefined): number | null {
 }
 
 export function ClientForm({ clientId, initialClient }: Props) {
-  const supabase = useMemo(() => createSupabaseClient(), []);
   const router = useRouter();
   const [draft, setDraft] = useState<ClientDraft>(
     initialClient ? draftFromClient(initialClient) : EMPTY_DRAFT
@@ -115,51 +113,42 @@ export function ClientForm({ clientId, initialClient }: Props) {
 
   const save = async () => {
     setSaving(true);
-    // person_id is filled by the column default (auth_person_id()) on insert
-    // and pinned by RLS on update, so the form never sets it directly.
-    const payload = { ...draft };
-    let savedId = clientId;
-    if (clientId) {
-      const { error } = await supabase.from("clients").update(payload).eq("id", clientId);
-      if (error) {
-        setSaving(false);
-        alert(`Save failed: ${error.message}`);
-        return;
-      }
-    } else {
-      const { data, error } = await supabase
-        .from("clients")
-        .insert(payload)
-        .select()
-        .single();
-      if (error) {
-        setSaving(false);
-        alert(`Save failed: ${error.message}`);
-        return;
-      }
-      if (data) {
-        savedId = (data as Client).id;
-        // Ping the upline's Discord channel on a new signed client (no PII).
-        try {
-          await notifyNewClient(savedId);
-        } catch {
-          /* never block the save on a notification failure */
-        }
-      }
+    // The write goes through our server (saveClient), not a direct
+    // browser→Supabase call, so a producer on a network that can't reach
+    // api.allstarlifegroup.com no longer gets "Failed to fetch". person_id is
+    // still filled by the column default on insert and pinned by RLS on update,
+    // so the form never sets it directly.
+    let result;
+    try {
+      result = await saveClient(draft, clientId);
+    } catch (e) {
+      setSaving(false);
+      alert(`Save failed: ${(e as Error).message || "could not reach the server"}`);
+      return;
+    }
+    if (!result.ok) {
+      setSaving(false);
+      alert(`Save failed: ${result.error}`);
+      return;
     }
     setSaving(false);
     setSavedFlash(true);
-    if (savedId) {
-      router.push(`/producer/clients/${savedId}`);
-      return;
-    }
-    setTimeout(() => setSavedFlash(false), 1800);
+    router.push(`/producer/clients/${result.id}`);
   };
 
   const remove = async () => {
     if (!clientId) return;
     if (!confirm(`Delete this client? This cannot be undone.`)) return;
-    await supabase.from("clients").delete().eq("id", clientId);
+    try {
+      const result = await deleteClient(clientId);
+      if (!result.ok) {
+        alert(`Delete failed: ${result.error}`);
+        return;
+      }
+    } catch (e) {
+      alert(`Delete failed: ${(e as Error).message || "could not reach the server"}`);
+      return;
+    }
     router.push("/producer/clients");
   };
 
