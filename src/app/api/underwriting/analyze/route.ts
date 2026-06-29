@@ -8,7 +8,7 @@ import type { Toolkit } from "@/lib/underwriting/types";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL"]);
+const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL", "IUL"]);
 
 // LLM-driven analyze: takes freeform client notes, returns SPECIFIC matched
 // canonical conditions + a clinical summary + the per-carrier outcome grid.

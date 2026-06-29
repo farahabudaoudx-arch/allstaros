@@ -4,6 +4,7 @@
 
 import rawData from "./data.json";
 import type { ConditionResult, Outcome, Toolkit } from "./types";
+import { ratedCarrierNames } from "./iul-rated";
 
 type RawCellData = { outcome?: string; rawInfo?: string };
 type RawCondition = {
@@ -102,10 +103,14 @@ function buildIndex(raw: RawData, toolkit: Toolkit): Index {
   };
 }
 
+// Only FEX and SIUL are data.json-backed. IUL is the rated toolkit — it shares
+// the canonical condition list but its carriers/outcomes come from iul-rated.ts.
+type BuiltToolkit = "FEX" | "SIUL";
+
 // Built lazily on first access so cold-start cost is paid by the first request,
 // not by import-time work in unrelated routes.
-let indexCache: Record<Toolkit, Index> | null = null;
-function indexes(): Record<Toolkit, Index> {
+let indexCache: Record<BuiltToolkit, Index> | null = null;
+function indexes(): Record<BuiltToolkit, Index> {
   if (indexCache) return indexCache;
   const raw = rawData as RawData;
   indexCache = {
@@ -118,10 +123,13 @@ function indexes(): Record<Toolkit, Index> {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export function getConditionsForToolkit(toolkit: Toolkit) {
+  // IUL reuses the shared canonical list (FEX and SIUL carry the same 287 rows).
+  if (toolkit === "IUL") return indexes().FEX.conditions;
   return indexes()[toolkit].conditions;
 }
 
 export function getCarriersForToolkit(toolkit: Toolkit): string[] {
+  if (toolkit === "IUL") return ratedCarrierNames();
   return indexes()[toolkit].carriers;
 }
 
@@ -129,6 +137,9 @@ export function lookupCarrierOutcomes(
   toolkit: Toolkit,
   conditions: string[]
 ): ConditionResult[] {
+  // Rated IUL doesn't use the per-condition carrier-cell grid; the wizard runs
+  // the rate-class engine client-side from the detected conditions.
+  if (toolkit === "IUL") return [];
   const idx = indexes()[toolkit];
   const results: ConditionResult[] = [];
   for (const cond of conditions) {
@@ -148,6 +159,7 @@ export function searchConditionsByTerms(
   toolkit: Toolkit,
   terms: string[]
 ): ConditionResult[] {
+  if (toolkit === "IUL") return [];
   const idx = indexes()[toolkit];
   const lcTerms = terms
     .map((t) => t.toLowerCase().trim())

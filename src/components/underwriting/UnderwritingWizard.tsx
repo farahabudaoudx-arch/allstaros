@@ -7,17 +7,20 @@ import { humanizeRawInfo } from "@/lib/underwriting/humanize";
 import {
   classifyBuild,
   formatHeight,
+  parseHeightInches,
+  parseWeightLbs,
   BUILD_ROWS,
   BUILD_STATUS_META,
 } from "@/lib/underwriting/build-chart";
+import { assessAllProducts, type RatedAssessment } from "@/lib/underwriting/iul-rated";
 import { portalUrlForCarrier } from "@/lib/carrier-portals";
 import { useTheme } from "@/lib/use-theme";
 import { track } from "@/lib/analytics";
 
-// Guaranteed-issue products (e.g. Corebridge GIWL) issue regardless of build
+// Guaranteed-issue products (e.g. Corebridge Graded) issue regardless of build
 // or health, so they're exempt from the over-limit build knockout below.
 function isGuaranteedIssue(carrier: string): boolean {
-  return /\bGIWL\b|guaranteed issue/i.test(carrier);
+  return /\bGIWL\b|guaranteed issue|Corebridge \(Graded\)/i.test(carrier);
 }
 
 // Max issue age per carrier. Over this age the carrier won't write the
@@ -25,19 +28,43 @@ function isGuaranteedIssue(carrier: string): boolean {
 // Most carriers cap at 85; the exceptions are listed explicitly.
 const DEFAULT_MAX_AGE = 85;
 const CARRIER_MAX_AGE: Record<string, number> = {
-  "Corebridge (GIWL)": 80,
-  "Corebridge (SIWL)": 80,
+  "Corebridge (Graded)": 80,
+  "Corebridge (Level)": 80,
   "Aetna (Accendo)": 89,
+  // Simplified-issue IUL (SIUL toolkit), from the carrier guides.
+  "National Life Group (RapidProtect)": 60,
+  "Mutual of Omaha (Indexed Universal Life Express)": 70,
+  // Americo (Instant Decision IUL) left at the 85 default pending its published grid.
 };
 function maxAgeForCarrier(carrier: string): number {
   return CARRIER_MAX_AGE[carrier] ?? DEFAULT_MAX_AGE;
 }
 
-// SIUL is hidden for now (no carrier build charts for it yet). Re-add
-// { id: "SIUL", label: "SIUL", hint: "Simplified IUL" } here to bring it back —
-// the toggle reappears automatically once there's more than one toolkit.
+// Per-product face-amount band. Outside this range the product can't be written,
+// so it's a knockout like age/build. Only carriers with a published band are
+// listed; any carrier absent here simply has no face knockout. Simplified-issue
+// IUL bands come from the carrier guides.
+const CARRIER_FACE_BAND: Record<string, { min: number; max: number }> = {
+  "National Life Group (RapidProtect)": { min: 50_000, max: 500_000 },
+  "Mutual of Omaha (Indexed Universal Life Express)": { min: 25_000, max: 300_000 },
+};
+
+// "$250k", "250,000", "250000", "2.5m" → number. Returns null when nothing parses.
+function parseFaceAmount(raw: string): number | null {
+  if (!raw) return null;
+  const s = raw.trim().toLowerCase().replace(/[$,\s]/g, "");
+  const m = s.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+  if (!m) return null;
+  let n = parseFloat(m[1]);
+  if (m[2] === "k") n *= 1_000;
+  else if (m[2] === "m") n *= 1_000_000;
+  return n > 0 ? n : null;
+}
+
 const TOOLKITS: { id: Toolkit; label: string; hint: string }[] = [
-  { id: "FEX",  label: "FEX",  hint: "Final Expense" },
+  { id: "FEX",  label: "FEX",            hint: "Final Expense" },
+  { id: "SIUL", label: "IUL · Simplified", hint: "Indexed Universal Life — simplified issue (instant decision)" },
+  { id: "IUL",  label: "IUL · Rated",      hint: "Indexed Universal Life — fully underwritten (rate class)" },
 ];
 
 const OUTCOME_RANK: Record<Outcome, number> = {
@@ -93,7 +120,18 @@ export type WizardAnalysisSnapshot = {
   summary: string;
 };
 
-export type WizardVitals = { dob: string; height: string; weight: string };
+export type WizardVitals = {
+  dob: string;
+  height: string;
+  weight: string;
+  // IUL adds two field-underwriting inputs FEX never needed: tobacco (which
+  // splits non-tobacco vs tobacco rate class, and lets condition rules that key
+  // on tobacco apply) and the requested face amount (used for per-product
+  // face-band knockouts). Optional so existing FEX callers that pass only
+  // dob/height/weight keep working unchanged.
+  tobacco?: "smoker" | "nonsmoker" | "";
+  faceAmount?: string;
+};
 
 // Best-effort DOB → age. Accepts YYYY-MM-DD or MM/DD/YYYY. Returns "" if
 // the string isn't parseable or the resulting age is implausible.
@@ -138,6 +176,8 @@ function buildAnalyzerText(vitals: WizardVitals, notes: string): string {
   if (age)                  parts.push(`Age: ${age}`);
   if (vitals.height.trim()) parts.push(`Height: ${vitals.height.trim()}`);
   if (vitals.weight.trim()) parts.push(`Weight: ${vitals.weight.trim()}`);
+  if (vitals.tobacco === "smoker")         parts.push("Tobacco: current tobacco/nicotine user");
+  else if (vitals.tobacco === "nonsmoker") parts.push("Tobacco: non-user");
   const prefix = parts.length > 0 ? parts.join(". ") + ". " : "";
   return (prefix + notes).trim();
 }
@@ -153,7 +193,7 @@ export function UnderwritingWizard({
   onAnalysisResult,
 }: UnderwritingWizardProps) {
   const [toolkit, setToolkit] = useState<Toolkit>(defaultToolkit);
-  const [carriersByToolkit, setCarriersByToolkit] = useState<Record<Toolkit, string[]>>({ FEX: [], SIUL: [] });
+  const [carriersByToolkit, setCarriersByToolkit] = useState<Record<Toolkit, string[]>>({ FEX: [], SIUL: [], IUL: [] });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMeta, setLoadingMeta] = useState(true);
 
@@ -285,6 +325,7 @@ export function UnderwritingWizard({
       : "";
     const ageStr = ageFromDob(vitals.dob);
     const age = ageStr ? parseInt(ageStr, 10) : NaN;
+    const face = parseFaceAmount(vitals.faceAmount ?? "");
     const applyKnockouts = (carriers: AggregatedCarrier[]): AggregatedCarrier[] =>
       carriers.map((c) => {
         const knocks: Array<{ condition: string; rawInfo: string }> = [];
@@ -294,6 +335,13 @@ export function UnderwritingWizard({
         }
         if (buildKnockout && build && !isGuaranteedIssue(c.carrier)) {
           knocks.push({ condition: "Build (height & weight)", rawInfo: buildReason });
+        }
+        const band = CARRIER_FACE_BAND[c.carrier];
+        if (face != null && band && (face < band.min || face > band.max)) {
+          knocks.push({
+            condition: "Face amount",
+            rawInfo: `Requested face amount $${face.toLocaleString()} is outside this product's range ($${band.min.toLocaleString()}–$${band.max.toLocaleString()}).`,
+          });
         }
         if (knocks.length === 0) return c;
         return {
@@ -343,7 +391,26 @@ export function UnderwritingWizard({
       return a.carrier.localeCompare(b.carrier);
     });
     return applyKnockouts(out);
-  }, [analysis, carriersByToolkit, toolkit, vitals.dob, vitals.height, vitals.weight]);
+  }, [analysis, carriersByToolkit, toolkit, vitals.dob, vitals.height, vitals.weight, vitals.faceAmount]);
+
+  // Rated IUL runs a different engine: instead of a 5-outcome worst-of, each
+  // product resolves to a best-case RATE CLASS (Preferred Elite → Table H →
+  // Decline). Computed entirely client-side from the vitals + detected
+  // conditions. Sorted best class first, declines last.
+  const ratedAssessments = useMemo<RatedAssessment[]>(() => {
+    if (toolkit !== "IUL" || !analysis) return [];
+    const ageStr = ageFromDob(vitals.dob);
+    const profile = {
+      age: ageStr ? parseInt(ageStr, 10) : NaN,
+      heightIn: parseHeightInches(vitals.height) ?? 0,
+      weightLb: parseWeightLbs(vitals.weight) ?? 0,
+      tobacco: vitals.tobacco === "smoker",
+      face: parseFaceAmount(vitals.faceAmount ?? "") ?? 0,
+    };
+    return assessAllProducts(profile, analysis.conditions).sort(
+      (a, b) => a.classIndex - b.classIndex || a.carrier.localeCompare(b.carrier),
+    );
+  }, [toolkit, analysis, vitals.dob, vitals.height, vitals.weight, vitals.tobacco, vitals.faceAmount]);
 
   useEffect(() => {
     if (!onAnalysisResult) return;
@@ -426,6 +493,27 @@ export function UnderwritingWizard({
         />
       </div>
 
+      {/* IUL-only field-underwriting inputs: tobacco (feeds the analyzer so
+          tobacco-keyed condition rules apply; on the rated toolkit it also splits
+          non-tobacco vs tobacco class) and the requested face amount (drives
+          per-product face-band knockouts / minimum-face rules). */}
+      {toolkit !== "FEX" && (
+        <div className="grid gap-2 grid-cols-2">
+          <TobaccoToggle
+            value={vitals.tobacco ?? ""}
+            onChange={(v) => onVitalsChange({ ...vitals, tobacco: v })}
+            compact={compact}
+          />
+          <VitalInput
+            label="Face amount"
+            placeholder="$250k"
+            value={vitals.faceAmount ?? ""}
+            onChange={(v) => onVitalsChange({ ...vitals, faceAmount: v })}
+            compact={compact}
+          />
+        </div>
+      )}
+
       <DobWarningBanner dob={vitals.dob} />
       <AgeStatusBanner dob={vitals.dob} carriers={carriersByToolkit[toolkit] ?? []} />
       <BuildStatusBanner height={vitals.height} weight={vitals.weight} />
@@ -464,6 +552,14 @@ export function UnderwritingWizard({
       ) : analyzing ? (
         <AnalyzingPlaceholder />
       ) : analysis ? (
+        toolkit === "IUL" ? (
+          <>
+            {analysis.summary && (
+              <SummaryCard summary={analysis.summary} conditions={analysis.conditions} />
+            )}
+            <RatedOutlook assessments={ratedAssessments} conditionCount={analysis.conditions.length} />
+          </>
+        ) : (
         <>
           {analysis.results.length > 0 && analysis.summary && (
             <SummaryCard summary={analysis.summary} conditions={analysis.conditions} />
@@ -550,6 +646,7 @@ export function UnderwritingWizard({
             </div>
           )}
         </>
+        )
       ) : null}
     </div>
   );
@@ -599,6 +696,64 @@ function VitalInput({
         onChange={(e) => onChange(e.target.value)}
         style={{ padding: compact ? "8px 10px" : "10px 12px", fontSize: compact ? 14 : 15 }}
       />
+    </label>
+  );
+}
+
+// Two-state segmented control for tobacco. Clicking the active option again
+// clears it back to unset (so the agent can blank a mistaken pick).
+function TobaccoToggle({
+  value,
+  onChange,
+  compact,
+}: {
+  value: "smoker" | "nonsmoker" | "";
+  onChange: (v: "smoker" | "nonsmoker" | "") => void;
+  compact: boolean;
+}) {
+  const opts: { id: "nonsmoker" | "smoker"; label: string }[] = [
+    { id: "nonsmoker", label: "Non-smoker" },
+    { id: "smoker", label: "Smoker" },
+  ];
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 0.7,
+          textTransform: "uppercase",
+          color: "var(--ink-3)",
+        }}
+      >
+        Tobacco
+      </span>
+      <div
+        className="inline-flex p-0.5 rounded-lg"
+        style={{ background: "var(--bg-inner)", border: "1px solid var(--line-2)" }}
+      >
+        {opts.map((o) => {
+          const on = value === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onChange(on ? "" : o.id)}
+              className="rounded-md font-medium transition-colors"
+              style={{
+                flex: 1,
+                padding: compact ? "6px 10px" : "8px 12px",
+                fontSize: compact ? 13 : 14,
+                background: on ? "var(--lime)" : "transparent",
+                color: on ? "#0A0A0A" : "var(--ink-2)",
+                cursor: "pointer",
+              }}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
     </label>
   );
 }
@@ -809,6 +964,154 @@ function CountPill({ outcome, n }: { outcome: Outcome; n: number }) {
       <span className="font-semibold text-sm">{n}</span>
       <span className="opacity-80 uppercase tracking-wider">{s.label}</span>
     </span>
+  );
+}
+
+// ─── Rated IUL rendering ───────────────────────────────────────────────────────
+
+// Bucket a rate-class ladder index onto the existing 5-outcome palette so the
+// rated tiles share the wizard's color language: preferred tiers read green,
+// standard yellow, table ratings orange, decline red.
+function classOutcome(idx: number): Outcome {
+  if (idx >= 12) return "Decline";
+  if (idx >= 5) return "Graded";      // Table A–H
+  if (idx >= 3) return "Conditional"; // Select / Standard
+  return "Approved";                  // Preferred Elite / Plus / Preferred
+}
+
+function RatedOutlook({
+  assessments,
+  conditionCount,
+}: {
+  assessments: RatedAssessment[];
+  conditionCount: number;
+}) {
+  if (assessments.length === 0) return null;
+  const issuable = assessments.filter((a) => !a.declined).length;
+  return (
+    <section className="card p-4">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-4">
+        <div>
+          <div className="display text-lg text-white leading-none">Carrier outlook — best-case rate class</div>
+          <div className="text-[11px] uppercase tracking-wider mt-1" style={{ color: "var(--ink-3)" }}>
+            {conditionCount > 0
+              ? <>Across {conditionCount} condition{conditionCount === 1 ? "" : "s"} · {issuable} of {assessments.length} products issuable</>
+              : <>No conditions detected · best-case class for {assessments.length} products</>}
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="text-xs mb-4 px-3 py-2 rounded-md"
+        style={{
+          borderLeft: "3px solid rgba(250,204,21,0.55)",
+          background: "rgba(250,204,21,0.06)",
+          color: "var(--ink-2)",
+          lineHeight: 1.5,
+        }}
+      >
+        <span style={{ color: "#FACC15", fontWeight: 600 }}>Heads up — </span>
+        these are best-case rate classes estimated from each carrier&apos;s published guidelines,
+        assuming optimal control and that labs (blood pressure, cholesterol) come back clean. Tables,
+        flat extras, MIB/Rx/MVR hits, and carrier discretion can move the real offer. Always submit and
+        let the carrier underwrite.
+      </div>
+
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        {assessments.map((a) => (
+          <RatedTile key={a.productId} a={a} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RatedChip({
+  on,
+  onLabel,
+  offLabel,
+  flag,
+}: {
+  on: boolean;
+  onLabel: string;
+  offLabel: string;
+  flag?: boolean;
+}) {
+  const label = on ? onLabel : offLabel;
+  if (!label) return null;
+  const color = flag ? "#FACC15" : on ? "#00DF81" : "#94A3B8";
+  return (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded"
+      style={{ border: `1px solid ${color}55`, color, background: `${color}14` }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RatedTile({ a }: { a: RatedAssessment }) {
+  const theme = useTheme();
+  const s = outcomeStyles(theme)[classOutcome(a.classIndex)];
+  const portalUrl = portalUrlForCarrier(a.carrier);
+
+  const inner = (
+    <>
+      <div className="flex items-start gap-1">
+        <div className="text-sm font-medium truncate" style={{ color: s.fg }} title={a.carrier}>
+          {a.carrier}
+        </div>
+        {portalUrl && (
+          <span aria-hidden className="text-xs shrink-0" style={{ color: s.fg, opacity: 0.7 }}>↗</span>
+        )}
+      </div>
+      <div className="text-[13px] font-semibold mt-0.5" style={{ color: s.fg }}>{a.className}</div>
+      <div className="text-[11px] mt-1" style={{ color: "var(--ink-2)", lineHeight: 1.4 }}>{a.bindingConstraint}</div>
+      {!a.declined && (
+        <>
+          <div className="text-[11px] mt-1.5" style={{ color: "var(--ink-3)" }}>
+            <span style={{ color: "var(--ink-2)" }}>Needs:</span> {a.requirements.join(", ")}
+          </div>
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            <RatedChip on={a.livingBenefits} onLabel="Living benefits ✓" offLabel="No living benefits" />
+            {a.pendingLabs && <RatedChip on flag onLabel="Best case — pending labs" offLabel="" />}
+            {a.unknownConditions.length > 0 && (
+              <RatedChip on flag onLabel={`⚠ ${a.unknownConditions.length} unrecognized — verify`} offLabel="" />
+            )}
+          </div>
+        </>
+      )}
+      {a.note && (
+        <div
+          className="text-[10px] mt-1.5 pt-1.5"
+          style={{ color: "var(--ink-3)", lineHeight: 1.4, fontStyle: "italic", borderTop: "1px solid var(--line-2)" }}
+        >
+          {a.note}
+        </div>
+      )}
+    </>
+  );
+
+  const cls = "rounded-md px-3 py-2 block";
+  const style: React.CSSProperties = {
+    background: s.bg,
+    border: `1px solid ${s.border}`,
+    textDecoration: "none",
+    cursor: portalUrl ? "pointer" : "default",
+  };
+  return portalUrl ? (
+    <a
+      href={portalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cls}
+      style={style}
+      onClick={() => track("carrier_link_clicked", { carrier: a.carrier })}
+    >
+      {inner}
+    </a>
+  ) : (
+    <div className={cls} style={style}>{inner}</div>
   );
 }
 

@@ -7,14 +7,14 @@ import {
 } from "./data";
 
 describe("carrier matrix integrity (guards against silent data corruption)", () => {
-  it("FEX exposes 287 conditions across 11 carrier products", () => {
+  it("FEX exposes 287 conditions across 10 carrier products", () => {
     expect(getConditionsForToolkit("FEX")).toHaveLength(287);
-    expect(getCarriersForToolkit("FEX")).toHaveLength(11);
+    expect(getCarriersForToolkit("FEX")).toHaveLength(10);
   });
 
-  it("SIUL exposes 287 conditions across 2 carrier products", () => {
+  it("SIUL exposes 287 conditions across 3 carrier products", () => {
     expect(getConditionsForToolkit("SIUL")).toHaveLength(287);
-    expect(getCarriersForToolkit("SIUL")).toHaveLength(2);
+    expect(getCarriersForToolkit("SIUL")).toHaveLength(3);
   });
 
   it("every condition carries a non-empty name and category", () => {
@@ -32,7 +32,7 @@ describe("lookupCarrierOutcomes — the deterministic match a wrong answer would
     const [res] = lookupCarrierOutcomes("FEX", [sample]);
     expect(res.condition).toBe(sample);
     const carriers = Object.keys(res.carriers);
-    expect(carriers).toHaveLength(11);
+    expect(carriers).toHaveLength(10);
     for (const name of carriers) {
       expect(res.carriers[name].outcome.length).toBeGreaterThan(0);
     }

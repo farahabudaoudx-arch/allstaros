@@ -5,7 +5,7 @@ import { getCarriersForToolkit, getConditionsForToolkit } from "@/lib/underwriti
 
 export const dynamic = "force-dynamic";
 
-const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL"]);
+const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL", "IUL"]);
 
 // Returns the canonical condition × category list and the carrier list for a
 // toolkit. Data is loaded from the bundled data.json — no DB round trip.

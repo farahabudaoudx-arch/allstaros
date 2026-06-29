@@ -106,6 +106,14 @@ function humanizeSegment(segment: string): HumanizedRule | null {
   t = s.match(/^treated\s+between\s+(.+?\s+ago),\s*(.+)$/i);
   if (t) return { when: `Treated between ${t[1].trim()}`, then: prettyOutcome(t[2]) };
 
+  // treated more than / over / after X ago, OUTCOME
+  t = s.match(/^treated\s+(?:more than|over|after|beyond)\s+(.+?)\s+ago,\s*(.+)$/i);
+  if (t) return { when: `Treated more than ${t[1].trim()} ago`, then: prettyOutcome(t[2]) };
+
+  // hospitalized within X, OUTCOME
+  t = s.match(/^hospitali[sz]ed\s+within\s+(.+?),\s*(.+)$/i);
+  if (t) return { when: `Hospitalized within ${t[1].trim()}`, then: prettyOutcome(t[2]) };
+
   // currently, OUTCOME
   t = s.match(/^currently\s*,\s*(.+)$/i);
   if (t) return { when: "Currently active", then: prettyOutcome(t[1]) };
