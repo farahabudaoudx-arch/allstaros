@@ -42,7 +42,7 @@ export const LADDER = [
 ] as const;
 
 // Named indices for readability in the cap tables below.
-const ELITE = 0, PREF_PLUS = 1, PREFERRED = 2, SELECT = 3, STANDARD = 4;
+const ELITE = 0, _PREF_PLUS = 1, PREFERRED = 2, SELECT = 3, STANDARD = 4;
 const TABLE_A = 5, TABLE_B = 6, TABLE_C = 7, TABLE_D = 8, TABLE_E = 9, TABLE_F = 10, TABLE_H = 11;
 export const DECLINE = 12;
 const BEST = ELITE; // a condition/build with no penalty allows the best class
