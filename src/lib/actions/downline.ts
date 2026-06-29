@@ -9,6 +9,7 @@ import { getAppUrl } from "@/lib/site-url";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/emails/welcome";
 import { US_STATE_CODES } from "@/lib/us-states";
+import { freeRemovedPersonEmail } from "@/lib/free-email";
 
 type Guard = { ok: true } | { ok: false; error: string };
 
@@ -139,6 +140,9 @@ export async function removeProducerForm(formData: FormData) {
     .update({ removed_at: new Date().toISOString() })
     .eq("person_id", personId)
     .is("removed_at", null);
+
+  // Free their email + login so the builder can add this person again later.
+  await freeRemovedPersonEmail(admin, personId);
 
   revalidatePath("/producer/downline");
   redirect("/producer/downline?ok=removed");

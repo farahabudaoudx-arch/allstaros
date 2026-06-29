@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { freeRemovedPersonEmail } from "@/lib/free-email";
 
 export async function computeStalls() {
   const supabase = await createClient();
@@ -28,6 +29,16 @@ export async function removeRecruitForm(formData: FormData) {
   if (error) {
     redirect(`${errBack}?error=${encodeURIComponent(error.message)}`);
   }
+
+  // Free the removed person's email + login so they can be added again later.
+  const admin = createServiceRoleClient();
+  const { data: rec } = await admin
+    .from("recruit")
+    .select("person_id")
+    .eq("id", recruitId)
+    .maybeSingle();
+  if (rec?.person_id) await freeRemovedPersonEmail(admin, rec.person_id as string);
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/flagged");
   revalidatePath("/producer/recruiting");
