@@ -11,6 +11,8 @@ export type AccountSetupInput = {
   phone: string;
   state: string;
   password: string;
+  // Optional NPN, only collected/used for licensed invitees (producers/builders).
+  npn?: string;
 };
 
 export type AccountSetupResult =
@@ -21,13 +23,13 @@ export type AccountSetupResult =
  * Completes a recruit's account after they click their invite link. They arrive
  * here already signed in (the invite link created a session via /auth/callback),
  * so we set their password and overwrite the placeholder person/recruit rows
- * with the details they entered. No public sign-up exists — this only ever runs
+ * with the details they entered. No public sign-up exists; this only ever runs
  * for someone a builder invited.
  */
 /**
  * Supabase rejects re-using the current password ("same_password"). On a retry
  * after a partial first attempt the password may already be set to what they
- * typed — that's success, not failure, so we don't treat it as an error.
+ * typed, that's success, not failure, so we don't treat it as an error.
  */
 function isAlreadySetPasswordError(err: { code?: string; message?: string }): boolean {
   return (
@@ -39,7 +41,7 @@ function isAlreadySetPasswordError(err: { code?: string; message?: string }): bo
 export async function completeAccountSetup(
   input: AccountSetupInput,
 ): Promise<AccountSetupResult> {
-  // Input validation first — these are deterministic and never need a retry.
+  // Input validation first; these are deterministic and never need a retry.
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   const phone = input.phone.trim();
@@ -87,10 +89,31 @@ export async function completeAccountSetup(
       .from("person")
       .update({ full_name: fullName, phone })
       .eq("auth_user_id", user.id)
-      .select("id")
+      .select("id, is_producer, is_builder")
       .maybeSingle();
     if (personErr) {
       return { ok: false, error: personErr.message };
+    }
+
+    // Licensed invitees (producers/builders) are asked for their NPN during
+    // setup. Numbers only, up to 10 digits; saved as submitted (pending an admin
+    // verify). Blank is fine; the NPN popup follows up later. Ignored entirely
+    // for unlicensed recruits, who have no NPN to give yet.
+    if (person && (person.is_producer || person.is_builder)) {
+      const npnDigits = (input.npn ?? "").replace(/\D/g, "").slice(0, 10);
+      if (npnDigits) {
+        const { error: npnErr } = await admin
+          .from("person")
+          .update({
+            npn: npnDigits,
+            npn_status: "submitted",
+            npn_source: "user_entered",
+          })
+          .eq("id", person.id);
+        if (npnErr) {
+          return { ok: false, error: npnErr.message };
+        }
+      }
     }
 
     if (person) {
@@ -102,13 +125,13 @@ export async function completeAccountSetup(
         return { ok: false, error: recruitErr.message };
       }
       // Heads-up to their builder that a real recruit just landed in the
-      // pipeline. Best-effort and already self-guarded — never blocks setup.
+      // pipeline. Best-effort and already self-guarded, never blocks setup.
       await notifyNewRecruit(person.id);
     }
 
     return { ok: true, next: "/portal" };
   } catch (err) {
-    // Real, persistent failures are signal — capture them so we can see the
+    // Real, persistent failures are signal; capture them so we can see the
     // actual cause instead of the form's generic "something went wrong".
     Sentry.captureException(err);
     console.error("[account-setup] unexpected failure:", err);

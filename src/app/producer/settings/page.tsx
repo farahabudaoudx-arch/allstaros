@@ -2,6 +2,7 @@ import { GoalSettingsForm } from "@/components/producer/GoalSettingsForm";
 import { ProfileSettingsForm } from "@/components/producer/ProfileSettingsForm";
 import { PolicyContactSettingsForm } from "@/components/producer/PolicyContactSettingsForm";
 import { BuilderSettingsForm } from "@/components/producer/BuilderSettingsForm";
+import { NpnSettingsForm } from "@/components/producer/NpnSettingsForm";
 import { getCurrentPerson } from "@/lib/auth";
 
 export default async function ProducerSettings() {
@@ -27,6 +28,20 @@ export default async function ProducerSettings() {
           policy info above.
         </p>
         <ProfileSettingsForm />
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
+          Producer Number (NPN)
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-subtle">
+          Your National Producer Number. We use it to issue your IP reports inside the
+          platform. Once an admin verifies it, it&apos;s locked here.
+        </p>
+        <NpnSettingsForm
+          initialNpn={person?.npn ?? ""}
+          status={person?.npn_status ?? "missing"}
+        />
       </section>
 
       {person?.is_builder && (

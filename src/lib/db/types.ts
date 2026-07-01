@@ -43,6 +43,27 @@ export const MILESTONE_KINDS: MilestoneKind[] = [
 
 export type PersonStatus = "active" | "removed";
 
+// NPN tracking (see migration 20260701000100_npn_tracking.sql). The columns were
+// first applied straight to the database; this type + that migration bring the
+// codebase back in sync. Via the popup a user may only ever reach "submitted"
+// (they entered a number) or "pending_license" (they said they have none).
+// "pending_sale"/"pending_transfer"/"verified" stay admin/internal.
+export type NpnStatus =
+  | "missing"
+  | "submitted"
+  | "pending_license"
+  | "pending_sale"
+  | "pending_transfer"
+  | "verified";
+
+export type NpnSource =
+  | "user_entered"
+  | "admin_entered"
+  | "gateway_csv"
+  | "gateway_manual"
+  | "upline_confirmed"
+  | "pop_up";
+
 // Section 6 — single configurable stall threshold for "lapsed check-ins".
 export const STALL_LAPSE_DAYS = 3;
 
@@ -72,6 +93,13 @@ export type Person = {
   policy_contact_name: string | null;
   policy_contact_email: string | null;
   policy_contact_phone: string | null;
+  // NPN tracking (see 20260701000100_npn_tracking.sql).
+  npn: string | null;
+  npn_status: NpnStatus;
+  npn_notes: string | null;
+  npn_source: NpnSource | null;
+  npn_verified_at: string | null;
+  npn_verified_by: string | null;
   created_at: string;
   updated_at: string;
 };

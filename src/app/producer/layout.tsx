@@ -3,6 +3,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { getProducerUnread, type ProducerUnread } from "@/lib/producer/unread";
 import { Sidebar, type NavItem } from "@/components/Sidebar";
 import { PageTransition } from "@/components/PageTransition";
+import { NpnRequestModal } from "./_components/npn-request-modal";
 
 function buildNav(isBuilder: boolean, unread: ProducerUnread): NavItem[] {
   const trainingChildren: NavItem[] = [
@@ -69,6 +70,12 @@ export default async function ProducerLayout({
       <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
         {children}
       </PageTransition>
+      {/* Only active producers/builders reach this layout; show the NPN popup to
+          those who still have no NPN on file. Answering flips npn_status off
+          "missing", so it never returns. */}
+      <NpnRequestModal
+        initialOpen={person.npn_status === "missing"}
+      />
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { SetupForm } from "./SetupForm";
 
 /**
- * Account setup — where an invited recruit lands after clicking their invite
+ * Account setup: where an invited recruit lands after clicking their invite
  * link. The link already signed them in via /auth/confirm and already knows
- * their email, so we don't ask for it again — we just confirm who invited them
+ * their email, so we don't ask for it again; we just confirm who invited them
  * and which email their account is under, then collect name/phone/state/password.
  */
 export default async function WelcomePage() {
@@ -23,10 +23,16 @@ export default async function WelcomePage() {
   let inviterName = "";
   const { data: me } = await supabase
     .from("person")
-    .select("upline_id")
+    .select("upline_id, is_producer, is_builder")
     .eq("auth_user_id", user.id)
     .maybeSingle();
-  const uplineId = (me as { upline_id?: string | null } | null)?.upline_id;
+  const meRow = me as
+    | { upline_id?: string | null; is_producer?: boolean; is_builder?: boolean }
+    | null;
+  const uplineId = meRow?.upline_id;
+  // Licensed invitees (producers/builders) are asked for their NPN during setup;
+  // unlicensed recruits are not (they have no NPN yet).
+  const licensed = !!(meRow?.is_producer || meRow?.is_builder);
   if (uplineId) {
     const admin = createServiceRoleClient();
     const { data: builder } = await admin
@@ -66,7 +72,7 @@ export default async function WelcomePage() {
           ) : null}
         </div>
 
-        <SetupForm />
+        <SetupForm licensed={licensed} />
       </div>
     </div>
   );

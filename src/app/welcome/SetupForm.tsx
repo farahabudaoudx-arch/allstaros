@@ -6,11 +6,12 @@ import { completeAccountSetup } from "@/lib/actions/account-setup";
 import { US_STATES } from "@/lib/us-states";
 import { Field, Input, Button, Spinner } from "@/components/ui";
 
-export function SetupForm() {
+export function SetupForm({ licensed = false }: { licensed?: boolean }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [state, setState] = useState("");
+  const [npn, setNpn] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -33,6 +34,7 @@ export function SetupForm() {
         phone,
         state,
         password,
+        npn: licensed ? npn : undefined,
       });
       if (!result.ok) {
         // A returned error is a real, known problem (bad input, expired link).
@@ -105,6 +107,24 @@ export function SetupForm() {
           ))}
         </select>
       </Field>
+
+      {licensed ? (
+        <Field
+          label="NPN"
+          htmlFor="npn"
+          hint="Your National Producer Number. Enter it if you have it; you can add it later if not."
+        >
+          <Input
+            id="npn"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={10}
+            value={npn}
+            onChange={(e) => setNpn(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            placeholder="e.g. 20841537"
+          />
+        </Field>
+      ) : null}
 
       <Field label="Password" htmlFor="password" hint="At least 8 characters.">
         <Input
