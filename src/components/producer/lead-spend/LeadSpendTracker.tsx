@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { deleteLeadPurchase, saveLeadPurchase } from "@/app/producer/lead-spend/_actions";
 import { LEAD_TYPES, type LeadPurchase } from "@/lib/lead-spend/types";
 import { localIsoDate } from "@/lib/producer/time";
 
@@ -42,7 +42,6 @@ export function LeadSpendTracker({
 }: {
   initialPurchases: LeadPurchase[];
 }) {
-  const supabase = useMemo(() => createSupabaseClient(), []);
   const [purchases, setPurchases] = useState<LeadPurchase[]>(initialPurchases);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<LeadPurchase | null>(null);
@@ -54,8 +53,8 @@ export function LeadSpendTracker({
   async function handleDelete(p: LeadPurchase) {
     if (!confirm(`Delete this ${p.vendor || "lead"} purchase? This cannot be undone.`)) return;
     try {
-      const { error } = await supabase.from("lead_purchases").delete().eq("id", p.id);
-      if (error) throw error;
+      const result = await deleteLeadPurchase(p.id);
+      if (!result.ok) throw new Error(result.error);
       setPurchases((prev) => prev.filter((x) => x.id !== p.id));
     } catch (e) {
       alert("Could not delete: " + ((e as Error).message || "unknown error"));
@@ -193,12 +192,7 @@ export function LeadSpendTracker({
       </div>
 
       {open ? (
-        <LogSpendModal
-          initial={editing}
-          onClose={closeModal}
-          onSaved={handleSaved}
-          supabase={supabase}
-        />
+        <LogSpendModal initial={editing} onClose={closeModal} onSaved={handleSaved} />
       ) : null}
     </div>
   );
@@ -208,12 +202,10 @@ function LogSpendModal({
   initial,
   onClose,
   onSaved,
-  supabase,
 }: {
   initial?: LeadPurchase | null;
   onClose: () => void;
   onSaved: (row: LeadPurchase) => void;
-  supabase: ReturnType<typeof createSupabaseClient>;
 }) {
   const [draft, setDraft] = useState<Draft>(() =>
     initial
@@ -248,21 +240,12 @@ function LogSpendModal({
         lead_type: draft.lead_type.trim() || null,
         purchase_date: draft.purchase_date || localIsoDate(),
       };
-      // person_id is filled by the auth_person_id() column default under RLS.
-      const { data, error: dbError } = initial
-        ? await supabase
-            .from("lead_purchases")
-            .update(payload)
-            .eq("id", initial.id)
-            .select()
-            .single()
-        : await supabase
-            .from("lead_purchases")
-            .insert(payload)
-            .select()
-            .single();
-      if (dbError) throw dbError;
-      onSaved(data as LeadPurchase);
+      // The write goes through a server action so the browser never talks to
+      // Supabase directly (some users' networks block that and get "Failed to
+      // fetch"). person_id is still filled by auth_person_id() under RLS.
+      const result = await saveLeadPurchase(payload, initial?.id);
+      if (!result.ok) throw new Error(result.error);
+      onSaved(result.row);
     } catch (e) {
       setError((e as Error).message || "Could not save.");
       setSaving(false);
