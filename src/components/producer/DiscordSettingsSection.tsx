@@ -224,84 +224,88 @@ function DestinationsBlock() {
             <p className="text-sm text-mute">No destinations yet. Add one below.</p>
           )}
 
-          {destinations.map((d) => (
-            <div key={d.id} className="rounded-2xl border border-hairline bg-card p-5">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-sm font-medium text-ink">{d.label}</span>
-                <span className="text-xs text-subtle">{purposeLabel(d.purpose)}</span>
-                {!d.enabled && <span className="text-xs text-mute">Disabled</span>}
-              </div>
-              <p className="mt-2 break-all font-mono text-xs text-mute">{d.masked_url}</p>
+          {destinations.length > 0 && (
+            <div className="divide-y divide-hairline rounded-2xl border border-hairline bg-card">
+              {destinations.map((d) => (
+                <div key={d.id} className="p-4 md:p-5">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="text-sm font-semibold text-ink">{d.label}</span>
+                    {!d.enabled && <span className="text-xs text-mute">Disabled</span>}
+                  </div>
+                  <p className="text-xs text-subtle">{purposeLabel(d.purpose)}</p>
+                  <p className="mt-2 truncate font-mono text-xs text-mute">{d.masked_url}</p>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggle(d)}
-                  disabled={busyId === d.id}
-                  className={SMALL_SECONDARY_BTN}
-                >
-                  {d.enabled ? "Disable" : "Enable"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => test(d)}
-                  disabled={busyId === d.id}
-                  className={SMALL_SECONDARY_BTN}
-                >
-                  Test
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReplaceId(replaceId === d.id ? null : d.id);
-                    setReplaceUrl("");
-                  }}
-                  disabled={busyId === d.id}
-                  className={SMALL_SECONDARY_BTN}
-                >
-                  {replaceId === d.id ? "Cancel replace" : "Replace"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => remove(d)}
-                  disabled={busyId === d.id}
-                  className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
-                    confirmDeleteId === d.id
-                      ? "border-neg text-neg"
-                      : "border-hairline text-ink hover:border-mute"
-                  }`}
-                >
-                  {confirmDeleteId === d.id ? "Really delete?" : "Delete"}
-                </button>
-              </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggle(d)}
+                      disabled={busyId === d.id}
+                      className={SMALL_SECONDARY_BTN}
+                    >
+                      {d.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => test(d)}
+                      disabled={busyId === d.id}
+                      className={SMALL_SECONDARY_BTN}
+                    >
+                      Test
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplaceId(replaceId === d.id ? null : d.id);
+                        setReplaceUrl("");
+                      }}
+                      disabled={busyId === d.id}
+                      className={SMALL_SECONDARY_BTN}
+                    >
+                      {replaceId === d.id ? "Cancel replace" : "Replace"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(d)}
+                      disabled={busyId === d.id}
+                      className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                        confirmDeleteId === d.id
+                          ? "border-neg text-neg"
+                          : "border-hairline text-ink hover:border-mute"
+                      }`}
+                    >
+                      {confirmDeleteId === d.id ? "Really delete?" : "Delete"}
+                    </button>
+                  </div>
 
-              {replaceId === d.id && (
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="url"
-                    value={replaceUrl}
-                    onChange={(e) => setReplaceUrl(e.target.value)}
-                    placeholder="https://discord.com/api/webhooks/…"
-                    className="w-full bg-transparent text-sm font-medium text-ink outline-none placeholder:text-mute"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => saveReplace(d)}
-                    disabled={busyId === d.id || !replaceUrl.trim()}
-                    className={SMALL_SECONDARY_BTN}
-                  >
-                    Save URL
-                  </button>
+                  {replaceId === d.id && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <input
+                        type="url"
+                        value={replaceUrl}
+                        onChange={(e) => setReplaceUrl(e.target.value)}
+                        placeholder="https://discord.com/api/webhooks/…"
+                        className="w-full bg-transparent text-sm font-medium text-ink outline-none placeholder:text-mute"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => saveReplace(d)}
+                        disabled={busyId === d.id || !replaceUrl.trim()}
+                        className={SMALL_SECONDARY_BTN}
+                      >
+                        Save URL
+                      </button>
+                    </div>
+                  )}
+
+                  {notice?.id === d.id && (
+                    <p className={`mt-3 text-sm ${notice.ok ? "text-pos" : "text-neg"}`}>
+                      {notice.text}
+                    </p>
+                  )}
                 </div>
-              )}
-
-              {notice?.id === d.id && (
-                <p className={`mt-3 text-sm ${notice.ok ? "text-pos" : "text-neg"}`}>
-                  {notice.text}
-                </p>
-              )}
+              ))}
             </div>
-          ))}
+          )}
 
           {error && <p className="text-sm text-neg">{error}</p>}
 
@@ -311,32 +315,41 @@ function DestinationsBlock() {
               Paste a channel webhook URL from Discord (Channel Settings, Integrations,
               Webhooks).
             </span>
-            <div className="mt-3 space-y-3">
-              <input
-                type="text"
-                value={addLabel}
-                onChange={(e) => setAddLabel(e.target.value)}
-                placeholder="Label, like Sales Channel"
-                className="w-full bg-transparent text-lg font-medium text-ink outline-none placeholder:text-mute"
-              />
-              <select
-                value={addPurpose}
-                onChange={(e) => setAddPurpose(e.target.value)}
-                className="w-full bg-transparent text-lg font-medium text-ink outline-none"
-              >
-                {PURPOSES.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="url"
-                value={addUrl}
-                onChange={(e) => setAddUrl(e.target.value)}
-                placeholder="https://discord.com/api/webhooks/…"
-                className="w-full bg-transparent text-lg font-medium text-ink outline-none placeholder:text-mute"
-              />
+            <div className="mt-4 space-y-3">
+              <label className="block rounded-2xl border border-hairline bg-card-hi p-4">
+                <span className="block text-xs font-medium text-ink">Label</span>
+                <input
+                  type="text"
+                  value={addLabel}
+                  onChange={(e) => setAddLabel(e.target.value)}
+                  placeholder="Sales Channel"
+                  className="mt-2 w-full bg-transparent text-base font-medium text-ink outline-none placeholder:text-mute"
+                />
+              </label>
+              <label className="block rounded-2xl border border-hairline bg-card-hi p-4">
+                <span className="block text-xs font-medium text-ink">Purpose</span>
+                <select
+                  value={addPurpose}
+                  onChange={(e) => setAddPurpose(e.target.value)}
+                  className="mt-2 w-full bg-transparent text-base font-medium text-ink outline-none"
+                >
+                  {PURPOSES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block rounded-2xl border border-hairline bg-card-hi p-4">
+                <span className="block text-xs font-medium text-ink">Webhook URL</span>
+                <input
+                  type="url"
+                  value={addUrl}
+                  onChange={(e) => setAddUrl(e.target.value)}
+                  placeholder="https://discord.com/api/webhooks/…"
+                  className="mt-2 w-full bg-transparent text-base font-medium text-ink outline-none placeholder:text-mute"
+                />
+              </label>
             </div>
             {addError && <p className="mt-3 text-sm text-neg">{addError}</p>}
             <div className="mt-4">
