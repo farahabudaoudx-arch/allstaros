@@ -40,7 +40,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/preview") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/cron") ||
-    pathname.startsWith("/api/health");
+    pathname.startsWith("/api/health") ||
+    pathname === "/api/gateway/issued-premium/upload";
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
