@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 export function BuilderSettingsForm() {
   const [adminEmail, setAdminEmail] = useState("");
   const [xcelCode, setXcelCode] = useState("");
-  const [discordWebhook, setDiscordWebhook] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [uplineName, setUplineName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -23,7 +22,6 @@ export function BuilderSettingsForm() {
       if (!json.ok) throw new Error(json.error ?? "Failed to load");
       setAdminEmail(json.profile?.admin_email ?? "");
       setXcelCode(json.profile?.xcel_code ?? "");
-      setDiscordWebhook(json.profile?.discord_webhook_url ?? "");
       setInviteCode(json.profile?.invite_code ?? "");
       setUplineName(json.profile?.upline_name ?? "");
     } catch (e) {
@@ -49,7 +47,6 @@ export function BuilderSettingsForm() {
         body: JSON.stringify({
           admin_email: adminEmail,
           xcel_code: xcelCode,
-          discord_webhook_url: discordWebhook,
         }),
       });
       const json = await res.json();
@@ -69,7 +66,7 @@ export function BuilderSettingsForm() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard unavailable — ignore */
+      /* clipboard unavailable, ignore */
     }
   };
 
@@ -77,23 +74,23 @@ export function BuilderSettingsForm() {
 
   return (
     <form onSubmit={submit} className="mt-6 max-w-xl space-y-4">
-      {/* Upline — read-only / informational. */}
+      {/* Upline. Read-only, informational. */}
       <div className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Your upline</span>
         <span className="block text-xs text-mute">Who you report to. Locked.</span>
-        <p className="mt-3 text-lg font-medium text-ink">{uplineName || "—"}</p>
+        <p className="mt-3 text-lg font-medium text-ink">{uplineName || "Not set"}</p>
       </div>
 
-      {/* Invite code — read-only / locked. */}
+      {/* Invite code. Read-only, locked. */}
       <div className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Invite code</span>
         <span className="block text-xs text-mute">
-          Your personal recruiting code. Locked — recruits who sign up with it land on your team.
+          Your personal recruiting code. Locked. Recruits who sign up with it land on your team.
         </span>
         <div className="mt-3 flex items-center gap-3">
           <input
             type="text"
-            value={inviteCode || "—"}
+            value={inviteCode || "Not set"}
             readOnly
             aria-readonly="true"
             tabIndex={-1}
@@ -113,7 +110,7 @@ export function BuilderSettingsForm() {
       <label className="block rounded-2xl border border-hairline bg-card p-5">
         <span className="block text-sm font-medium text-ink">Admin email</span>
         <span className="block text-xs text-mute">
-          Your admin email — where recruits send their contracting info.
+          Your admin email, where recruits send their contracting info.
         </span>
         <input
           type="email"
@@ -138,23 +135,6 @@ export function BuilderSettingsForm() {
             setSaved(false);
           }}
           placeholder="Your code"
-          className="mt-3 w-full bg-transparent text-lg font-medium text-ink outline-none placeholder:text-mute"
-        />
-      </label>
-
-      <label className="block rounded-2xl border border-hairline bg-card p-5">
-        <span className="block text-sm font-medium text-ink">Discord channel webhook</span>
-        <span className="block text-xs text-mute">
-          The channel webhook URL we post to when someone on your team signs a new client.
-        </span>
-        <input
-          type="url"
-          value={discordWebhook}
-          onChange={(e) => {
-            setDiscordWebhook(e.target.value);
-            setSaved(false);
-          }}
-          placeholder="https://discord.com/api/webhooks/…"
           className="mt-3 w-full bg-transparent text-lg font-medium text-ink outline-none placeholder:text-mute"
         />
       </label>

@@ -3,6 +3,7 @@ import { ProfileSettingsForm } from "@/components/producer/ProfileSettingsForm";
 import { PolicyContactSettingsForm } from "@/components/producer/PolicyContactSettingsForm";
 import { BuilderSettingsForm } from "@/components/producer/BuilderSettingsForm";
 import { NpnSettingsForm } from "@/components/producer/NpnSettingsForm";
+import { DiscordSettingsSection } from "@/components/producer/DiscordSettingsSection";
 import { getCurrentPerson } from "@/lib/auth";
 
 export default async function ProducerSettings() {
@@ -48,10 +49,21 @@ export default async function ProducerSettings() {
         <section className="mt-12">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Builder details</h2>
           <p className="mt-2 max-w-2xl text-sm text-subtle">
-            Your recruiting invite code, admin email and code, and the Discord channel webhook we
-            post to when your team signs a new client.
+            Your recruiting invite code, plus the admin email and code your recruits use for
+            contracting.
           </p>
           <BuilderSettingsForm />
+        </section>
+      )}
+
+      {person?.is_builder && (
+        <section className="mt-12">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Discord</h2>
+          <p className="mt-2 max-w-2xl text-sm text-subtle">
+            Post sales and team leaderboards to your Discord channels. Leaderboards track
+            submitted AP for you and your full downline.
+          </p>
+          <DiscordSettingsSection />
         </section>
       )}
 
