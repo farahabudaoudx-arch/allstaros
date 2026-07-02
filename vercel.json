@@ -1,14 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install",
   "crons": [
     {
       "path": "/api/cron/compute-stalls",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/gateway-issued-premium",
-      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/team-digest",
