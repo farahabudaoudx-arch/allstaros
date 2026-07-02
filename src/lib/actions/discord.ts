@@ -3,6 +3,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   computeSubmittedApTeamLeaderboards,
+  DISCORD_LEADERBOARD_TZ,
   type DiscordPeriod,
   type SubmittedApLeaderboardRow,
 } from "@/lib/producer/submitted-ap-leaderboard";
@@ -128,7 +129,7 @@ export async function resolveDiscordDestinations(
 // so a leaderboard or sale post can never ping a role or @everyone.
 // ---------------------------------------------------------------------------
 
-type DiscordPayload = { content: string };
+type DiscordPayload = { content: string } | { embeds: unknown[] };
 
 function withNoMentions(payload: DiscordPayload) {
   return { ...payload, allowed_mentions: { parse: [] as string[] } };
@@ -212,51 +213,94 @@ async function sendSaleSubmittedMessage(
   return postDiscord(destination.url, { content });
 }
 
-const PERIOD_LABEL: Record<DiscordPeriod, string> = {
-  daily: "Daily",
-  wtd: "Week-To-Date",
-  mtd: "Month-To-Date",
-  ytd: "YTD",
+const PERIOD_TITLE: Record<DiscordPeriod, string> = {
+  daily: "Daily Leaderboard (Today)",
+  wtd: "Weekly Leaderboard (Mon → Now)",
+  mtd: "Monthly Leaderboard (1st → Now)",
+  ytd: "Yearly Leaderboard (Jan 1 → Now)",
 };
 
-function formatThroughDate(isoDay: string): string {
+const EMBED_COLOR = 0x5865f2;
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+// "Jul 01, 2026" for a YYYY-MM-DD date column (noon UTC avoids day drift).
+function formatIsoDay(isoDay: string): string {
   const d = new Date(`${isoDay}T12:00:00Z`);
   if (isNaN(d.getTime())) return isoDay;
   return d.toLocaleDateString("en-US", {
     timeZone: "UTC",
     year: "numeric",
-    month: "long",
-    day: "numeric",
+    month: "short",
+    day: "2-digit",
   });
+}
+
+// "Jul 02, 2026 12:00" for a moment in the leaderboard timezone.
+function formatZonedMinute(d: Date, tz: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("month")} ${get("day")}, ${get("year")} ${get("hour")}:${get("minute")}`;
 }
 
 function centsToUsd(cents: number): string {
   return (cents / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 }
 
-function formatLeaderboardMessage(
+type DiscordEmbed = {
+  title: string;
+  description: string;
+  color: number;
+  footer?: { text: string };
+};
+
+// Matches the board style the team knows from the old Discord bot: embed card
+// with a range line, medals for the top three, bold names, and an AP/sales
+// total in the footer.
+function buildLeaderboardEmbed(
   period: DiscordPeriod,
-  throughDate: string,
+  range: { from: string; to: string },
   rows: SubmittedApLeaderboardRow[],
-): string {
-  const lines = [
-    `${PERIOD_LABEL[period]} Submitted AP Leaderboard`,
-    `Through ${formatThroughDate(throughDate)}`,
-    "",
-  ];
+): DiscordEmbed {
+  const rangeLine = `Range: ${formatIsoDay(range.from)} 00:00 → ${formatZonedMinute(
+    new Date(),
+    DISCORD_LEADERBOARD_TZ,
+  )} (${DISCORD_LEADERBOARD_TZ})`;
+
+  const lines = [rangeLine, ""];
+  let footer: { text: string } | undefined;
   if (!rows.length) {
     lines.push("No submitted sales yet for this period.");
   } else {
+    lines.push("**Leaderboard**");
     rows.slice(0, 25).forEach((r, i) => {
+      const rank = i < 3 ? MEDALS[i] : `#${i + 1}`;
       const sales = r.sales_count === 1 ? "1 sale" : `${r.sales_count} sales`;
-      lines.push(`${i + 1}. ${r.full_name} - ${centsToUsd(r.submitted_ap_cents)} AP - ${sales}`);
+      lines.push(`${rank} **${r.full_name}** - ${centsToUsd(r.submitted_ap_cents)} AP (${sales})`);
     });
+    const totalCents = rows.reduce((sum, r) => sum + r.submitted_ap_cents, 0);
+    const totalSales = rows.reduce((sum, r) => sum + r.sales_count, 0);
+    footer = { text: `${centsToUsd(totalCents)} AP | ${totalSales} Sales` };
   }
-  return lines.join("\n");
+
+  return {
+    title: PERIOD_TITLE[period],
+    description: lines.join("\n"),
+    color: EMBED_COLOR,
+    ...(footer ? { footer } : {}),
+  };
 }
 
 // Cheap deterministic content hash for last_payload_hash: length plus a
@@ -298,8 +342,13 @@ async function createOrUpdateLeaderboardMessage(
   rows: SubmittedApLeaderboardRow[],
   opts?: { force?: boolean },
 ): Promise<boolean> {
-  const content = formatLeaderboardMessage(period, range.to, rows);
-  const hash = hashContent(content);
+  const embed = buildLeaderboardEmbed(period, range, rows);
+  const payload = { embeds: [embed] };
+  // Hash only what the board shows, minus the live "→ now" clock in the range
+  // line, so a sale-less minute tick does not read as a content change.
+  const hash = hashContent(
+    JSON.stringify({ ...embed, description: embed.description.replace(/^Range:.*$/m, "") }),
+  );
 
   const existingRes = await admin
     .from("discord_leaderboard_messages")
@@ -314,7 +363,7 @@ async function createOrUpdateLeaderboardMessage(
 
   if (existing?.message_id) {
     if (!opts?.force && existing.last_payload_hash === hash) return false;
-    const status = await editDiscordMessage(destination.url, existing.message_id, { content });
+    const status = await editDiscordMessage(destination.url, existing.message_id, payload);
     if (status >= 200 && status < 300) {
       await admin
         .from("discord_leaderboard_messages")
@@ -330,7 +379,7 @@ async function createOrUpdateLeaderboardMessage(
     // Deleted in Discord: fall through and post a fresh message.
   }
 
-  const messageId = await postDiscordAndGetMessageId(destination.url, { content });
+  const messageId = await postDiscordAndGetMessageId(destination.url, payload);
   if (!messageId) return false;
   if (existing) {
     await admin
