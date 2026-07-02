@@ -50,7 +50,7 @@ create table if not exists discord_leaderboard_messages (
   thread_id text,
   last_payload_hash text,
   last_updated_at timestamptz not null default now(),
-  unique (destination_id, period_type, period_start, period_end)
+  unique (destination_id, period_type, period_start)
 );
 
 -- Manual YTD starting totals per producer (submitted AP tracked in Discord

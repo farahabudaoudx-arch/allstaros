@@ -86,6 +86,7 @@ function DestinationsBlock() {
     setBusyId(d.id);
     setError(null);
     setNotice(null);
+    setConfirmDeleteId(null);
     try {
       const res = await fetch(`/api/producer/discord/destinations/${d.id}`, {
         method: "PATCH",
@@ -106,6 +107,7 @@ function DestinationsBlock() {
     setBusyId(d.id);
     setError(null);
     setNotice(null);
+    setConfirmDeleteId(null);
     try {
       const res = await fetch(`/api/producer/discord/destinations/${d.id}/test`, {
         method: "POST",
@@ -129,6 +131,7 @@ function DestinationsBlock() {
     setBusyId(d.id);
     setError(null);
     setNotice(null);
+    setConfirmDeleteId(null);
     try {
       const res = await fetch(`/api/producer/discord/destinations/${d.id}`, {
         method: "PATCH",
@@ -439,6 +442,11 @@ function BaselinesBlock() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Failed to save");
       setSavedId(personId);
+      const savedAt = json.baseline?.updated_at ?? new Date().toISOString();
+      setDrafts((prev) => ({
+        ...prev,
+        [personId]: { ...(prev[personId] ?? emptyDraft()), updatedAt: savedAt },
+      }));
     } catch (e) {
       setRowError({
         id: personId,
