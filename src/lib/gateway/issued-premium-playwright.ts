@@ -375,7 +375,7 @@ async function readLatestReportContext(page: Page): Promise<GatewayReportContext
 
 async function createGatewayPlaywrightSession(): Promise<GatewayPlaywrightSession> {
   const browser = await playwrightChromium.launch({
-    headless: parseHeadless() ? serverlessChromium.headless : false,
+    headless: parseHeadless(),
     executablePath:
       env("GATEWAY_CHROMIUM_EXECUTABLE_PATH") ??
       (await serverlessChromium.executablePath()),
