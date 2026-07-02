@@ -14,7 +14,7 @@ import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 //   - lead_purchases     → real lead spend (amount, dated by purchase_date).
 //
 // The old frozen funnel (sales_lead / sale / issued_policy / deposit /
-// contact_attempt) is no longer read — those tables were never written by the
+// contact_attempt) is no longer read; those tables were never written by the
 // app. There is no per-call contact heatmap anymore (no per-call data exists).
 
 export type RangeKey = "today" | "wtd" | "mtd" | "ytd" | "all" | "custom";
@@ -39,19 +39,19 @@ export const AGE_BANDS: Array<{ band: string; min: number; max: number }> = [
 
 // clients store premiums as plain numeric dollars (annual_premium) or as
 // free-form quote strings ("$50", "50/mo"). Normalize either to integer cents.
-function dollarsToCents(v: number | string | null | undefined): number {
+export function dollarsToCents(v: number | string | null | undefined): number {
   const n = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
-// Date-typed columns ('YYYY-MM-DD') — the calendar day IS the value.
+// Date-typed columns ('YYYY-MM-DD'); the calendar day IS the value.
 function dayOfDateCol(v: string | null | undefined): string | null {
   if (!v) return null;
   const s = v.slice(0, 10);
   return ISO_DATE.test(s) ? s : null;
 }
 
-// timestamptz columns — convert to the viewer's local calendar day.
+// timestamptz columns; convert to the viewer's local calendar day.
 function dayOfTs(v: string | null | undefined, tz: string): string | null {
   if (!v) return null;
   const d = new Date(v);
@@ -59,12 +59,17 @@ function dayOfTs(v: string | null | undefined, tz: string): string | null {
   return zonedIsoDay(d, tz);
 }
 
-type ClientRow = {
+// The subset of a client row needed to date and value a sale. Exported for
+// the Discord submitted-AP leaderboard helper.
+export type ClientSaleFields = {
   annual_premium: number | null;
   sale_status: string | null;
   submit_date: string | null;
   date: string | null;
   created_at: string | null;
+};
+
+type ClientRow = ClientSaleFields & {
   issue_date: string | null;
   state: string | null;
   age: number | null;
@@ -77,10 +82,10 @@ const CLIENT_COLS =
 
 // The day a client counts as a sale: when the policy was written, falling back
 // to the record date, then the row's creation day.
-function saleDay(c: ClientRow, tz: string): string | null {
+export function saleDay(c: ClientSaleFields, tz: string): string | null {
   return dayOfDateCol(c.submit_date) ?? dayOfDateCol(c.date) ?? dayOfTs(c.created_at, tz);
 }
-function isSale(c: ClientRow): boolean {
+export function isSale(c: ClientSaleFields): boolean {
   return (c.sale_status ?? "sale") === "sale";
 }
 function chosenQuote(c: ClientRow): { carrier?: string | null; premium?: string | null; coverage?: string | null } {
@@ -145,7 +150,7 @@ function sqlWindow(from: string, to: string): { fromTs: string; toTs: string } {
   };
 }
 
-// Earliest activity day for the producer — lower bound for the ALL range.
+// Earliest activity day for the producer; lower bound for the ALL range.
 async function findEarliestActivityDate(
   supabase: SupabaseClient,
   personId: string,
@@ -155,7 +160,7 @@ async function findEarliestActivityDate(
     supabase.from("clients").select("created_at").eq("person_id", personId).order("created_at", { ascending: true }).limit(1).maybeSingle(),
     // Lead spend often predates the first tracked dial/client. If the "All"
     // range didn't reach back to it, the spend was silently excluded from Cost
-    // Analysis / ROI — the bug where logged spend "never showed up". Consider
+    // Analysis / ROI; the bug where logged spend "never showed up". Consider
     // both the entered purchase_date and the row's created_at (for undated rows).
     supabase.from("lead_purchases").select("purchase_date").eq("person_id", personId).not("purchase_date", "is", null).order("purchase_date", { ascending: true }).limit(1).maybeSingle(),
     supabase.from("lead_purchases").select("created_at").eq("person_id", personId).order("created_at", { ascending: true }).limit(1).maybeSingle(),
@@ -289,7 +294,7 @@ export async function computeDashboard(
 
 // ---------------------------------------------------------------------------
 // Analytics: totals + state/age/carrier breakdowns.
-// (The per-call contact heatmap was removed — no per-call data is captured.)
+// (The per-call contact heatmap was removed; no per-call data is captured.)
 // ---------------------------------------------------------------------------
 export type AnalyticsResult = {
   range: { key: RangeKey; from: string; to: string };
@@ -306,7 +311,7 @@ export type AnalyticsResult = {
     deposits_cents: number;
     leadSpend_cents: number;
   };
-  // `leads` is retained for shape compatibility but is always 0 — leads are a
+  // `leads` is retained for shape compatibility but is always 0; leads are a
   // daily total now, with no per-state/per-age dimension.
   state_perf: Array<{ state: string; leads: number; sales: number; ap_cents: number }>;
   age_bands: Array<{ band: string; leads: number; sales: number; ap_cents: number }>;
@@ -448,7 +453,7 @@ export async function computeAnalytics(
 // ---------------------------------------------------------------------------
 // Leaderboard: org-wide per-producer ranking over a range.
 //
-// Not scoped to one person_id — it aggregates every producer so the ranking is
+// Not scoped to one person_id; it aggregates every producer so the ranking is
 // the same for everyone. Call it with a service-role client; RLS would
 // otherwise clip the result to the viewer's own downline.
 // ---------------------------------------------------------------------------
@@ -552,7 +557,7 @@ export async function computeLeaderboard(
     bump(d.person_id).deposits_cents += dollarsToCents(d.actual_amount);
   }
 
-  // Internal/test/owner rows never appear on any board — keep accounts alive,
+  // Internal/test/owner rows never appear on any board; keep accounts alive,
   // just exclude them from the ranked output. See leaderboardExclusions.ts.
   const ids = Array.from(byPerson.keys()).filter((id) => !isLeaderboardExcluded(id));
   const nameById = new Map<string, string>();
