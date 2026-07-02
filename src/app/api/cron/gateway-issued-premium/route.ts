@@ -10,7 +10,6 @@ import {
   type GatewayIssuedPremiumImportResult,
   type GatewayIssuedPremiumPeriod,
 } from "@/lib/gateway/issued-premium";
-import { runGatewayIssuedPremiumPlaywrightImports } from "@/lib/gateway/issued-premium-playwright";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,7 +35,7 @@ function requestedSource(request: NextRequest): "csv" | "playwright" {
   const raw =
     request.nextUrl.searchParams.get("source")?.trim().toLowerCase() ??
     process.env.GATEWAY_ISSUED_PREMIUM_SOURCE?.trim().toLowerCase() ??
-    "csv";
+    "playwright";
   if (raw === "csv" || raw === "playwright") return raw;
   throw new Error("Invalid source. Use csv or playwright.");
 }
@@ -90,6 +89,9 @@ export async function GET(request: NextRequest) {
   const results: GatewayIssuedPremiumImportResult[] = [];
   if (source === "playwright") {
     try {
+      const { runGatewayIssuedPremiumPlaywrightImports } = await import(
+        "@/lib/gateway/issued-premium-playwright"
+      );
       results.push(
         ...(await runGatewayIssuedPremiumPlaywrightImports(admin, {
           periods,
