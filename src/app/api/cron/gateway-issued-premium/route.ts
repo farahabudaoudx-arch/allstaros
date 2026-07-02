@@ -22,6 +22,13 @@ function authorized(request: NextRequest): boolean {
   return !expected || auth === `Bearer ${expected}` || key === expected;
 }
 
+function gatewayImportEnabled(request: NextRequest): boolean {
+  return (
+    request.nextUrl.searchParams.get("run") === "1" ||
+    process.env.GATEWAY_ISSUED_PREMIUM_ENABLED === "1"
+  );
+}
+
 function requestedPeriods(request: NextRequest): GatewayIssuedPremiumPeriod[] {
   const raw = request.nextUrl.searchParams.get("period")?.trim().toLowerCase() ?? null;
   if (!raw) return [...GATEWAY_ISSUED_PREMIUM_PERIODS];
@@ -68,6 +75,15 @@ function dryRunFailureResult(
 export async function GET(request: NextRequest) {
   if (!authorized(request)) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+
+  if (!gatewayImportEnabled(request)) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason:
+        "Gateway issued premium import is paused until GATEWAY_ISSUED_PREMIUM_ENABLED=1 is set.",
+    });
   }
 
   const dryRun = request.nextUrl.searchParams.get("dry") === "1";
