@@ -10,9 +10,11 @@ import {
   type GatewayIssuedPremiumImportResult,
   type GatewayIssuedPremiumPeriod,
 } from "@/lib/gateway/issued-premium";
+import { runGatewayIssuedPremiumPlaywrightImports } from "@/lib/gateway/issued-premium-playwright";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -28,6 +30,15 @@ function requestedPeriods(request: NextRequest): GatewayIssuedPremiumPeriod[] {
     throw new Error("Invalid period. Use wtd, mtd, or ytd.");
   }
   return [raw];
+}
+
+function requestedSource(request: NextRequest): "csv" | "playwright" {
+  const raw =
+    request.nextUrl.searchParams.get("source")?.trim().toLowerCase() ??
+    process.env.GATEWAY_ISSUED_PREMIUM_SOURCE?.trim().toLowerCase() ??
+    "csv";
+  if (raw === "csv" || raw === "playwright") return raw;
+  throw new Error("Invalid source. Use csv or playwright.");
 }
 
 function dryRunFailureResult(
@@ -65,8 +76,10 @@ export async function GET(request: NextRequest) {
   const admin = createServiceRoleClient();
 
   let periods: GatewayIssuedPremiumPeriod[];
+  let source: "csv" | "playwright";
   try {
     periods = requestedPeriods(request);
+    source = requestedSource(request);
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Invalid request" },
@@ -75,24 +88,47 @@ export async function GET(request: NextRequest) {
   }
 
   const results: GatewayIssuedPremiumImportResult[] = [];
-  for (const periodType of periods) {
+  if (source === "playwright") {
     try {
       results.push(
-        await runGatewayIssuedPremiumImport(admin, {
-          periodType,
+        ...(await runGatewayIssuedPremiumPlaywrightImports(admin, {
+          periods,
           dryRun,
           force,
-        }),
+        })),
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { cron: "gateway-issued-premium", periodType },
+        tags: { cron: "gateway-issued-premium", source },
       });
-      results.push(
-        dryRun
-          ? dryRunFailureResult(periodType, err)
-          : await recordGatewayIssuedPremiumFailure(admin, periodType, err),
-      );
+      for (const periodType of periods) {
+        results.push(
+          dryRun
+            ? dryRunFailureResult(periodType, err)
+            : await recordGatewayIssuedPremiumFailure(admin, periodType, err),
+        );
+      }
+    }
+  } else {
+    for (const periodType of periods) {
+      try {
+        results.push(
+          await runGatewayIssuedPremiumImport(admin, {
+            periodType,
+            dryRun,
+            force,
+          }),
+        );
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { cron: "gateway-issued-premium", source, periodType },
+        });
+        results.push(
+          dryRun
+            ? dryRunFailureResult(periodType, err)
+            : await recordGatewayIssuedPremiumFailure(admin, periodType, err),
+        );
+      }
     }
   }
 
@@ -121,6 +157,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       ok,
+      source,
       dryRun,
       force,
       periods,
