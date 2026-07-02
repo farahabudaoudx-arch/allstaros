@@ -134,9 +134,12 @@ function withNoMentions(payload: DiscordPayload) {
   return { ...payload, allowed_mentions: { parse: [] as string[] } };
 }
 
+// Also trims trailing slashes so the /messages/{id} edit URL never ends up
+// with a double slash (Discord 404s on those, which forces a re-post).
 function stripQuery(url: string): string {
   const i = url.indexOf("?");
-  return i === -1 ? url : url.slice(0, i);
+  const base = i === -1 ? url : url.slice(0, i);
+  return base.replace(/\/+$/, "");
 }
 
 function withWait(url: string): string {
@@ -277,10 +280,15 @@ type StoredMessage = {
 };
 
 /**
- * Create or edit the one Discord message for (destination, period, range).
- * Skips the edit when the content hash is unchanged. On a 404 (the message
- * was deleted in Discord), re-posts and stores the new message id.
- * Returns true when a Discord message was actually created or edited.
+ * Create or edit the one Discord message for (destination, period, period
+ * start). Looked up by period_start only (NOT period_end): for wtd/mtd/ytd
+ * the end is "today" and moves every day, so keying on it would post a brand
+ * new message daily instead of editing the existing one. period_end on the
+ * stored row is updated to track the current range. Skips the edit when the
+ * content hash is unchanged, unless opts.force asks for an unconditional
+ * edit (used by rebuild to resurrect messages deleted in Discord). On a 404
+ * (the message was deleted in Discord), re-posts and stores the new message
+ * id. Returns true when a Discord message was actually created or edited.
  */
 async function createOrUpdateLeaderboardMessage(
   admin: SupabaseClient,
@@ -288,6 +296,7 @@ async function createOrUpdateLeaderboardMessage(
   period: DiscordPeriod,
   range: { from: string; to: string },
   rows: SubmittedApLeaderboardRow[],
+  opts?: { force?: boolean },
 ): Promise<boolean> {
   const content = formatLeaderboardMessage(period, range.to, rows);
   const hash = hashContent(content);
@@ -298,17 +307,22 @@ async function createOrUpdateLeaderboardMessage(
     .eq("destination_id", destination.id)
     .eq("period_type", period)
     .eq("period_start", range.from)
-    .eq("period_end", range.to)
+    .order("last_updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   const existing = existingRes.data as StoredMessage | null;
 
   if (existing?.message_id) {
-    if (existing.last_payload_hash === hash) return false;
+    if (!opts?.force && existing.last_payload_hash === hash) return false;
     const status = await editDiscordMessage(destination.url, existing.message_id, { content });
     if (status >= 200 && status < 300) {
       await admin
         .from("discord_leaderboard_messages")
-        .update({ last_payload_hash: hash, last_updated_at: new Date().toISOString() })
+        .update({
+          period_end: range.to,
+          last_payload_hash: hash,
+          last_updated_at: new Date().toISOString(),
+        })
         .eq("id", existing.id);
       return true;
     }
@@ -322,6 +336,7 @@ async function createOrUpdateLeaderboardMessage(
     await admin
       .from("discord_leaderboard_messages")
       .update({
+        period_end: range.to,
         message_id: messageId,
         last_payload_hash: hash,
         last_updated_at: new Date().toISOString(),
@@ -344,8 +359,9 @@ async function createOrUpdateLeaderboardMessage(
 /**
  * Recompute and re-post/edit one owner's OWN leaderboard destinations (no
  * upline walk) for the requested periods. Called from the settings "Rebuild
- * Discord Leaderboards" button. Returns how many messages were created or
- * edited (unchanged boards are skipped and not counted).
+ * Discord Leaderboards" button. Forces the edit even when the content is
+ * unchanged so a message deleted in Discord gets re-posted. Returns how many
+ * messages were created or edited.
  */
 export async function rebuildDiscordLeaderboards(
   ownerPersonId: string,
@@ -392,6 +408,7 @@ export async function rebuildDiscordLeaderboards(
       period,
       { from: board.from, to: board.to },
       board.rows,
+      { force: true },
     );
     if (updated) touched++;
   }

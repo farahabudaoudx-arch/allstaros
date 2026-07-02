@@ -78,9 +78,20 @@ export async function computeSubmittedApTeamLeaderboards(
   }
 
   // Upline tree from every person row (same pattern as the team-digest cron).
-  const peopleRes = await admin.from("person").select("id, full_name, upline_id, status");
-  if (peopleRes.error) throw new Error(peopleRes.error.message);
-  const persons = (peopleRes.data ?? []) as PersonRow[];
+  // Paged in 1000s so PostgREST's default row cap never silently truncates
+  // the tree on a big org.
+  const persons: PersonRow[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const peopleRes = await admin
+      .from("person")
+      .select("id, full_name, upline_id, status")
+      .order("id")
+      .range(offset, offset + 999);
+    if (peopleRes.error) throw new Error(peopleRes.error.message);
+    const page = (peopleRes.data ?? []) as PersonRow[];
+    persons.push(...page);
+    if (page.length < 1000) break;
+  }
 
   const childrenOf = new Map<string, string[]>();
   for (const p of persons) {
@@ -131,14 +142,22 @@ export async function computeSubmittedApTeamLeaderboards(
   const ids = Array.from(teamIds);
   const sales: SaleRow[] = [];
   for (const part of chunk(ids, 100)) {
-    const res = await admin
-      .from("clients")
-      .select("person_id, annual_premium, sale_status, submit_date, date, created_at")
-      .in("person_id", part)
-      .eq("sale_status", "sale")
-      .or(`submit_date.gte.${widestFrom},submit_date.is.null`);
-    if (res.error) throw new Error(res.error.message);
-    sales.push(...((res.data ?? []) as SaleRow[]));
+    // Paged in 1000s: a hot chunk (or a long range) can exceed PostgREST's
+    // default row cap, which would silently drop sales.
+    for (let offset = 0; ; offset += 1000) {
+      const res = await admin
+        .from("clients")
+        .select("person_id, annual_premium, sale_status, submit_date, date, created_at")
+        .in("person_id", part)
+        .eq("sale_status", "sale")
+        .or(`submit_date.gte.${widestFrom},submit_date.is.null`)
+        .order("id")
+        .range(offset, offset + 999);
+      if (res.error) throw new Error(res.error.message);
+      const page = (res.data ?? []) as SaleRow[];
+      sales.push(...page);
+      if (page.length < 1000) break;
+    }
   }
 
   // Manual YTD baselines for the current Chicago year (cents already).
