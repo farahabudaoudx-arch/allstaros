@@ -49,6 +49,11 @@ const SECTIONS: Section[] = [
     description: "Login history with auto-flagged new-location sign-ins.",
     href: "/admin/login-monitoring",
   },
+  {
+    name: "Automation Agents",
+    description: "See Rentamac worker status, heartbeats, and Gateway IP sync receipts.",
+    href: "/admin/agents",
+  },
 ];
 
 const SUPER_SECTIONS: Section[] = [
