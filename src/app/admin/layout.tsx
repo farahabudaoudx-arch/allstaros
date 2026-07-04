@@ -43,7 +43,6 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
         { label: "Builder Codes", href: "/admin/builder-codes" },
         { label: "Auth Ops", href: "/admin/auth-ops" },
         { label: "Login Monitoring", href: "/admin/login-monitoring" },
-        { label: "Automation Agents", href: "/admin/agents" },
       ],
     },
   ];
