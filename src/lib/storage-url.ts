@@ -15,7 +15,10 @@ export function publicStorageUrl(path: string): string {
   return `${base}/storage/v1/object/public/${encoded}`;
 }
 
-/** The landing/sign-in/join background hero clip. */
-export const HERO_VIDEO_URL = publicStorageUrl(
-  "homepage/homepage video final.mp4",
-);
+/**
+ * The landing/sign-in/join background hero clip. Served from our own origin
+ * (public/hero-video.mp4) rather than Supabase Storage: these pages are seen
+ * by logged-out visitors on arbitrary networks, and filtered networks block
+ * the Supabase host entirely (the "Failed to fetch" class of bugs).
+ */
+export const HERO_VIDEO_URL = "/hero-video.mp4";
