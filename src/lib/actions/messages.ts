@@ -98,6 +98,37 @@ export async function sendMessage(
 }
 
 /**
+ * Polling fallback for MessageThread when the Realtime websocket can't connect
+ * (filtered networks block the Supabase host). Returns builder-channel messages
+ * for a thread newer than sinceIso (or the whole thread when sinceIso is null),
+ * oldest first. Reads are scoped by RLS (can_view_recruit), so a signed-in
+ * check is the only authorization needed here.
+ */
+export async function fetchMessagesSince(
+  recruitId: string,
+  sinceIso: string | null,
+): Promise<{ ok: true; messages: Message[] } | { ok: false; error: string }> {
+  if (!recruitId) return { ok: false, error: "Missing recruit id." };
+
+  const person = await getCurrentPerson();
+  if (!person) return { ok: false, error: "Not signed in." };
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("message")
+    .select("*")
+    .eq("recruit_id", recruitId)
+    .eq("channel", "builder")
+    .order("created_at", { ascending: true });
+  if (sinceIso) query = query.gt("created_at", sinceIso);
+
+  const { data, error } = await query;
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, messages: (data ?? []) as Message[] };
+}
+
+/**
  * Stamp the current person's read receipt for a thread to now(). Called when
  * they open a thread (MessageThread mount + on each new message while viewing),
  * so the unread dot clears only once every message has been seen.

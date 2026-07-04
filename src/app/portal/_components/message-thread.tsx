@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { markThreadRead, sendMessage } from "@/lib/actions/messages";
+import {
+  fetchMessagesSince,
+  markThreadRead,
+  sendMessage,
+} from "@/lib/actions/messages";
 import type { Message } from "@/lib/db/types";
 
 /**
@@ -32,6 +36,18 @@ export default function MessageThread({
   const supabaseRef = useRef(createClient());
   const endRef = useRef<HTMLDivElement | null>(null);
 
+  // Realtime health, reported by the channel's subscribe callback. Starts
+  // false so polling runs on the fast cadence until the websocket is up.
+  const [realtimeHealthy, setRealtimeHealthy] = useState(false);
+  // The interval callback reads these refs so it always sees current state
+  // without re-creating the interval on every new message.
+  const messagesRef = useRef<Message[]>(initialMessages);
+  const pollInFlightRef = useRef(false);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Stream new builder-channel messages into the thread as they're inserted.
   useEffect(() => {
     const supabase = supabaseRef.current;
@@ -53,11 +69,54 @@ export default function MessageThread({
           );
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Status strings per REALTIME_SUBSCRIBE_STATES in @supabase/realtime-js:
+        // SUBSCRIBED is healthy; TIMED_OUT, CLOSED, CHANNEL_ERROR are not.
+        setRealtimeHealthy(status === "SUBSCRIBED");
+      });
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [recruitId]);
+
+  // Polling fallback: filtered networks (VPN, corporate WiFi) block the
+  // realtime websocket entirely, so without this incoming messages only show
+  // up on refresh. Poll through our server every 5s while realtime is down,
+  // and every 30s as a cheap safety net while it's healthy. The id-based
+  // dedup below means realtime and polling never double-add a message.
+  useEffect(() => {
+    const intervalMs = realtimeHealthy ? 30_000 : 5_000;
+    const id = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      const current = messagesRef.current;
+      // Newest created_at in state (merges can land out of order, so scan).
+      const since = current.reduce<string | null>(
+        (acc, m) => (acc === null || m.created_at > acc ? m.created_at : acc),
+        null,
+      );
+      void (async () => {
+        try {
+          const result = await fetchMessagesSince(recruitId, since);
+          if (result.ok && result.messages.length > 0) {
+            setMessages((prev) => {
+              const known = new Set(prev.map((x) => x.id));
+              const fresh = result.messages.filter((m) => !known.has(m.id));
+              return fresh.length > 0 ? [...prev, ...fresh] : prev;
+            });
+          }
+          // Structured { ok: false } results are ignored on purpose: polling
+          // is a background fallback and must never surface an error toast.
+        } catch {
+          // Transport failure (offline, mid-deploy): swallow, try next tick.
+        } finally {
+          pollInFlightRef.current = false;
+        }
+      })();
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [recruitId, realtimeHealthy]);
 
   // Keep the latest message in view.
   useEffect(() => {
