@@ -42,7 +42,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/health") ||
     pathname === "/api/version" ||
-    pathname === "/api/gateway/issued-premium/upload";
+    pathname === "/api/gateway/issued-premium/upload" ||
+    pathname === "/api/automation-agents/status";
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
