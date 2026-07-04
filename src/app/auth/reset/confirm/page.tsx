@@ -1,41 +1,39 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useActionState, useState } from "react";
 import { Input, Button } from "@/components/ui";
+import { updatePasswordAction, type UpdatePasswordState } from "../actions";
+
+const initialState: UpdatePasswordState = { ok: true };
 
 export default function ResetConfirmPage() {
+  // Controlled inputs so the typed values survive the re-render after a
+  // failed attempt (React resets uncontrolled fields when a form action ends).
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
-  const [error, setError] = useState("");
+  const [clientError, setClientError] = useState("");
+  const [state, formAction, pending] = useActionState(
+    updatePasswordAction,
+    initialState,
+  );
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  // Client-side pre-checks, same rules as before. The action re-checks length.
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (password !== confirm) {
-      setError("Passwords don’t match.");
-      setStatus("error");
+      e.preventDefault();
+      setClientError("Passwords don’t match.");
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      setStatus("error");
+      e.preventDefault();
+      setClientError("Password must be at least 8 characters.");
       return;
     }
-    setStatus("saving");
-    setError("");
-    const supabase = createClient();
-    const { error: err } = await supabase.auth.updateUser({ password });
-    if (err) {
-      setError(
-        "This reset link has expired. Request a new one from the sign-in page.",
-      );
-      setStatus("error");
-      return;
-    }
-    window.location.href = "/";
+    setClientError("");
   }
+
+  const error = clientError || (!state.ok ? state.error : "");
 
   return (
     <div className="flex min-h-dvh flex-1 items-center justify-center px-6 py-24">
@@ -54,12 +52,13 @@ export default function ResetConfirmPage() {
           </h1>
         </div>
 
-        <form onSubmit={submit} className="space-y-3">
+        <form action={formAction} onSubmit={onSubmit} className="space-y-3">
           <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
             New password
           </label>
           <Input
             type="password"
+            name="password"
             required
             autoComplete="new-password"
             value={password}
@@ -71,6 +70,7 @@ export default function ResetConfirmPage() {
           </label>
           <Input
             type="password"
+            name="confirm"
             required
             autoComplete="new-password"
             value={confirm}
@@ -80,10 +80,10 @@ export default function ResetConfirmPage() {
           <Button
             type="submit"
             variant="primary"
-            disabled={status === "saving"}
+            disabled={pending}
             className="w-full py-2.5"
           >
-            {status === "saving" ? "Saving…" : "Update password"}
+            {pending ? "Saving…" : "Update password"}
           </Button>
           {error ? <p className="text-sm text-neg">{error}</p> : null}
         </form>

@@ -1,42 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useActionState, useState } from "react";
 import { Input, Button } from "@/components/ui";
+import { signInAction, type SignInState } from "./_actions";
+
+const initialState: SignInState = { ok: true };
 
 export default function SignInButton({ next }: { next: string }) {
+  // Controlled inputs so the typed values survive the re-render after a
+  // failed attempt (React resets uncontrolled fields when a form action ends).
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<"idle" | "signing" | "error">("idle");
-  const [error, setError] = useState("");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("signing");
-    setError("");
-    const supabase = createClient();
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
-    if (err) {
-      setError("That email and password don’t match. Try again.");
-      setStatus("error");
-      return;
-    }
-    // Full navigation through the login recorder (captures IP/location), which
-    // then forwards to `next` with the new session cookie in place.
-    window.location.href = `/auth/after-login?next=${encodeURIComponent(next)}`;
-  }
+  const [state, formAction, pending] = useActionState(
+    signInAction,
+    initialState,
+  );
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="next" value={next} />
       <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
         Email
       </label>
       <Input
         type="email"
+        name="email"
         required
         autoComplete="email"
         value={email}
@@ -48,6 +37,7 @@ export default function SignInButton({ next }: { next: string }) {
       </label>
       <Input
         type="password"
+        name="password"
         required
         autoComplete="current-password"
         value={password}
@@ -57,12 +47,12 @@ export default function SignInButton({ next }: { next: string }) {
       <Button
         type="submit"
         variant="primary"
-        disabled={status === "signing"}
+        disabled={pending}
         className="w-full py-2.5"
       >
-        {status === "signing" ? "Signing in…" : "Sign in"}
+        {pending ? "Signing in…" : "Sign in"}
       </Button>
-      {error ? <p className="text-sm text-neg">{error}</p> : null}
+      {!state.ok ? <p className="text-sm text-neg">{state.error}</p> : null}
       <p className="pt-1 text-center text-xs text-mute">
         <Link href="/auth/reset" className="underline hover:text-accent">
           Forgot your password?
