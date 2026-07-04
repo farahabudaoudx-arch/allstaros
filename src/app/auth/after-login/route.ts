@@ -7,8 +7,12 @@ import { recordLoginEvent } from "@/lib/auth/login-event";
 export async function GET(request: NextRequest) {
   const { origin, searchParams } = new URL(request.url);
   const nextRaw = searchParams.get("next") ?? "/";
-  // Only allow same-site absolute paths — never an open redirect.
-  const next = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/";
+  // Only allow same-site absolute paths, never an open redirect. Backslashes
+  // rejected too: browsers normalize "\\" to "/", enabling "//" redirects.
+  const next =
+    nextRaw.startsWith("/") && !nextRaw.startsWith("//") && !nextRaw.includes("\\")
+      ? nextRaw
+      : "/";
 
   const person = await getCurrentPerson();
   if (person) {

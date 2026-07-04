@@ -33,9 +33,13 @@ export async function signInAction(
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
   const nextRaw = String(formData.get("next") ?? "");
-  // Same-site absolute paths only, never an open redirect.
+  // Same-site absolute paths only, never an open redirect. Backslashes are
+  // rejected too: browsers normalize "\" to "/", so "/\evil.com" would
+  // otherwise become a protocol-relative redirect.
   const safeNext =
-    nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
+    nextRaw.startsWith("/") && !nextRaw.startsWith("//") && !nextRaw.includes("\\")
+      ? nextRaw
+      : null;
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({

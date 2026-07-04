@@ -20,11 +20,18 @@ export default async function SignInPage({
   } = await supabase.auth.getUser();
 
   const params = await searchParams;
-  if (user) redirect(params.next ?? "/");
+  // Same sanitization as signInAction: same-site absolute paths only, and no
+  // backslashes (browsers normalize "\" to "/", enabling "//" redirects).
+  const nextRaw = params.next ?? "";
+  const safeNext =
+    nextRaw.startsWith("/") && !nextRaw.startsWith("//") && !nextRaw.includes("\\")
+      ? nextRaw
+      : "/";
+  if (user) redirect(safeNext);
 
   return (
     <div className="relative flex min-h-dvh flex-1 items-center justify-center overflow-hidden px-6 py-24">
-      {/* Background video — same clip as the landing page hero. */}
+      {/* Background video, same clip as the landing page hero. */}
       <HeroVideo
         src={HERO_VIDEO_URL}
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
@@ -55,7 +62,7 @@ export default async function SignInPage({
           </div>
         ) : null}
 
-        <SignInButton next={params.next ?? "/"} />
+        <SignInButton next={safeNext} />
 
         {DEV_LOGIN_ENABLED ? (
           <p className="mt-4 text-center text-xs text-mute">
