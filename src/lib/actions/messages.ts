@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { askAssistant } from "@/lib/ai/assistant";
-import type { Recruit } from "@/lib/db/types";
+import type { Message, Recruit } from "@/lib/db/types";
 
 export async function sendMessageForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
@@ -44,6 +44,57 @@ export async function sendMessageForm(formData: FormData) {
 
   revalidatePath(returnTo);
   redirect(`${returnTo}?ok=sent`);
+}
+
+/**
+ * Structured-result sibling of sendMessageForm: same authorization and insert,
+ * but returns the inserted row instead of redirecting. Used by MessageThread
+ * so chat sends go through the server (browser-direct Supabase calls fail on
+ * filtered networks).
+ */
+export async function sendMessage(
+  recruitId: string,
+  body: string,
+): Promise<{ ok: true; message: Message } | { ok: false; error: string }> {
+  const text = body.trim();
+  if (!recruitId || !text) {
+    return { ok: false, error: "Message is empty." };
+  }
+
+  const person = await getCurrentPerson();
+  if (!person) return { ok: false, error: "Not signed in." };
+
+  const supabase = await createClient();
+
+  // Only the recruit's DIRECT upline (their builder) or the recruit themselves
+  // may post to a thread. An indirect upline can view analytics but not message.
+  const { data: recruit } = await supabase
+    .from("recruit")
+    .select("builder_id, person_id")
+    .eq("id", recruitId)
+    .maybeSingle();
+  if (!recruit) return { ok: false, error: "Recruit not found." };
+  const r = recruit as { builder_id: string; person_id: string };
+  if (person.id !== r.builder_id && person.id !== r.person_id) {
+    return { ok: false, error: "Not allowed to post in this thread." };
+  }
+
+  const { data, error } = await supabase
+    .from("message")
+    .insert({
+      recruit_id: recruitId,
+      sender_person_id: person.id,
+      body: text,
+      is_ai: false,
+      channel: "builder",
+    })
+    .select()
+    .single();
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Insert failed." };
+  }
+
+  return { ok: true, message: data as Message };
 }
 
 /**

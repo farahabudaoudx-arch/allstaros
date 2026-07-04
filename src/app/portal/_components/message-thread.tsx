@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { markThreadRead } from "@/lib/actions/messages";
+import { markThreadRead, sendMessage } from "@/lib/actions/messages";
 import type { Message } from "@/lib/db/types";
 
 /**
  * Live recruit↔builder chat. Renders the existing thread, streams new messages
- * in via Supabase Realtime, and posts new ones with the browser client (RLS
- * enforces that the sender is the current user). Used on both the recruit's
- * /portal/messages page and the builder's recruit thread.
+ * in via Supabase Realtime, and posts new ones through the sendMessage server
+ * action (works on filtered networks that block the Supabase host). Used on
+ * both the recruit's /portal/messages page and the builder's recruit thread.
  */
 export default function MessageThread({
   recruitId,
@@ -75,29 +75,23 @@ export default function MessageThread({
     if (!text || sending) return;
     setSending(true);
     setError(null);
-    const { data, error: insertError } = await supabaseRef.current
-      .from("message")
-      .insert({
-        recruit_id: recruitId,
-        sender_person_id: currentPersonId,
-        body: text,
-        is_ai: false,
-        channel: "builder",
-      })
-      .select()
-      .single();
-    if (insertError) {
-      setError("Couldn't send — please try again.");
-      setSending(false);
-      return;
-    }
-    if (data) {
-      const m = data as Message;
+    // The try/catch covers the transport itself (offline, mid-deploy); the
+    // action returns structured errors and never throws them.
+    try {
+      const result = await sendMessage(recruitId, text);
+      if (!result.ok) {
+        setError("Couldn't send. Please try again.");
+        setSending(false);
+        return;
+      }
+      const m = result.message;
       setMessages((prev) =>
         prev.some((x) => x.id === m.id) ? prev : [...prev, m],
       );
+      setBody("");
+    } catch {
+      setError("Couldn't send. Please try again.");
     }
-    setBody("");
     setSending(false);
   }
 
@@ -113,7 +107,7 @@ export default function MessageThread({
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {messages.length === 0 ? (
           <p className="rounded-xl border border-dashed border-hairline px-4 py-10 text-center text-sm text-mute">
-            No messages yet — say hello.
+            No messages yet. Say hello.
           </p>
         ) : (
           messages.map((m) => {
