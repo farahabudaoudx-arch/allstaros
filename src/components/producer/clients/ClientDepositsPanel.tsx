@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
-import { revalidateClientsView } from "@/app/producer/clients/_actions";
+import { getClientDeposit, saveClientDeposit } from "@/app/producer/clients/_actions";
 import { localIsoDate } from "@/lib/producer/time";
 import {
   projectedPay,
@@ -24,7 +23,6 @@ function fmtDate(iso: string | null | undefined): string {
 }
 
 export function ClientDepositsPanel({ client }: { client: Client }) {
-  const supabase = useMemo(() => createSupabaseClient(), []);
   const [deposit, setDeposit] = useState<ClientDeposit | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<DepositStatus | null>(null);
@@ -38,24 +36,27 @@ export function ClientDepositsPanel({ client }: { client: Client }) {
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("client_deposits")
-        .select("*")
-        .eq("client_id", client.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      if (error && error.code !== "PGRST116") {
-        setError(error.message);
-      } else {
-        setDeposit((data as ClientDeposit | null) ?? null);
+      // Read through OUR server (server action) instead of the browser talking
+      // to Supabase directly, so filtered networks can't break the panel.
+      // The try/catch covers the transport itself (offline, mid-deploy); the
+      // action never throws application errors.
+      try {
+        const result = await getClientDeposit(client.id);
+        if (cancelled) return;
+        if (!result.ok) {
+          setError(result.error);
+        } else {
+          setDeposit(result.deposit);
+        }
+      } catch {
+        if (cancelled) return;
+        setError("Could not load the deposit. Please refresh.");
       }
       setLoading(false);
     }
     load();
     return () => { cancelled = true; };
-  }, [client.id, supabase]);
+  }, [client.id]);
 
   async function setStatus(next: DepositStatus) {
     setSaving(next);
@@ -70,41 +71,26 @@ export function ClientDepositsPanel({ client }: { client: Client }) {
       ? (deposit?.actual_amount ?? estimateSnapshot)
       : null;
 
-    if (deposit) {
-      const { data, error } = await supabase
-        .from("client_deposits")
-        .update({ status: next, actual_amount: actual })
-        .eq("id", deposit.id)
-        .select()
-        .single();
-      if (error) { setSaving(null); setError(error.message); return; }
-      setDeposit(data as ClientDeposit);
-    } else {
-      // person_id is filled by the column default (auth_person_id()) and pinned
-      // by RLS, so the insert doesn't set it.
-      const { data, error } = await supabase
-        .from("client_deposits")
-        .insert({
-          client_id: client.id,
-          issue_date: issue,
-          estimated_amount: estimateSnapshot,
-          actual_amount: actual,
-          status: next,
-        })
-        .select()
-        .single();
-      if (error) { setSaving(null); setError(error.message); return; }
-      setDeposit(data as ClientDeposit);
+    // One server action covers all three writes: update an existing deposit,
+    // insert a first one (person_id stays unset; the column default fills it),
+    // and the clients.issue_date backfill when a deposit first becomes
+    // successful. It also revalidates /producer/clients, so the panel no
+    // longer calls revalidateClientsView separately.
+    try {
+      const result = await saveClientDeposit(client.id, {
+        depositId: deposit?.id ?? null,
+        status: next,
+        issue_date: issue,
+        estimated_amount: estimateSnapshot,
+        actual_amount: actual,
+      });
+      if (!result.ok) { setSaving(null); setError(result.error); return; }
+      setDeposit(result.deposit);
+    } catch {
+      // Transport failure (offline, mid-deploy): never leave the button
+      // stuck on its spinner.
+      setError("Could not save. Please try again.");
     }
-    // Marking Received also promotes the client into IP on the dashboard +
-    // analytics — both of those views key off clients.issue_date, so if the
-    // agent never typed one in we fill it from the deposit snapshot here.
-    if (next === "successful" && !client.issue_date) {
-      await supabase.from("clients").update({ issue_date: issue }).eq("id", client.id);
-    }
-    // Invalidate the router cache for /producer/clients and its deposit views
-    // so the KPI counts and filter lists pick up this change on the next nav.
-    try { await revalidateClientsView(); } catch { /* non-fatal */ }
     setSaving(null);
   }
 

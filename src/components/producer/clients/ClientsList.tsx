@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { deleteClient } from "@/app/producer/clients/_actions";
 import { DEPOSIT_STATUS_LABEL, type Client, type DepositStatus } from "@/lib/clients/types";
 
 function fmtMoney(n: number | null | undefined): string {
@@ -43,18 +43,19 @@ export function ClientsList({
   depositTotals: DepositTotals;
   clientStatuses: Record<string, DepositStatus>;
 }) {
-  const supabase = useMemo(() => createSupabaseClient(), []);
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [query, setQuery] = useState("");
-  // Data is server-fetched and arrives in the initial HTML — no loading state.
+  // Data is server-fetched and arrives in the initial HTML, so no loading state.
   const loading = false;
 
   async function handleDelete(c: Client) {
     if (!confirm(`Delete "${c.client_name || "Unnamed"}"? This cannot be undone.`)) return;
     try {
-      const { error } = await supabase.from("clients").delete().eq("id", c.id);
-      if (error) throw error;
+      // Delete through OUR server (server action) instead of the browser
+      // talking to Supabase directly (the "Failed to fetch" fix).
+      const result = await deleteClient(c.id);
+      if (!result.ok) throw new Error(result.error);
       setClients((prev) => prev.filter((x) => x.id !== c.id));
     } catch (e) {
       alert("Could not delete: " + ((e as Error).message || "unknown error"));
@@ -99,7 +100,7 @@ export function ClientsList({
         </Link>
       </div>
 
-      {/* Stat strip — no outer container. Closed sales is the only lime
+      {/* Stat strip, no outer container. Closed sales is the only lime
           bubble; AP/IP and the pipeline use gray "card" surfaces. All
           three columns stretch to the same bottom line. */}
       <div className="grid grid-cols-12 gap-2.5" style={{ maxWidth: 760, alignItems: "stretch" }}>
