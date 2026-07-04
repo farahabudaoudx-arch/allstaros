@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { themeInitScript } from "@/components/ThemeToggle";
 import { PostHogPageView } from "@/components/PostHogPageView";
+import { VersionWatcher } from "@/components/VersionWatcher";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-ink">
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <PostHogPageView />
+        <VersionWatcher />
         {children}
       </body>
     </html>
