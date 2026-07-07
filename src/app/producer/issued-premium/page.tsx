@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
 import {
   IssuedPremiumView,
@@ -35,17 +35,46 @@ function rangeLabel(labels: Partial<Record<PeriodKey, string | null>>, reportDat
   });
 }
 
-export default async function IssuedPremiumPage() {
+export default async function IssuedPremiumPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ as?: string }>;
+}) {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/issued-premium");
 
-  const supabase = await createClient();
+  // Local-dev only: ?as=Full Name renders the page with another person's
+  // data so views can be checked without their login. Ignored in production
+  // builds, so it can never leak real data.
+  const { as } = await searchParams;
+  let view = {
+    id: person.id,
+    full_name: person.full_name,
+    is_builder: person.is_builder,
+    npn: person.npn,
+  };
+  let devViewing = false;
+  let supabase = await createClient();
+  if (as && process.env.NODE_ENV === "development") {
+    const service = createServiceRoleClient();
+    const { data: target } = await service
+      .from("person")
+      .select("id, full_name, is_builder, npn")
+      .ilike("full_name", as)
+      .maybeSingle();
+    if (target) {
+      view = target;
+      devViewing = true;
+      supabase = service;
+    }
+  }
+
   const { data } = await supabase
     .from("producer_issued_premium")
     .select(
       "period_type, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_producer, first_leg_percent, outside_first_leg_cents, created_at",
     )
-    .eq("person_id", person.id)
+    .eq("person_id", view.id)
     .order("report_date", { ascending: true });
 
   // Fold the up-to-three period rows per report date into one report entry.
@@ -85,10 +114,16 @@ export default async function IssuedPremiumPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
+      {devViewing && (
+        <p className="mb-6 rounded-xl border border-accent/40 bg-accent/[0.06] px-4 py-2.5 text-sm text-accent">
+          Dev preview: viewing as {view.full_name}{" "}
+          {view.is_builder ? "(Builder)" : "(Producer)"}
+        </p>
+      )}
       <IssuedPremiumView
         reports={reports}
-        isBuilder={person.is_builder}
-        hasNpn={Boolean(person.npn)}
+        isBuilder={view.is_builder}
+        hasNpn={Boolean(view.npn)}
       />
     </main>
   );
