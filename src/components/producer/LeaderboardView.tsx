@@ -96,11 +96,8 @@ export function LeaderboardView() {
     <section>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
-            Leaderboard
-          </h1>
           {myRank ? (
-            <p className="mt-2 text-sm text-subtle">
+            <p className="text-sm text-subtle">
               You&apos;re ranked{" "}
               <span className="font-semibold text-accent">#{myRank}</span> of {rows.length} by{" "}
               {METRICS.find((m) => m.key === metric)!.label.toLowerCase()}.
