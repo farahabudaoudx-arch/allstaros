@@ -15,6 +15,7 @@ type Row = {
   gateway_label: string | null;
   personal_ip_cents: number;
   team_ip_cents: number;
+  first_leg_producer: string | null;
   first_leg_percent: string | number | null;
   outside_first_leg_cents: number;
   created_at: string;
@@ -41,7 +42,7 @@ export default async function IssuedPremiumPage() {
   const { data } = await supabase
     .from("producer_issued_premium")
     .select(
-      "period_type, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_percent, outside_first_leg_cents, created_at",
+      "period_type, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_producer, first_leg_percent, outside_first_leg_cents, created_at",
     )
     .eq("person_id", person.id)
     .order("report_date", { ascending: true });
@@ -69,6 +70,7 @@ export default async function IssuedPremiumPage() {
     entry.report.periods[row.period_type] = {
       personalCents: row.personal_ip_cents,
       teamCents: row.team_ip_cents,
+      firstLegProducer: row.first_leg_producer || null,
       firstLegPercent:
         row.first_leg_percent == null ? null : Number(row.first_leg_percent),
       outsideFirstLegCents: row.outside_first_leg_cents,

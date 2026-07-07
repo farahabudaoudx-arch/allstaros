@@ -8,6 +8,7 @@ export type PeriodKey = "wtd" | "mtd" | "ytd";
 export type IpPeriodValues = {
   personalCents: number;
   teamCents: number;
+  firstLegProducer: string | null;
   firstLegPercent: number | null;
   outsideFirstLegCents: number;
 };
@@ -26,6 +27,14 @@ const PERIODS: Array<{ key: PeriodKey; label: string; full: string }> = [
   { key: "mtd", label: "MTD", full: "Month to Date" },
   { key: "ytd", label: "YTD", full: "Year to Date" },
 ];
+
+type BuilderMetric = "team" | "personal" | "leg1";
+
+const METRIC_LABELS: Record<BuilderMetric, string> = {
+  team: "Team IP",
+  personal: "Personal IP",
+  leg1: "1st Leg",
+};
 
 function money(cents: number): string {
   return "$" + Math.round(cents / 100).toLocaleString("en-US");
@@ -61,6 +70,7 @@ export function IssuedPremiumView({
   hasNpn: boolean;
 }) {
   const [period, setPeriod] = useState<PeriodKey>("mtd");
+  const [metric, setMetric] = useState<BuilderMetric>("team");
   const [hover, setHover] = useState<number | null>(null);
 
   const periodMeta = PERIODS.find((p) => p.key === period)!;
@@ -73,8 +83,15 @@ export function IssuedPremiumView({
   const latest = series.length ? series[series.length - 1] : null;
   const latestVals = latest ? latest.periods[period]! : null;
 
-  const chartValue = (v: IpPeriodValues) =>
-    isBuilder ? v.teamCents : v.personalCents;
+  // Producers chart their personal IP; builders chart whichever stat card is
+  // selected.
+  const chartValue = (v: IpPeriodValues) => {
+    if (!isBuilder) return v.personalCents;
+    if (metric === "personal") return v.personalCents;
+    if (metric === "leg1") return firstLegCents(v) ?? 0;
+    return v.teamCents;
+  };
+  const chartLabel = isBuilder ? METRIC_LABELS[metric] : "IP";
 
   const points: ChartPoint[] = useMemo(
     () =>
@@ -84,7 +101,7 @@ export function IssuedPremiumView({
         date: r.reportDate,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [series, period, isBuilder],
+    [series, period, isBuilder, metric],
   );
 
   const readout = useMemo(() => {
@@ -96,11 +113,13 @@ export function IssuedPremiumView({
       };
     }
     return {
-      label: periodMeta.full,
+      label: isBuilder
+        ? `${chartLabel} · ${periodMeta.full}`
+        : periodMeta.full,
       value: latestVals ? money(chartValue(latestVals)) : "—",
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hover, series, period, periodMeta, latestVals, isBuilder]);
+  }, [hover, series, period, periodMeta, latestVals, isBuilder, metric]);
 
   const leg1 = latestVals ? firstLegCents(latestVals) : null;
   const leg1Pct = latestVals ? latestVals.firstLegPercent : null;
@@ -164,7 +183,18 @@ export function IssuedPremiumView({
           {/* Stat cards */}
           {isBuilder ? (
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
-              <div className="flex min-h-[9.5rem] flex-col justify-between rounded-2xl bg-accent p-6 text-black">
+              <button
+                type="button"
+                onClick={() => {
+                  setMetric("team");
+                  setHover(null);
+                }}
+                className={`flex min-h-[9.5rem] flex-col justify-between rounded-2xl bg-accent p-6 text-left text-black transition ${
+                  metric === "team"
+                    ? "ring-2 ring-accent ring-offset-2 ring-offset-background"
+                    : "opacity-90 hover:opacity-100"
+                }`}
+              >
                 <p className="font-mono text-xs uppercase tracking-[0.16em] text-black/60">
                   Team IP · {periodMeta.full}
                 </p>
@@ -176,23 +206,48 @@ export function IssuedPremiumView({
                     Personal + full downline
                   </p>
                 </div>
-              </div>
-              <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMetric("personal");
+                  setHover(null);
+                }}
+                className={`flex flex-col justify-center gap-2.5 rounded-2xl border bg-card p-6 text-left transition ${
+                  metric === "personal"
+                    ? "border-transparent ring-2 ring-accent ring-offset-2 ring-offset-background"
+                    : "border-hairline hover:border-mute"
+                }`}
+              >
                 <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
                   Personal IP
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
                   {latestVals ? money(latestVals.personalCents) : "—"}
                 </p>
-              </div>
-              <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMetric("leg1");
+                  setHover(null);
+                }}
+                className={`flex min-w-0 flex-col justify-center gap-2.5 rounded-2xl border bg-card p-6 text-left transition ${
+                  metric === "leg1"
+                    ? "border-transparent ring-2 ring-accent ring-offset-2 ring-offset-background"
+                    : "border-hairline hover:border-mute"
+                }`}
+              >
+                <p className="truncate font-mono text-xs uppercase tracking-[0.16em] text-mute">
                   1st Leg
+                  {latestVals?.firstLegProducer
+                    ? ` - ${latestVals.firstLegProducer}`
+                    : ""}
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
                   {leg1 != null ? money(leg1) : "—"}
                 </p>
-              </div>
+              </button>
               <div className="flex flex-col justify-center gap-3 rounded-2xl border border-hairline bg-card p-6">
                 <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
                   1st Leg %
@@ -249,7 +304,7 @@ export function IssuedPremiumView({
                 </p>
               </div>
               <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-mute">
-                {isBuilder ? "Team IP Trend" : "IP Trend"} · {periodMeta.label}
+                {chartLabel} Trend · {periodMeta.label}
               </p>
             </div>
             <div className="mt-4 h-56 w-full md:h-64">
