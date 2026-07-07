@@ -23,6 +23,7 @@ function buildNav(isBuilder: boolean, unread: ProducerUnread): NavItem[] {
         { label: "Daily Tracker", href: "/producer/tracker" },
         { label: "Analytics", href: "/producer/analytics" },
         { label: "Lead Spend", href: "/producer/lead-spend" },
+        { label: "Issued Premium", href: "/producer/issued-premium" },
         { label: "Clients", href: "/producer/clients" },
       ],
     },
