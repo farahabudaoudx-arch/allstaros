@@ -22,10 +22,11 @@ type Row = {
 };
 
 // Prefer the WTD label ("June Week 3") as the report's display range since it
-// reads as a week, then fall back to whatever label the upload carried.
+// reads as a week. When a report has no WTD row for this person (no
+// production that week), fall back to the report date; the MTD/YTD labels
+// repeat across uploads and would show as duplicates.
 function rangeLabel(labels: Partial<Record<PeriodKey, string | null>>, reportDate: string): string {
-  const picked = labels.wtd ?? labels.mtd ?? labels.ytd;
-  if (picked) return picked;
+  if (labels.wtd) return labels.wtd;
   const [y, m, d] = reportDate.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", {
     month: "short",
