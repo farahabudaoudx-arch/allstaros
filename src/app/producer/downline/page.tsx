@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Person } from "@/lib/db/types";
 import { AddPerson } from "@/components/producer/AddPerson";
+import { DownlineList, type DownlineItem } from "@/components/producer/DownlineList";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +11,6 @@ type Row = Pick<
   Person,
   "id" | "full_name" | "email" | "is_builder" | "is_producer" | "upline_id" | "auth_user_id"
 >;
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase() || "?";
-}
 
 function roleLabel(p: Row): string {
   if (p.is_builder) return "Builder";
@@ -63,6 +56,19 @@ export default async function DownlinePage({
 
   const directCount = people.filter((p) => p.upline_id === me.id).length;
 
+  const items: DownlineItem[] = people.map((p) => {
+    const pending = !p.auth_user_id;
+    return {
+      id: p.id,
+      displayName: pending ? p.email : p.full_name,
+      searchText: `${p.full_name} ${p.email}`.toLowerCase(),
+      role: roleLabel(p),
+      direct: p.upline_id === me.id,
+      uplineName: p.upline_id ? nameById.get(p.upline_id) ?? null : null,
+      pending,
+    };
+  });
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">My Team</p>
@@ -86,58 +92,7 @@ export default async function DownlinePage({
           No producers in your downline yet.
         </div>
       ) : (
-        <ul className="mt-8 divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card">
-          {people.map((p) => {
-            const direct = p.upline_id === me.id;
-            const uplineName = p.upline_id ? nameById.get(p.upline_id) : null;
-            // No linked auth user => they've never accepted their invite yet.
-            const pending = !p.auth_user_id;
-            return (
-              <li key={p.id}>
-                <Link
-                  href={`/producer/downline/${p.id}`}
-                  className="flex items-center gap-4 px-5 py-4 transition hover:bg-card-hi/60"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card-hi text-[11px] font-semibold text-ink ring-1 ring-hairline">
-                    {initials(p.full_name)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-ink">
-                      {pending ? p.email : p.full_name}
-                    </div>
-                    <div className="truncate text-xs text-mute">
-                      {roleLabel(p)} · {direct ? "reports to you" : <>under {uplineName ?? "—"}</>}
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                      direct
-                        ? "border-accent/40 bg-accent/[0.08] text-accent"
-                        : "border-hairline text-mute"
-                    }`}
-                    title={
-                      direct
-                        ? "A direct producer — reports straight to you"
-                        : `Indirect — in your downline, under ${uplineName ?? "another producer"}`
-                    }
-                  >
-                    {direct ? "Direct" : "Indirect"}
-                  </span>
-                  <span
-                    className={`hidden shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] sm:inline ${
-                      pending
-                        ? "border-warn/40 bg-warn/[0.08] text-warn"
-                        : "border-pos/40 bg-pos/[0.08] text-pos"
-                    }`}
-                  >
-                    {pending ? "Invite Sent" : "Active Profile"}
-                  </span>
-                  <span className="shrink-0 text-mute" aria-hidden>→</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <DownlineList items={items} />
       )}
     </main>
   );

@@ -1,17 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { CheckIn, Message, Person, Recruit } from "@/lib/db/types";
+import { MessagesList, type MessageListItem } from "@/components/producer/MessagesList";
 
 type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase() || "?";
-}
 
 /**
  * Builder Messages hub. Lists the builder's downline recruits (RLS scopes the
@@ -70,6 +63,23 @@ export default async function ProducerMessagesPage() {
     return bm.localeCompare(am);
   });
 
+  const items: MessageListItem[] = sorted.map((row) => {
+    const last = lastMessage.get(row.id);
+    return {
+      recruitId: row.id,
+      name: row.person.full_name,
+      searchText: `${row.person.full_name} ${row.person.email}`.toLowerCase(),
+      flagged: row.flagged,
+      removed: Boolean(row.person.status === "removed" || row.removed_at),
+      // "Unread" = the most recent message came from the recruit (not you,
+      // not the AI) and is still awaiting your reply.
+      unread: Boolean(last && last.sender_person_id !== person.id && !last.is_ai),
+      lastBody: last?.body ?? null,
+      lastAt: last?.created_at ?? null,
+      checkIn: lastCheckIn.get(row.id) ?? null,
+    };
+  });
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <div>
@@ -84,83 +94,12 @@ export default async function ProducerMessagesPage() {
         </p>
       </div>
 
-      {sorted.length === 0 ? (
+      {items.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card p-10 text-center text-sm text-mute">
           No recruits in your downline yet.
         </div>
       ) : (
-        <ul className="mt-8 divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card">
-          {sorted.map((row) => {
-            const last = lastMessage.get(row.id);
-            const checkIn = lastCheckIn.get(row.id);
-            const removed =
-              row.person.status === "removed" || row.removed_at;
-            // "Unread" = the most recent message came from the recruit (not you,
-            // not the AI) and is still awaiting your reply.
-            const unread =
-              !!last && last.sender_person_id !== person.id && !last.is_ai;
-            return (
-              <li key={row.id}>
-                <Link
-                  href={`/producer/messages/${row.id}`}
-                  className={`flex items-center gap-4 px-4 py-4 transition hover:bg-card-hi ${
-                    removed ? "opacity-40" : ""
-                  }`}
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card-hi text-xs font-semibold text-ink ring-1 ring-hairline">
-                    {initials(row.person.full_name)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span
-                          className={`truncate ${
-                            unread ? "font-semibold text-ink" : "font-medium text-ink"
-                          }`}
-                        >
-                          {row.person.full_name}
-                        </span>
-                        {row.flagged ? (
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-3.5 w-3.5 shrink-0 text-warn"
-                            fill="currentColor"
-                            aria-label="Flagged"
-                          >
-                            <path d="M5 3a1 1 0 0 1 1-1h12.5a.5.5 0 0 1 .4.8L16 7l2.9 4.2a.5.5 0 0 1-.4.8H7v9a1 1 0 1 1-2 0V3Z" />
-                          </svg>
-                        ) : null}
-                      </span>
-                      {last ? (
-                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
-                          {new Date(last.created_at).toLocaleDateString()}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p
-                      className={`mt-0.5 truncate text-sm ${
-                        unread ? "font-medium text-ink" : "text-subtle"
-                      }`}
-                    >
-                      {last ? last.body : "No messages yet — say hello."}
-                    </p>
-                  </div>
-                  {checkIn ? (
-                    <span className="hidden shrink-0 rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-mute sm:inline">
-                      Checked in {checkIn}
-                    </span>
-                  ) : null}
-                  {unread ? (
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent"
-                      aria-label="Unread"
-                    />
-                  ) : null}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <MessagesList items={items} />
       )}
     </main>
   );

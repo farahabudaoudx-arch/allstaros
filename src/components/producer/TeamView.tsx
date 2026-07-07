@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TimeframePills, type Timeframe } from "@/components/producer/charts/TimeframePills";
+import { SearchInput } from "@/components/producer/SearchInput";
 import { money, num } from "@/lib/producer/format";
 
 type Row = {
@@ -59,6 +60,7 @@ function fmtRange(from: string, to: string): string {
 export function TeamView() {
   const [tf, setTf] = useState<Timeframe>({ key: "mtd" });
   const [view, setView] = useState<View>("performance");
+  const [query, setQuery] = useState("");
   const [data, setData] = useState<TeamResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,11 +113,15 @@ export function TeamView() {
   const isActivity = view === "activity";
 
   // Re-rank by the metric the active view leads with.
-  const rows = [...(ok?.rows ?? [])].sort((a, b) =>
+  const allRows = [...(ok?.rows ?? [])].sort((a, b) =>
     isActivity
       ? b.dials - a.dials || b.contacts - a.contacts || a.full_name.localeCompare(b.full_name)
       : b.ap_cents - a.ap_cents || b.policies_sold - a.policies_sold || a.full_name.localeCompare(b.full_name),
   );
+  const q = query.trim().toLowerCase();
+  const rows = q
+    ? allRows.filter((r) => r.full_name.toLowerCase().includes(q))
+    : allRows;
 
   const kpis = isActivity
     ? [
@@ -179,12 +185,29 @@ export function TeamView() {
       </div>
 
       {/* Roster */}
+      {allRows.length > 0 ? (
+        <div className="mt-6 flex items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by name…"
+            className="flex-1"
+          />
+          <span className="shrink-0 font-mono text-xs text-mute">
+            {rows.length} of {allRows.length}
+          </span>
+        </div>
+      ) : null}
       {rows.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-hairline bg-card p-10 text-center text-sm text-mute">
-          {loading ? "Loading your team…" : "No producers in your downline yet."}
+        <div className="mt-4 rounded-2xl border border-hairline bg-card p-10 text-center text-sm text-mute">
+          {loading
+            ? "Loading your team…"
+            : q
+              ? "No one matches your search."
+              : "No producers in your downline yet."}
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card">
+        <ul className="mt-4 divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card">
           {rows.map((row) => {
             const isMe = row.person_id === meId;
             return (
