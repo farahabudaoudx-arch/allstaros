@@ -238,15 +238,17 @@ export function IssuedPremiumView({
                     : "border-hairline hover:border-mute"
                 }`}
               >
-                <p className="truncate font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
                   1st Leg
-                  {latestVals?.firstLegProducer
-                    ? ` - ${latestVals.firstLegProducer}`
-                    : ""}
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
                   {leg1 != null ? money(leg1) : "—"}
                 </p>
+                {latestVals?.firstLegProducer && (
+                  <p className="text-[13px] leading-snug text-subtle">
+                    {latestVals.firstLegProducer}
+                  </p>
+                )}
               </button>
               <div className="flex flex-col justify-center gap-3 rounded-2xl border border-hairline bg-card p-6">
                 <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
