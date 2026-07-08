@@ -187,6 +187,7 @@ export function ClientPage({ clientId, initialClient, agent }: Props) {
                     items={[
                       ["Name", b.name],
                       ["Relationship", b.relationship],
+                      ["Type", b.bene_type],
                       ["% of death benefit", formatSharePct(b.share) || null],
                       ["Email", b.email],
                       ["Phone", b.phone],

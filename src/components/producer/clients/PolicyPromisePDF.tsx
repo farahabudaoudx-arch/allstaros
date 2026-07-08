@@ -111,11 +111,15 @@ function PolicyPromiseDoc({ client, agent }: { client: Client; agent: AgentInfo 
             <Text style={styles.sectionHeader}>Beneficiaries</Text>
             {beneficiaries.map((b, i) => {
               const share = formatSharePct(b.share);
+              // e.g. "JANE DOE (Spouse, Primary)" followed by the share
+              const parenthetical = [b.relationship?.trim(), b.bene_type?.trim()]
+                .filter(Boolean)
+                .join(", ");
               return (
                 <View key={i} style={styles.beneRow}>
                   <Text style={styles.beneName}>
                     {(b.name?.trim() || "—") +
-                      (b.relationship?.trim() ? ` (${b.relationship.trim()})` : "") +
+                      (parenthetical ? ` (${parenthetical})` : "") +
                       (share ? ` — ${share}` : "")}
                   </Text>
                   {b.email?.trim() || b.phone?.trim() ? (

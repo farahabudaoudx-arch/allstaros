@@ -7,6 +7,7 @@ import { saveClient, deleteClient } from "@/app/producer/clients/_actions";
 import { localIsoDate } from "@/lib/producer/time";
 import {
   ADVANCE_OPTIONS,
+  BENEFICIARY_TYPES,
   CARRIERS,
   CARRIER_LOGOS,
   EMPTY_DRAFT,
@@ -96,7 +97,9 @@ export function ClientForm({ clientId, initialClient }: Props) {
   };
 
   const addBeneficiary = () =>
-    setDraft((d) => ({ ...d, beneficiaries: [...d.beneficiaries, {}] }));
+    // Most beneficiaries are primary, so new rows start there; the producer
+    // flips the dropdown to Contingent for backups.
+    setDraft((d) => ({ ...d, beneficiaries: [...d.beneficiaries, { bene_type: "Primary" }] }));
 
   const updateBeneficiary = (idx: number, patch: Partial<Beneficiary>) => {
     setDraft((d) => ({
@@ -340,6 +343,17 @@ export function ClientForm({ clientId, initialClient }: Props) {
                     placeholder="e.g. Spouse, Son, Daughter"
                   />
                 </Field>
+                <Field label="Beneficiary type">
+                  <Select
+                    value={b.bene_type ?? ""}
+                    onChange={(v) => updateBeneficiary(i, { bene_type: v })}
+                    placeholder="Select type"
+                    options={BENEFICIARY_TYPES}
+                  />
+                </Field>
+              </Grid>
+              <div className="h-3" />
+              <Grid cols={3}>
                 <Field label="% of death benefit">
                   <div style={{ position: "relative" }}>
                     <input
@@ -365,9 +379,6 @@ export function ClientForm({ clientId, initialClient }: Props) {
                     </span>
                   </div>
                 </Field>
-              </Grid>
-              <div className="h-3" />
-              <Grid cols={2}>
                 <Field label="Email (optional)">
                   <input
                     className="input"

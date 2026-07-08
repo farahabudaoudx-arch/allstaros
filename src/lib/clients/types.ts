@@ -6,9 +6,17 @@ export type Quote = {
   notes?: string;
 };
 
+// Whether the beneficiary is first in line (Primary) or the backup if the
+// primary has passed (Contingent). Stored as the display string, matching the
+// free-form style of the other beneficiary fields. Older records saved before
+// this field existed simply have no value.
+export const BENEFICIARY_TYPES = ["Primary", "Contingent"] as const;
+
 export type Beneficiary = {
   name?: string;
   relationship?: string;
+  // "Primary" | "Contingent" (see BENEFICIARY_TYPES); absent on older records.
+  bene_type?: string;
   email?: string;
   phone?: string;
   // Percentage of the death benefit this beneficiary receives, entered free-form
