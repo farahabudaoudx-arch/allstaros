@@ -112,6 +112,45 @@ export default async function IssuedPremiumPage({
     rangeLabel: rangeLabel(labels, report.reportDate),
   }));
 
+  // Builders: count the active producers in their downline (including
+  // themself, since their personal production is part of team IP). With the
+  // normal RLS client the person query already returns exactly self +
+  // downline; in dev view-as mode the service client sees everyone, so we
+  // walk the upline tree from the viewed person either way.
+  let agentCount: number | null = null;
+  if (view.is_builder) {
+    const { data: peopleRows } = await supabase
+      .from("person")
+      .select("id, upline_id, status, is_producer, is_builder");
+    const all = (peopleRows ?? []) as Array<{
+      id: string;
+      upline_id: string | null;
+      status: string;
+      is_producer: boolean;
+      is_builder: boolean;
+    }>;
+    const children = new Map<string, string[]>();
+    const byId = new Map(all.map((p) => [p.id, p]));
+    for (const p of all) {
+      if (!p.upline_id) continue;
+      const list = children.get(p.upline_id) ?? [];
+      list.push(p.id);
+      children.set(p.upline_id, list);
+    }
+    let count = 0;
+    const queue = [view.id];
+    const seen = new Set<string>();
+    while (queue.length) {
+      const id = queue.pop()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const p = byId.get(id);
+      if (p && p.status === "active" && (p.is_producer || p.is_builder)) count++;
+      for (const child of children.get(id) ?? []) queue.push(child);
+    }
+    agentCount = count;
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       {devViewing && (
@@ -124,6 +163,7 @@ export default async function IssuedPremiumPage({
         reports={reports}
         isBuilder={view.is_builder}
         hasNpn={Boolean(view.npn)}
+        agentCount={agentCount}
       />
     </main>
   );

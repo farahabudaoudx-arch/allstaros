@@ -60,14 +60,79 @@ function fmtPct(p: number | null): string {
   return p == null ? "—" : p.toFixed(1) + "%";
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+type Growth = { pct: number; curMonth: string; prevMonth: string } | null;
+
+// Month-over-month growth from the MTD snapshots. Each month's total is the
+// LAST mtd report inside that month (mtd rows are running totals, so the
+// last one wins; never sum them). Compares the latest month against the one
+// before it; the latest month may still be in progress.
+function momGrowth(
+  reports: IpReport[],
+  pick: (v: IpPeriodValues) => number,
+): Growth {
+  const byMonth = new Map<string, { reportDate: string; value: number }>();
+  for (const r of reports) {
+    const mtd = r.periods.mtd;
+    if (!mtd) continue;
+    const key = r.reportDate.slice(0, 7); // YYYY-MM
+    const prev = byMonth.get(key);
+    if (!prev || r.reportDate > prev.reportDate) {
+      byMonth.set(key, { reportDate: r.reportDate, value: pick(mtd) });
+    }
+  }
+  const keys = [...byMonth.keys()].sort();
+  if (keys.length < 2) return null;
+  const cur = byMonth.get(keys[keys.length - 1])!.value;
+  const prev = byMonth.get(keys[keys.length - 2])!.value;
+  if (prev <= 0) return null;
+  const monthName = (k: string) => MONTHS[Number(k.slice(5, 7)) - 1];
+  return {
+    pct: ((cur - prev) / prev) * 100,
+    curMonth: monthName(keys[keys.length - 1]),
+    prevMonth: monthName(keys[keys.length - 2]),
+  };
+}
+
+function GrowthCard({ label, growth }: { label: string; growth: Growth }) {
+  const tone =
+    growth == null
+      ? "text-ink"
+      : growth.pct > 0
+        ? "text-pos"
+        : growth.pct < 0
+          ? "text-neg"
+          : "text-ink";
+  return (
+    <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
+      <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+        {label}
+      </p>
+      <p className={`text-3xl font-semibold tabular-nums tracking-[-0.02em] ${tone}`}>
+        {growth == null
+          ? "—"
+          : `${growth.pct > 0 ? "+" : ""}${growth.pct.toFixed(1)}%`}
+      </p>
+      <p className="text-[13px] leading-snug text-subtle">
+        {growth == null
+          ? "Needs two months of reports"
+          : `${growth.curMonth} vs ${growth.prevMonth}, month over month`}
+      </p>
+    </div>
+  );
+}
+
 export function IssuedPremiumView({
   reports,
   isBuilder,
   hasNpn,
+  agentCount = null,
 }: {
   reports: IpReport[]; // oldest first
   isBuilder: boolean;
   hasNpn: boolean;
+  agentCount?: number | null;
 }) {
   const [period, setPeriod] = useState<PeriodKey>("mtd");
   const [metric, setMetric] = useState<BuilderMetric>("team");
@@ -123,6 +188,17 @@ export function IssuedPremiumView({
 
   const leg1 = latestVals ? firstLegCents(latestVals) : null;
   const leg1Pct = latestVals ? latestVals.firstLegPercent : null;
+
+  const teamGrowth = useMemo(
+    () => momGrowth(reports, (v) => v.teamCents),
+    [reports],
+  );
+  const personalGrowth = useMemo(
+    () => momGrowth(reports, (v) => v.personalCents),
+    [reports],
+  );
+  const avgPerAgent =
+    latestVals && agentCount ? Math.round(latestVals.teamCents / agentCount) : null;
 
   return (
     <div>
@@ -182,6 +258,7 @@ export function IssuedPremiumView({
         <>
           {/* Stat cards */}
           {isBuilder ? (
+            <>
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
               <button
                 type="button"
@@ -265,8 +342,26 @@ export function IssuedPremiumView({
                 </div>
               </div>
             </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
+                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                  Avg IP per Agent
+                </p>
+                <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
+                  {avgPerAgent != null ? money(avgPerAgent) : "—"}
+                </p>
+                <p className="text-[13px] leading-snug text-subtle">
+                  {agentCount
+                    ? `Team IP split across ${agentCount} active ${agentCount === 1 ? "producer" : "producers"}`
+                    : "No active producers found"}
+                </p>
+              </div>
+              <GrowthCard label="Team IP Growth" growth={teamGrowth} />
+              <GrowthCard label="Personal IP Growth" growth={personalGrowth} />
+            </div>
+            </>
           ) : (
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr]">
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
               <div className="flex min-h-[9rem] flex-col justify-between rounded-2xl bg-accent p-6 text-black sm:col-span-2 lg:col-span-1">
                 <p className="font-mono text-xs uppercase tracking-[0.16em] text-black/60">
                   Issued Premium · {periodMeta.full}
@@ -291,6 +386,7 @@ export function IssuedPremiumView({
                   {fmtDate(reports[reports.length - 1].reportDate)}
                 </p>
               </div>
+              <GrowthCard label="IP Growth" growth={personalGrowth} />
             </div>
           )}
 
