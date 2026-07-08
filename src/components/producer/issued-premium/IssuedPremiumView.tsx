@@ -432,17 +432,19 @@ export function IssuedPremiumView({
               </p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[40rem] border-collapse">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-y border-hairline">
                     <Th align="left">Range</Th>
-                    <Th align="left">Upload Date</Th>
+                    <Th align="left" hide="sm">
+                      Upload Date
+                    </Th>
                     {isBuilder ? (
                       <>
                         <Th>Personal IP</Th>
                         <Th>Team IP</Th>
-                        <Th>1st Leg</Th>
-                        <Th>1st Leg %</Th>
+                        <Th hide="md">1st Leg</Th>
+                        <Th hide="md">1st Leg %</Th>
                       </>
                     ) : (
                       <>
@@ -464,7 +466,7 @@ export function IssuedPremiumView({
                         <Td align="left" strong>
                           {r.rangeLabel}
                         </Td>
-                        <Td align="left" subtle>
+                        <Td align="left" subtle hide="sm">
                           {fmtDate(r.uploadedAt)}
                         </Td>
                         {isBuilder ? (
@@ -473,12 +475,12 @@ export function IssuedPremiumView({
                               {v ? money(v.personalCents) : "—"}
                             </Td>
                             <Td strong>{v ? money(v.teamCents) : "—"}</Td>
-                            <Td subtle>
+                            <Td subtle hide="md">
                               {v && firstLegCents(v) != null
                                 ? money(firstLegCents(v)!)
                                 : "—"}
                             </Td>
-                            <Td subtle>
+                            <Td subtle hide="md">
                               {v ? fmtPct(v.firstLegPercent) : "—"}
                             </Td>
                           </>
@@ -519,18 +521,23 @@ export function IssuedPremiumView({
   );
 }
 
+// hide="sm" keeps the cell for sm screens and up; hide="md" for md and up.
+const HIDE_CLASS = { sm: "hidden sm:table-cell", md: "hidden md:table-cell" };
+
 function Th({
   children,
   align = "right",
+  hide,
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  hide?: "sm" | "md";
 }) {
   return (
     <th
-      className={`px-6 py-2.5 font-mono text-[11px] font-normal uppercase tracking-[0.14em] text-mute ${
+      className={`px-4 py-2.5 font-mono text-[11px] font-normal uppercase tracking-[0.14em] text-mute md:px-6 ${
         align === "left" ? "text-left" : "text-right"
-      }`}
+      } ${hide ? HIDE_CLASS[hide] : ""}`}
     >
       {children}
     </th>
@@ -542,17 +549,21 @@ function Td({
   align = "right",
   strong = false,
   subtle = false,
+  hide,
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   strong?: boolean;
   subtle?: boolean;
+  hide?: "sm" | "md";
 }) {
   return (
     <td
-      className={`px-6 py-4 text-[15px] tabular-nums ${
+      className={`px-4 py-4 text-[15px] tabular-nums md:px-6 ${
         align === "left" ? "text-left" : "text-right"
-      } ${strong ? "font-medium text-ink" : subtle ? "text-subtle" : "text-ink"}`}
+      } ${strong ? "font-medium text-ink" : subtle ? "text-subtle" : "text-ink"} ${
+        hide ? HIDE_CLASS[hide] : ""
+      }`}
     >
       {children}
     </td>

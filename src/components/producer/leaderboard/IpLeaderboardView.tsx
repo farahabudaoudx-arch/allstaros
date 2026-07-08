@@ -253,17 +253,19 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
 
           {/* Ranked table */}
           <div className="no-scrollbar mt-3 overflow-x-auto rounded-2xl border border-hairline bg-card">
-            <table className="w-full min-w-[520px] text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
-                  <th className="px-5 py-3 font-normal">Rank</th>
-                  <th className="px-5 py-3 font-normal">
+                  <th className="px-3 py-3 font-normal md:px-5">Rank</th>
+                  <th className="px-3 py-3 font-normal md:px-5">
                     {board === "team" ? "Builder" : "Producer"}
                   </th>
                   {board === "team" ? (
                     <>
-                      <th className="px-5 py-3 text-right font-normal">Team IP</th>
-                      <th className="px-5 py-3 text-right font-normal">Personal IP</th>
+                      <th className="px-3 py-3 text-right font-normal md:px-5">Team IP</th>
+                      <th className="hidden px-5 py-3 text-right font-normal sm:table-cell">
+                        Personal IP
+                      </th>
                       {!isCustom && (
                         <>
                           <th className="hidden px-5 py-3 text-right font-normal md:table-cell">
@@ -294,10 +296,10 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
                         isMe ? "bg-accent/[0.06]" : "hover:bg-card-hi/60"
                       }`}
                     >
-                      <td className="px-5 py-3 tabular-nums text-mute">{i + 1}</td>
-                      <td className="px-5 py-3">
+                      <td className="px-3 py-3 tabular-nums text-mute md:px-5">{i + 1}</td>
+                      <td className="px-3 py-3 md:px-5">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card-hi text-[11px] font-semibold text-ink ring-1 ring-hairline">
+                          <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card-hi text-[11px] font-semibold text-ink ring-1 ring-hairline sm:flex">
                             {initials(row.full_name)}
                           </span>
                           <span className="truncate font-medium text-ink">
@@ -310,10 +312,10 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
                       </td>
                       {board === "team" ? (
                         <>
-                          <td className="px-5 py-3 text-right font-semibold tabular-nums text-accent">
+                          <td className="px-3 py-3 text-right font-semibold tabular-nums text-accent md:px-5">
                             {money(row.team_ip_cents)}
                           </td>
-                          <td className="px-5 py-3 text-right tabular-nums text-subtle">
+                          <td className="hidden px-5 py-3 text-right tabular-nums text-subtle sm:table-cell">
                             {money(row.personal_ip_cents)}
                           </td>
                           {!isCustom && (
