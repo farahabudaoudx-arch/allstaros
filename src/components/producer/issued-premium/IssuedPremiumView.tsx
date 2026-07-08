@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AreaChart, type ChartPoint } from "@/components/producer/charts/AreaChart";
+import { BugReportModal } from "@/components/BugReportModal";
 
 export type PeriodKey = "wtd" | "mtd" | "ytd";
 
@@ -126,12 +128,10 @@ function GrowthCard({ label, growth }: { label: string; growth: Growth }) {
 export function IssuedPremiumView({
   reports,
   isBuilder,
-  hasNpn,
   agentCount = null,
 }: {
   reports: IpReport[]; // oldest first
   isBuilder: boolean;
-  hasNpn: boolean;
   agentCount?: number | null;
 }) {
   const [period, setPeriod] = useState<PeriodKey>("mtd");
@@ -244,15 +244,20 @@ export function IssuedPremiumView({
             No issued premium yet
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-subtle">
-            Gateway reports are uploaded to All Star OS every morning. Once a
-            report includes your production, it shows up here automatically.
+            We match your Gateway reports by your NPN, if your NPN is not
+            loaded into{" "}
+            <Link
+              href="/producer/settings"
+              className="text-accent underline-offset-2 hover:underline"
+            >
+              your settings
+            </Link>{" "}
+            please do that now. If you believe there is a mistake, Report A
+            Bug.
           </p>
-          {!hasNpn && (
-            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-subtle">
-              Gateway matches you by NPN, and there is no NPN on your account
-              yet. Add it in Settings so your numbers can connect.
-            </p>
-          )}
+          <div className="mt-5">
+            <BugReportModal variant="inline" />
+          </div>
         </div>
       ) : (
         <>

@@ -13,7 +13,15 @@ type Status = "idle" | "sending" | "sent" | "error";
  * is emailed to the bug inbox (see reportBug / BUG_REPORT_TO) with reply-to set
  * to the reporter. Mirrors SignInModal's framer-motion modal pattern.
  */
-export function BugReportModal({ collapsed }: { collapsed?: boolean }) {
+export function BugReportModal({
+  collapsed,
+  variant = "sidebar",
+}: {
+  collapsed?: boolean;
+  // "sidebar" is the footer pill; "inline" renders a standalone button for
+  // use inside page content (e.g. the Issued Premium empty state).
+  variant?: "sidebar" | "inline";
+}) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +84,15 @@ export function BugReportModal({ collapsed }: { collapsed?: boolean }) {
         onClick={() => setOpen(true)}
         title={collapsed ? "Report a bug" : undefined}
         className={
-          collapsed
-            ? "flex w-full items-center justify-center rounded-full border border-hairline px-2 py-2 text-ink transition hover:border-accent hover:text-accent"
-            : "flex w-full items-center justify-center gap-2 rounded-full border border-hairline px-3.5 py-2 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
+          variant === "inline"
+            ? "inline-flex items-center justify-center gap-2 rounded-full border border-hairline px-4 py-2 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
+            : collapsed
+              ? "flex w-full items-center justify-center rounded-full border border-hairline px-2 py-2 text-ink transition hover:border-accent hover:text-accent"
+              : "flex w-full items-center justify-center gap-2 rounded-full border border-hairline px-3.5 py-2 text-xs font-medium text-ink transition hover:border-accent hover:text-accent"
         }
       >
         <BugIcon />
-        {!collapsed ? "Report a bug" : null}
+        {variant === "inline" ? "Report a Bug" : !collapsed ? "Report a bug" : null}
       </button>
 
       {mounted

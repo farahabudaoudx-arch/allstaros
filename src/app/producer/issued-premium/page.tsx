@@ -162,7 +162,6 @@ export default async function IssuedPremiumPage({
       <IssuedPremiumView
         reports={reports}
         isBuilder={view.is_builder}
-        hasNpn={Boolean(view.npn)}
         agentCount={agentCount}
       />
     </main>
