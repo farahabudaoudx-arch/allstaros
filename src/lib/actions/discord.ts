@@ -10,9 +10,12 @@ import {
 
 // Discord delivery for sale notifications and team AP leaderboards.
 // Destinations live in notification_destinations (many per builder, each with
-// a purpose). Leaderboard posts are edited in place; the message ids and
-// content hashes live in discord_leaderboard_messages. No client PII is ever
-// sent (producer name, AP, carrier only), and every payload disables mentions.
+// a purpose). Leaderboard updates REPOST: the fresh board is posted as a new
+// message and the previous one is deleted, so the channel shows unread
+// activity on every sale (silent in-place edits looked like the feature was
+// dead). The message ids and content hashes live in
+// discord_leaderboard_messages. No client PII is ever sent (producer name,
+// AP, carrier only), and every payload disables mentions.
 //
 // NOTE: this is a plain server module, not a "use server" action file. Its
 // exports must only be called from server code (server actions, API routes).
@@ -179,22 +182,14 @@ async function postDiscordAndGetMessageId(
   }
 }
 
-// PATCH an existing webhook message. Returns the HTTP status (0 on network
-// failure); a 404 means the message was deleted in Discord.
-async function editDiscordMessage(
-  url: string,
-  messageId: string,
-  payload: DiscordPayload,
-): Promise<number> {
+// DELETE a webhook message. Best-effort: a 404 just means someone already
+// deleted it in Discord, and on a network failure the stale board lingers
+// until the next repost cleans up after itself.
+async function deleteDiscordMessage(url: string, messageId: string): Promise<void> {
   try {
-    const res = await fetch(`${stripQuery(url)}/messages/${messageId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(withNoMentions(payload)),
-    });
-    return res.status;
+    await fetch(`${stripQuery(url)}/messages/${messageId}`, { method: "DELETE" });
   } catch {
-    return 0;
+    // best-effort
   }
 }
 
@@ -314,7 +309,7 @@ function hashContent(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Edit-in-place leaderboard messages.
+// Repost-on-update leaderboard messages.
 // ---------------------------------------------------------------------------
 
 type StoredMessage = {
@@ -324,15 +319,17 @@ type StoredMessage = {
 };
 
 /**
- * Create or edit the one Discord message for (destination, period, period
- * start). Looked up by period_start only (NOT period_end): for wtd/mtd/ytd
- * the end is "today" and moves every day, so keying on it would post a brand
- * new message daily instead of editing the existing one. period_end on the
- * stored row is updated to track the current range. Skips the edit when the
- * content hash is unchanged, unless opts.force asks for an unconditional
- * edit (used by rebuild to resurrect messages deleted in Discord). On a 404
- * (the message was deleted in Discord), re-posts and stores the new message
- * id. Returns true when a Discord message was actually created or edited.
+ * Post the current Discord message for (destination, period, period start)
+ * and delete the previous one, so the board is always the newest message in
+ * the channel and each update shows as unread activity. Looked up by
+ * period_start only (NOT period_end): for wtd/mtd/ytd the end is "today" and
+ * moves every day, so keying on it would track a brand new row daily instead
+ * of replacing the existing board. period_end on the stored row is updated
+ * to track the current range. Skips the repost when the content hash is
+ * unchanged, unless opts.force asks for an unconditional repost (used by
+ * rebuild to resurrect messages deleted in Discord). The new message is
+ * posted before the old one is deleted so the channel never has a moment
+ * with no board. Returns true when a Discord message was actually posted.
  */
 async function createOrUpdateLeaderboardMessage(
   admin: SupabaseClient,
@@ -361,26 +358,15 @@ async function createOrUpdateLeaderboardMessage(
     .maybeSingle();
   const existing = existingRes.data as StoredMessage | null;
 
-  if (existing?.message_id) {
-    if (!opts?.force && existing.last_payload_hash === hash) return false;
-    const status = await editDiscordMessage(destination.url, existing.message_id, payload);
-    if (status >= 200 && status < 300) {
-      await admin
-        .from("discord_leaderboard_messages")
-        .update({
-          period_end: range.to,
-          last_payload_hash: hash,
-          last_updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-      return true;
-    }
-    if (status !== 404) return false;
-    // Deleted in Discord: fall through and post a fresh message.
+  if (existing?.message_id && !opts?.force && existing.last_payload_hash === hash) {
+    return false;
   }
 
   const messageId = await postDiscordAndGetMessageId(destination.url, payload);
   if (!messageId) return false;
+  if (existing?.message_id && existing.message_id !== messageId) {
+    await deleteDiscordMessage(destination.url, existing.message_id);
+  }
   if (existing) {
     await admin
       .from("discord_leaderboard_messages")
@@ -406,11 +392,11 @@ async function createOrUpdateLeaderboardMessage(
 }
 
 /**
- * Recompute and re-post/edit one owner's OWN leaderboard destinations (no
- * upline walk) for the requested periods. Called from the settings "Rebuild
- * Discord Leaderboards" button. Forces the edit even when the content is
- * unchanged so a message deleted in Discord gets re-posted. Returns how many
- * messages were created or edited.
+ * Recompute and repost one owner's OWN leaderboard destinations (no upline
+ * walk) for the requested periods. Called from the settings "Rebuild Discord
+ * Leaderboards" button. Forces the repost even when the content is unchanged
+ * so a message deleted in Discord gets re-posted. Returns how many messages
+ * were posted.
  */
 export async function rebuildDiscordLeaderboards(
   ownerPersonId: string,
