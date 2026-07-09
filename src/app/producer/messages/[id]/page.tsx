@@ -6,13 +6,15 @@ import MessageThread from "@/app/portal/_components/message-thread";
 import type { CheckIn, Message, Person, Recruit } from "@/lib/db/types";
 
 type RecruitWithPerson = Recruit & {
-  person: Pick<Person, "full_name" | "email">;
+  person: Pick<Person, "full_name" | "email" | "upline_id">;
 };
 
 /**
  * Builder ↔ recruit thread, inside the producer area. Reuses the same realtime
  * MessageThread the recruit uses, so messages flow both ways. RLS guarantees the
- * builder can only open threads for recruits in their downline.
+ * builder can only open threads for recruits in their downline; only the
+ * recruit's CURRENT direct upline (person.upline_id) may post, everyone else
+ * up the chain gets a read-only view.
  */
 export default async function ProducerThreadPage({
   params,
@@ -27,11 +29,13 @@ export default async function ProducerThreadPage({
   const supabase = await createClient();
   const { data: recruitRow } = await supabase
     .from("recruit")
-    .select("*, person:person_id(full_name, email)")
+    .select("*, person:person_id(full_name, email, upline_id)")
     .eq("id", id)
     .maybeSingle();
   const recruit = recruitRow as unknown as RecruitWithPerson | null;
   if (!recruit) notFound();
+
+  const canPost = recruit.person.upline_id === me.id;
 
   const [{ data: messagesRows }, { data: checkInRows }] = await Promise.all([
     supabase
@@ -82,6 +86,11 @@ export default async function ProducerThreadPage({
           initialMessages={messages}
           otherLabel={recruit.person.full_name}
           placeholder={`Message ${recruit.person.full_name}…`}
+          readOnlyNote={
+            canPost
+              ? null
+              : `Only ${recruit.person.full_name}'s direct upline can send messages here. You can read the thread.`
+          }
         />
       </div>
     </main>

@@ -7,6 +7,34 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { askAssistant } from "@/lib/ai/assistant";
 import type { Message, Recruit } from "@/lib/db/types";
 
+/**
+ * A thread belongs to the recruit and their CURRENT direct upline, read live
+ * off person.upline_id. recruit.builder_id is the original-inviter stamp and
+ * goes stale when a team is rewired, so it is deliberately not consulted.
+ * Indirect uplines can read a thread (RLS allows the whole subtree) but may
+ * not post. Returns null when RLS hides the recruit from this caller.
+ */
+async function canPostToThread(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  personId: string,
+  recruitId: string,
+): Promise<{ found: boolean; allowed: boolean }> {
+  const { data } = await supabase
+    .from("recruit")
+    .select("person_id, person:person_id(upline_id)")
+    .eq("id", recruitId)
+    .maybeSingle();
+  if (!data) return { found: false, allowed: false };
+  const r = data as unknown as {
+    person_id: string;
+    person: { upline_id: string | null } | null;
+  };
+  return {
+    found: true,
+    allowed: personId === r.person_id || personId === (r.person?.upline_id ?? null),
+  };
+}
+
 export async function sendMessageForm(formData: FormData) {
   const recruitId = String(formData.get("recruitId") ?? "");
   const body = String(formData.get("body") ?? "").trim();
@@ -20,16 +48,9 @@ export async function sendMessageForm(formData: FormData) {
 
   const supabase = await createClient();
 
-  // Only the recruit's DIRECT upline (their builder) or the recruit themselves
-  // may post to a thread. An indirect upline can view analytics but not message.
-  const { data: recruit } = await supabase
-    .from("recruit")
-    .select("builder_id, person_id")
-    .eq("id", recruitId)
-    .maybeSingle();
-  if (!recruit) redirect(`${returnTo}?error=recruit-not-found`);
-  const r = recruit as { builder_id: string; person_id: string };
-  if (person.id !== r.builder_id && person.id !== r.person_id) {
+  const access = await canPostToThread(supabase, person.id, recruitId);
+  if (!access.found) redirect(`${returnTo}?error=recruit-not-found`);
+  if (!access.allowed) {
     redirect(`${returnTo}?error=not-allowed`);
   }
 
@@ -66,17 +87,13 @@ export async function sendMessage(
 
   const supabase = await createClient();
 
-  // Only the recruit's DIRECT upline (their builder) or the recruit themselves
-  // may post to a thread. An indirect upline can view analytics but not message.
-  const { data: recruit } = await supabase
-    .from("recruit")
-    .select("builder_id, person_id")
-    .eq("id", recruitId)
-    .maybeSingle();
-  if (!recruit) return { ok: false, error: "Recruit not found." };
-  const r = recruit as { builder_id: string; person_id: string };
-  if (person.id !== r.builder_id && person.id !== r.person_id) {
-    return { ok: false, error: "Not allowed to post in this thread." };
+  const access = await canPostToThread(supabase, person.id, recruitId);
+  if (!access.found) return { ok: false, error: "Recruit not found." };
+  if (!access.allowed) {
+    return {
+      ok: false,
+      error: "Only this person's direct upline can message them.",
+    };
   }
 
   const { data, error } = await supabase
