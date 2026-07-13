@@ -34,6 +34,7 @@ export function DialTracker() {
   const [counts, setCounts] = useState<Counts>(EMPTY);
   const [target, setTarget] = useState<Projection | null>(null);
   const [loading, setLoading] = useState(true);
+  const [projectionLoading, setProjectionLoading] = useState(true);
   const [save, setSave] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -42,14 +43,11 @@ export function DialTracker() {
 
   const load = useCallback(async (d: string) => {
     setLoading(true);
+    setProjectionLoading(true);
     setError(null);
     try {
-      const [trackRes, projRes] = await Promise.all([
-        fetch(`/api/producer/tracker?date=${d}`, { cache: "no-store" }),
-        fetch(`/api/producer/projection?date=${d}`, { cache: "no-store" }),
-      ]);
+      const trackRes = await fetch(`/api/producer/tracker?date=${d}`, { cache: "no-store" });
       const trackJson = await trackRes.json();
-      const projJson = await projRes.json();
       if (!trackJson.ok) throw new Error(trackJson.error ?? "Failed to load activity");
       const e = trackJson.entry;
       setCounts(
@@ -64,12 +62,21 @@ export function DialTracker() {
             }
           : EMPTY,
       );
-      setTarget(projJson.ok ? (projJson.projection ?? null) : null);
       setSave("idle");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const projRes = await fetch(`/api/producer/projection?date=${d}`, { cache: "no-store" });
+      const projJson = await projRes.json();
+      setTarget(projJson.ok ? (projJson.projection ?? null) : null);
+    } catch {
+      setTarget(null);
+    } finally {
+      setProjectionLoading(false);
     }
   }, []);
 
@@ -132,7 +139,7 @@ export function DialTracker() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <SaveBadge state={save} loading={loading} />
+          <SaveBadge state={save} loading={loading} projectionLoading={projectionLoading} />
           <label className="flex flex-col text-right">
             <span className="text-[10px] uppercase tracking-[0.12em] text-mute">Day</span>
             <input
@@ -384,8 +391,17 @@ function SmallTap({
   );
 }
 
-function SaveBadge({ state, loading }: { state: SaveState; loading: boolean }) {
+function SaveBadge({
+  state,
+  loading,
+  projectionLoading,
+}: {
+  state: SaveState;
+  loading: boolean;
+  projectionLoading: boolean;
+}) {
   if (loading) return <span className="text-xs text-mute">Loading…</span>;
+  if (projectionLoading && state === "idle") return <span className="text-xs text-mute">Synced</span>;
   const map: Record<SaveState, { text: string; cls: string }> = {
     idle: { text: "Synced", cls: "text-mute" },
     saving: { text: "Saving…", cls: "text-accent" },
