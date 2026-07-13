@@ -79,6 +79,30 @@ type ClientRow = ClientSaleFields & {
 
 const CLIENT_COLS =
   "annual_premium, sale_status, submit_date, date, created_at, issue_date, state, age, quotes, chosen_quote_index";
+const SUPABASE_PAGE_SIZE = 1000;
+
+type SupabasePage<T> = {
+  data: T[] | null;
+  error: { message: string } | null;
+};
+
+async function fetchPaged<T>(
+  pageQuery: (from: number, to: number) => PromiseLike<SupabasePage<T>>,
+): Promise<T[]> {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await pageQuery(from, to);
+    if (error) throw new Error(error.message);
+
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < SUPABASE_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
 
 // The day a client counts as a sale: when the policy was written, falling back
 // to the record date, then the row's creation day.
@@ -508,16 +532,39 @@ export async function computeLeaderboard(
   const { fromTs, toTs } = sqlWindow(from, to);
   const inRange = (day: string | null) => !!day && day >= from && day <= to;
 
-  const [clientsRes, trackerRes, depositRes] = await Promise.all([
+  const [clients, trackerRows, depositRows] = await Promise.all([
     // All clients org-wide; we attribute each to a day in JS (sale vs issue
     // dates can diverge from created_at, so we don't bound by created_at here).
-    supabase.from("clients").select(`person_id, ${CLIENT_COLS}`),
-    supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to),
-    supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs),
+    // Supabase REST responses are capped, so page explicitly or recent sales
+    // can disappear from the board once the org passes the API row limit. Each
+    // paged query is ordered by a stable key so range windows cannot overlap or
+    // skip rows.
+    fetchPaged<ClientRow & { person_id: string }>((rangeFrom, rangeTo) =>
+      supabase
+        .from("clients")
+        .select(`person_id, ${CLIENT_COLS}`)
+        .order("id", { ascending: true })
+        .range(rangeFrom, rangeTo),
+    ),
+    fetchPaged<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>((rangeFrom, rangeTo) =>
+      supabase
+        .from("tracker_entry")
+        .select("person_id, sales, dials, contacts, presentations, entry_date")
+        .gte("entry_date", from)
+        .lte("entry_date", to)
+        .order("id", { ascending: true })
+        .range(rangeFrom, rangeTo),
+    ),
+    fetchPaged<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>((rangeFrom, rangeTo) =>
+      supabase
+        .from("client_deposits")
+        .select("person_id, actual_amount, status, updated_at, created_at")
+        .gte("updated_at", fromTs)
+        .lte("updated_at", toTs)
+        .order("id", { ascending: true })
+        .range(rangeFrom, rangeTo),
+    ),
   ]);
-  if (clientsRes.error) throw new Error(clientsRes.error.message);
-  if (trackerRes.error) throw new Error(trackerRes.error.message);
-  if (depositRes.error) throw new Error(depositRes.error.message);
 
   type Agg = { ap_cents: number; ip_cents: number; saleCount: number; trackerSales: number; policies: number; deposits_cents: number; dials: number; contacts: number; presentations: number };
   const byPerson = new Map<string, Agg>();
@@ -530,7 +577,7 @@ export async function computeLeaderboard(
     return a;
   };
 
-  for (const c of (clientsRes.data ?? []) as Array<ClientRow & { person_id: string }>) {
+  for (const c of clients) {
     if (isSale(c) && inRange(saleDay(c, tz))) {
       const a = bump(c.person_id);
       a.ap_cents += dollarsToCents(c.annual_premium);
@@ -543,7 +590,7 @@ export async function computeLeaderboard(
     }
   }
 
-  for (const t of (trackerRes.data ?? []) as Array<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>) {
+  for (const t of trackerRows) {
     const a = bump(t.person_id);
     a.trackerSales += Number(t.sales ?? 0);
     a.dials += Number(t.dials ?? 0);
@@ -551,7 +598,7 @@ export async function computeLeaderboard(
     a.presentations += Number(t.presentations ?? 0);
   }
 
-  for (const d of (depositRes.data ?? []) as Array<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>) {
+  for (const d of depositRows) {
     if (d.status !== "successful") continue;
     if (!inRange(dayOfTs(d.updated_at, tz) ?? dayOfTs(d.created_at, tz))) continue;
     bump(d.person_id).deposits_cents += dollarsToCents(d.actual_amount);
