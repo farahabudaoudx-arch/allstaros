@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { UsStateMap, type StateDatum } from "@/components/producer/charts/UsStateMap";
+import { HallOfFameTracker } from "@/components/producer/issued-premium/HallOfFameTracker";
 import { localIsoDate } from "@/lib/producer/time";
 
 type Timeframe = "today" | "wtd" | "mtd" | "ytd" | "all" | "custom";
@@ -48,6 +49,9 @@ type ServerMetrics = {
     name: string; sales: number; ap_cents: number;
     avg_monthly_premium_cents: number; avg_face_amount_cents: number;
   }>;
+  // Official Gateway personal YTD IP for the Hall of Fame band; null when this
+  // person has no matched Gateway report yet.
+  hof: { currentCents: number; year: number } | null;
 };
 
 const EMPTY_METRICS: RawMetrics = {
@@ -103,9 +107,10 @@ function roiFontSize(p: number): string {
   return "1.875rem";
 }
 
-type SectionKey = "overview" | "percentages" | "activity" | "cost" | "roi" | "performance" | "calendar";
+type SectionKey = "hallOfFame" | "overview" | "percentages" | "activity" | "cost" | "roi" | "performance" | "calendar";
 
 const SECTION_LABELS: Record<SectionKey, string> = {
+  hallOfFame: "Hall of Fame",
   overview: "Overview",
   percentages: "Percentages",
   activity: "Activity Needed",
@@ -115,7 +120,7 @@ const SECTION_LABELS: Record<SectionKey, string> = {
   calendar: "Calendar",
 };
 const DEFAULT_SECTION_ORDER: SectionKey[] = [
-  "overview", "percentages", "activity", "cost", "roi", "performance", "calendar",
+  "hallOfFame", "overview", "percentages", "activity", "cost", "roi", "performance", "calendar",
 ];
 const ALL_SECTIONS: ReadonlySet<SectionKey> = new Set(DEFAULT_SECTION_ORDER);
 
@@ -132,10 +137,13 @@ function readLayout(): SectionLayout {
     const savedOrder: SectionKey[] = Array.isArray(parsed.order)
       ? parsed.order.filter((k): k is SectionKey => typeof k === "string" && ALL_SECTIONS.has(k as SectionKey))
       : [];
-    const order: SectionKey[] = [
-      ...savedOrder,
-      ...DEFAULT_SECTION_ORDER.filter((k) => !savedOrder.includes(k)),
-    ];
+    // Start from the saved order, then splice in any sections the saved layout
+    // predates (e.g. Hall of Fame) at their default position, so a newly added
+    // section shows where it's meant to instead of always at the end.
+    const order: SectionKey[] = [...savedOrder];
+    DEFAULT_SECTION_ORDER.forEach((k, i) => {
+      if (!order.includes(k)) order.splice(Math.min(i, order.length), 0, k);
+    });
     const hidden: SectionKey[] = Array.isArray(parsed.hidden)
       ? parsed.hidden.filter((k): k is SectionKey => typeof k === "string" && ALL_SECTIONS.has(k as SectionKey))
       : [];
@@ -341,6 +349,15 @@ export function AnalyticsView({
 
       {(() => {
         const sections: Record<SectionKey, React.ReactNode> = {
+          // Official Gateway personal YTD figure. Reorderable/hideable like any
+          // other section; renders nothing until this person has a Gateway match.
+          hallOfFame: server?.hof ? (
+            <HallOfFameTracker
+              className=""
+              currentCents={server.hof.currentCents}
+              year={server.hof.year}
+            />
+          ) : null,
           overview: (
             <Section title="Overview">
               <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:gap-0">
