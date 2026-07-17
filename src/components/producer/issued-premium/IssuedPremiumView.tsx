@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AreaChart, type ChartPoint } from "@/components/producer/charts/AreaChart";
 import { BugReportModal } from "@/components/BugReportModal";
+import { HallOfFameTracker } from "./HallOfFameTracker";
 
 export type PeriodKey = "wtd" | "mtd" | "ytd";
 
@@ -200,6 +201,22 @@ export function IssuedPremiumView({
   const avgPerAgent =
     latestVals && agentCount ? Math.round(latestVals.teamCents / agentCount) : null;
 
+  // Hall of Fame is always personal YTD, never the toggle. Take the newest
+  // report that carries a YTD snapshot and use its personal figure; the report
+  // date's year labels the award year.
+  const hof = (() => {
+    for (let i = reports.length - 1; i >= 0; i--) {
+      const ytd = reports[i].periods.ytd;
+      if (ytd) {
+        return {
+          currentCents: ytd.personalCents,
+          year: Number(reports[i].reportDate.slice(0, 4)),
+        };
+      }
+    }
+    return null;
+  })();
+
   return (
     <div>
       {/* Header */}
@@ -261,6 +278,14 @@ export function IssuedPremiumView({
         </div>
       ) : (
         <>
+          {/* Hall of Fame — always personal YTD, pinned regardless of toggle */}
+          {hof && (
+            <HallOfFameTracker
+              currentCents={hof.currentCents}
+              year={hof.year}
+            />
+          )}
+
           {/* Stat cards */}
           {isBuilder ? (
             <>
