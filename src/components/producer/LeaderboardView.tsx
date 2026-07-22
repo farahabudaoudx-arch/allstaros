@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TimeframePills, type Timeframe } from "@/components/producer/charts/TimeframePills";
 import type { LeaderboardMetric, LeaderboardRow } from "@/lib/producer/metrics";
 import { money, num } from "@/lib/producer/format";
+import { Avatar } from "@/components/Avatar";
 
 type LeaderboardResponse = {
   ok: true;
@@ -26,13 +27,6 @@ const METRICS: Array<{
   { key: "contacts", label: "Contacts", short: "Contacts", hideSmall: true },
   { key: "presentations", label: "Presentations", short: "Pres", hideSmall: true },
 ];
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase() || "?";
-}
 
 function metricValue(row: LeaderboardRow, metric: LeaderboardMetric): string {
   const meta = METRICS.find((m) => m.key === metric)!;
@@ -154,11 +148,11 @@ export function LeaderboardView() {
                       isMe ? "border-accent/60 bg-accent/[0.04]" : "border-hairline"
                     }`}
                   >
-                    <div
-                      className={`flex h-14 w-14 items-center justify-center rounded-full bg-card-hi text-base font-semibold text-ink ring-2 ${PODIUM_RING[i]}`}
-                    >
-                      {initials(row.full_name)}
-                    </div>
+                    <Avatar
+                      name={row.full_name}
+                      photoUrl={row.photo_url}
+                      className={`h-14 w-14 text-base ring-2 ${PODIUM_RING[i]}`}
+                    />
                     <p className={`mt-3 font-mono text-xs uppercase tracking-[0.16em] ${PODIUM_TEXT[i]}`}>
                       #{i + 1}
                     </p>
@@ -205,9 +199,11 @@ export function LeaderboardView() {
                       <td className="px-5 py-3 tabular-nums text-mute">{i + 1}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card-hi text-[11px] font-semibold text-ink ring-1 ring-hairline">
-                            {initials(row.full_name)}
-                          </span>
+                          <Avatar
+                            name={row.full_name}
+                            photoUrl={row.photo_url}
+                            className="h-8 w-8 text-[11px] ring-1 ring-hairline"
+                          />
                           <span className="truncate font-medium text-ink">
                             {row.full_name}
                             {isMe ? <span className="ml-1 text-accent">(you)</span> : null}

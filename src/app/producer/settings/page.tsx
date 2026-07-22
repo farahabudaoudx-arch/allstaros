@@ -6,6 +6,8 @@ import { NpnSettingsForm } from "@/components/producer/NpnSettingsForm";
 import { DiscordSettingsSection } from "@/components/producer/DiscordSettingsSection";
 import { SettingsHub, type SettingsHubSection } from "@/components/producer/SettingsHub";
 import { getCurrentPerson } from "@/lib/auth";
+import { Avatar } from "@/components/Avatar";
+import { approvedPhotoUrl } from "@/lib/headshots/photo";
 
 const ICON_CLASS = "h-6 w-6 text-subtle";
 
@@ -196,6 +198,19 @@ export default async function ProducerSettings() {
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">Settings</h1>
+      {person ? (
+        <div className="mt-6 flex items-center gap-4">
+          <Avatar
+            name={person.full_name}
+            photoUrl={approvedPhotoUrl(person)}
+            className="h-16 w-16 text-xl ring-1 ring-hairline"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-medium text-ink">{person.full_name}</p>
+            <p className="truncate text-sm text-mute">{person.email}</p>
+          </div>
+        </div>
+      ) : null}
       <SettingsHub sections={sections} />
     </main>
   );

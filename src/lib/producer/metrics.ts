@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { zonedParts, zonedIsoDay } from "@/lib/producer/time";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
+import { approvedPhotoUrl } from "@/lib/headshots/photo";
 
 // Closed-loop producer metrics, sourced from the data producers actually enter:
 //
@@ -494,6 +495,7 @@ export type LeaderboardMetric =
 export type LeaderboardRow = {
   person_id: string;
   full_name: string;
+  photo_url: string | null;
   ap_cents: number;
   ip_cents: number;
   sales: number;
@@ -608,11 +610,16 @@ export async function computeLeaderboard(
   // just exclude them from the ranked output. See leaderboardExclusions.ts.
   const ids = Array.from(byPerson.keys()).filter((id) => !isLeaderboardExcluded(id));
   const nameById = new Map<string, string>();
+  const photoById = new Map<string, string | null>();
   if (ids.length) {
-    const peopleRes = await supabase.from("person").select("id, full_name").in("id", ids);
+    const peopleRes = await supabase
+      .from("person")
+      .select("id, full_name, photo_url, photo_review_status")
+      .in("id", ids);
     if (peopleRes.error) throw new Error(peopleRes.error.message);
-    for (const p of (peopleRes.data ?? []) as Array<{ id: string; full_name: string | null }>) {
+    for (const p of (peopleRes.data ?? []) as Array<{ id: string; full_name: string | null; photo_url: string | null; photo_review_status: string | null }>) {
       nameById.set(p.id, p.full_name ?? "Unknown");
+      photoById.set(p.id, approvedPhotoUrl(p));
     }
   }
 
@@ -621,6 +628,7 @@ export async function computeLeaderboard(
     return {
       person_id: pid,
       full_name: nameById.get(pid) ?? "Unknown",
+      photo_url: photoById.get(pid) ?? null,
       ap_cents: a.ap_cents,
       ip_cents: a.ip_cents,
       sales: Math.max(a.trackerSales, a.saleCount),

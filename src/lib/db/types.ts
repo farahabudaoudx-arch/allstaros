@@ -1,6 +1,8 @@
 // Shared enums and type aliases for the All Star OS schema.
 // Keep these in lock-step with the CHECK constraints in supabase/migrations.
 
+import type { PhotoReviewStatus } from "@/lib/headshots/status";
+
 export type Phase =
   | "interview"
   | "licensing"
@@ -100,6 +102,14 @@ export type Person = {
   npn_source: NpnSource | null;
   npn_verified_at: string | null;
   npn_verified_by: string | null;
+  // Headshot (see 20260722000100_person_headshot.sql). Kept separate from
+  // account status: a rejected photo is not a deactivated account.
+  photo_url: string | null;
+  photo_review_status: PhotoReviewStatus | null;
+  photo_rejection_reason: string | null;
+  photo_reviewed_by: string | null;
+  photo_reviewed_at: string | null;
+  photo_updated_at: string | null;
   created_at: string;
   updated_at: string;
 };
