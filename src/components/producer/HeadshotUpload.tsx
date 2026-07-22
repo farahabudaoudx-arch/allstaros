@@ -152,9 +152,10 @@ export function HeadshotUpload({
   }, [loaded, understood, submitting, buildBlob, router]);
 
   return (
-    <div className="grid gap-8 md:grid-cols-[320px_1fr]">
-      {/* Left: crop box + current photo */}
-      <div>
+    <div className="flex flex-col gap-8 md:grid md:grid-cols-[320px_1fr]">
+      {/* Upload: crop box + choose. On mobile this drops to just above the rule
+          checkbox (order-2); on desktop it sits in the left column. */}
+      <div className="order-2 md:order-none md:col-start-1 md:row-start-1">
         <div
           className="relative overflow-hidden rounded-2xl border border-hairline bg-card-hi"
           style={{ width: FRAME, height: FRAME, maxWidth: "100%" }}
@@ -220,8 +221,8 @@ export function HeadshotUpload({
         </button>
       </div>
 
-      {/* Right: guidance, sample, rule, submit */}
-      <div className="min-w-0">
+      {/* Guidance + sample. Mobile: first (order-1). Desktop: right column, top row. */}
+      <div className="order-1 min-w-0 md:order-none md:col-start-2 md:row-start-1">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl border border-hairline bg-card p-4">
             <p className="text-sm font-semibold text-ink">Do</p>
@@ -256,8 +257,11 @@ export function HeadshotUpload({
             Just use AI to make one. Don&apos;t overthink this.
           </p>
         </div>
+      </div>
 
-        <label className="mt-5 flex items-start gap-3 rounded-2xl border border-hairline bg-card p-4">
+      {/* Rule + submit. Mobile: last (order-3). Desktop: right column, second row. */}
+      <div className="order-3 min-w-0 md:order-none md:col-start-2 md:row-start-2">
+        <label className="flex items-start gap-3 rounded-2xl border border-hairline bg-card p-4">
           <input
             type="checkbox"
             checked={understood}
