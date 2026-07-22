@@ -152,7 +152,7 @@ export function HeadshotUpload({
   }, [loaded, understood, submitting, buildBlob, router]);
 
   return (
-    <div className="grid gap-8 md:grid-cols-[minmax(0,340px)_1fr]">
+    <div className="grid gap-8 md:grid-cols-[320px_1fr]">
       {/* Left: crop box + current photo */}
       <div>
         <div
@@ -276,7 +276,7 @@ export function HeadshotUpload({
           type="button"
           disabled={!loaded || !understood || submitting}
           onClick={onSubmit}
-          className="mt-4 w-full max-w-[340px] rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-4 w-full max-w-[320px] rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "Saving..." : "Submit photo for review"}
         </button>
