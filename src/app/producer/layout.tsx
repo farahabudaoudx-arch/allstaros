@@ -4,6 +4,8 @@ import { getProducerUnread, type ProducerUnread } from "@/lib/producer/unread";
 import { Sidebar, type NavItem } from "@/components/Sidebar";
 import { PageTransition } from "@/components/PageTransition";
 import { NpnRequestModal } from "./_components/npn-request-modal";
+import { HeadshotGateModal } from "./_components/headshot-gate-modal";
+import { isBehindHeadshotWall } from "@/lib/headshots/wall";
 
 function buildNav(isBuilder: boolean, unread: ProducerUnread): NavItem[] {
   const trainingChildren: NavItem[] = [
@@ -76,6 +78,15 @@ export default async function ProducerLayout({
           "missing", so it never returns. */}
       <NpnRequestModal
         initialOpen={person.npn_status === "missing"}
+      />
+      {/* Login wall: a forced popup for any builder/producer who has no photo or
+          was rejected. Uploading flips them to 'pending' and clears it. */}
+      <HeadshotGateModal
+        open={isBehindHeadshotWall(person)}
+        currentName={person.full_name}
+        rejectionReason={
+          person.photo_review_status === "rejected" ? person.photo_rejection_reason : null
+        }
       />
     </div>
   );
