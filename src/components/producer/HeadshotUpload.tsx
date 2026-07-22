@@ -250,6 +250,13 @@ export function HeadshotUpload({
           />
         </div>
 
+        <div className="mt-4 rounded-2xl border border-hairline bg-card p-4">
+          <p className="text-sm font-semibold text-ink">No professional headshot?</p>
+          <p className="mt-1 text-sm text-mute">
+            Just use AI to make one. Don&apos;t overthink this.
+          </p>
+        </div>
+
         <label className="mt-5 flex items-start gap-3 rounded-2xl border border-hairline bg-card p-4">
           <input
             type="checkbox"
@@ -269,7 +276,7 @@ export function HeadshotUpload({
           type="button"
           disabled={!loaded || !understood || submitting}
           onClick={onSubmit}
-          className="mt-4 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-4 w-full max-w-[340px] rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "Saving..." : "Submit photo for review"}
         </button>
