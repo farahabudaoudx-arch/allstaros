@@ -32,6 +32,12 @@ const AI_TOOLS: Resource[] = [
 
 const USEFUL_LINKS: Resource[] = [
   {
+    name: "Scripts",
+    description: "Our proven phone scripts.",
+    href: "/producer/resources/scripts",
+    icon: ScriptIcon,
+  },
+  {
     name: "Portal Links",
     description: "Direct login links to our carrier's portals.",
     href: "/producer/resources/portal-links",
@@ -133,6 +139,19 @@ function iconProps(className?: string) {
     className,
     "aria-hidden": true,
   };
+}
+
+// Scripts — document with text lines (lucide: file-text)
+function ScriptIcon({ className }: { className?: string }) {
+  return (
+    <svg {...iconProps(className)}>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+    </svg>
+  );
 }
 
 // Portal Links — chain link (lucide: link)
