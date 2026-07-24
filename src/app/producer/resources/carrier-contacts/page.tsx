@@ -44,7 +44,10 @@ const CARRIERS: Carrier[] = [
     name: "Ethos",
     phone: "(877) 913-8467",
     email: "agentops@getethos.com",
-    reps: [{ name: "Nick Taylor", email: "nick.taylor@getethos.com", phone: "(760) 927-2100" }],
+    reps: [
+      { name: "Nick Taylor", email: "nick.taylor@getethos.com", phone: "(760) 927-2100" },
+      { name: "Dylan Cummings", phone: "(402) 708-0518" },
+    ],
   },
   {
     name: "CoreBridge Financial",
@@ -64,7 +67,7 @@ const CARRIERS: Carrier[] = [
     phone: "(800) 775-7896",
     email: "Liferequirements@mutualofomaha.com",
     reps: [
-      { name: "Dylan Cummings", email: "Dylan.cummings@mutualofomaha.com", phone: "(402) 708-0518" },
+      { name: "Heather Larue", email: "heather.larue@mutualofomaha.com", phone: "(402) 660-5206" },
     ],
   },
   {
