@@ -497,6 +497,27 @@ async function findEarliestActivityDateAll(supabase: SupabaseClient): Promise<st
   return candidates.length ? candidates.sort()[0] : null;
 }
 
+// PostgREST caps a select at 1000 rows unless you page through it. Org-wide
+// boards can exceed that (thousands of clients), so fetch every page instead of
+// silently truncating to the first 1000 — which understated team/leaderboard IP.
+export async function fetchAllRows<T>(
+  makeQuery: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const pageSize = 1000;
+  const out: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await makeQuery(offset, offset + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    out.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return out;
+}
+
 export async function computeLeaderboard(
   supabase: SupabaseClient,
   opts: { rangeKey: RangeKey; tz: string; from?: string | null; to?: string | null; metric?: LeaderboardMetric },
@@ -508,16 +529,20 @@ export async function computeLeaderboard(
   const { fromTs, toTs } = sqlWindow(from, to);
   const inRange = (day: string | null) => !!day && day >= from && day <= to;
 
-  const [clientsRes, trackerRes, depositRes] = await Promise.all([
+  // All paged through fetchAllRows so nothing is dropped at the 1000-row cap.
+  const [clientRows, trackerRows, depositRows] = await Promise.all([
     // All clients org-wide; we attribute each to a day in JS (sale vs issue
     // dates can diverge from created_at, so we don't bound by created_at here).
-    supabase.from("clients").select(`person_id, ${CLIENT_COLS}`),
-    supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to),
-    supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs),
+    fetchAllRows<ClientRow & { person_id: string }>((lo, hi) =>
+      supabase.from("clients").select(`person_id, ${CLIENT_COLS}`).range(lo, hi),
+    ),
+    fetchAllRows<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>((lo, hi) =>
+      supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to).range(lo, hi),
+    ),
+    fetchAllRows<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>((lo, hi) =>
+      supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs).range(lo, hi),
+    ),
   ]);
-  if (clientsRes.error) throw new Error(clientsRes.error.message);
-  if (trackerRes.error) throw new Error(trackerRes.error.message);
-  if (depositRes.error) throw new Error(depositRes.error.message);
 
   type Agg = { ap_cents: number; ip_cents: number; saleCount: number; trackerSales: number; policies: number; deposits_cents: number; dials: number; contacts: number; presentations: number };
   const byPerson = new Map<string, Agg>();
@@ -530,7 +555,7 @@ export async function computeLeaderboard(
     return a;
   };
 
-  for (const c of (clientsRes.data ?? []) as Array<ClientRow & { person_id: string }>) {
+  for (const c of clientRows) {
     if (isSale(c) && inRange(saleDay(c, tz))) {
       const a = bump(c.person_id);
       a.ap_cents += dollarsToCents(c.annual_premium);
@@ -543,7 +568,7 @@ export async function computeLeaderboard(
     }
   }
 
-  for (const t of (trackerRes.data ?? []) as Array<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>) {
+  for (const t of trackerRows) {
     const a = bump(t.person_id);
     a.trackerSales += Number(t.sales ?? 0);
     a.dials += Number(t.dials ?? 0);
@@ -551,7 +576,7 @@ export async function computeLeaderboard(
     a.presentations += Number(t.presentations ?? 0);
   }
 
-  for (const d of (depositRes.data ?? []) as Array<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>) {
+  for (const d of depositRows) {
     if (d.status !== "successful") continue;
     if (!inRange(dayOfTs(d.updated_at, tz) ?? dayOfTs(d.created_at, tz))) continue;
     bump(d.person_id).deposits_cents += dollarsToCents(d.actual_amount);

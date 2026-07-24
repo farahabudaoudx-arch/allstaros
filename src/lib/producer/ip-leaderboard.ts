@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
+import { fetchAllRows } from "@/lib/producer/metrics";
 
 // Gateway issued-premium leaderboards. Two boards share one data shape:
 //  - "producer": every active writing producer, ranked by personal IP
@@ -74,16 +75,19 @@ export async function computeIpLeaderboard(
     from = opts.from;
     to = opts.to;
 
-    // Weekly buckets only; see module comment.
-    const { data, error } = await supabase
-      .from("producer_issued_premium")
-      .select("person_id, personal_ip_cents, team_ip_cents")
-      .eq("period_type", "wtd")
-      .gte("report_date", from)
-      .lte("report_date", to);
-    if (error) throw new Error(error.message);
+    // Weekly buckets only; see module comment. Paged so many weeks × producers
+    // aren't truncated at the 1000-row cap.
+    const data = await fetchAllRows<Pick<PremiumRow, "person_id" | "personal_ip_cents" | "team_ip_cents">>((lo, hi) =>
+      supabase
+        .from("producer_issued_premium")
+        .select("person_id, personal_ip_cents, team_ip_cents")
+        .eq("period_type", "wtd")
+        .gte("report_date", from)
+        .lte("report_date", to)
+        .range(lo, hi),
+    );
 
-    for (const r of (data ?? []) as PremiumRow[]) {
+    for (const r of data) {
       const agg = byPerson.get(r.person_id) ?? {
         person_id: r.person_id,
         full_name: "",

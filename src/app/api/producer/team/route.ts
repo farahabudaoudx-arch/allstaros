@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
-import { computeLeaderboard, type RangeKey } from "@/lib/producer/metrics";
+import { computeLeaderboard, fetchAllRows, type RangeKey } from "@/lib/producer/metrics";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 import { safeTz } from "@/lib/producer/time";
 
@@ -49,14 +49,18 @@ export async function GET(req: Request) {
     //     clients_sync_tracker DB trigger, so it's the exact number a producer
     //     sees on their Daily Tracker. Same range and RLS scope as above.
     type Activity = { sales: number; dials: number; contacts: number; appointments: number; presentations: number };
-    const { data: trackerRows, error: trackerErr } = await supabase
-      .from("tracker_entry")
-      .select("person_id, sales, dials, contacts, appointments, presentations")
-      .gte("entry_date", board.range.from)
-      .lte("entry_date", board.range.to);
-    if (trackerErr) throw new Error(trackerErr.message);
+    // Paged so a team's daily tracker rows over a wide range aren't truncated at
+    // the 1000-row cap (which understated activity totals).
+    const trackerRows = await fetchAllRows<{ person_id: string } & Partial<Activity>>((lo, hi) =>
+      supabase
+        .from("tracker_entry")
+        .select("person_id, sales, dials, contacts, appointments, presentations")
+        .gte("entry_date", board.range.from)
+        .lte("entry_date", board.range.to)
+        .range(lo, hi),
+    );
     const activityById = new Map<string, Activity>();
-    for (const t of (trackerRows ?? []) as Array<{ person_id: string } & Partial<Activity>>) {
+    for (const t of trackerRows) {
       const a = activityById.get(t.person_id) ?? { sales: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0 };
       a.sales += Number(t.sales ?? 0);
       a.dials += Number(t.dials ?? 0);
