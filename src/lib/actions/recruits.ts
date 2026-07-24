@@ -7,17 +7,52 @@ import { getAppUrl } from "@/lib/site-url";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/emails/welcome";
 import type { Phase } from "@/lib/db/types";
+import {
+  MAX_BATCH_INVITES,
+  type BatchInviteRow,
+  type BatchInviteResult,
+  type BatchInviteRowResult,
+  type InviteRole,
+} from "@/lib/invite/batch";
 
 export type InviteRecruitResult = { ok: true } | { ok: false; error: string };
 
 type InviteOptions = {
   /** Land them on the team as a producer immediately, or as a pipeline recruit. */
   isProducer: boolean;
+  /** Also flag them as a builder — licensed AND able to run their own downline. */
+  isBuilder: boolean;
   /** Recruit phase. 'licensing' = active pipeline; 'graduated' = skip it. */
   phase: Phase;
   /** Path to revalidate so the inviter's list reflects the new pending invite. */
   revalidate: string;
 };
+
+/** Map a chosen role to the flags + pipeline placement it implies. */
+function optionsForRole(role: InviteRole): InviteOptions {
+  if (role === "builder") {
+    return {
+      isProducer: true,
+      isBuilder: true,
+      phase: "graduated",
+      revalidate: "/producer/downline",
+    };
+  }
+  if (role === "producer") {
+    return {
+      isProducer: true,
+      isBuilder: false,
+      phase: "graduated",
+      revalidate: "/producer/downline",
+    };
+  }
+  return {
+    isProducer: false,
+    isBuilder: false,
+    phase: "licensing",
+    revalidate: "/producer/recruiting",
+  };
+}
 
 /**
  * Shared core for both invite paths. Creates the person (upline_id = builder,
@@ -34,6 +69,7 @@ type InviteOptions = {
 async function createInvitedAccount(
   email: string,
   opts: InviteOptions,
+  name?: string,
 ): Promise<InviteRecruitResult> {
   const caller = await getCurrentPerson();
   if (!caller) return { ok: false, error: "Not signed in." };
@@ -60,16 +96,17 @@ async function createInvitedAccount(
     };
   }
 
-  // Placeholder name — overwritten when they complete setup at /welcome.
-  const placeholderName = clean.split("@")[0];
+  // Use the name the inviter gave us as the starting name; it's overwritten when
+  // they complete setup at /welcome. With no name, fall back to the email prefix.
+  const startingName = name?.trim() || clean.split("@")[0];
 
   const { data: person, error: personErr } = await admin
     .from("person")
     .insert({
-      full_name: placeholderName,
+      full_name: startingName,
       email: clean,
       upline_id: caller.id,
-      is_builder: false,
+      is_builder: opts.isBuilder,
       is_producer: opts.isProducer,
     })
     .select("id")
@@ -141,11 +178,7 @@ async function createInvitedAccount(
 export async function inviteRecruitByEmail(
   email: string,
 ): Promise<InviteRecruitResult> {
-  return createInvitedAccount(email, {
-    isProducer: false,
-    phase: "licensing",
-    revalidate: "/producer/recruiting",
-  });
+  return createInvitedAccount(email, optionsForRole("recruit"));
 }
 
 /**
@@ -157,9 +190,51 @@ export async function inviteRecruitByEmail(
 export async function inviteProducerByEmail(
   email: string,
 ): Promise<InviteRecruitResult> {
-  return createInvitedAccount(email, {
-    isProducer: true,
-    phase: "graduated",
-    revalidate: "/producer/downline",
-  });
+  return createInvitedAccount(email, optionsForRole("producer"));
+}
+
+/**
+ * Builder action: invite a whole list of people at once. Each row picks its own
+ * type — a licensed producer (skips the pipeline) or a recruit (enters it). We
+ * send them one at a time so we stay friendly to the email provider's rate limit
+ * and keep the results in the same order as the input. One bad row never aborts
+ * the others: it comes back with a reason so the caller can fix and resend just
+ * that one. A duplicate email inside the same list is collapsed to one invite.
+ */
+export async function inviteTeamBatch(
+  rows: BatchInviteRow[],
+): Promise<BatchInviteResult> {
+  const caller = await getCurrentPerson();
+  if (!caller) return { ok: false, error: "Not signed in." };
+  if (!caller.is_builder) return { ok: false, error: "Builders only." };
+  if (rows.length === 0) return { ok: false, error: "Add at least one person." };
+  if (rows.length > MAX_BATCH_INVITES) {
+    return {
+      ok: false,
+      error: `You can invite up to ${MAX_BATCH_INVITES} people at a time. Remove ${rows.length - MAX_BATCH_INVITES} and send the rest in another batch.`,
+    };
+  }
+
+  const results: BatchInviteRowResult[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = row.email.trim().toLowerCase();
+    if (seen.has(key)) {
+      results.push({ email: row.email, ok: false, error: "Duplicate in this list." });
+      continue;
+    }
+    seen.add(key);
+
+    const res = await createInvitedAccount(
+      row.email,
+      optionsForRole(row.role),
+      row.name,
+    );
+    results.push({
+      email: row.email,
+      ok: res.ok,
+      error: res.ok ? undefined : res.error,
+    });
+  }
+  return { ok: true, results };
 }

@@ -8,6 +8,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/site-url";
 import { welcomeEmail } from "@/lib/emails/welcome";
+import { parseRoster } from "@/lib/invite/parse-roster";
 
 type Role = "builder" | "producer" | "recruit";
 
@@ -52,40 +53,8 @@ export async function adminReassignUpline(formData: FormData) {
   back(backPath, "ok=upline");
 }
 
-type ParsedPerson = { name: string; email: string };
-
-// Accept one person per line, in any of:
-//   "Jane Doe, jane@x.com"   |   "Jane Doe <jane@x.com>"   |   "jane@x.com"
-function parseRoster(text: string): ParsedPerson[] {
-  const out: ParsedPerson[] = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const angle = line.match(/^(.*?)<([^>]+)>$/);
-    let name = "";
-    let email = "";
-    if (angle) {
-      name = angle[1].trim();
-      email = angle[2].trim();
-    } else if (line.includes(",")) {
-      const [a, b] = line.split(",").map((s) => s.trim());
-      if (/@/.test(b ?? "")) {
-        name = a;
-        email = b;
-      } else {
-        email = a;
-        name = b ?? "";
-      }
-    } else {
-      email = line;
-    }
-    email = email.toLowerCase();
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      out.push({ name: name || email.split("@")[0], email });
-    }
-  }
-  return out;
-}
+// parseRoster now lives in a shared module so the builder's bulk-invite box can
+// reuse the exact same line parsing. See src/lib/invite/parse-roster.ts.
 
 // The outcome of trying to add + invite one person. `ok:false` carries a
 // human-readable reason so the UI can say *why* it failed instead of a vague
