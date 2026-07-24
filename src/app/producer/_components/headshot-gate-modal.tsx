@@ -36,28 +36,14 @@ export function HeadshotGateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm md:p-8">
-      <div className="my-auto w-full max-w-4xl rounded-3xl border border-hairline bg-card-hi p-6 shadow-2xl md:p-8">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
-          Add your headshot to continue
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-mute">
-          Every builder and producer uses a real, professional headshot so the leaderboard and team
-          pages show real faces. Upload yours to get into the app. It goes live for review right
-          away, and your circle shows your initials until an admin approves it.
-        </p>
-
-        {rejectionReason ? (
-          <div className="mt-4 rounded-2xl border border-warn/40 bg-warn/[0.06] p-4">
-            <p className="text-sm font-semibold text-warn">Your last photo was not approved</p>
-            <p className="mt-1 text-sm text-ink">Reason: {rejectionReason}</p>
-            <p className="mt-1 text-sm text-mute">Please upload a new one that follows the guidance below.</p>
-          </div>
-        ) : null}
-
-        <div className="mt-6">
-          {/* No current photo passed: behind the wall means nothing approved to show. */}
-          <HeadshotUpload currentName={currentName} currentPhotoUrl={null} />
-        </div>
+      {/* The white card owns its own title, intro, and rejection notice. */}
+      <div className="my-8 w-full max-w-2xl shadow-2xl">
+        <HeadshotUpload
+          heading="Add your headshot to continue"
+          currentName={currentName}
+          currentPhotoUrl={null}
+          rejectionReason={rejectionReason}
+        />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadHeadshot } from "@/lib/actions/headshot";
-import { Avatar } from "@/components/Avatar";
+import { initialsFor } from "@/lib/headshots/initials";
 
 const FRAME = 320; // on-screen crop frame, px
 const OUT = 512; // exported square, px
@@ -12,23 +12,42 @@ const DO_LIST = [
   "Clear view of your face",
   "Well lit, looking at the camera",
   "Plain, uncluttered background",
-  "Dressed like it is a business card",
+  "Dressed like you run a business",
 ];
 const DONT_LIST = [
   "No sunglasses, hats, or logos",
   "No group shots or pets",
   "No filters or joke photos",
-  "Nothing you would not show a client",
+  "Nothing you wouldn't show a client",
 ];
 
 type Loaded = { src: string; naturalW: number; naturalH: number; baseScale: number };
 
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-green-600" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.3 3.3 6.8-6.8a1 1 0 0 1 1.4 0Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+function XIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-red-500" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M6.2 6.2a1 1 0 0 1 1.4 0L10 8.6l2.4-2.4a1 1 0 1 1 1.4 1.4L11.4 10l2.4 2.4a1 1 0 0 1-1.4 1.4L10 11.4l-2.4 2.4a1 1 0 0 1-1.4-1.4L8.6 10 6.2 7.6a1 1 0 0 1 0-1.4Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 export function HeadshotUpload({
   currentName,
   currentPhotoUrl,
+  heading = "Add your headshot to continue",
+  rejectionReason = null,
 }: {
   currentName: string;
   currentPhotoUrl: string | null;
+  heading?: string;
+  rejectionReason?: string | null;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,7 +136,7 @@ export function HeadshotUpload({
       const ctx = canvas.getContext("2d");
       if (!ctx) return resolve(null);
       const ratio = OUT / FRAME;
-      ctx.fillStyle = "#111";
+      ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, OUT, OUT);
       ctx.drawImage(
         img,
@@ -152,143 +171,162 @@ export function HeadshotUpload({
   }, [loaded, understood, submitting, buildBlob, router]);
 
   return (
-    <div className="flex flex-col gap-8 md:grid md:grid-cols-[320px_1fr]">
-      {/* Upload: crop box + choose. On mobile this drops to just above the rule
-          checkbox (order-2); on desktop it sits in the left column. */}
-      <div className="order-2 md:order-none md:col-start-1 md:row-start-1">
-        <div
-          className="relative overflow-hidden rounded-2xl border border-hairline bg-card-hi"
-          style={{ width: FRAME, height: FRAME, maxWidth: "100%" }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        >
-          {loaded ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={loaded.src}
-              alt=""
-              draggable={false}
-              className="pointer-events-none absolute select-none"
-              style={{
-                left: offset.x,
-                top: offset.y,
-                width: loaded.naturalW * scale,
-                height: loaded.naturalH * scale,
-                maxWidth: "none",
-              }}
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center">
-              <Avatar name={currentName} photoUrl={currentPhotoUrl} className="h-20 w-20 text-2xl ring-1 ring-hairline" />
-              <p className="px-6 text-sm text-mute">Choose a photo to crop it into a clean square.</p>
-            </div>
-          )}
-          {loaded ? (
-            <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-ink/10" />
-          ) : null}
+    <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white p-6 text-neutral-900 md:p-8">
+      <h2 className="text-2xl font-bold tracking-[-0.02em] md:text-[28px]">{heading}</h2>
+      <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">
+        On the OS, every builder and producer uses a real, professional headshot, so our
+        leaderboards, future newsletters, and team pages show real faces. Upload yours below and
+        we&apos;ll review it.
+      </p>
+
+      {/* AI note, kept near the top */}
+      <div className="mt-5 rounded-2xl bg-neutral-100 p-4">
+        <p className="text-sm font-semibold">Don&apos;t have a professional headshot?</p>
+        <p className="mt-1 text-sm text-neutral-600">Just use AI to make one. Don&apos;t overthink this.</p>
+      </div>
+
+      {rejectionReason ? (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-700">Your last photo wasn&apos;t approved</p>
+          <p className="mt-1 text-sm text-neutral-700">Reason: {rejectionReason}</p>
+          <p className="mt-1 text-sm text-neutral-500">Please upload a new one that follows the guidance below.</p>
         </div>
+      ) : null}
 
-        {loaded ? (
-          <div className="mt-4">
-            <label className="mb-1 block text-xs text-mute">Drag to reposition. Zoom:</label>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.01}
-              value={zoom}
-              onChange={(e) => onZoom(Number(e.target.value))}
-              className="w-full"
-            />
-          </div>
-        ) : null}
+      {/* Do / Don't */}
+      <div className="mt-6 grid gap-6 sm:grid-cols-2">
+        <div>
+          <p className="text-sm font-bold">Do</p>
+          <ul className="mt-3 space-y-2.5">
+            {DO_LIST.map((d) => (
+              <li key={d} className="flex items-start gap-2 text-sm text-neutral-700">
+                <CheckIcon />
+                <span>{d}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-sm font-bold">Don&apos;t</p>
+          <ul className="mt-3 space-y-2.5">
+            {DONT_LIST.map((d) => (
+              <li key={d} className="flex items-start gap-2 text-sm text-neutral-700">
+                <XIcon />
+                <span>{d}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+      {/* Sample image */}
+      <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-200">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/headshot-sample.png"
+          alt="Good headshot versus bad headshot: a clear business portrait next to one with a hat and sunglasses"
+          className="h-auto w-full"
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="mt-4 w-full rounded-xl border border-hairline bg-card px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-card-hi"
-        >
-          {loaded ? "Choose a different photo" : "Choose a photo"}
-        </button>
       </div>
 
-      {/* Guidance + sample. Mobile: first (order-1). Desktop: right column, top row. */}
-      <div className="order-1 min-w-0 md:order-none md:col-start-2 md:row-start-1">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-hairline bg-card p-4">
-            <p className="text-sm font-semibold text-ink">Do</p>
-            <ul className="mt-2 space-y-1.5 text-sm text-mute">
-              {DO_LIST.map((d) => (
-                <li key={d}>{d}</li>
-              ))}
-            </ul>
+      {/* Upload */}
+      <div className="mt-8">
+        <p className="text-sm font-bold">Upload your photo here</p>
+        <div className="mt-4 flex flex-col items-center">
+          <div
+            className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100"
+            style={{ width: FRAME, height: FRAME, maxWidth: "100%" }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          >
+            {loaded ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={loaded.src}
+                alt=""
+                draggable={false}
+                className="pointer-events-none absolute select-none"
+                style={{
+                  left: offset.x,
+                  top: offset.y,
+                  width: loaded.naturalW * scale,
+                  height: loaded.naturalH * scale,
+                  maxWidth: "none",
+                }}
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center">
+                {currentPhotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={currentPhotoUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-200 text-2xl font-semibold text-neutral-500">
+                    {initialsFor(currentName)}
+                  </div>
+                )}
+                <p className="px-6 text-sm text-neutral-500">Choose a photo to crop it into a clean square.</p>
+              </div>
+            )}
           </div>
-          <div className="rounded-2xl border border-hairline bg-card p-4">
-            <p className="text-sm font-semibold text-ink">Don&apos;t</p>
-            <ul className="mt-2 space-y-1.5 text-sm text-mute">
-              {DONT_LIST.map((d) => (
-                <li key={d}>{d}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-card">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/headshot-sample.png"
-            alt="Good headshot versus bad headshot: a clear business portrait next to one with a hat and sunglasses"
-            className="h-auto w-full"
-          />
-        </div>
+          {loaded ? (
+            <div className="mt-4 w-full max-w-[320px]">
+              <label className="mb-1 block text-xs text-neutral-500">Drag to reposition. Zoom:</label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => onZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+          ) : null}
 
-        <div className="mt-4 rounded-2xl border border-hairline bg-card p-4">
-          <p className="text-sm font-semibold text-ink">No professional headshot?</p>
-          <p className="mt-1 text-sm text-mute">
-            Just use AI to make one. Don&apos;t overthink this.
-          </p>
-        </div>
-      </div>
-
-      {/* Rule + submit. Mobile: last (order-3). Desktop: right column, second row. */}
-      <div className="order-3 min-w-0 md:order-none md:col-start-2 md:row-start-2">
-        <label className="flex items-start gap-3 rounded-2xl border border-hairline bg-card p-4">
           <input
-            type="checkbox"
-            checked={understood}
-            onChange={(e) => setUnderstood(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0"
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
           />
-          <span className="text-sm text-ink">
-            I understand that joke, fake, or inappropriate photos will be removed, and can get my
-            account suspended or deleted.
-          </span>
-        </label>
-
-        {error ? <p className="mt-3 text-sm text-warn">{error}</p> : null}
-
-        <button
-          type="button"
-          disabled={!loaded || !understood || submitting}
-          onClick={onSubmit}
-          className="mt-4 w-full max-w-[320px] rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black transition enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : "Submit photo for review"}
-        </button>
-        <p className="mt-2 text-xs text-mute">
-          Your photo goes live right away and is reviewed shortly after. Until it is approved, your
-          circle shows your initials.
-        </p>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="mt-4 w-full max-w-[320px] rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50"
+          >
+            {loaded ? "Choose a different photo" : "Choose a photo"}
+          </button>
+        </div>
       </div>
+
+      {/* Rule checkbox */}
+      <label className="mt-6 flex items-start gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+        <input
+          type="checkbox"
+          checked={understood}
+          onChange={(e) => setUnderstood(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-neutral-900"
+        />
+        <span className="text-sm text-neutral-800">
+          I understand that joke, fake, or inappropriate photos will be removed, and can get my
+          account suspended or deleted.
+        </span>
+      </label>
+
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+
+      <button
+        type="button"
+        disabled={!loaded || !understood || submitting}
+        onClick={onSubmit}
+        className="mt-4 w-full rounded-xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white transition enabled:hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {submitting ? "Saving..." : "Submit photo for review"}
+      </button>
     </div>
   );
 }
