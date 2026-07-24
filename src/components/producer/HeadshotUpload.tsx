@@ -43,11 +43,15 @@ export function HeadshotUpload({
   currentPhotoUrl,
   heading = "Add your headshot to continue",
   rejectionReason = null,
+  onUploaded,
 }: {
   currentName: string;
   currentPhotoUrl: string | null;
   heading?: string;
   rejectionReason?: string | null;
+  /** Called after a successful upload instead of the default page refresh.
+   * The signup wizard uses this to advance to its welcome step. */
+  onUploaded?: () => void;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -167,8 +171,12 @@ export function HeadshotUpload({
       setSubmitting(false);
       return;
     }
+    if (onUploaded) {
+      onUploaded();
+      return;
+    }
     router.refresh();
-  }, [loaded, understood, submitting, buildBlob, router]);
+  }, [loaded, understood, submitting, buildBlob, router, onUploaded]);
 
   return (
     <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white p-6 text-neutral-900 md:p-8">

@@ -1,7 +1,6 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { SetupForm } from "./SetupForm";
+import { WelcomeFlow } from "./WelcomeFlow";
 
 /**
  * Account setup: where an invited recruit lands after clicking their invite
@@ -45,35 +44,7 @@ export default async function WelcomePage() {
 
   return (
     <div className="flex min-h-dvh flex-1 items-center justify-center px-6 py-16">
-      <div className="w-full max-w-md rounded-2xl border border-hairline bg-card p-10">
-        <div className="mb-8 text-center">
-          <Image
-            src="/logo.png"
-            alt="All Star OS"
-            width={140}
-            height={79}
-            priority
-            className="mx-auto h-10 w-auto"
-          />
-          <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">
-            Set up your account
-          </h1>
-          {inviterName ? (
-            <p className="mt-3 text-sm text-subtle">
-              You were invited by{" "}
-              <span className="font-medium text-ink">{inviterName}</span>.
-            </p>
-          ) : null}
-          {email ? (
-            <p className="mt-1 text-sm text-subtle">
-              Your account will be under{" "}
-              <span className="font-medium text-ink">{email}</span>.
-            </p>
-          ) : null}
-        </div>
-
-        <SetupForm licensed={licensed} />
-      </div>
+      <WelcomeFlow licensed={licensed} inviterName={inviterName} email={email} />
     </div>
   );
 }

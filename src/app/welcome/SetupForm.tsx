@@ -6,7 +6,16 @@ import { completeAccountSetup } from "@/lib/actions/account-setup";
 import { US_STATES } from "@/lib/us-states";
 import { Field, Input, Button, Spinner } from "@/components/ui";
 
-export function SetupForm({ licensed = false }: { licensed?: boolean }) {
+export function SetupForm({
+  licensed = false,
+  onDone,
+}: {
+  licensed?: boolean;
+  /** When provided, called on a successful save instead of navigating away.
+   * The welcome flow uses this to show a required headshot step before entering
+   * the app. Falls back to a full navigation when omitted. */
+  onDone?: (next: string, displayName: string) => void;
+}) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,7 +51,13 @@ export function SetupForm({ licensed = false }: { licensed?: boolean }) {
         setStatus("error");
         return;
       }
-      // Full navigation so the server re-renders with the now-complete account.
+      // Licensed invitees get a required headshot step before entering; the
+      // welcome flow handles that via onDone. Otherwise, full navigation so the
+      // server re-renders with the now-complete account.
+      if (onDone) {
+        onDone(result.next, `${firstName} ${lastName}`.trim());
+        return;
+      }
       window.location.href = result.next;
     } catch (err) {
       // The action itself wraps Supabase failures into { ok: false }, so a throw
