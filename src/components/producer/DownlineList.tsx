@@ -30,6 +30,14 @@ export function DownlineList({ items }: { items: DownlineItem[] }) {
     return items.filter((p) => p.searchText.includes(q));
   }, [items, query]);
 
+  if (items.length === 0) {
+    return (
+      <div className="mt-4 rounded-2xl border border-hairline bg-card p-10 text-center text-sm text-mute">
+        No producers in your downline yet.
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mt-6 flex items-center gap-3">
