@@ -470,6 +470,7 @@ export type LeaderboardMetric =
 export type LeaderboardRow = {
   person_id: string;
   full_name: string;
+  photo_url?: string | null;
   ap_cents: number;
   ip_cents: number;
   sales: number;
