@@ -38,6 +38,7 @@ export async function updateSession(request: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/preview") ||
+    pathname.startsWith("/UIrevisionsdemo-wylie-nick") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/health") ||
