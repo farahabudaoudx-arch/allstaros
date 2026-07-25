@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 // Public route — no auth required.
 // Renders the full UX audit letter with embedded screenshots.
 export const dynamic = "force-static";
