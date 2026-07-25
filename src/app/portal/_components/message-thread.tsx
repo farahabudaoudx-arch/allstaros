@@ -21,6 +21,7 @@ export default function MessageThread({
   initialMessages,
   otherLabel,
   placeholder = "Write a message…",
+  readOnlyNote = null,
 }: {
   recruitId: string;
   currentPersonId: string;
@@ -28,6 +29,11 @@ export default function MessageThread({
   /** What to label the other participant's bubbles (their name). */
   otherLabel: string;
   placeholder?: string;
+  /**
+   * When set, the composer is replaced by this note. Used for viewers who may
+   * read a thread but not post (indirect uplines: messaging is direct-only).
+   */
+  readOnlyNote?: string | null;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [body, setBody] = useState("");
@@ -139,7 +145,9 @@ export default function MessageThread({
     try {
       const result = await sendMessage(recruitId, text);
       if (!result.ok) {
-        setError("Couldn't send. Please try again.");
+        // Surface the action's own reason (authorization, validation) so a
+        // refusal doesn't masquerade as a network glitch.
+        setError(result.error || "Couldn't send. Please try again.");
         setSending(false);
         return;
       }
@@ -193,24 +201,30 @@ export default function MessageThread({
 
       {error ? <p className="mb-2 text-xs text-neg">{error}</p> : null}
 
-      <div className="flex items-end gap-2 border-t border-hairline pt-3">
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={2}
-          placeholder={placeholder}
-          className="min-h-[44px] flex-1 resize-none rounded-xl border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none transition placeholder:text-mute focus:border-accent"
-        />
-        <button
-          type="button"
-          onClick={() => void send()}
-          disabled={sending || !body.trim()}
-          className="shrink-0 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {sending ? "Sending…" : "Send"}
-        </button>
-      </div>
+      {readOnlyNote ? (
+        <p className="border-t border-hairline pt-3 text-sm text-mute">
+          {readOnlyNote}
+        </p>
+      ) : (
+        <div className="flex items-end gap-2 border-t border-hairline pt-3">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={2}
+            placeholder={placeholder}
+            className="min-h-[44px] flex-1 resize-none rounded-xl border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none transition placeholder:text-mute focus:border-accent"
+          />
+          <button
+            type="button"
+            onClick={() => void send()}
+            disabled={sending || !body.trim()}
+            className="shrink-0 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

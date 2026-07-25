@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { zonedParts, zonedIsoDay } from "@/lib/producer/time";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
-import { approvedPhotoUrl } from "@/lib/headshots/photo";
 
 // Closed-loop producer metrics, sourced from the data producers actually enter:
 //
@@ -80,30 +79,6 @@ type ClientRow = ClientSaleFields & {
 
 const CLIENT_COLS =
   "annual_premium, sale_status, submit_date, date, created_at, issue_date, state, age, quotes, chosen_quote_index";
-const SUPABASE_PAGE_SIZE = 1000;
-
-type SupabasePage<T> = {
-  data: T[] | null;
-  error: { message: string } | null;
-};
-
-async function fetchPaged<T>(
-  pageQuery: (from: number, to: number) => PromiseLike<SupabasePage<T>>,
-): Promise<T[]> {
-  const rows: T[] = [];
-
-  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
-    const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await pageQuery(from, to);
-    if (error) throw new Error(error.message);
-
-    const page = data ?? [];
-    rows.push(...page);
-    if (page.length < SUPABASE_PAGE_SIZE) break;
-  }
-
-  return rows;
-}
 
 // The day a client counts as a sale: when the policy was written, falling back
 // to the record date, then the row's creation day.
@@ -495,7 +470,6 @@ export type LeaderboardMetric =
 export type LeaderboardRow = {
   person_id: string;
   full_name: string;
-  photo_url: string | null;
   ap_cents: number;
   ip_cents: number;
   sales: number;
@@ -523,6 +497,27 @@ async function findEarliestActivityDateAll(supabase: SupabaseClient): Promise<st
   return candidates.length ? candidates.sort()[0] : null;
 }
 
+// PostgREST caps a select at 1000 rows unless you page through it. Org-wide
+// boards can exceed that (thousands of clients), so fetch every page instead of
+// silently truncating to the first 1000 — which understated team/leaderboard IP.
+export async function fetchAllRows<T>(
+  makeQuery: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const pageSize = 1000;
+  const out: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await makeQuery(offset, offset + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    out.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return out;
+}
+
 export async function computeLeaderboard(
   supabase: SupabaseClient,
   opts: { rangeKey: RangeKey; tz: string; from?: string | null; to?: string | null; metric?: LeaderboardMetric },
@@ -534,37 +529,18 @@ export async function computeLeaderboard(
   const { fromTs, toTs } = sqlWindow(from, to);
   const inRange = (day: string | null) => !!day && day >= from && day <= to;
 
-  const [clients, trackerRows, depositRows] = await Promise.all([
+  // All paged through fetchAllRows so nothing is dropped at the 1000-row cap.
+  const [clientRows, trackerRows, depositRows] = await Promise.all([
     // All clients org-wide; we attribute each to a day in JS (sale vs issue
     // dates can diverge from created_at, so we don't bound by created_at here).
-    // Supabase REST responses are capped, so page explicitly or recent sales
-    // can disappear from the board once the org passes the API row limit. Each
-    // paged query is ordered by a stable key so range windows cannot overlap or
-    // skip rows.
-    fetchPaged<ClientRow & { person_id: string }>((rangeFrom, rangeTo) =>
-      supabase
-        .from("clients")
-        .select(`person_id, ${CLIENT_COLS}`)
-        .order("id", { ascending: true })
-        .range(rangeFrom, rangeTo),
+    fetchAllRows<ClientRow & { person_id: string }>((lo, hi) =>
+      supabase.from("clients").select(`person_id, ${CLIENT_COLS}`).range(lo, hi),
     ),
-    fetchPaged<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>((rangeFrom, rangeTo) =>
-      supabase
-        .from("tracker_entry")
-        .select("person_id, sales, dials, contacts, presentations, entry_date")
-        .gte("entry_date", from)
-        .lte("entry_date", to)
-        .order("id", { ascending: true })
-        .range(rangeFrom, rangeTo),
+    fetchAllRows<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>((lo, hi) =>
+      supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to).range(lo, hi),
     ),
-    fetchPaged<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>((rangeFrom, rangeTo) =>
-      supabase
-        .from("client_deposits")
-        .select("person_id, actual_amount, status, updated_at, created_at")
-        .gte("updated_at", fromTs)
-        .lte("updated_at", toTs)
-        .order("id", { ascending: true })
-        .range(rangeFrom, rangeTo),
+    fetchAllRows<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>((lo, hi) =>
+      supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs).range(lo, hi),
     ),
   ]);
 
@@ -579,7 +555,7 @@ export async function computeLeaderboard(
     return a;
   };
 
-  for (const c of clients) {
+  for (const c of clientRows) {
     if (isSale(c) && inRange(saleDay(c, tz))) {
       const a = bump(c.person_id);
       a.ap_cents += dollarsToCents(c.annual_premium);
@@ -610,16 +586,11 @@ export async function computeLeaderboard(
   // just exclude them from the ranked output. See leaderboardExclusions.ts.
   const ids = Array.from(byPerson.keys()).filter((id) => !isLeaderboardExcluded(id));
   const nameById = new Map<string, string>();
-  const photoById = new Map<string, string | null>();
   if (ids.length) {
-    const peopleRes = await supabase
-      .from("person")
-      .select("id, full_name, photo_url, photo_review_status")
-      .in("id", ids);
+    const peopleRes = await supabase.from("person").select("id, full_name").in("id", ids);
     if (peopleRes.error) throw new Error(peopleRes.error.message);
-    for (const p of (peopleRes.data ?? []) as Array<{ id: string; full_name: string | null; photo_url: string | null; photo_review_status: string | null }>) {
+    for (const p of (peopleRes.data ?? []) as Array<{ id: string; full_name: string | null }>) {
       nameById.set(p.id, p.full_name ?? "Unknown");
-      photoById.set(p.id, approvedPhotoUrl(p));
     }
   }
 
@@ -628,7 +599,6 @@ export async function computeLeaderboard(
     return {
       person_id: pid,
       full_name: nameById.get(pid) ?? "Unknown",
-      photo_url: photoById.get(pid) ?? null,
       ap_cents: a.ap_cents,
       ip_cents: a.ip_cents,
       sales: Math.max(a.trackerSales, a.saleCount),

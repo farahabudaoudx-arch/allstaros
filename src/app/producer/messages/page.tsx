@@ -4,12 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import type { CheckIn, Message, Person, Recruit } from "@/lib/db/types";
 import { MessagesList, type MessageListItem } from "@/components/producer/MessagesList";
 
-type Row = Recruit & { person: Pick<Person, "full_name" | "email" | "status"> };
+type Row = Recruit & {
+  person: Pick<Person, "full_name" | "email" | "status" | "upline_id">;
+};
 
 /**
- * Builder Messages hub. Lists the builder's downline recruits (RLS scopes the
- * recruit query to self + downline) with a preview of the latest message and
- * their most recent check-in, each opening the full two-way thread.
+ * Builder Messages hub. Lists the builder's DIRECT reports only (messaging is
+ * direct-upline-only, so RLS's wider self + downline scope is narrowed to
+ * people whose current upline is the viewer) with a preview of the latest
+ * message and their most recent check-in, each opening the full two-way thread.
  */
 export default async function ProducerMessagesPage() {
   const person = await getCurrentPerson();
@@ -19,9 +22,13 @@ export default async function ProducerMessagesPage() {
   const supabase = await createClient();
   const { data: recruitData } = await supabase
     .from("recruit")
-    .select("*, person:person_id(full_name, email, status)")
+    .select("*, person:person_id(full_name, email, status, upline_id)")
     .order("created_at", { ascending: false });
-  const rows = (recruitData ?? []) as unknown as Row[];
+  // Direct reports only: the live org chart (person.upline_id), not the
+  // original-inviter stamp (recruit.builder_id), which goes stale on rewires.
+  const rows = ((recruitData ?? []) as unknown as Row[]).filter(
+    (row) => row.person.upline_id === person.id,
+  );
 
   const recruitIds = rows.map((r) => r.id);
 
