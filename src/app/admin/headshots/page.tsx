@@ -38,7 +38,13 @@ function formatWhen(iso: string | null): string {
 export default async function AdminHeadshotsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; ok?: string; n?: string; error?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    ok?: string;
+    n?: string;
+    warn?: string;
+    error?: string;
+  }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
@@ -70,13 +76,18 @@ export default async function AdminHeadshotsPage({
         </p>
       </div>
 
-      {params.ok ? (
+      {params.ok && !(params.ok === "rejected" && params.warn === "email") ? (
         <p className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-accent">
           {params.ok === "approved"
             ? params.n
               ? `Approved ${params.n} ${params.n === "1" ? "photo" : "photos"}.`
               : "Photo approved."
-            : "Photo rejected."}
+            : "Photo rejected. We emailed them the note."}
+        </p>
+      ) : null}
+      {params.warn === "email" ? (
+        <p className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+          Photo rejected, but the email didn&apos;t send. Reach out by hand.
         </p>
       ) : null}
       {params.error ? (

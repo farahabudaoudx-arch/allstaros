@@ -7,6 +7,7 @@ import { DiscordSettingsSection } from "@/components/producer/DiscordSettingsSec
 import { SettingsHub, type SettingsHubSection } from "@/components/producer/SettingsHub";
 import { getCurrentPerson } from "@/lib/auth";
 import { Avatar } from "@/components/Avatar";
+import { HeadshotUpload } from "@/components/producer/HeadshotUpload";
 import { approvedPhotoUrl } from "@/lib/headshots/photo";
 
 const ICON_CLASS = "h-6 w-6 text-subtle";
@@ -135,6 +136,11 @@ function GoalIcon() {
 export default async function ProducerSettings() {
   const person = await getCurrentPerson();
 
+  const photoRejectionReason =
+    person?.photo_review_status === "rejected"
+      ? person.photo_rejection_reason
+      : null;
+
   const sections: SettingsHubSection[] = [
     {
       key: "policy-info",
@@ -148,9 +154,31 @@ export default async function ProducerSettings() {
       key: "account",
       title: "Account Details",
       description:
-        "Your name, sign-in email, and phone number for this account. These can differ from your policy info.",
+        "Your headshot, plus the name, sign-in email, and phone number for this account. These can differ from your policy info.",
       icon: <AccountIcon />,
-      content: <ProfileSettingsForm />,
+      content: (
+        <div className="mt-8 flex flex-col gap-12">
+          {person ? (
+            <div>
+              <h3 className="text-lg font-semibold text-ink">Profile photo</h3>
+              <p className="mt-1 max-w-2xl text-sm text-subtle">
+                The face teammates and clients see on the leaderboard, your team,
+                and messages. Change it anytime. A new photo goes back to an
+                admin for a quick review.
+              </p>
+              <div className="mt-5">
+                <HeadshotUpload
+                  heading="Update your headshot"
+                  currentName={person.full_name}
+                  currentPhotoUrl={approvedPhotoUrl(person)}
+                  rejectionReason={photoRejectionReason}
+                />
+              </div>
+            </div>
+          ) : null}
+          <ProfileSettingsForm />
+        </div>
+      ),
     },
     {
       key: "npn",

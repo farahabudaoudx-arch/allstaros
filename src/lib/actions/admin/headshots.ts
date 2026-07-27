@@ -5,8 +5,16 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/admin/audit";
+import { sendEmail } from "@/lib/email";
+import { headshotRejectedEmail } from "@/lib/emails/headshot-rejected";
 
 const BACK = "/admin/headshots";
+
+// Where a rejected person goes to fix it: Settings → Account Details (which holds
+// the profile photo). Hardcoded to the production host (like the other email
+// templates) so the link is correct no matter where the action runs.
+const SETTINGS_PHOTO_URL =
+  "https://app.allstarlifegroup.com/producer/settings?section=account";
 
 function done(query: string): never {
   revalidatePath(BACK);
@@ -47,7 +55,7 @@ export async function adminReviewHeadshot(formData: FormData) {
   // from approving a person who already cleared their photo.
   const { data: target } = await admin
     .from("person")
-    .select("id, photo_url, full_name")
+    .select("id, photo_url, full_name, email")
     .eq("id", targetPersonId)
     .maybeSingle();
   if (!target) done(`error=${encodeURIComponent("Person not found.")}`);
@@ -66,6 +74,7 @@ export async function adminReviewHeadshot(formData: FormData) {
         }
       : {
           photo_review_status: "rejected" as const,
+          // The admin's typed message doubles as the reason shown on their wall.
           photo_rejection_reason: reason,
           photo_reviewed_by: caller.id,
           photo_reviewed_at: stamp,
@@ -77,14 +86,29 @@ export async function adminReviewHeadshot(formData: FormData) {
     .eq("id", targetPersonId);
   if (error) done(`error=${encodeURIComponent(error.message)}`);
 
+  // On reject, email the person their fix-it note + a link back to Settings.
+  // Best-effort: a mail hiccup must not undo the rejection, but we do flag it so
+  // the admin knows to follow up by hand.
+  let emailFailed = false;
+  if (decision === "reject" && target.email) {
+    const { subject, html, text } = headshotRejectedEmail({
+      firstName: target.full_name?.trim().split(/\s+/)[0],
+      message: reason,
+      settingsUrl: SETTINGS_PHOTO_URL,
+    });
+    const sent = await sendEmail({ to: target.email, subject, html, text });
+    emailFailed = !sent.ok;
+  }
+
   await writeAudit({
     actorId: caller.id,
     action: decision === "approve" ? "headshot_approved" : "headshot_rejected",
     targetId: targetPersonId,
-    detail: decision === "approve" ? {} : { reason },
+    detail: decision === "approve" ? {} : { reason, emailFailed },
   });
 
-  done(`ok=${decision === "approve" ? "approved" : "rejected"}`);
+  if (decision === "approve") done(`ok=approved`);
+  done(emailFailed ? `ok=rejected&warn=email` : `ok=rejected`);
 }
 
 /**
