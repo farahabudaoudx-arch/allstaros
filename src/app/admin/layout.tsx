@@ -17,6 +17,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
         { label: "Builders", href: "/admin/people/builders" },
         { label: "Producers", href: "/admin/people/producers" },
         { label: "Recruits", href: "/admin/people/recruits" },
+        { label: "Headshots", href: "/admin/headshots" },
       ],
     },
     {
