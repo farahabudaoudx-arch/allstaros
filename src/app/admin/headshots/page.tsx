@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/Avatar";
-import { HeadshotReviewActions } from "@/components/admin/HeadshotReviewActions";
+import { HeadshotQueue, type QueueRow } from "@/components/admin/HeadshotQueue";
 import {
   isPhotoReviewStatus,
   type PhotoReviewStatus,
@@ -38,7 +38,7 @@ function formatWhen(iso: string | null): string {
 export default async function AdminHeadshotsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; ok?: string; error?: string }>;
+  searchParams: Promise<{ status?: string; ok?: string; n?: string; error?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
@@ -66,14 +66,17 @@ export default async function AdminHeadshotsPage({
           Headshots
         </h1>
         <p className="mt-3 text-sm text-subtle">
-          {rows.length} {status}{" "}
-          {rows.length === 1 ? "photo" : "photos"}.
+          {rows.length} {status} {rows.length === 1 ? "photo" : "photos"}.
         </p>
       </div>
 
       {params.ok ? (
         <p className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-accent">
-          {params.ok === "approved" ? "Photo approved." : "Photo rejected."}
+          {params.ok === "approved"
+            ? params.n
+              ? `Approved ${params.n} ${params.n === "1" ? "photo" : "photos"}.`
+              : "Photo approved."
+            : "Photo rejected."}
         </p>
       ) : null}
       {params.error ? (
@@ -102,15 +105,22 @@ export default async function AdminHeadshotsPage({
         })}
       </div>
 
-      {/* Queue */}
-      <section className="mt-8 flex flex-col gap-2">
-        {rows.map((r) => {
-          // A pending row that was reviewed before is a re-review: an already
-          // approved/rejected person swapped their photo. reviewed_at survives
-          // uploads (only status/reason reset), so it's the clean signal.
-          const changedSinceReview =
-            status === "pending" && r.photo_reviewed_at !== null;
-          return (
+      {status === "pending" ? (
+        <HeadshotQueue
+          rows={rows.map<QueueRow>((r) => ({
+            id: r.id,
+            full_name: r.full_name,
+            email: r.email,
+            photo_url: r.photo_url,
+            whenLabel: formatWhen(r.photo_updated_at),
+            // Reviewed before + back in pending = an approved/rejected person
+            // swapped their photo. reviewed_at survives uploads, so it's the tell.
+            changed: r.photo_reviewed_at !== null,
+          }))}
+        />
+      ) : (
+        <section className="mt-8 flex flex-col gap-2">
+          {rows.map((r) => (
             <div
               key={r.id}
               className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-hairline bg-card p-5"
@@ -132,25 +142,20 @@ export default async function AdminHeadshotsPage({
                     {r.email}
                   </p>
                   <p className="mt-1 text-xs text-mute">
-                    {changedSinceReview ? "Changed" : "Uploaded"}{" "}
-                    {formatWhen(r.photo_updated_at)}
-                    {changedSinceReview ? " · re-review" : ""}
+                    Uploaded {formatWhen(r.photo_updated_at)}
                     {status === "rejected" && r.photo_rejection_reason
                       ? ` · ${r.photo_rejection_reason}`
                       : ""}
                   </p>
                 </div>
               </div>
-              {status === "pending" ? (
-                <HeadshotReviewActions personId={r.id} />
-              ) : null}
             </div>
-          );
-        })}
-        {rows.length === 0 ? (
-          <p className="text-sm text-mute">Nothing {status} right now.</p>
-        ) : null}
-      </section>
+          ))}
+          {rows.length === 0 ? (
+            <p className="text-sm text-mute">Nothing {status} right now.</p>
+          ) : null}
+        </section>
+      )}
     </main>
   );
 }

@@ -86,3 +86,46 @@ export async function adminReviewHeadshot(formData: FormData) {
 
   done(`ok=${decision === "approve" ? "approved" : "rejected"}`);
 }
+
+/**
+ * Approve many headshots in one shot. This is the fast path for clearing the
+ * queue: the admin ticks a batch on the pending screen and submits once, so
+ * it's a single write and a single page refresh instead of one per photo.
+ * Same guardrails as the single approve — admin-only, only touches rows that
+ * actually have a photo, stamps the reviewer, and writes one audit row.
+ */
+export async function adminBulkApproveHeadshots(formData: FormData) {
+  const caller = await requireAdmin();
+
+  const ids = formData
+    .getAll("personId")
+    .map((v) => String(v))
+    .filter(Boolean);
+  if (ids.length === 0) done(`error=${encodeURIComponent("Nothing selected.")}`);
+
+  const admin = createServiceRoleClient();
+  const stamp = new Date().toISOString();
+
+  const { data: updated, error } = await admin
+    .from("person")
+    .update({
+      photo_review_status: "approved",
+      photo_rejection_reason: null,
+      photo_reviewed_by: caller.id,
+      photo_reviewed_at: stamp,
+    })
+    .in("id", ids)
+    .not("photo_url", "is", null)
+    .select("id");
+  if (error) done(`error=${encodeURIComponent(error.message)}`);
+
+  const count = updated?.length ?? 0;
+  await writeAudit({
+    actorId: caller.id,
+    action: "headshot_bulk_approved",
+    targetId: null,
+    detail: { count, ids },
+  });
+
+  done(`ok=approved&n=${count}`);
+}
