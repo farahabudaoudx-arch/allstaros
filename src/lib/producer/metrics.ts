@@ -501,6 +501,8 @@ async function findEarliestActivityDateAll(supabase: SupabaseClient): Promise<st
 // PostgREST caps a select at 1000 rows unless you page through it. Org-wide
 // boards can exceed that (thousands of clients), so fetch every page instead of
 // silently truncating to the first 1000 — which understated team/leaderboard IP.
+// Every caller must apply a stable `.order("id")` before `.range()`: Postgres
+// gives no row order without one, so pages can repeat and skip rows.
 export async function fetchAllRows<T>(
   makeQuery: (
     from: number,
@@ -535,13 +537,13 @@ export async function computeLeaderboard(
     // All clients org-wide; we attribute each to a day in JS (sale vs issue
     // dates can diverge from created_at, so we don't bound by created_at here).
     fetchAllRows<ClientRow & { person_id: string }>((lo, hi) =>
-      supabase.from("clients").select(`person_id, ${CLIENT_COLS}`).range(lo, hi),
+      supabase.from("clients").select(`person_id, ${CLIENT_COLS}`).order("id").range(lo, hi),
     ),
     fetchAllRows<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>((lo, hi) =>
-      supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to).range(lo, hi),
+      supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to).order("id").range(lo, hi),
     ),
     fetchAllRows<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>((lo, hi) =>
-      supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs).range(lo, hi),
+      supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs).order("id").range(lo, hi),
     ),
   ]);
 

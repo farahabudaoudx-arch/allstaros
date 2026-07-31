@@ -84,6 +84,7 @@ export async function computeIpLeaderboard(
         .eq("period_type", "wtd")
         .gte("report_date", from)
         .lte("report_date", to)
+        .order("id")
         .range(lo, hi),
     );
 

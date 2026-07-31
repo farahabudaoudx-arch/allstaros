@@ -57,6 +57,7 @@ export async function GET(req: Request) {
         .select("person_id, sales, dials, contacts, appointments, presentations")
         .gte("entry_date", board.range.from)
         .lte("entry_date", board.range.to)
+        .order("id")
         .range(lo, hi),
     );
     const activityById = new Map<string, Activity>();
