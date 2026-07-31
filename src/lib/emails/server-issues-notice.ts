@@ -5,15 +5,12 @@
 // Returns { subject, html, text } for the Resend sendEmail() helper.
 
 import {
-  BRAND,
   shell,
   headingRow,
   paragraphRow,
   footerRow,
   escapeHtml,
 } from "./_layout";
-
-const B = BRAND;
 
 export type ServerIssuesNoticeParams = {
   /** Defaults to "All Star Agents" when omitted. */
