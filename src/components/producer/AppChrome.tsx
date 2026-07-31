@@ -1,11 +1,23 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { BugReportModal } from "@/components/BugReportModal";
-import { MenuSettingsDrawer, type MenuPerson } from "./menu/MenuSettingsDrawer";
+import {
+  MenuSettingsDrawer,
+  type MenuPerson,
+  type SettingsSectionKey,
+} from "./menu/MenuSettingsDrawer";
+
+const SETTINGS_SECTIONS: SettingsSectionKey[] = [
+  "policy-info",
+  "account",
+  "npn",
+  "builder",
+  "discord",
+];
 
 /**
  * The four persistent controls that frame every producer screen: logo and
@@ -32,6 +44,32 @@ export function AppChrome({
   children: ReactNode;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [section, setSection] = useState<SettingsSectionKey | null>(null);
+
+  // `?settings=<section>` opens the drawer straight into that section. Settings
+  // has no page of its own any more, so the old /producer/settings links (and
+  // the ones we email out) redirect here and land through this. Read from
+  // window rather than useSearchParams: this component wraps every producer
+  // screen, and useSearchParams would force a Suspense boundary around all of
+  // them. The URL is then cleaned so a refresh doesn't reopen the drawer.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get("settings");
+    if (!wanted) return;
+    setSettingsOpen(true);
+    setSection(
+      (SETTINGS_SECTIONS as string[]).includes(wanted)
+        ? (wanted as SettingsSectionKey)
+        : null,
+    );
+    params.delete("settings");
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (query ? `?${query}` : ""),
+    );
+  }, []);
 
   return (
     <div className="flex h-dvh flex-col bg-background text-ink">
@@ -48,7 +86,10 @@ export function AppChrome({
         </Link>
         <button
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => {
+            setSection(null);
+            setSettingsOpen(true);
+          }}
           aria-label="Open settings"
           className="rounded-full"
         >
@@ -80,6 +121,7 @@ export function AppChrome({
       <MenuSettingsDrawer
         person={person}
         open={settingsOpen}
+        initialSection={section}
         onClose={() => setSettingsOpen(false)}
       />
     </div>

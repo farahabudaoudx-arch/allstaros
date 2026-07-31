@@ -254,7 +254,7 @@ export function IssuedPremiumView({
             We match your Gateway reports by your NPN, if your NPN is not
             loaded into{" "}
             <Link
-              href="/producer/settings"
+              href="/producer?settings=npn"
               className="text-accent underline-offset-2 hover:underline"
             >
               your settings

@@ -40,9 +40,15 @@ export async function menuChrome(person: Person): Promise<{
   return {
     menuPerson: {
       fullName: person.full_name,
+      email: person.email,
       npn: person.npn,
+      npnStatus: person.npn_status,
       isBuilder: person.is_builder,
       photoUrl: approvedPhotoUrl(person),
+      photoRejectionReason:
+        person.photo_review_status === "rejected"
+          ? person.photo_rejection_reason
+          : null,
       discordConnected: Boolean(person.discord_webhook_url),
     },
     chatHref: person.is_builder ? "/producer/messages" : "/producer/upline",

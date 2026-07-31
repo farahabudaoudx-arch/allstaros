@@ -14,7 +14,7 @@ const BACK = "/admin/headshots";
 // the profile photo). Hardcoded to the production host (like the other email
 // templates) so the link is correct no matter where the action runs.
 const SETTINGS_PHOTO_URL =
-  "https://app.allstarlifegroup.com/producer/settings?section=account";
+  "https://app.allstarlifegroup.com/producer?settings=account";
 
 function done(query: string): never {
   revalidatePath(BACK);
