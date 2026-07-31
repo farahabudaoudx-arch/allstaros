@@ -43,7 +43,7 @@ export function TopBar({
               className="app-logo h-9 w-auto"
             />
             {tag ? (
-              <span className="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-mute sm:inline">
+              <span className="hidden text-[10px] uppercase tracking-[0.18em] text-mute sm:inline">
                 {tag}
               </span>
             ) : null}

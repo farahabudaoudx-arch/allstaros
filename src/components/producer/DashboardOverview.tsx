@@ -116,7 +116,7 @@ export function DashboardOverview() {
         <div className="flex flex-col rounded-2xl border border-hairline bg-card p-5">
           <div className="flex items-baseline justify-between">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+              <p className="text-xs uppercase tracking-[0.16em] text-mute">
                 {readout.label}
               </p>
               <p className="mt-1 text-4xl font-semibold tabular-nums text-accent">

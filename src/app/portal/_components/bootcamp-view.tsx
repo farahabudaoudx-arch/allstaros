@@ -124,7 +124,7 @@ export default function BootcampView({
           <div className="flex-1">
             <label
               htmlFor="submittedAt"
-              className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute"
+              className="block text-[10px] uppercase tracking-[0.16em] text-mute"
             >
               Submitted on
             </label>
@@ -140,7 +140,7 @@ export default function BootcampView({
           <div className="flex-1">
             <label
               htmlFor="note"
-              className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute"
+              className="block text-[10px] uppercase tracking-[0.16em] text-mute"
             >
               Note (optional)
             </label>
@@ -174,7 +174,7 @@ export default function BootcampView({
       >
         <form action={recordCheckIn} className="grid gap-3">
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+            <label className="block text-[10px] uppercase tracking-[0.16em] text-mute">
               Today’s summary
             </label>
             <Textarea
@@ -244,7 +244,7 @@ function PacingFields({
   ];
   return (
     <fieldset className="rounded-xl border border-hairline p-3">
-      <legend className="px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+      <legend className="px-2 text-[10px] uppercase tracking-[0.16em] text-mute">
         {label}
       </legend>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

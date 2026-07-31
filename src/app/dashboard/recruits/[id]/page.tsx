@@ -218,7 +218,7 @@ export default async function RecruitDetailPage({
                   <div className="text-sm font-medium capitalize text-ink">
                     {phase}
                   </div>
-                  <div className="font-mono text-xs text-mute">
+                  <div className="text-xs text-mute">
                     {done} / {phaseLessons.length}
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export default async function RecruitDetailPage({
                     {c.check_in_date}
                   </span>
                   {c.pacing || c.actuals ? (
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-mute">
                       Pacing/actuals recorded
                     </span>
                   ) : null}
@@ -369,7 +369,7 @@ export default async function RecruitDetailPage({
                 key={m.id}
                 className="rounded-xl border border-hairline bg-card px-3.5 py-2.5"
               >
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-mute">
                   {m.is_ai ? "AI" : "Member"} ·{" "}
                   {new Date(m.created_at).toLocaleString()}
                 </span>
@@ -386,7 +386,7 @@ export default async function RecruitDetailPage({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-hairline bg-card px-4 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-mute">
         {label}
       </div>
       <div className="mt-1 text-sm font-medium text-ink">{value}</div>

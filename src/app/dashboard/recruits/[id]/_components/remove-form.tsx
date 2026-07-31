@@ -24,7 +24,7 @@ export default function RemoveForm({ recruit }: { recruit: Recruit }) {
         Removing sets <code className="text-ink">removed_at</code> and marks the
         person <code className="text-ink">removed</code>. History stays intact.
       </p>
-      <label className="mt-4 block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+      <label className="mt-4 block text-[10px] uppercase tracking-[0.16em] text-mute">
         Reason (optional)
       </label>
       <Input

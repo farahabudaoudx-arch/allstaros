@@ -18,7 +18,7 @@ export default function PortalGuidePage() {
 
       <article className="mt-8 space-y-5">
         <header className="space-y-3 border-b border-hairline pb-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-mute">
             Licensing guide
           </p>
           <h1 className="text-3xl font-semibold tracking-[-0.025em] md:text-4xl">

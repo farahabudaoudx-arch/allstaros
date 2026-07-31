@@ -59,7 +59,7 @@ export default function ResetPage() {
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-3">
-            <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+            <label className="block text-[10px] uppercase tracking-[0.16em] text-mute">
               Email
             </label>
             <Input

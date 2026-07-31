@@ -127,7 +127,7 @@ export function NpnRequestModal({ initialOpen }: { initialOpen: boolean }) {
                 </p>
                 <p className="mt-2 text-sm text-subtle">
                   NPN{" "}
-                  <span className="font-mono text-ink">{savedNpn}</span> is now on file.
+                  <span className="text-ink">{savedNpn}</span> is now on file.
                 </p>
                 <button
                   type="button"

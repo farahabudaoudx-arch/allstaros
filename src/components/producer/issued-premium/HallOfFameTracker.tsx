@@ -59,10 +59,10 @@ export function HallOfFameTracker({
         {/* Progress side */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#e7c66b]">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#e7c66b]">
               Hall of Fame Tracker · {year}
             </p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/40">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
               YTD
             </p>
           </div>
@@ -94,7 +94,7 @@ export function HallOfFameTracker({
                 }}
               />
             </div>
-            <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/50">
+            <div className="mt-2 text-[11px] uppercase tracking-[0.14em] text-white/50">
               <span className="tabular-nums">
                 {money(currentCents)}/{money(goalCents)} issued premium
               </span>

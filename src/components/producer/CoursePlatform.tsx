@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Course, Program, Tone } from "@/lib/producer/trainings";
+import { PageHeader } from "@/components/producer/PageHeader";
 
 const TONE_BG: Record<Tone, string> = {
   coral: "bg-[#d9744f]",
@@ -73,7 +74,7 @@ function PlayerPlaceholder({ course }: { course: Course }) {
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
             <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
           </svg>
-          <span className="font-mono text-[11px] tabular-nums">00:19 / 01:38</span>
+          <span className="text-[11px] tabular-nums">00:19 / 01:38</span>
           <div className="relative h-1 flex-1 rounded-full bg-white/25">
             <div className="absolute inset-y-0 left-0 w-[20%] rounded-full bg-accent" />
             <div className="absolute left-[20%] top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent" />
@@ -132,12 +133,16 @@ function CourseCard({
 export function CoursePlatform({
   program,
   fill = "screen",
+  backHref,
 }: {
   program: Program;
   // "screen" fills the viewport (h-dvh) for the producer portal where the
   // platform sits beside the sidebar; "parent" fills a bounded parent (h-full)
   // for the recruit portal where a TopBar sits above it.
   fill?: "screen" | "parent";
+  /** Producer portal only — shows the centered title + back pill. Recruit
+   *  portal (fill="parent") has its own TopBar nav and leaves this unset. */
+  backHref?: string;
 }) {
   // When the program defines named sections, the tabs become those sections
   // (filtering by course.section); otherwise fall back to status tabs.
@@ -183,13 +188,19 @@ export function CoursePlatform({
         }`}
       >
         <div className="px-5 pt-8 md:px-8">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">Training</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-[-0.02em]">{program.title}</h1>
-            </div>
-          </div>
-          <p className="mt-2 text-sm text-subtle">{program.subtitle}</p>
+          {backHref ? (
+            <PageHeader title={program.title} backHref={backHref} />
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-mute">Training</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-[-0.02em]">{program.title}</h1>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-subtle">{program.subtitle}</p>
+            </>
+          )}
 
           {/* Tabs */}
           <div className="mt-5 flex items-center gap-4 border-b border-hairline">

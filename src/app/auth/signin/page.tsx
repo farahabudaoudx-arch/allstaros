@@ -48,7 +48,7 @@ export default async function SignInPage({
             priority
             className="mx-auto h-10 w-auto"
           />
-          <p className="mt-6 font-mono text-xs uppercase tracking-[0.18em] text-mute">
+          <p className="mt-6 text-xs uppercase tracking-[0.18em] text-mute">
             All Star OS
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">

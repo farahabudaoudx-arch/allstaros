@@ -233,7 +233,7 @@ function DestinationsBlock() {
                     {!d.enabled && <span className="text-xs text-mute">Disabled</span>}
                   </div>
                   <p className="text-xs text-subtle">{purposeLabel(d.purpose)}</p>
-                  <p className="mt-2 truncate font-mono text-xs text-mute">{d.masked_url}</p>
+                  <p className="mt-2 truncate text-xs text-mute">{d.masked_url}</p>
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <button
@@ -486,7 +486,7 @@ function BaselinesBlock() {
         <div className="no-scrollbar mt-6 overflow-x-auto rounded-2xl border border-hairline bg-card">
           <table className="w-full min-w-[880px] text-sm">
             <thead>
-              <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+              <tr className="border-b border-hairline text-left text-[10px] uppercase tracking-[0.14em] text-mute">
                 <th className="px-5 py-3 font-normal">Producer</th>
                 <th className="px-5 py-3 font-normal">Baseline AP</th>
                 <th className="px-5 py-3 font-normal">Baseline Sales</th>

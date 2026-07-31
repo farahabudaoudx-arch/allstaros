@@ -71,7 +71,7 @@ export function UnlockCelebration({
               className="absolute -left-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 rotate-45 rounded-sm border-b border-l border-accent/40 bg-card md:block"
             />
 
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-accent">
               {"// Unlocked"}
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-ink">

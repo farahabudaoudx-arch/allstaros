@@ -125,7 +125,7 @@ export function DownlineTree({
             <button
               type="button"
               onClick={resetZoom}
-              className="w-11 text-center font-mono text-xs text-mute transition hover:text-ink"
+              className="w-11 text-center text-xs text-mute transition hover:text-ink"
             >
               {Math.round(zoom * 100)}%
             </button>
@@ -213,7 +213,7 @@ function NodeCard({
           <div className="flex items-center gap-1.5 text-[11px] text-mute">
             <span className="truncate">{p.role}</span>
             {p.pending ? (
-              <span className="shrink-0 font-mono uppercase tracking-wide text-warn">
+              <span className="shrink-0 uppercase tracking-wide text-warn">
                 · invite sent
               </span>
             ) : null}
@@ -222,15 +222,15 @@ function NodeCard({
         <div className="shrink-0 text-right">
           {showTeam ? (
             <>
-              <div className="font-mono text-sm text-ink">
+              <div className="text-sm text-ink">
                 {fmtIp(node.teamIpCents)}
               </div>
-              <div className="font-mono text-[10px] uppercase tracking-wide text-mute">
+              <div className="text-[10px] uppercase tracking-wide text-mute">
                 team
               </div>
             </>
           ) : (
-            <div className="font-mono text-sm text-ink">
+            <div className="text-sm text-ink">
               {fmtIp(node.ownIpCents)}
             </div>
           )}

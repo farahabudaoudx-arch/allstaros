@@ -36,7 +36,7 @@ export default async function AdminReferralCodesPage({
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <div>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">
+        <p className="text-xs uppercase tracking-[0.18em] text-mute">
           Admin
         </p>
         <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
@@ -44,7 +44,7 @@ export default async function AdminReferralCodesPage({
         </h1>
         <p className="mt-3 text-sm text-subtle">
           Builder invite links. Recruits sign up at{" "}
-          <span className="font-mono text-xs">{appUrl}/join/&lt;code&gt;</span>.
+          <span className="text-xs">{appUrl}/join/&lt;code&gt;</span>.
         </p>
       </div>
 
@@ -72,7 +72,7 @@ export default async function AdminReferralCodesPage({
                   {b.full_name}
                 </h3>
                 {code ? (
-                  <p className="mt-1 font-mono text-xs text-subtle">
+                  <p className="mt-1 text-xs text-subtle">
                     {appUrl}/join/{code}
                   </p>
                 ) : (

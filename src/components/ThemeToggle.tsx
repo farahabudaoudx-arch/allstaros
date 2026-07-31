@@ -69,6 +69,41 @@ export function ThemeToggle({
   );
 }
 
+/** Two-way segmented Dark/Light switch — same underlying mechanics as
+ *  ThemeToggle, for chrome that wants an explicit pill pair instead of a
+ *  single cycling button (e.g. the menu settings drawer). */
+export function ThemePills() {
+  const [theme, setTheme] = useState<Theme>("dark");
+
+  useEffect(() => setTheme(currentTheme()), []);
+
+  function choose(next: Theme) {
+    setTheme(next);
+    document.documentElement.classList.toggle("light", next === "light");
+    try {
+      localStorage.setItem("theme", next);
+    } catch {}
+  }
+
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-full border border-hairline p-0.5">
+      {(["dark", "light"] as const).map((value) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => choose(value)}
+          aria-pressed={theme === value}
+          className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+            theme === value ? "bg-accent text-black" : "text-subtle hover:text-ink"
+          }`}
+        >
+          {value}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SunIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0" aria-hidden>

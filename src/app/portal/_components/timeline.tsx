@@ -65,7 +65,7 @@ export function TimelineStep({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {number ? (
-                <span className="font-mono text-3xl font-bold tabular-nums text-accent">
+                <span className="text-3xl font-bold tabular-nums text-accent">
                   {number}
                 </span>
               ) : null}

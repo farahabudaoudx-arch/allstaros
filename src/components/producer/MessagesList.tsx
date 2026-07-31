@@ -41,7 +41,7 @@ export function MessagesList({ items }: { items: MessageListItem[] }) {
           placeholder="Search by name or email…"
           className="flex-1"
         />
-        <span className="shrink-0 font-mono text-xs text-mute">
+        <span className="shrink-0 text-xs text-mute">
           {filtered.length} of {items.length}
         </span>
       </div>
@@ -85,7 +85,7 @@ export function MessagesList({ items }: { items: MessageListItem[] }) {
                       ) : null}
                     </span>
                     {row.lastAt ? (
-                      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
+                      <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-mute">
                         {new Date(row.lastAt).toLocaleDateString()}
                       </span>
                     ) : null}
@@ -99,7 +99,7 @@ export function MessagesList({ items }: { items: MessageListItem[] }) {
                   </p>
                 </div>
                 {row.checkIn ? (
-                  <span className="hidden shrink-0 rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-mute sm:inline">
+                  <span className="hidden shrink-0 rounded-full border border-hairline px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-mute sm:inline">
                     Checked in {row.checkIn}
                   </span>
                 ) : null}

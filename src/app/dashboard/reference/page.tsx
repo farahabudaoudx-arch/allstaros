@@ -4,7 +4,6 @@ export default function ReferencePage() {
   return (
     <div className="max-w-3xl">
       <SectionHeading
-        kicker="Run a good interview"
         title="Interview reference"
       />
       <p className="mt-2 text-sm text-subtle">
@@ -12,7 +11,7 @@ export default function ReferencePage() {
       </p>
 
       <Card className="mt-6">
-        <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+        <h3 className="text-xs uppercase tracking-[0.16em] text-mute">
           The framework
         </h3>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-subtle marker:text-mute">
@@ -42,7 +41,7 @@ export default function ReferencePage() {
       </Card>
 
       <Card className="mt-4">
-        <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+        <h3 className="text-xs uppercase tracking-[0.16em] text-mute">
           Playbooks
         </h3>
         <ul className="mt-3 space-y-2 text-sm text-subtle">
@@ -66,7 +65,7 @@ export default function ReferencePage() {
       </Card>
 
       <Card className="mt-4">
-        <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+        <h3 className="text-xs uppercase tracking-[0.16em] text-mute">
           A few rules
         </h3>
         <ul className="mt-3 space-y-2 text-sm text-subtle">

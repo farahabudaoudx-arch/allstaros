@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AreaChart, type ChartPoint } from "@/components/producer/charts/AreaChart";
+import { PageHeader } from "@/components/producer/PageHeader";
 import { BugReportModal } from "@/components/BugReportModal";
 import { HallOfFameTracker } from "./HallOfFameTracker";
 
@@ -109,7 +110,7 @@ function GrowthCard({ label, growth }: { label: string; growth: Growth }) {
           : "text-ink";
   return (
     <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
-      <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+      <p className="text-xs uppercase tracking-[0.16em] text-mute">
         {label}
       </p>
       <p className={`text-3xl font-semibold tabular-nums tracking-[-0.02em] ${tone}`}>
@@ -130,10 +131,12 @@ export function IssuedPremiumView({
   reports,
   isBuilder,
   agentCount = null,
+  backHref,
 }: {
   reports: IpReport[]; // oldest first
   isBuilder: boolean;
   agentCount?: number | null;
+  backHref: string;
 }) {
   const [period, setPeriod] = useState<PeriodKey>("mtd");
   const [metric, setMetric] = useState<BuilderMetric>("team");
@@ -220,21 +223,8 @@ export function IssuedPremiumView({
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
-            Tracking
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] md:text-4xl">
-            Issued Premium
-          </h1>
-          <p className="mt-3 max-w-md text-[15px] leading-relaxed text-subtle">
-            {isBuilder
-              ? "Team issued premium across your downline, from Gateway uploaded to your account."
-              : "Issued premium totals from Gateway uploaded to your account."}
-          </p>
-        </div>
-        <div className="no-scrollbar flex max-w-full items-center gap-1 self-start overflow-x-auto rounded-full border border-hairline bg-card p-1 md:self-auto">
+      <PageHeader title="Issued Premium" backHref={backHref}>
+        <div className="no-scrollbar flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-hairline bg-card p-1">
           {PERIODS.map((p) => (
             <button
               key={p.key}
@@ -253,7 +243,7 @@ export function IssuedPremiumView({
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
       {reports.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card px-6 py-12 text-center">
@@ -302,7 +292,7 @@ export function IssuedPremiumView({
                     : "opacity-90 hover:opacity-100"
                 }`}
               >
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-black/60">
+                <p className="text-xs uppercase tracking-[0.16em] text-black/60">
                   Team IP · {periodMeta.full}
                 </p>
                 <div>
@@ -326,7 +316,7 @@ export function IssuedPremiumView({
                     : "border-hairline hover:border-mute"
                 }`}
               >
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   Personal IP
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
@@ -345,7 +335,7 @@ export function IssuedPremiumView({
                     : "border-hairline hover:border-mute"
                 }`}
               >
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   1st Leg
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
@@ -358,7 +348,7 @@ export function IssuedPremiumView({
                 )}
               </button>
               <div className="flex flex-col justify-center gap-3 rounded-2xl border border-hairline bg-card p-6">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   1st Leg %
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
@@ -374,7 +364,7 @@ export function IssuedPremiumView({
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   Avg IP per Agent
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
@@ -393,7 +383,7 @@ export function IssuedPremiumView({
           ) : (
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
               <div className="flex min-h-[9rem] flex-col justify-between rounded-2xl bg-accent p-6 text-black sm:col-span-2 lg:col-span-1">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-black/60">
+                <p className="text-xs uppercase tracking-[0.16em] text-black/60">
                   Issued Premium · {periodMeta.full}
                 </p>
                 <p className="text-4xl font-semibold tabular-nums tracking-[-0.03em] md:text-5xl">
@@ -401,7 +391,7 @@ export function IssuedPremiumView({
                 </p>
               </div>
               <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   Gateways Uploaded
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
@@ -409,7 +399,7 @@ export function IssuedPremiumView({
                 </p>
               </div>
               <div className="flex flex-col justify-center gap-2.5 rounded-2xl border border-hairline bg-card p-6">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   Latest Upload
                 </p>
                 <p className="text-3xl font-semibold tabular-nums tracking-[-0.02em]">
@@ -424,14 +414,14 @@ export function IssuedPremiumView({
           <div className="mt-3 rounded-2xl border border-hairline bg-card p-5 md:p-6">
             <div className="flex items-baseline justify-between gap-4">
               <div>
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+                <p className="text-xs uppercase tracking-[0.16em] text-mute">
                   {readout.label}
                 </p>
                 <p className="mt-1 text-4xl font-semibold tabular-nums text-accent">
                   {readout.value}
                 </p>
               </div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-mute">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-mute">
                 {chartLabel} Trend · {periodMeta.label}
               </p>
             </div>
@@ -540,7 +530,7 @@ export function IssuedPremiumView({
               </table>
             </div>
             {isBuilder && (
-              <p className="border-t border-hairline px-6 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-mute">
+              <p className="border-t border-hairline px-6 py-3 text-[11px] uppercase tracking-[0.12em] text-mute">
                 Showing {periodMeta.full} figures. Switch the timeframe above.
               </p>
             )}
@@ -565,7 +555,7 @@ function Th({
 }) {
   return (
     <th
-      className={`px-4 py-2.5 font-mono text-[11px] font-normal uppercase tracking-[0.14em] text-mute md:px-6 ${
+      className={`px-4 py-2.5 text-[11px] font-normal uppercase tracking-[0.14em] text-mute md:px-6 ${
         align === "left" ? "text-left" : "text-right"
       } ${hide ? HIDE_CLASS[hide] : ""}`}
     >

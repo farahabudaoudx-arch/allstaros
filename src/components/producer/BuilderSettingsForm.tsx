@@ -94,7 +94,7 @@ export function BuilderSettingsForm() {
             readOnly
             aria-readonly="true"
             tabIndex={-1}
-            className="w-full cursor-not-allowed bg-transparent font-mono text-lg font-medium tracking-[0.12em] text-mute outline-none"
+            className="w-full cursor-not-allowed bg-transparent text-lg font-medium tracking-[0.12em] text-mute outline-none"
           />
           <button
             type="button"

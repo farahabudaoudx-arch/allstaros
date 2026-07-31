@@ -11,7 +11,7 @@ export default async function PendingPage() {
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-24">
       <div className="w-full max-w-lg rounded-2xl border border-hairline bg-card p-10 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">
+        <p className="text-xs uppercase tracking-[0.18em] text-mute">
           Waiting on your upline
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">

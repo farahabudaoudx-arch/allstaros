@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getClientDeposit, saveClientDeposit } from "@/app/producer/clients/_actions";
+import { getClientDeposit, saveClientDeposit } from "@/app/producer/(app)/clients/_actions";
 import { localIsoDate } from "@/lib/producer/time";
 import {
   projectedPay,

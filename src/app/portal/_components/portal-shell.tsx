@@ -29,7 +29,7 @@ export function PortalHeading({
 }) {
   return (
     <div className="mb-8">
-      <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+      <p className="text-xs uppercase tracking-[0.18em] text-accent">
         {"// "}
         {eyebrow}
       </p>

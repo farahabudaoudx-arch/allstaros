@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { deleteLeadPurchase, saveLeadPurchase } from "@/app/producer/lead-spend/_actions";
+import { deleteLeadPurchase, saveLeadPurchase } from "@/app/producer/(app)/lead-spend/_actions";
 import { LEAD_TYPES, type LeadPurchase } from "@/lib/lead-spend/types";
 import { localIsoDate } from "@/lib/producer/time";
+import { PageHeader } from "@/components/producer/PageHeader";
 
 function fmtMoney(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return "$0";
@@ -39,8 +40,10 @@ function emptyDraft(): Draft {
 
 export function LeadSpendTracker({
   initialPurchases,
+  backHref,
 }: {
   initialPurchases: LeadPurchase[];
+  backHref: string;
 }) {
   const [purchases, setPurchases] = useState<LeadPurchase[]>(initialPurchases);
   const [open, setOpen] = useState(false);
@@ -93,15 +96,16 @@ export function LeadSpendTracker({
   return (
     <div className="ll-analytics space-y-6 pt-2">
       {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="display-mega text-white mr-2">Lead Spend</h1>
-        <span className="text-sm tnum" style={{ color: "var(--ink-2)" }}>
-          {purchases.length.toLocaleString()} {purchases.length === 1 ? "entry" : "entries"}
-        </span>
-        <button type="button" onClick={openCreate} className="btn btn-primary ml-auto">
-          <PlusIcon /> Log lead spend
-        </button>
-      </div>
+      <PageHeader title="Lead Spend" backHref={backHref}>
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-sm tnum" style={{ color: "var(--ink-2)" }}>
+            {purchases.length.toLocaleString()} {purchases.length === 1 ? "entry" : "entries"}
+          </span>
+          <button type="button" onClick={openCreate} className="btn btn-primary">
+            <PlusIcon /> Log lead spend
+          </button>
+        </div>
+      </PageHeader>
 
       {/* Stat strip — total spend is the headline lime bubble; total leads and
           cost/lead sit alongside as gray tiles. Mirrors the Clients page. */}

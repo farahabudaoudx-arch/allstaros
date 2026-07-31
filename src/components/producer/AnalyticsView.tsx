@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { UsStateMap, type StateDatum } from "@/components/producer/charts/UsStateMap";
 import { HallOfFameTracker } from "@/components/producer/issued-premium/HallOfFameTracker";
 import { localIsoDate } from "@/lib/producer/time";
+import { PageHeader } from "@/components/producer/PageHeader";
 
 type Timeframe = "today" | "wtd" | "mtd" | "ytd" | "all" | "custom";
 
@@ -161,10 +162,14 @@ function writeLayout(layout: SectionLayout) {
 export function AnalyticsView({
   personId,
   title = "Analytics",
+  backHref,
 }: {
   // When set, the board renders a downline producer's metrics (read-only).
   personId?: string;
   title?: string;
+  // Only set when this is the top-level page (not embedded read-only inside
+  // a team member's detail page) — shows the centered title + back pill.
+  backHref?: string;
 } = {}) {
   const readOnly = !!personId;
   const [addOpen, setAddOpen] = useState(false);
@@ -271,20 +276,34 @@ export function AnalyticsView({
   return (
     <div className="ll-analytics space-y-8 pt-2">
       {/* Header */}
-      <div className="flex items-end justify-between flex-wrap gap-4">
-        <div className="flex items-baseline gap-3">
-          <h1 className="display-mega text-white leading-none">{title}</h1>
-          {loading && <span className="text-xs" style={{ color: "var(--ink-3)" }}>loading…</span>}
-          {error && <span className="text-xs" style={{ color: "var(--danger)" }}>{error}</span>}
-        </div>
-        {!readOnly && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setAddOpen(true)} className="btn btn-primary text-sm" title="Manually log activity for a day">
-              <PlusIcon /> Add Data
-            </button>
+      {backHref ? (
+        <PageHeader title={title} backHref={backHref}>
+          <div className="flex items-center justify-center gap-3">
+            {loading && <span className="text-xs" style={{ color: "var(--ink-3)" }}>loading…</span>}
+            {error && <span className="text-xs" style={{ color: "var(--danger)" }}>{error}</span>}
+            {!readOnly && (
+              <button onClick={() => setAddOpen(true)} className="btn btn-primary text-sm" title="Manually log activity for a day">
+                <PlusIcon /> Add Data
+              </button>
+            )}
           </div>
-        )}
-      </div>
+        </PageHeader>
+      ) : (
+        <div className="flex items-end justify-between flex-wrap gap-4">
+          <div className="flex items-baseline gap-3">
+            <h1 className="display-mega text-white leading-none">{title}</h1>
+            {loading && <span className="text-xs" style={{ color: "var(--ink-3)" }}>loading…</span>}
+            {error && <span className="text-xs" style={{ color: "var(--danger)" }}>{error}</span>}
+          </div>
+          {!readOnly && (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setAddOpen(true)} className="btn btn-primary text-sm" title="Manually log activity for a day">
+                <PlusIcon /> Add Data
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Controls — timeframe, custom range, layout settings */}
       <div className="flex items-center justify-start sm:justify-end gap-2 flex-wrap relative">

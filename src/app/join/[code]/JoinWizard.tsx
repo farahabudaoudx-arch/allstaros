@@ -297,7 +297,7 @@ function Card({
 }) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute">{eyebrow}</p>
+      <p className="text-[10px] uppercase tracking-[0.18em] text-mute">{eyebrow}</p>
       <h1 className="mt-1.5 text-2xl font-semibold tracking-[-0.02em] text-ink">{title}</h1>
       {subtitle ? <p className="mt-1.5 text-sm text-subtle">{subtitle}</p> : null}
       <div className="mt-5">{children}</div>
@@ -348,7 +348,7 @@ function WelcomeCard({
 }) {
   return (
     <div className="text-center">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-accent">
         {"// You're in"}
       </p>
       <h1 className="mt-1.5 text-2xl font-semibold tracking-[-0.02em] text-ink">

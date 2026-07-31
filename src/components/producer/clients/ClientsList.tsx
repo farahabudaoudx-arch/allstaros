@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteClient } from "@/app/producer/clients/_actions";
+import { deleteClient } from "@/app/producer/(app)/clients/_actions";
 import { DEPOSIT_STATUS_LABEL, type Client, type DepositStatus } from "@/lib/clients/types";
+import { PageHeader } from "@/components/producer/PageHeader";
 
 function fmtMoney(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return "—";
@@ -38,10 +39,12 @@ export function ClientsList({
   initialClients,
   depositTotals,
   clientStatuses,
+  backHref,
 }: {
   initialClients: Client[];
   depositTotals: DepositTotals;
   clientStatuses: Record<string, DepositStatus>;
+  backHref: string;
 }) {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initialClients);
@@ -80,25 +83,26 @@ export function ClientsList({
   return (
     <div className="ll-analytics space-y-6 pt-2">
       {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="display-mega text-white mr-2">Clients</h1>
-        <div className="relative flex-1 max-w-md">
+      <PageHeader title="Clients" backHref={backHref}>
+        <div className="relative w-full max-w-md">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, email, phone, policy…"
-            className="input"
+            className="input w-full"
             style={{ paddingLeft: 36 }}
           />
         </div>
-        <span className="text-sm tnum" style={{ color: "var(--ink-2)" }}>
-          {filtered.length.toLocaleString()} {filtered.length === 1 ? "client" : "clients"}
-        </span>
-        <Link href="/producer/clients/new" className="btn btn-primary">
-          <PlusIcon /> New Client
-        </Link>
-      </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm tnum" style={{ color: "var(--ink-2)" }}>
+            {filtered.length.toLocaleString()} {filtered.length === 1 ? "client" : "clients"}
+          </span>
+          <Link href="/producer/clients/new" className="btn btn-primary">
+            <PlusIcon /> New Client
+          </Link>
+        </div>
+      </PageHeader>
 
       {/* Stat strip, no outer container. Closed sales is the only lime
           bubble; AP/IP and the pipeline use gray "card" surfaces. All

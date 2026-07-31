@@ -20,7 +20,7 @@ export default function SignInButton({ next }: { next: string }) {
   return (
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="next" value={next} />
-      <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+      <label className="block text-[10px] uppercase tracking-[0.16em] text-mute">
         Email
       </label>
       <Input
@@ -32,7 +32,7 @@ export default function SignInButton({ next }: { next: string }) {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="you@example.com"
       />
-      <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+      <label className="block text-[10px] uppercase tracking-[0.16em] text-mute">
         Password
       </label>
       <Input

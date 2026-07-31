@@ -301,7 +301,7 @@ export function Sidebar({
         className="app-logo h-9 w-auto shrink-0"
       />
       {tag ? (
-        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-mute">
+        <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.18em] text-mute">
           {tag}
         </span>
       ) : null}

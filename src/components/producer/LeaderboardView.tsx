@@ -36,9 +36,16 @@ function metricValue(row: LeaderboardRow, metric: LeaderboardMetric): string {
 const PODIUM_RING = ["ring-accent", "ring-subtle", "ring-warn"];
 const PODIUM_TEXT = ["text-accent", "text-subtle", "text-warn"];
 
-export function LeaderboardView() {
+export function LeaderboardView({
+  metric,
+  selector,
+}: {
+  /** Which column ranks the board — owned by LeaderboardBoards' pill row. */
+  metric: LeaderboardMetric;
+  /** That pill row, rendered here so it shares a line with the timeframe. */
+  selector: React.ReactNode;
+}) {
   const [tf, setTf] = useState<Timeframe>({ key: "mtd" });
-  const [metric, setMetric] = useState<LeaderboardMetric>("ap_cents");
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,39 +95,18 @@ export function LeaderboardView() {
 
   return (
     <section>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          {myRank ? (
-            <p className="text-sm text-subtle">
-              You&apos;re ranked{" "}
-              <span className="font-semibold text-accent">#{myRank}</span> of {rows.length} by{" "}
-              {METRICS.find((m) => m.key === metric)!.label.toLowerCase()}.
-            </p>
-          ) : null}
-        </div>
+      {/* Board pills and timeframe share one line. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        {selector}
         <TimeframePills value={tf} onChange={setTf} />
       </div>
 
-      {/* Metric selector */}
-      <div className="mt-6 flex flex-wrap items-center gap-1.5">
-        {METRICS.map((m) => {
-          const active = metric === m.key;
-          return (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMetric(m.key)}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-                active
-                  ? "border-accent/50 bg-accent/[0.08] text-accent"
-                  : "border-hairline bg-card text-subtle hover:border-mute hover:text-ink"
-              }`}
-            >
-              {m.label}
-            </button>
-          );
-        })}
-      </div>
+      {myRank ? (
+        <p className="mt-4 text-sm text-subtle">
+          You&apos;re ranked <span className="font-semibold text-accent">#{myRank}</span> of{" "}
+          {rows.length} by {METRICS.find((m) => m.key === metric)!.label.toLowerCase()}.
+        </p>
+      ) : null}
 
       {error ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card p-10 text-center text-sm text-neg">
@@ -153,7 +139,7 @@ export function LeaderboardView() {
                       photoUrl={row.photo_url}
                       className={`h-14 w-14 text-base ring-2 ${PODIUM_RING[i]}`}
                     />
-                    <p className={`mt-3 font-mono text-xs uppercase tracking-[0.16em] ${PODIUM_TEXT[i]}`}>
+                    <p className={`mt-3 text-xs uppercase tracking-[0.16em] ${PODIUM_TEXT[i]}`}>
                       #{i + 1}
                     </p>
                     <p className="mt-1 truncate text-sm font-medium text-ink">
@@ -173,7 +159,7 @@ export function LeaderboardView() {
           <div className="no-scrollbar mt-3 overflow-x-auto rounded-2xl border border-hairline bg-card">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
-                <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+                <tr className="border-b border-hairline text-left text-[10px] uppercase tracking-[0.14em] text-mute">
                   <th className="px-5 py-3 font-normal">Rank</th>
                   <th className="px-5 py-3 font-normal">Producer</th>
                   {METRICS.map((m) => (

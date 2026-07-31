@@ -46,7 +46,7 @@ export default async function PortalMessagesPage() {
   return (
     <main className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col px-5 py-8 md:px-10 md:py-10">
       <div className="mb-6">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+        <p className="text-xs uppercase tracking-[0.18em] text-accent">
           {"// "}Messages
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.025em] text-ink md:text-4xl">

@@ -57,7 +57,6 @@ export default async function DashboardPage({
   return (
     <div>
       <SectionHeading
-        kicker="Visibility — your downline only"
         title="Downline roster"
       />
 
@@ -69,7 +68,7 @@ export default async function DashboardPage({
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-hairline bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+          <thead className="border-b border-hairline text-left text-[10px] uppercase tracking-[0.16em] text-mute">
             <tr>
               <th className="px-4 py-3 font-normal">Recruit</th>
               <th className="px-4 py-3 font-normal">Phase</th>

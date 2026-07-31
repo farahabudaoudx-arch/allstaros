@@ -53,7 +53,7 @@ export default function ResetConfirmPage() {
         </div>
 
         <form action={formAction} onSubmit={onSubmit} className="space-y-3">
-          <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+          <label className="block text-[10px] uppercase tracking-[0.16em] text-mute">
             New password
           </label>
           <Input
@@ -65,7 +65,7 @@ export default function ResetConfirmPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
           />
-          <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+          <label className="block text-[10px] uppercase tracking-[0.16em] text-mute">
             Confirm password
           </label>
           <Input

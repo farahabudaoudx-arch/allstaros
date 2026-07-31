@@ -47,7 +47,7 @@ export function DownlineList({ items }: { items: DownlineItem[] }) {
           placeholder="Search by name or email…"
           className="flex-1"
         />
-        <span className="shrink-0 font-mono text-xs text-mute">
+        <span className="shrink-0 text-xs text-mute">
           {filtered.length} of {items.length}
         </span>
       </div>
@@ -75,7 +75,7 @@ export function DownlineList({ items }: { items: DownlineItem[] }) {
                   </div>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${
                     p.direct
                       ? "border-accent/40 bg-accent/[0.08] text-accent"
                       : "border-hairline text-mute"
@@ -89,7 +89,7 @@ export function DownlineList({ items }: { items: DownlineItem[] }) {
                   {p.direct ? "Direct" : "Indirect"}
                 </span>
                 <span
-                  className={`hidden shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] sm:inline ${
+                  className={`hidden shrink-0 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] sm:inline ${
                     p.pending
                       ? "border-warn/40 bg-warn/[0.08] text-warn"
                       : "border-pos/40 bg-pos/[0.08] text-pos"

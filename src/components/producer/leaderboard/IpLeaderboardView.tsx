@@ -52,7 +52,15 @@ function firstLegCents(row: IpLeaderboardRow): number | null {
 const PODIUM_RING = ["ring-accent", "ring-subtle", "ring-warn"];
 const PODIUM_TEXT = ["text-accent", "text-subtle", "text-warn"];
 
-export function IpLeaderboardView({ board }: { board: IpBoard }) {
+export function IpLeaderboardView({
+  board,
+  selector,
+}: {
+  board: IpBoard;
+  /** The board pill row from LeaderboardBoards, shown on the same line as the
+   *  period pills so the controls read as one row. */
+  selector: React.ReactNode;
+}) {
   const [period, setPeriod] = useState<IpPeriod>("mtd");
   const [customOpen, setCustomOpen] = useState(false);
   const [from, setFrom] = useState("");
@@ -117,23 +125,11 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
 
   return (
     <div>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          {caption ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-mute">
-              {caption}
-            </p>
-          ) : null}
-          {myRank ? (
-            <p className="mt-2 text-sm text-subtle">
-              You&apos;re ranked{" "}
-              <span className="font-semibold text-accent">#{myRank}</span> of{" "}
-              {rows.length} by {board === "team" ? "team IP" : "personal IP"}.
-            </p>
-          ) : null}
-        </div>
+      {/* Board pills and period share one line. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        {selector}
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
           <div className="no-scrollbar flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-hairline bg-card p-1">
             {PERIODS.map((p) => {
               const active = !customActive && period === p.key;
@@ -200,6 +196,20 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
         </div>
       </div>
 
+      {caption || myRank ? (
+        <div className="mt-4">
+          {caption ? (
+            <p className="text-xs text-mute">{caption}</p>
+          ) : null}
+          {myRank ? (
+            <p className="mt-2 text-sm text-subtle">
+              You&apos;re ranked <span className="font-semibold text-accent">#{myRank}</span> of{" "}
+              {rows.length} by {board === "team" ? "team IP" : "personal IP"}.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card p-10 text-center text-sm text-neg">
           {error}
@@ -235,7 +245,7 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
                     {initials(row.full_name)}
                   </div>
                   <p
-                    className={`mt-3 font-mono text-xs uppercase tracking-[0.16em] ${PODIUM_TEXT[i]}`}
+                    className={`mt-3 text-xs uppercase tracking-[0.16em] ${PODIUM_TEXT[i]}`}
                   >
                     #{i + 1}
                   </p>
@@ -255,7 +265,7 @@ export function IpLeaderboardView({ board }: { board: IpBoard }) {
           <div className="no-scrollbar mt-3 overflow-x-auto rounded-2xl border border-hairline bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+                <tr className="border-b border-hairline text-left text-[10px] uppercase tracking-[0.14em] text-mute">
                   <th className="px-3 py-3 font-normal md:px-5">Rank</th>
                   <th className="px-3 py-3 font-normal md:px-5">
                     {board === "team" ? "Builder" : "Producer"}

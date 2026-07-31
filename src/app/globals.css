@@ -5,7 +5,13 @@
    var(). The `.light` block below overrides the same properties so toggling
    the `.light` class on <html> recolors the whole app through the cascade. */
 @theme {
-  --color-background: #050505;
+  /* True #000, deliberately — not an off-black. Compositor layers rasterize
+     from transparent-black, so on a near-black page any element the browser
+     promotes to its own layer flashes a visibly darker rectangle for a frame
+     before it paints. At #000 that flash is the same color as the page and
+     can never be seen. Do not "soften" this to #050505 or similar; the black
+     bar reappears on large displays. */
+  --color-background: #000000;
   --color-foreground: #f5f5f5;
   --color-ink: #f5f5f5;
   --color-subtle: #8a8a8a;
@@ -35,6 +41,23 @@
 
 :root {
   color-scheme: dark;
+
+  /* Menu tile hover halo (see MenuScreen.tsx). Themed, because a halo has to
+     contrast against the PAGE to read: on the near-black dark page that means
+     a light gold spilling outward, but the same gold on the near-white light
+     page is lighter than its own background and washes out to nothing. The
+     light variant below is therefore a deep amber that reads as warm shadow
+     rather than warm light. Stop positions are tuned to the artwork, not the
+     box — the icon PNG is opaque to ~83% of its half-width, so the gradient
+     must still carry real alpha where it clears the art (~61% of the radius)
+     or the whole halo hides behind the tile. */
+  --menu-tile-glow: radial-gradient(
+    closest-side,
+    rgba(246, 201, 69, 0.42) 50%,
+    rgba(246, 201, 69, 0.3) 68%,
+    rgba(246, 201, 69, 0.12) 84%,
+    transparent 100%
+  );
 }
 
 /* Light palette — overrides the themed tokens. */
@@ -50,6 +73,18 @@
   --color-accent: #f6c945;
   --color-accent-soft: #c9a235;
   color-scheme: light;
+
+  /* Deep amber, not the gold accent: on #f6f7f8 the accent is lighter than the
+     page and vanishes. This sits darker than the page so the halo actually
+     surrounds the tile. Higher alphas than the dark variant because a dark
+     colour over a light page needs more weight to carry the same presence. */
+  --menu-tile-glow: radial-gradient(
+    closest-side,
+    rgba(158, 112, 8, 0.5) 50%,
+    rgba(158, 112, 8, 0.36) 68%,
+    rgba(158, 112, 8, 0.14) 84%,
+    transparent 100%
+  );
 }
 
 html,
@@ -95,23 +130,29 @@ button:not(:disabled):not([data-no-press]):active,
 }
 
 /* ----------------------------------------------------------------------------
-   Page entrance. Content fades and rises in on every route change (via the
-   <PageTransition> wrapper, which re-keys on pathname so this replays). Uses
-   `backwards` fill so no transform lingers afterward — keeps sticky/fixed
-   descendants intact once settled. ease-out = starts fast, feels responsive.
+   Page entrance. Content fades in on every route change (via the
+   <PageTransition> wrapper, which re-keys on pathname so this replays).
+   Opacity only, no transform — see the keyframes note below. ease-out =
+   starts fast, feels responsive.
 ---------------------------------------------------------------------------- */
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 .page-enter {
+  /* Opacity ONLY. Animating transform here promoted the whole page to a fresh
+     compositing layer on every navigation, and on large displays its
+     unrasterized tiles flashed as pure-black bars (darker than the page's
+     near-black background) until the GPU caught up. `will-change: opacity`
+     creates the layer up front so nothing is promoted mid-animation, and
+     (unlike will-change: transform) it does not become a containing block for
+     fixed/sticky descendants. */
   animation: page-enter 420ms var(--ease-out) backwards;
+  will-change: opacity;
 }
 
 /* Reduced motion: keep gentle opacity/color fades that aid comprehension, drop

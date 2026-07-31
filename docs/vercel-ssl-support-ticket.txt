@@ -1,0 +1,37 @@
+Subject: Intermittent SSL failures (ERR_SSL_PROTOCOL_ERROR) for residential users on app.allstarlifegroup.com
+
+Project: all-star-agency (team: nicholasverges-projects)
+Domain: app.allstarlifegroup.com
+Severity: Production. Live app with 100+ active users, multiple users unable to log in.
+
+SUMMARY
+
+A meaningful fraction of our end users intermittently get Chrome's "This site can't provide a secure connection / app.allstarlifegroup.com sent an invalid response / ERR_SSL_PROTOCOL_ERROR" on our production domain. Affected users are on Windows and Mac desktops across many different cities, ISPs, and networks. We cannot reproduce it from our own vantage point.
+
+Key isolation result: on an affected user's machine, the site FAILS on their home Wi-Fi and WORKS immediately over a phone hotspot, on the same computer and same browser. This rules out the device, browser, OS, and certificate trust store, and isolates the failure to the network path between certain residential ISPs and your edge network.
+
+EVIDENCE THAT OUR CONFIGURATION IS CORRECT
+
+- DNS is a single clean CNAME: app.allstarlifegroup.com -> 49f0bd673ff6a879.vercel-dns-017.com
+- Certificate: Let's Encrypt, CN=app.allstarlifegroup.com, valid June 6 2026 to Sep 4 2026, served identically from every edge IP we can reach.
+- We hand-tested TLS handshakes (openssl s_client with SNI) repeatedly against all four edge IPs your DNS steers to from different resolvers: 216.150.1.1, 216.150.16.1, 216.150.1.193, 216.150.16.193. All 12 of 12 handshakes were clean: TLSv1.3, TLS_AES_128_GCM_SHA256, correct chain.
+- TLS 1.2 and 1.3 both negotiate. HTTP/1.1 and HTTP/2 both return 200.
+- No AAAA records, no DNS HTTPS/SVCB record, no alt-svc header, so QUIC/HTTP3 and ECH are not involved.
+- Your authoritative DNS returns different edge IPs to different resolvers (8.8.8.8 gets .1/.16.1, while 1.1.1.1 gets .1.193/.16.193), so different users land on different edge infrastructure. The failures are consistent with a POP or path dependent fault that we cannot observe from our own vantage point (we route to iad1).
+
+THIS MATCHES AN EXISTING PATTERN ON THE NEW EDGE NETWORK
+
+The fingerprint (scattered residential desktop users, valid certs, owner cannot reproduce, phone hotspot works while home Wi-Fi fails) is identical to these community reports from May through July 2026:
+
+https://community.vercel.com/t/vercel-support-is-not-responding-urgent-intermittent-tls-handshake-failures-on-pro-account/41919
+https://community.vercel.com/t/tls-handshake-aborts-at-5-bytes-from-residential-isps-but-works-from-datacenters/41776
+https://community.vercel.com/t/intermittent-tls-handshake-failure-tlsv1-alert-protocol-version-on-anycast-ip-216-198-79-x/46399
+
+WHAT WE ARE ASKING FOR
+
+1. Audit certificate and TLS configuration propagation for app.allstarlifegroup.com across ALL POPs on the 216.150.x anycast range, not just a spot check.
+2. If a POP-level inconsistency is found, fix or drain the affected POPs.
+3. As an immediate mitigation, move our domain to a different edge IP set if possible.
+4. If you need a client-side capture, tell us exactly what to collect and we will get it from an affected user on the failing network (we can provide nslookup and curl -v output, or a chrome://net-export log).
+
+Attached: end-user screenshot of the error page showing ERR_SSL_PROTOCOL_ERROR.

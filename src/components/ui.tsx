@@ -72,14 +72,13 @@ export function Card({
   );
 }
 
-/** Section header with a mono kicker, title, and optional right-aligned slot. */
+/** Section header: title plus an optional right-aligned slot. No eyebrow label
+ *  above the title, by design (see PageHeader for why). */
 export function SectionHeading({
-  kicker,
   title,
   right,
   className,
 }: {
-  kicker?: string;
   title: string;
   right?: ReactNode;
   className?: string;
@@ -87,11 +86,6 @@ export function SectionHeading({
   return (
     <div className={cx("flex items-end justify-between gap-4", className)}>
       <div>
-        {kicker ? (
-          <div className="font-mono text-xs uppercase tracking-[0.18em] text-mute">
-            {kicker}
-          </div>
-        ) : null}
         <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
           {title}
         </h2>
@@ -115,7 +109,7 @@ export function Kpi({
 }) {
   return (
     <div className="rounded-2xl border border-hairline bg-card p-5">
-      <div className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+      <div className="text-xs uppercase tracking-[0.16em] text-mute">
         {label}
       </div>
       <div className="mt-2 text-3xl font-semibold tabular-nums tracking-tight md:text-4xl">
@@ -147,7 +141,7 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-[0.14em]",
         styles[tone],
         className,
       )}
@@ -244,7 +238,7 @@ export function Field({
     <div className={cx("flex flex-col gap-1.5", className)}>
       <label
         htmlFor={htmlFor}
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute"
+        className="text-[10px] uppercase tracking-[0.16em] text-mute"
       >
         {label}
       </label>

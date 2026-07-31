@@ -24,7 +24,6 @@ export default async function FlaggedPage() {
   return (
     <div>
       <SectionHeading
-        kicker="The system flags — you decide"
         title="Flagged recruits"
       />
       <p className="mt-2 text-sm text-subtle">
@@ -33,7 +32,7 @@ export default async function FlaggedPage() {
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-hairline bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+          <thead className="border-b border-hairline text-left text-[10px] uppercase tracking-[0.16em] text-mute">
             <tr>
               <th className="px-4 py-3 font-normal">Recruit</th>
               <th className="px-4 py-3 font-normal">Phase</th>

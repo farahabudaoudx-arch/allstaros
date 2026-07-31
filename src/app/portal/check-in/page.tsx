@@ -63,7 +63,7 @@ export default async function PortalCheckInPage({
       ) : null}
 
       <Card>
-        <h2 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+        <h2 className="text-xs uppercase tracking-[0.16em] text-mute">
           {todays ? "Update today's check-in" : "Today's check-in"}
         </h2>
         <form action={recordCheckIn} className="mt-3 flex flex-col gap-3">
@@ -82,7 +82,7 @@ export default async function PortalCheckInPage({
       </Card>
 
       <Card className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-[0.16em] text-mute">
+        <h2 className="text-xs uppercase tracking-[0.16em] text-mute">
           Recent check-ins
         </h2>
         {checkIns.length === 0 ? (
@@ -93,7 +93,7 @@ export default async function PortalCheckInPage({
           <ul className="mt-4 divide-y divide-hairline">
             {checkIns.map((c) => (
               <li key={c.id} className="py-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-mute">
                   {c.check_in_date}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-ink">

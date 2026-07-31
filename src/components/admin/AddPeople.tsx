@@ -61,7 +61,7 @@ export function AddPeople({
               name="roster"
               rows={6}
               placeholder={"Jane Doe, jane@example.com\nJohn Smith, john@example.com"}
-              className="w-full rounded-lg border border-hairline bg-card-hi px-3 py-2 font-mono text-sm text-ink outline-none focus:border-accent"
+              className="w-full rounded-lg border border-hairline bg-card-hi px-3 py-2 text-sm text-ink outline-none focus:border-accent"
             />
             <UplineSelect uplines={uplines} />
             <button

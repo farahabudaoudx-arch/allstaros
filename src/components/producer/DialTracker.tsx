@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { localIsoDate } from "@/lib/producer/time";
+import { PageHeader } from "@/components/producer/PageHeader";
+import { DailyGoalModal, EMPTY_GOAL, type GoalValues } from "@/components/producer/DailyGoalModal";
 
 type Counts = {
   dials: number;
@@ -13,33 +15,38 @@ type Counts = {
   sales: number;
 };
 
-type Projection = Counts & { ap_cents: number };
+type Projection = GoalValues;
+
+/** Remembers a "Skip for today" so the goal popup doesn't reappear on every
+ *  visit to the tracker that same day. Cleared naturally by the date changing. */
+const skipKey = (date: string) => `asos:goal-skip:${date}`;
 
 const EMPTY: Counts = { dials: 0, leads: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
 
-const METRICS: Array<{ key: keyof Counts; label: string; steps: number[] }> = [
-  { key: "dials", label: "Dials", steps: [1, 5, 10] },
-  { key: "leads", label: "Leads", steps: [1, 5] },
-  { key: "contacts", label: "Contacts", steps: [1, 5] },
-  { key: "appointments", label: "Appointments", steps: [1] },
-  { key: "presentations", label: "Presentations", steps: [1] },
-  { key: "sales", label: "Policies Sold", steps: [1] },
+const METRICS: Array<{ key: keyof Counts; label: string; hint: string; steps: number[] }> = [
+  { key: "dials", label: "Dials", hint: "How many dials you've made", steps: [1, 5, 10] },
+  { key: "leads", label: "Leads", hint: "How many leads you've received", steps: [1, 5] },
+  { key: "contacts", label: "Contacts", hint: "How many people picked up the phone", steps: [1, 5] },
+  { key: "appointments", label: "Appointments", hint: "How many appointments you've set", steps: [1] },
+  { key: "presentations", label: "Presentations", hint: "How many people you presented numbers to", steps: [1] },
+  { key: "sales", label: "Policies Sold", hint: "How many policies you've written", steps: [1] },
 ];
 
-type SaveState = "idle" | "saving" | "saved" | "error";
-
-export function DialTracker() {
+export function DialTracker({ backHref }: { backHref: string }) {
   const today = localIsoDate();
   const [date, setDate] = useState(today);
   const [counts, setCounts] = useState<Counts>(EMPTY);
   const [target, setTarget] = useState<Projection | null>(null);
   const [loading, setLoading] = useState(true);
   const [projectionLoading, setProjectionLoading] = useState(true);
-  const [save, setSave] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goalSaving, setGoalSaving] = useState(false);
+  const [goalError, setGoalError] = useState<string | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
+  const todayRef = useRef(today);
 
   const load = useCallback(async (d: string) => {
     setLoading(true);
@@ -62,7 +69,6 @@ export function DialTracker() {
             }
           : EMPTY,
       );
-      setSave("idle");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -72,7 +78,12 @@ export function DialTracker() {
     try {
       const projRes = await fetch(`/api/producer/projection?date=${d}`, { cache: "no-store" });
       const projJson = await projRes.json();
-      setTarget(projJson.ok ? (projJson.projection ?? null) : null);
+      const projection: Projection | null = projJson.ok ? (projJson.projection ?? null) : null;
+      setTarget(projection);
+      // First visit of the day with nothing to aim at: ask for goals up front.
+      // Past days are never prompted, and a skip is remembered until tomorrow.
+      const skipped = window.localStorage.getItem(skipKey(d)) === "1";
+      if (!projection && d === todayRef.current && !skipped) setGoalOpen(true);
     } catch {
       setTarget(null);
     } finally {
@@ -86,7 +97,6 @@ export function DialTracker() {
 
   const persist = useCallback(
     async (next: Counts, d: string) => {
-      setSave("saving");
       try {
         const res = await fetch("/api/producer/tracker", {
           method: "POST",
@@ -95,10 +105,8 @@ export function DialTracker() {
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error ?? "Save failed");
-        setSave("saved");
         dirty.current = false;
       } catch (err) {
-        setSave("error");
         setError(err instanceof Error ? err.message : "Save failed");
       }
     },
@@ -110,12 +118,44 @@ export function DialTracker() {
     setCounts((prev) => {
       const next = { ...prev, [key]: Math.max(0, prev[key] + delta) };
       dirty.current = true;
-      setSave("saving");
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => void persist(next, date), 600);
       return next;
     });
   };
+
+  // Goals write the same daily_projection row the dashboard reads, so the new
+  // numbers become the targets every bar below counts up against right away.
+  const saveGoal = useCallback(
+    async (next: Projection) => {
+      setGoalSaving(true);
+      setGoalError(null);
+      try {
+        const res = await fetch("/api/producer/projection", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ date, ...next }),
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error ?? "Failed to save goals");
+        setTarget(next);
+        window.localStorage.removeItem(skipKey(date));
+        setGoalOpen(false);
+      } catch (err) {
+        setGoalError(err instanceof Error ? err.message : "Failed to save goals");
+      } finally {
+        setGoalSaving(false);
+      }
+    },
+    [date],
+  );
+
+  const closeGoal = useCallback(() => {
+    // Dismissing without saving counts as a skip for that day.
+    if (!target) window.localStorage.setItem(skipKey(date), "1");
+    setGoalError(null);
+    setGoalOpen(false);
+  }, [date, target]);
 
   // Flush a pending save when leaving the page so nothing is lost.
   useEffect(() => {
@@ -128,30 +168,31 @@ export function DialTracker() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-4xl font-semibold tracking-[-0.025em] md:text-5xl">
-            Daily Tracker
-          </h1>
-          <p className="mt-2 max-w-xl text-sm text-subtle">
-            Tap as you go. Everything you log here updates your dashboard, projections, and analytics
-            in real time.
-          </p>
+      <PageHeader title="Daily Tracker" backHref={backHref}>
+        {/* Both controls are the same height and shape so the row reads level.
+            Saving happens quietly in the background — no status chip. */}
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setGoalError(null);
+              setGoalOpen(true);
+            }}
+            disabled={projectionLoading}
+            className="flex h-10 items-center rounded-full border border-hairline px-4 text-sm font-medium text-ink transition hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {target ? "Edit goals" : "Set goals"}
+          </button>
+          <input
+            type="date"
+            aria-label="Day"
+            max={today}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-10 rounded-full border border-hairline bg-card px-4 text-sm text-ink outline-none [color-scheme:dark] focus:border-accent"
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <SaveBadge state={save} loading={loading} projectionLoading={projectionLoading} />
-          <label className="flex flex-col text-right">
-            <span className="text-[10px] uppercase tracking-[0.12em] text-mute">Day</span>
-            <input
-              type="date"
-              max={today}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="mt-1 rounded-lg border border-hairline bg-card px-2.5 py-1.5 text-sm text-ink outline-none [color-scheme:dark] focus:border-accent"
-            />
-          </label>
-        </div>
-      </div>
+      </PageHeader>
 
       {error && (
         <div className="rounded-xl border border-neg/40 bg-neg/[0.06] px-4 py-3 text-sm text-neg">
@@ -162,6 +203,7 @@ export function DialTracker() {
       {/* Hero dial counter */}
       <HeroDial
         value={totalDials}
+        hint={METRICS[0].hint}
         target={target?.dials ?? 0}
         onBump={(d) => bump("dials", d)}
         disabled={loading}
@@ -173,29 +215,57 @@ export function DialTracker() {
           <CounterCard
             key={m.key}
             label={m.label}
+            hint={m.hint}
             value={counts[m.key]}
             target={target?.[m.key] ?? 0}
             onBump={(d) => bump(m.key, d)}
             disabled={loading}
           />
         ))}
-        <PoliciesSoldCard value={counts.sales} target={target?.sales ?? 0} />
+        <PoliciesSoldCard
+          value={counts.sales}
+          target={target?.sales ?? 0}
+          hint={METRICS.find((m) => m.key === "sales")!.hint}
+        />
       </div>
+
+      <DailyGoalModal
+        open={goalOpen}
+        initial={target ?? EMPTY_GOAL}
+        isEdit={Boolean(target)}
+        saving={goalSaving}
+        error={goalError}
+        onSave={saveGoal}
+        onClose={closeGoal}
+      />
     </div>
   );
 }
 
 // Policies sold is read-only on the tracker: the only way to log one is to add a
 // client. The count is kept in sync server-side from the Clients book.
-function PoliciesSoldCard({ value, target }: { value: number; target: number }) {
+function PoliciesSoldCard({
+  value,
+  target,
+  hint,
+}: {
+  value: number;
+  target: number;
+  hint: string;
+}) {
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="rounded-2xl border border-hairline bg-card p-5">
-      <div className="flex items-baseline justify-between">
-        <p className="text-xs uppercase tracking-[0.12em] text-mute">Policies Sold</p>
+    // Spans both columns — the one card you can't tap, so it reads as its own
+    // full-width row under the counters rather than a lonely half.
+    <div className="rounded-2xl border border-hairline bg-card p-5 sm:col-span-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.12em] text-mute">Policies Sold</p>
+          <p className="mt-1 text-xs leading-snug text-subtle">{hint}</p>
+        </div>
         {target > 0 && (
-          <p className={`text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
+          <p className={`shrink-0 text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
             {value} / {target}
           </p>
         )}
@@ -225,11 +295,13 @@ function PoliciesSoldCard({ value, target }: { value: number; target: number }) 
 function HeroDial({
   value,
   target,
+  hint,
   onBump,
   disabled,
 }: {
   value: number;
   target: number;
+  hint: string;
   onBump: (delta: number) => void;
   disabled: boolean;
 }) {
@@ -238,9 +310,12 @@ function HeroDial({
   return (
     <div className="overflow-hidden rounded-3xl bg-accent text-[#050505]">
       <div className="flex flex-col items-center gap-6 px-6 py-10 sm:px-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#050505]/70">
-          Dials today
-        </p>
+        <div className="text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#050505]/70">
+            Dials today
+          </p>
+          <p className="mt-1.5 text-sm text-[#050505]/70">{hint}</p>
+        </div>
         <div className="flex items-center gap-6 sm:gap-10">
           <TapButton onClick={() => onBump(-1)} disabled={disabled || value <= 0} label="Remove a dial">
             −
@@ -285,12 +360,14 @@ function HeroDial({
 
 function CounterCard({
   label,
+  hint,
   value,
   target,
   onBump,
   disabled,
 }: {
   label: string;
+  hint: string;
   value: number;
   target: number;
   onBump: (delta: number) => void;
@@ -301,6 +378,7 @@ function CounterCard({
   return (
     <div className="rounded-2xl border border-hairline bg-card p-6">
       <p className="text-center text-xs uppercase tracking-[0.12em] text-mute">{label}</p>
+      <p className="mt-1.5 text-center text-xs leading-snug text-subtle">{hint}</p>
       {/* Centered −/value/+ controls — bigger tap targets, value front-and-center. */}
       <div className="mt-4 flex items-center justify-center gap-6">
         <SmallTap onClick={() => onBump(-1)} disabled={disabled || value <= 0} label={`Remove ${label}`}>
@@ -389,25 +467,4 @@ function SmallTap({
       {children}
     </button>
   );
-}
-
-function SaveBadge({
-  state,
-  loading,
-  projectionLoading,
-}: {
-  state: SaveState;
-  loading: boolean;
-  projectionLoading: boolean;
-}) {
-  if (loading) return <span className="text-xs text-mute">Loading…</span>;
-  if (projectionLoading && state === "idle") return <span className="text-xs text-mute">Synced</span>;
-  const map: Record<SaveState, { text: string; cls: string }> = {
-    idle: { text: "Synced", cls: "text-mute" },
-    saving: { text: "Saving…", cls: "text-accent" },
-    saved: { text: "Saved", cls: "text-pos" },
-    error: { text: "Save failed", cls: "text-neg" },
-  };
-  const { text, cls } = map[state];
-  return <span className={`text-xs font-medium ${cls}`}>{text}</span>;
 }

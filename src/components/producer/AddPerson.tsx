@@ -28,9 +28,9 @@ const ROLE_SHORT: Record<InviteRole, string> = {
 type Row = { key: string; email: string; role: InviteRole; error?: string };
 
 let rowSeq = 0;
-function blankRow(): Row {
+function blankRow(role: InviteRole = "recruit"): Row {
   rowSeq += 1;
-  return { key: `r${rowSeq}`, email: "", role: "recruit" };
+  return { key: `r${rowSeq}`, email: "", role };
 }
 
 function isValid(row: Row): boolean {
@@ -47,12 +47,64 @@ function isValid(row: Row): boolean {
  */
 export function AddPerson({
   triggerLabel = "Add someone to my downline",
+  defaultOpen = false,
+  defaultRole = "recruit",
 }: {
   triggerLabel?: string;
+  /** Opens the form on mount — used by the "Add Team Member"/"Add Recruit"
+   *  menu tiles, which deep-link here with `?add=1`. */
+  defaultOpen?: boolean;
+  /** Role each new row starts on. */
+  defaultRole?: InviteRole;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/[0.05] p-5">
+      {/* The yellow "+" is the toggle — it rotates 45° into an "×" when open. */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-2xl leading-none text-black">
+          <span
+            className={`transition-transform duration-200 ease-out ${
+              open ? "rotate-45" : ""
+            }`}
+          >
+            +
+          </span>
+        </span>
+        <span className="text-sm font-semibold text-ink">{triggerLabel}</span>
+      </button>
+
+      {open ? (
+        <div className="mt-5">
+          <InvitePeopleForm defaultRole={defaultRole} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The invite rows themselves, with no chrome around them. Shared by the inline
+ * `AddPerson` box on Recruiting/My Downline and by `AddPeopleModal`, the popup
+ * the "Add Recruit"/"Add Team Member" menu tiles open — same roles, same CSV
+ * import, same validation, so there is only ever one invite flow to maintain.
+ */
+export function InvitePeopleForm({
+  defaultRole = "recruit",
+  onSent,
+}: {
+  defaultRole?: InviteRole;
+  /** Fired after a batch where at least one invite went out. */
+  onSent?: () => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<Row[]>([blankRow()]);
+  const [rows, setRows] = useState<Row[]>([blankRow(defaultRole)]);
   const [status, setStatus] = useState<"idle" | "sending">("idle");
   const [error, setError] = useState("");
   const [showImport, setShowImport] = useState(false);
@@ -71,13 +123,13 @@ export function AddPerson({
   }
 
   function addRow() {
-    setRows((prev) => [...prev, blankRow()]);
+    setRows((prev) => [...prev, blankRow(defaultRole)]);
   }
 
   function removeRow(key: string) {
     setRows((prev) => {
       const next = prev.filter((r) => r.key !== key);
-      return next.length ? next : [blankRow()];
+      return next.length ? next : [blankRow(defaultRole)];
     });
   }
 
@@ -156,37 +208,17 @@ export function AddPerson({
             ? { ...r, error: failedByKey.get(r.key) }
             : { ...r, error: undefined },
         );
-      return kept.length ? kept : [blankRow()];
+      return kept.length ? kept : [blankRow(defaultRole)];
     });
     setSummary({ sent, failed: failedByKey.size });
     router.refresh();
+    if (sent > 0) onSent?.();
   }
 
   const sending = status === "sending";
 
   return (
-    <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/[0.05] p-5">
-      {/* The yellow "+" is the toggle — it rotates 45° into an "×" when open. */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 text-left"
-      >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-2xl leading-none text-black">
-          <span
-            className={`transition-transform duration-200 ease-out ${
-              open ? "rotate-45" : ""
-            }`}
-          >
-            +
-          </span>
-        </span>
-        <span className="text-sm font-semibold text-ink">{triggerLabel}</span>
-      </button>
-
-      {open ? (
-        <div className="mt-5">
+    <div>
       <div className="space-y-2">
         {rows.map((row) => (
           <div key={row.key}>
@@ -297,8 +329,67 @@ export function AddPerson({
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The same invite form in a centred popup, opened straight from the "Add
+ * Recruit" and "Add Team Member" menu tiles so a builder never has to land on
+ * the Recruiting or My Downline page first.
+ */
+export function AddPeopleModal({
+  title,
+  defaultRole = "recruit",
+  onClose,
+}: {
+  title: string;
+  defaultRole?: InviteRole;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl border border-hairline bg-card p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-ink">{title}</h2>
+            <p className="mt-1 text-sm text-subtle">
+              Enter an email and pick what they are. Recruits with no license
+              enter the pipeline. Producers and Builders are already licensed and
+              skip it.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 rounded-lg border border-hairline bg-card px-2.5 py-1.5 text-mute transition hover:border-mute hover:text-ink"
+          >
+            ✕
+          </button>
         </div>
-      ) : null}
+
+        <div className="mt-5">
+          <InvitePeopleForm defaultRole={defaultRole} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -359,7 +450,7 @@ function CsvImportModal({
           <span className="text-ink">builder</span>. No role defaults to recruit.
           A name and a header row are optional.
         </p>
-        <pre className="mt-3 overflow-x-auto rounded-lg border border-hairline bg-card-hi px-3 py-2 font-mono text-xs text-subtle">
+        <pre className="mt-3 overflow-x-auto rounded-lg border border-hairline bg-card-hi px-3 py-2 text-xs text-subtle">
 {`email,role
 bob@example.com,recruit
 jane@example.com,producer

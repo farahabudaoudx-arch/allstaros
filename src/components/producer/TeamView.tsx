@@ -178,7 +178,7 @@ export function TeamView() {
       >
         {kpis.map((k) => (
           <div key={k.label} className="rounded-2xl border border-hairline bg-card p-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">{k.label}</p>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-mute">{k.label}</p>
             <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{k.value}</p>
           </div>
         ))}
@@ -193,7 +193,7 @@ export function TeamView() {
             placeholder="Search by name…"
             className="flex-1"
           />
-          <span className="shrink-0 font-mono text-xs text-mute">
+          <span className="shrink-0 text-xs text-mute">
             {rows.length} of {allRows.length}
           </span>
         </div>
@@ -226,12 +226,12 @@ export function TeamView() {
                       {row.full_name}
                       {isMe ? <span className="ml-1 text-accent">(you)</span> : null}
                       {row.is_builder && !isMe ? (
-                        <span className="ml-2 rounded-full border border-hairline px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.12em] text-mute">
+                        <span className="ml-2 rounded-full border border-hairline px-2 py-0.5 align-middle text-[9px] uppercase tracking-[0.12em] text-mute">
                           Builder
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
+                    <div className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-mute">
                       {isActivity
                         ? `${num(row.contacts)} contacts · ${num(row.appointments)} appts · ${num(row.presentations)} pres`
                         : `${num(row.policies_sold)} ${row.policies_sold === 1 ? "policy" : "policies"} sold`}
@@ -241,7 +241,7 @@ export function TeamView() {
                     <div className="font-semibold tabular-nums text-accent">
                       {isActivity ? num(row.dials) : money(row.ap_cents)}
                     </div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-mute">
+                    <div className="text-[10px] uppercase tracking-[0.12em] text-mute">
                       {isActivity ? "Dials" : "AP"}
                     </div>
                   </div>

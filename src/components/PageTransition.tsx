@@ -4,14 +4,17 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 /**
- * Wraps a section's page content and plays a brief fade-up entrance on every
+ * Wraps a section's page content and plays a brief fade-in entrance on every
  * navigation. Re-keying on the pathname remounts the node, so the CSS
  * `page-enter` animation (defined in globals.css) replays on each route change.
  *
- * The animation uses `backwards` fill — it never leaves a lingering transform
- * on the element, so `position: sticky`/`fixed` descendants behave normally
- * once the entrance settles. Honors `prefers-reduced-motion` (the global reset
- * collapses the duration to ~0).
+ * The entrance is opacity ONLY, never transform: animating transform promoted
+ * this full-page node to a fresh compositing layer each navigation, and its
+ * unrasterized tiles flashed as pure-black bars on large displays. Opacity
+ * (pre-promoted via `will-change: opacity` in globals.css) composites cheaply,
+ * and never turns this node into a containing block, so `position:
+ * sticky`/`fixed` descendants behave normally. Honors `prefers-reduced-motion`
+ * (the global reset collapses the duration to ~0).
  */
 export function PageTransition({
   children,

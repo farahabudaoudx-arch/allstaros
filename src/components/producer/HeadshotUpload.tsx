@@ -44,6 +44,7 @@ export function HeadshotUpload({
   heading = "Add your headshot to continue",
   rejectionReason = null,
   onUploaded,
+  centered = false,
 }: {
   currentName: string;
   currentPhotoUrl: string | null;
@@ -52,6 +53,12 @@ export function HeadshotUpload({
   /** Called after a successful upload instead of the default page refresh.
    * The signup wizard uses this to advance to its welcome step. */
   onUploaded?: () => void;
+  /** Set only on the standalone /producer/headshot page, which centers the
+   *  heading to match the app's other page headers. Unset in the settings
+   *  page and the forced headshot-wall modal, where the card is embedded and
+   *  a centered heading would look stranded. Page-level Back/Home navigation
+   *  is the page's job, not this card's. See the headshot route. */
+  centered?: boolean;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,7 +187,9 @@ export function HeadshotUpload({
 
   return (
     <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white p-6 text-neutral-900 md:p-8">
-      <h2 className="text-2xl font-bold tracking-[-0.02em] md:text-[28px]">{heading}</h2>
+      <div className={centered ? "text-center" : undefined}>
+        <h2 className="text-2xl font-bold tracking-[-0.02em] md:text-[28px]">{heading}</h2>
+      </div>
       <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">
         On the OS, every builder and producer uses a real, professional headshot, so our
         leaderboards, future newsletters, and team pages show real faces. Upload yours below and

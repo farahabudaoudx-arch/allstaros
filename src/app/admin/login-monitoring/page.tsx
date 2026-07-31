@@ -49,7 +49,7 @@ function EventRow({
           {locationOf(e)} · {e.ip ?? "no ip"}
         </p>
       </div>
-      <p className="font-mono text-xs text-mute">{when(e.logged_in_at)}</p>
+      <p className="text-xs text-mute">{when(e.logged_in_at)}</p>
     </div>
   );
 }
@@ -82,7 +82,7 @@ export default async function AdminLoginMonitoringPage() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <div>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-mute">
+        <p className="text-xs uppercase tracking-[0.18em] text-mute">
           Admin
         </p>
         <h1 className="mt-1.5 text-4xl font-semibold tracking-[-0.025em] md:text-5xl">

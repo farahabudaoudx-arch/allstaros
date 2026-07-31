@@ -215,7 +215,7 @@ export default function LicensingView({
               <div className="flex-1">
                 <label
                   htmlFor="examDate"
-                  className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mute"
+                  className="block text-[10px] uppercase tracking-[0.16em] text-mute"
                 >
                   Exam date
                 </label>
@@ -277,10 +277,10 @@ export default function LicensingView({
 
             <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
               <div className="min-w-0">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-mute">
                   Your enrollment code
                 </p>
-                <p className="mt-1 truncate font-mono text-lg font-semibold tracking-[0.08em] text-ink">
+                <p className="mt-1 truncate text-lg font-semibold tracking-[0.08em] text-ink">
                   {XCEL_CODE}
                 </p>
               </div>
@@ -355,10 +355,10 @@ export default function LicensingView({
               <>
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-card px-4 py-3">
                   <div className="min-w-0">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-mute">
                       Send your contracting info to
                     </p>
-                    <p className="mt-1 truncate font-mono text-lg font-semibold tracking-[0.04em] text-ink">
+                    <p className="mt-1 truncate text-lg font-semibold tracking-[0.04em] text-ink">
                       {adminEmail || "Ask your upline for the admin email"}
                     </p>
                   </div>
