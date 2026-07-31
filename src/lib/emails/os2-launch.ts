@@ -37,7 +37,7 @@ export function os2LaunchEmail(): { subject: string; html: string; text: string 
     ),
     buttonRow("Watch the walkthrough", OS2_WALKTHROUGH_URL),
     fallbackRow(OS2_WALKTHROUGH_URL),
-    paragraphRow("See you inside,<br/>The All Star Team", { tight: true }),
+    paragraphRow("See you inside,<br/>The All Star OS Team", { tight: true }),
     footerRow("You're receiving this because you have an All Star Life Group account."),
   ].join("\n");
 
@@ -59,7 +59,7 @@ export function os2LaunchEmail(): { subject: string; html: string; text: string 
     `Watch the walkthrough: ${OS2_WALKTHROUGH_URL}`,
     "",
     "See you inside,",
-    "The All Star Team",
+    "The All Star OS Team",
   ].join("\n");
 
   return { subject, html, text };

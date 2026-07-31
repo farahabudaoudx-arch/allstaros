@@ -16,6 +16,16 @@ const live = process.argv.includes("--live");
 const onlyArg = process.argv.find((a) => a.startsWith("--only="));
 const only = onlyArg ? onlyArg.slice("--only=".length).trim() : null;
 
+// --at=<ISO 8601> hands the send to Resend's scheduler instead of sending now,
+// so the whole roster lands at one moment rather than trickling out over the
+// minutes it takes to loop the list.
+const atArg = process.argv.find((a) => a.startsWith("--at="));
+const scheduledAt = atArg ? atArg.slice("--at=".length).trim() : null;
+if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
+  console.error(`--at is not a valid date: ${scheduledAt}`);
+  process.exit(1);
+}
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const apiKey = process.env.RESEND_API_KEY;
@@ -62,9 +72,20 @@ const allRecipients = (people ?? [])
 
 // --only overrides the whole audience with a single address, so a test send
 // can't accidentally reach the roster.
+// --exclude=a@x.com,b@y.com drops addresses that already have a copy queued.
+const excludeArg = process.argv.find((a) => a.startsWith("--exclude="));
+const excluded = new Set(
+  (excludeArg ? excludeArg.slice("--exclude=".length) : "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
 const recipients = only
   ? [{ id: "only", full_name: "Test send", email: only, is_builder: false }]
-  : allRecipients;
+  : allRecipients.filter((p) => !excluded.has(p.email.toLowerCase()));
+
+if (excluded.size) console.log(`Excluded ${excluded.size} address(es) by --exclude.`);
 
 if (only) console.log(`--only set: sending to ${only} and nobody else.`);
 
@@ -76,6 +97,13 @@ console.log(`Found ${recipients.length} active builder/producer recipients.`);
 console.log(
   `  (builders: ${recipients.filter((p) => p.is_builder).length}, producers-only: ${recipients.filter((p) => !p.is_builder).length})`,
 );
+
+if (scheduledAt) {
+  const when = new Date(scheduledAt);
+  console.log(
+    `Scheduled for ${when.toLocaleString("en-US", { timeZone: "America/Chicago", timeZoneName: "short" })} (Chicago) / ${when.toISOString()}`,
+  );
+}
 
 if (!live) {
   console.log("\nDry run — no email sent. Sample:");
@@ -90,20 +118,36 @@ const resend = new Resend(apiKey);
 
 let sent = 0;
 let failed = 0;
+// Resend's default rate limit is 2 requests/second, so pace the loop.
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const queued = [];
 for (const p of recipients) {
-  const { error: sendError } = await resend.emails.send({
+  const { data, error: sendError } = await resend.emails.send({
     from,
     to: p.email,
     subject,
     html,
     text,
+    ...(scheduledAt ? { scheduledAt } : {}),
   });
+  await pause(600);
   if (sendError) {
     failed++;
     console.error(`❌ ${p.email}: ${sendError.message ?? sendError}`);
   } else {
+    if (data?.id) queued.push({ id: data.id, email: p.email, name: p.full_name });
     sent++;
   }
 }
 
-console.log(`\n✅ Sent: ${sent}   ❌ Failed: ${failed}   Total: ${recipients.length}`);
+// Scheduled sends can be cancelled or rescheduled by id, so keep the receipt.
+if (scheduledAt && queued.length) {
+  const { writeFileSync } = await import("node:fs");
+  const path = `scripts/.os2-launch-queued.json`;
+  writeFileSync(path, JSON.stringify({ scheduledAt, queued }, null, 2));
+  console.log(`\nWrote ${queued.length} scheduled ids to ${path} (needed to cancel).`);
+}
+
+console.log(
+  `\n✅ ${scheduledAt ? "Scheduled" : "Sent"}: ${sent}   ❌ Failed: ${failed}   Total: ${recipients.length}`,
+);
