@@ -63,16 +63,23 @@ export function navUpdateEmail(
   const rows = [
     headingRow("You Asked, We Listened"),
     paragraphRow(greeting),
+    paragraphRow("Last week we shipped some very large changes to All Star OS.", {
+      tight: true,
+    }),
     paragraphRow(
-      "Last week we shipped some very large changes to All Star OS, and a lot of you wrote in to tell us you preferred the old navigation with the sidebar menu. Long story short, plenty of you did not like the update.",
+      "A lot of agents wrote in to tell us they preferred the old navigation with the sidebar menu.",
       { tight: true },
     ),
     memeRow(),
     paragraphRow(
-      "It is never fun to get bad feedback on something you put a lot of time into. But it does not really matter what we think. It matters what the people using this operating system every single day think. Period.",
+      "We value the feedback we get from the people using this operating system every single day, so we went back and met you halfway.",
     ),
     paragraphRow(
-      "So we went back and met you halfway. You now get both. The new button interface is still there, and the side menu is back next to it. You can also hide the side menu whenever you want if you like the cleaner look.",
+      "We got rid of the button navigation in the center of your screen and brought it back to the side menu, but organized the side menu a lot more.",
+      { tight: true },
+    ),
+    paragraphRow(
+      "You can also hide the side menu whenever you want if you like the cleaner look.",
       { tight: true },
     ),
     paragraphRow(
@@ -98,11 +105,15 @@ export function navUpdateEmail(
   const text = [
     greetingText,
     "",
-    "Last week we shipped some very large changes to All Star OS, and a lot of you wrote in to tell us you preferred the old navigation with the sidebar menu. Long story short, plenty of you did not like the update.",
+    "Last week we shipped some very large changes to All Star OS.",
     "",
-    "It is never fun to get bad feedback on something you put a lot of time into. But it does not really matter what we think. It matters what the people using this operating system every single day think. Period.",
+    "A lot of agents wrote in to tell us they preferred the old navigation with the sidebar menu.",
     "",
-    "So we went back and met you halfway. You now get both. The new button interface is still there, and the side menu is back next to it. You can also hide the side menu whenever you want if you like the cleaner look.",
+    "We value the feedback we get from the people using this operating system every single day, so we went back and met you halfway.",
+    "",
+    "We got rid of the button navigation in the center of your screen and brought it back to the side menu, but organized the side menu a lot more.",
+    "",
+    "You can also hide the side menu whenever you want if you like the cleaner look.",
     "",
     "We think this is a much better solution, and we hope it fixes the problem some of you were having with the interface.",
     "",

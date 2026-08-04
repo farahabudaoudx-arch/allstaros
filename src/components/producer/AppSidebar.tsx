@@ -469,19 +469,6 @@ function Item({
   );
 }
 
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden>
-      <path
-        d="M10 4v12M4 10h12"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function MenuIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>

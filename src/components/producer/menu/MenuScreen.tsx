@@ -29,7 +29,6 @@ export function MenuScreen({
   person,
   greetingName,
   title,
-  backHref,
   tiles,
   chatHref,
   unreadChat,
@@ -38,6 +37,8 @@ export function MenuScreen({
   person: MenuPerson;
   greetingName?: string;
   title?: string;
+  /** Still accepted so callers don't all have to change at once, but nothing
+   *  renders from it: the Back/Home pair went away with the sidebar. */
   backHref?: string;
   tiles: MenuTile[];
   chatHref: string;
