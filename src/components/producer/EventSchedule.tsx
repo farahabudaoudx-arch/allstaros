@@ -59,6 +59,7 @@ export function EventSchedule({
   heading = "Training Calendar",
   emptyState = null,
   backHref = "/producer/menu/training",
+  action = null,
 }: {
   events: EventItem[];
   heading?: string;
@@ -66,6 +67,8 @@ export function EventSchedule({
   emptyState?: ReactNode;
   /** Fallback for the Back control when there is no history to pop. */
   backHref?: string;
+  /** Sits above the List/Calendar tabs — the way out to past recordings. */
+  action?: ReactNode;
 }) {
   // Two ways to read the same schedule: a straight list (fastest to scan when
   // there are only a handful of calls) and a month grid (better for "what does
@@ -77,6 +80,7 @@ export function EventSchedule({
   return (
     <section>
       <PageHeader title={heading} backHref={backHref}>
+        {action}
         <div className="flex items-center gap-5 border-b border-hairline">
           {(["list", "calendar"] as const).map((v) => (
             <button

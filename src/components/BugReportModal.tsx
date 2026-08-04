@@ -87,7 +87,7 @@ export function BugReportModal({
         title={variant === "icon" || collapsed ? "Report a bug" : undefined}
         className={
           variant === "icon"
-            ? "flex h-10 w-10 items-center justify-center rounded-full border border-hairline text-subtle transition hover:border-accent hover:text-accent"
+            ? "flex h-10 w-10 items-center justify-center rounded-full border border-hairline bg-background text-subtle transition hover:border-accent hover:text-accent"
             : variant === "inline"
               ? "inline-flex items-center justify-center gap-2 rounded-full border border-hairline px-4 py-2 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
               : collapsed

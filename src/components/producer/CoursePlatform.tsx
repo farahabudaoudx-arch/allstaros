@@ -202,23 +202,26 @@ export function CoursePlatform({
             </>
           )}
 
-          {/* Tabs */}
-          <div className="mt-5 flex items-center gap-4 border-b border-hairline">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`-mb-px border-b-2 pb-2.5 text-sm transition ${
-                  tab === t.key
-                    ? "border-accent font-medium text-ink"
-                    : "border-transparent text-subtle hover:text-ink"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {/* Tabs — hidden when there's only one. A single "All" tab filters
+              nothing and switches to nothing; it just looks like a control. */}
+          {tabs.length > 1 ? (
+            <div className="mt-5 flex items-center gap-4 border-b border-hairline">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={`-mb-px border-b-2 pb-2.5 text-sm transition ${
+                    tab === t.key
+                      ? "border-accent font-medium text-ink"
+                      : "border-transparent text-subtle hover:text-ink"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           {/* Search */}
           <div className="relative mt-4">

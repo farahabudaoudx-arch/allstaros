@@ -41,7 +41,17 @@ export type Course = {
   lectures: Lecture[];
 };
 
-export type ProgramKey = "launchpad" | "bootcamp" | "accelerator" | "uplevel" | "live";
+export type ProgramKey =
+  | "launchpad"
+  | "bootcamp"
+  | "accelerator"
+  | "uplevel"
+  | "live"
+  // Libraries with no hardcoded catalog behind them: every video comes from
+  // training_content, so they start empty and fill up as content is uploaded.
+  | "all-star-tv"
+  | "live-dials"
+  | "case-studies";
 
 export type Program = {
   key: ProgramKey;
@@ -440,6 +450,27 @@ export const PROGRAMS: Record<ProgramKey, Program> = {
     subtitle: "Recordings of past team calls, workshops, and guest sessions.",
     filters: ["Team Call", "Workshop", "Case Study"],
     courses: LIVE,
+  },
+  "all-star-tv": {
+    key: "all-star-tv",
+    title: "All Star TV",
+    subtitle: "Watch the team in action.",
+    filters: [],
+    courses: [],
+  },
+  "live-dials": {
+    key: "live-dials",
+    title: "Live Dials",
+    subtitle: "Real calls, start to finish, with the outcome unedited.",
+    filters: [],
+    courses: [],
+  },
+  "case-studies": {
+    key: "case-studies",
+    title: "Case Studies",
+    subtitle: "How a case was written, broken down step by step.",
+    filters: [],
+    courses: [],
   },
 };
 

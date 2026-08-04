@@ -1,7 +1,7 @@
 // Broadcast announcement email — the All Star OS 2.0 launch, sent to the whole
-// agent base with a button to the Loom walkthrough. The same video is embedded
-// in the in-app popup (producer/_components/os2-announcement-modal.tsx) for
-// anyone who logs in before reading their email.
+// agent base with a button to the Loom walkthrough. There used to be a matching
+// in-app popup carrying the same video; it was removed once the redesign had
+// landed, so this email is the only place that walkthrough is linked now.
 //
 // Returns { subject, html, text } for the Resend sendEmail() helper.
 

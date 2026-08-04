@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { NpnRequestModal } from "./_components/npn-request-modal";
 import { HeadshotGateModal } from "./_components/headshot-gate-modal";
-import { Os2AnnouncementModal } from "./_components/os2-announcement-modal";
 import { isBehindHeadshotWall } from "@/lib/headshots/wall";
 
 /**
@@ -22,10 +21,6 @@ export default async function ProducerLayout({
   // Additive roles: builders keep producer access; pure recruits don't.
   if (!person.is_producer && !person.is_builder) redirect("/portal");
 
-  // The two blocking popups come first; the OS 2.0 announcement only renders
-  // once there's nothing they're required to deal with, so the popups never stack.
-  const blocked = isBehindHeadshotWall(person) || person.npn_status === "missing";
-
   return (
     <>
       {children}
@@ -42,9 +37,6 @@ export default async function ProducerLayout({
           person.photo_review_status === "rejected" ? person.photo_rejection_reason : null
         }
       />
-      {/* One-time "All Star OS 2.0" walkthrough popup. Dismisses for good on
-          "Let's go" (remembered per browser). */}
-      {blocked ? null : <Os2AnnouncementModal />}
     </>
   );
 }

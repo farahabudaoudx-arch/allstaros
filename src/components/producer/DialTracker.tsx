@@ -167,8 +167,15 @@ export function DialTracker({ backHref }: { backHref: string }) {
   const totalDials = counts.dials;
 
   return (
-    <div className="space-y-8">
-      <PageHeader title="Daily Tracker" backHref={backHref}>
+    // On a wide screen this fills top to bottom: the header takes what it needs
+    // and the two counter blocks share whatever is left, so nothing is cut off
+    // and nothing is stranded in a strip at the top.
+    //
+    // Below md it goes back to a plain stack that scrolls. Six cards in one
+    // narrow column can't be squeezed into a phone screen — forcing it made the
+    // rows overlap each other into an unreadable pile.
+    <div className="flex flex-col gap-3 md:min-h-0 md:flex-1">
+      <PageHeader title="Daily Tracker" backHref={backHref} compact>
         {/* Both controls are the same height and shape so the row reads level.
             Saving happens quietly in the background — no status chip. */}
         <div className="flex items-center justify-center gap-3">
@@ -209,8 +216,10 @@ export function DialTracker({ backHref }: { backHref: string }) {
         disabled={loading}
       />
 
-      {/* Remaining metrics — sales is excluded here; it's driven by Clients. */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* Remaining metrics — sales is excluded here; it's driven by Clients.
+          The two counter rows stretch; Policies Sold keeps its natural height
+          since it has nothing to tap. */}
+      <div className="grid gap-3 sm:grid-cols-2 md:min-h-0 md:flex-[1.35] md:grid-rows-[minmax(0,1fr)_minmax(0,1fr)_auto]">
         {METRICS.filter((m) => m.key !== "dials" && m.key !== "sales").map((m) => (
           <CounterCard
             key={m.key}
@@ -258,11 +267,13 @@ function PoliciesSoldCard({
   return (
     // Spans both columns — the one card you can't tap, so it reads as its own
     // full-width row under the counters rather than a lonely half.
-    <div className="rounded-2xl border border-hairline bg-card p-5 sm:col-span-2">
+    <div className="rounded-2xl border border-hairline bg-card p-4 sm:col-span-2">
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.12em] text-mute">Policies Sold</p>
-          <p className="mt-1 text-xs leading-snug text-subtle">{hint}</p>
+          <p className="mt-1 text-xs leading-snug text-subtle">
+            {hint}. Logged automatically when you add a client.
+          </p>
         </div>
         {target > 0 && (
           <p className={`shrink-0 text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
@@ -270,7 +281,7 @@ function PoliciesSoldCard({
           </p>
         )}
       </div>
-      <div className="mt-3 flex items-center justify-between gap-4">
+      <div className="mt-2 flex items-center justify-between gap-4">
         <p className="min-w-[2ch] text-4xl font-semibold tabular-nums text-ink">{value}</p>
         <Link
           href="/producer/clients/new"
@@ -279,7 +290,6 @@ function PoliciesSoldCard({
           + Add New Client
         </Link>
       </div>
-      <p className="mt-3 text-xs text-mute">Logged automatically when you add a client.</p>
       {target > 0 && (
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-card-hi">
           <div
@@ -308,19 +318,19 @@ function HeroDial({
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="overflow-hidden rounded-3xl bg-accent text-[#050505]">
-      <div className="flex flex-col items-center gap-6 px-6 py-10 sm:px-10">
+    <div className="overflow-hidden rounded-3xl bg-accent text-[#050505] md:min-h-0 md:flex-1">
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-7 sm:px-8 md:py-5">
         <div className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#050505]/70">
             Dials today
           </p>
-          <p className="mt-1.5 text-sm text-[#050505]/70">{hint}</p>
+          <p className="mt-1 text-sm text-[#050505]/70">{hint}</p>
         </div>
-        <div className="flex items-center gap-6 sm:gap-10">
+        <div className="flex items-center gap-5 sm:gap-8">
           <TapButton onClick={() => onBump(-1)} disabled={disabled || value <= 0} label="Remove a dial">
             −
           </TapButton>
-          <p className="min-w-[3ch] text-center text-7xl font-semibold tabular-nums leading-none sm:text-8xl">
+          <p className="min-w-[3ch] text-center text-6xl font-semibold tabular-nums leading-none sm:text-7xl">
             {value}
           </p>
           <TapButton onClick={() => onBump(1)} disabled={disabled} label="Add a dial" primary>
@@ -376,15 +386,15 @@ function CounterCard({
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="rounded-2xl border border-hairline bg-card p-6">
+    <div className="flex min-h-0 flex-col justify-center rounded-2xl border border-hairline bg-card p-4">
       <p className="text-center text-xs uppercase tracking-[0.12em] text-mute">{label}</p>
-      <p className="mt-1.5 text-center text-xs leading-snug text-subtle">{hint}</p>
+      <p className="mt-1 text-center text-xs leading-snug text-subtle">{hint}</p>
       {/* Centered −/value/+ controls — bigger tap targets, value front-and-center. */}
-      <div className="mt-4 flex items-center justify-center gap-6">
+      <div className="mt-2.5 flex items-center justify-center gap-5">
         <SmallTap onClick={() => onBump(-1)} disabled={disabled || value <= 0} label={`Remove ${label}`}>
           −
         </SmallTap>
-        <p className="min-w-[2.5ch] text-center text-5xl font-semibold tabular-nums text-ink">
+        <p className="min-w-[2.5ch] text-center text-4xl font-semibold tabular-nums text-ink">
           {value}
         </p>
         <SmallTap onClick={() => onBump(1)} disabled={disabled} label={`Add ${label}`} primary>
@@ -392,7 +402,7 @@ function CounterCard({
         </SmallTap>
       </div>
       {target > 0 && (
-        <div className="mt-5">
+        <div className="mt-3">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-card-hi">
             <div
               className={`h-full rounded-full ${hit ? "bg-pos" : "bg-accent"}`}
@@ -400,7 +410,7 @@ function CounterCard({
             />
           </div>
           {/* Progress count sits under the bar so it reads as the bar's label. */}
-          <p className={`mt-2 text-center text-sm font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
+          <p className={`mt-1.5 text-center text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
             {value} / {target}
           </p>
         </div>

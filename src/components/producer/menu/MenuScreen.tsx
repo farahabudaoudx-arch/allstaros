@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { AppChrome } from "@/components/producer/AppChrome";
 import { AddPeopleModal } from "@/components/producer/AddPerson";
-import { BackHomeNav } from "@/components/producer/BackHomeNav";
 import { PageTransition } from "@/components/PageTransition";
 import { type MenuPerson } from "./MenuSettingsDrawer";
 import type { MenuTile } from "@/lib/producer/menu";
@@ -69,11 +68,6 @@ export function MenuScreen({
               <h1 className="text-[clamp(2rem,5vw,3rem)] font-semibold leading-[1.1] tracking-[-0.03em]">
                 {title}
               </h1>
-              {backHref ? (
-                <div className="mt-6 flex justify-center">
-                  <BackHomeNav fallbackHref={backHref} />
-                </div>
-              ) : null}
             </div>
           )}
 

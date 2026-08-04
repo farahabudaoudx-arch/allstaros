@@ -29,6 +29,9 @@ export type BunnyVideo = {
    * referer-less requests, which browsers always send). Null if the library's
    * CDN hostname couldn't be resolved. */
   thumbnailUrl: string | null;
+  /** The poster's filename in Bunny. Normally "thumbnail.jpg", but a custom
+   *  upload gets a unique name, so it can't be assumed. */
+  thumbnailFileName: string;
   /** ISO timestamp of when the video was uploaded to Bunny (not the date in
    * the filename — that's the content's publish date). Used to find the most
    * recently added videos. */
@@ -52,6 +55,9 @@ type BunnyListResponse = {
     dateUploaded?: string;
     width?: number;
     height?: number;
+    /** Usually "thumbnail.jpg", but Bunny gives a video a unique filename when
+     *  a custom poster is uploaded over the auto-generated one. */
+    thumbnailFileName?: string;
   }>;
 };
 
@@ -153,6 +159,8 @@ async function resolveCdnHost(
  */
 export async function listBunnyVideos(
   app: BunnyApp = "recruiting",
+  /** Restrict to one collection within the library. Omit for the whole thing. */
+  collectionId?: string,
 ): Promise<BunnyVideo[]> {
   const cfg = config(app);
   if (!cfg) return [];
@@ -161,7 +169,10 @@ export async function listBunnyVideos(
   const out: BunnyVideo[] = [];
 
   for (let page = 1; ; page++) {
-    const url = `${BUNNY_API_BASE}/library/${cfg.libraryId}/videos?page=${page}&itemsPerPage=${perPage}&orderBy=date`;
+    const collectionParam = collectionId
+      ? `&collection=${encodeURIComponent(collectionId)}`
+      : "";
+    const url = `${BUNNY_API_BASE}/library/${cfg.libraryId}/videos?page=${page}&itemsPerPage=${perPage}&orderBy=date${collectionParam}`;
     const res = await fetch(url, {
       headers: { AccessKey: cfg.apiKey, accept: "application/json" },
       // Refresh at most every 5 minutes — the library changes rarely.
@@ -182,6 +193,7 @@ export async function listBunnyVideos(
         status: item.status ?? 0,
         embedUrl: `${BUNNY_EMBED_BASE}/${cfg.libraryId}/${item.guid}`,
         thumbnailUrl: null,
+        thumbnailFileName: item.thumbnailFileName || "thumbnail.jpg",
         dateUploaded: item.dateUploaded ?? "",
         width: item.width ?? 0,
         height: item.height ?? 0,
@@ -197,12 +209,56 @@ export async function listBunnyVideos(
     const host = await resolveCdnHost(out[0].guid, app);
     if (host) {
       for (const v of out) {
-        v.thumbnailUrl = `https://${host}/${v.guid}/thumbnail.jpg`;
+        // Use the filename Bunny reports, not a hardcoded "thumbnail.jpg".
+        // Uploading a custom poster over the auto-generated one renames it
+        // (e.g. thumbnail_af054aba.jpg), and that one video's image 404'd
+        // while every other one in the library worked.
+        v.thumbnailUrl = `https://${host}/${v.guid}/${v.thumbnailFileName}`;
       }
     }
   }
 
   return out;
+}
+
+type BunnyCollectionResponse = {
+  items?: Array<{ guid: string; name: string }>;
+};
+
+/**
+ * Find a collection's id by its name in Bunny, case-insensitively.
+ *
+ * Matching on the name rather than pinning the id: the ids are opaque strings
+ * nobody can eyeball, and a collection deleted and re-made in Bunny comes back
+ * with a new one. The name is what the person managing the library actually
+ * sees, so that's what the app agrees with them on.
+ *
+ * Returns null when the library isn't configured or nothing matches, so callers
+ * can show an empty state rather than blow up.
+ */
+export async function findBunnyCollectionId(
+  name: string,
+  app: BunnyApp = "recruiting",
+): Promise<string | null> {
+  const cfg = config(app);
+  if (!cfg) return null;
+
+  const res = await fetch(
+    `${BUNNY_API_BASE}/library/${cfg.libraryId}/collections?page=1&itemsPerPage=100`,
+    {
+      headers: { AccessKey: cfg.apiKey, accept: "application/json" },
+      // Collections change far less often than videos do.
+      next: { revalidate: 300 },
+    },
+  );
+  if (!res.ok) return null;
+
+  const body = (await res.json()) as BunnyCollectionResponse;
+  const wanted = name.trim().toLowerCase();
+  return (
+    body.items?.find((c) => c.name?.trim().toLowerCase() === wanted)?.guid ??
+    null
+  );
 }
 
 /** One licensing-flow video: its embed URL plus the source aspect ratio, so the
@@ -370,8 +426,69 @@ function parseTitleDate(title: string): number | null {
  * the title drives the order (see parseTitleDate). Titles that don't carry a
  * date (e.g. a not-yet-renamed upload) fall to the bottom.
  */
+/**
+ * Build a flat, newest-first Program from a Bunny collection — All Star TV,
+ * Live Dials, Case Studies. Same shape as liveTrainingProgram, but the heading
+ * comes from the app's own catalog entry rather than being hardcoded, so one
+ * function covers every collection-backed library.
+ */
+/**
+ * Drop repeat uploads of the same recording, keeping the longest copy.
+ *
+ * The same session gets uploaded twice often enough (a retry, a re-encode) that
+ * the library ends up with two identical rows, and the page showed both. Match
+ * on the cleaned title, since that's what a reader sees and what makes the pair
+ * look like a mistake. Keeping the longest copy means a truncated first upload
+ * loses to the complete one.
+ */
+function dedupeByTitle(videos: BunnyVideo[]): BunnyVideo[] {
+  const best = new Map<string, BunnyVideo>();
+  for (const v of videos) {
+    const key = cleanTitle(v.title).trim().toLowerCase();
+    const seen = best.get(key);
+    if (!seen || v.lengthSeconds > seen.lengthSeconds) best.set(key, v);
+  }
+  return [...best.values()];
+}
+
+export function collectionProgram(base: Program, videos: BunnyVideo[]): Program {
+  const sorted = dedupeByTitle(videos).sort((a, b) => {
+    const da = parseTitleDate(a.title);
+    const db = parseTitleDate(b.title);
+    if (da != null || db != null) return (db ?? -Infinity) - (da ?? -Infinity);
+    // Nothing dated in the titles: fall back to when Bunny received them.
+    return (b.dateUploaded ?? "").localeCompare(a.dateUploaded ?? "");
+  });
+
+  const courses: Course[] = sorted.map((v, i) => ({
+    id: v.guid,
+    title: cleanTitle(v.title),
+    blurb: "",
+    description: "",
+    category: base.title,
+    level: "All levels" as const,
+    status: "completed" as const,
+    rating: 5,
+    ratingCount: 0,
+    tone: TONES[i % TONES.length],
+    instructor: { name: "", title: "" },
+    durationLabel: durationLabel(v.lengthSeconds),
+    embedUrl: v.embedUrl,
+    thumbnailUrl: v.thumbnailUrl ?? undefined,
+    section: "all",
+    lectures: [],
+  }));
+
+  return {
+    ...base,
+    filters: [],
+    sections: [{ key: "all", label: "All" }],
+    courses,
+  };
+}
+
 export function liveTrainingProgram(videos: BunnyVideo[]): Program {
-  const sorted = [...videos].sort((a, b) => {
+  const sorted = dedupeByTitle(videos).sort((a, b) => {
     const da = parseTitleDate(a.title);
     const db = parseTitleDate(b.title);
     // Newest first; undated entries sink to the end.

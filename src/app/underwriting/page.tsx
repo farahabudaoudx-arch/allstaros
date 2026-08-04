@@ -8,7 +8,10 @@ export default function UnderwritingPage() {
   const [notes, setNotes] = useState("");
   const [vitals, setVitals] = useState<WizardVitals>({ dob: "", height: "", weight: "" });
   return (
-    <div className="ll-analytics" style={{ background: "var(--bg-inner)", minHeight: "100vh" }}>
+    // min-h-full, not 100vh: inside the app frame the page already sits below a
+    // header, so a full-viewport minimum made every visit scrollable by exactly
+    // the height of that header.
+    <div className="ll-analytics min-h-full" style={{ background: "var(--bg-inner)" }}>
       <div className="mx-auto max-w-5xl px-6 py-8">
         <PageHeader title="Underwriting Wizard" backHref="/producer/menu/resources" />
         <UnderwritingWizard

@@ -1,43 +1,55 @@
 import type { ReactNode } from "react";
-import { BackHomeNav } from "./BackHomeNav";
 
 /**
- * Centered title + Back/Home pair, used at the top of every real producer page
- * reached from a menu tile. Matches the title/nav treatment on the tile menu
- * screens (see MenuScreen.tsx) so the whole flow, menu screen through to the
- * destination page, reads as one consistent pattern.
+ * Centered page title, with an optional row of controls beneath it.
  *
  * There is deliberately no eyebrow/kicker slot. Pages used to carry a small
  * all-caps label above the title ("Builder", "My Team", "Tracking"); it said
  * nothing the title and the menu you came from didn't already say, so it's
  * gone. Don't add it back.
  *
- * `children` is anything that used to sit next to or below the title
- * (description text, filter pills, action buttons), rendered centered beneath
- * the nav.
+ * There is also no Back/Home pair any more. It existed because the app was a
+ * drill-down of tile menus and leaving a page meant retracing your steps. The
+ * sidebar is always on screen now, so every destination is one click away and
+ * two buttons under every title were just noise. `backHref` is still accepted
+ * so callers don't all have to change at once, but nothing renders from it.
  *
- * `backHref` is no longer where Back goes. Back walks browser history now, so
- * it returns wherever the user actually came from. It stays as the fallback
- * for entries with no history to pop (new tab, bookmark, emailed link).
+ * `children` is anything that used to sit next to or below the title
+ * (description text, filter pills, action buttons), rendered centered beneath.
  */
 export function PageHeader({
   title,
-  backHref,
+  compact = false,
   children,
 }: {
   title: string;
-  backHref: string;
+  /** Retained for call-site compatibility; no longer rendered. */
+  backHref?: string;
+  /** Tighter type and spacing, for pages that have to fit a screen without
+   *  scrolling (the Daily Tracker). Same parts, less air. */
+  compact?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="mb-10 flex flex-col items-center text-center">
-      <h1 className="text-[clamp(2rem,5vw,3rem)] font-semibold leading-[1.1] tracking-[-0.03em]">
+    <div
+      className={`flex flex-col items-center text-center ${compact ? "mb-4" : "mb-8"}`}
+    >
+      <h1
+        className={`font-semibold leading-[1.1] tracking-[-0.03em] ${
+          compact
+            ? "text-[clamp(1.5rem,3vw,2rem)]"
+            : "text-[clamp(2rem,5vw,3rem)]"
+        }`}
+      >
         {title}
       </h1>
-      <div className="mt-6">
-        <BackHomeNav fallbackHref={backHref} />
-      </div>
-      {children ? <div className="mt-5 flex w-full flex-col items-center gap-4">{children}</div> : null}
+      {children ? (
+        <div
+          className={`flex w-full flex-col items-center gap-4 ${compact ? "mt-3" : "mt-5"}`}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

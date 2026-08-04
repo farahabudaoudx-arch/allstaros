@@ -26,6 +26,22 @@ async function resetDevRecruit(authUserId: string, state?: string) {
   await resetDevRecruitByPersonId(person.id, state);
 }
 
+/**
+ * Redirect back to the SAME host the request arrived on.
+ *
+ * `request.url` can't be trusted for this: Next resolves it against the dev
+ * server's own origin, so a request to http://127.0.0.1:3006 comes back as
+ * localhost. That matters because it's the whole trick for having two roles
+ * signed in at once — localhost and 127.0.0.1 are the same server but separate
+ * cookie jars, so you can be a builder in one tab and a producer in the other.
+ * Redirecting to the wrong one lands you back in the other role's session.
+ */
+function sameHost(request: NextRequest, path: string): URL {
+  const host = request.headers.get("host");
+  if (!host) return new URL(path, request.url);
+  return new URL(path, `${request.nextUrl.protocol}//${host}`);
+}
+
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key");
   if (!devLoginAuthorized(key)) {
@@ -35,7 +51,7 @@ export async function GET(request: NextRequest) {
   const role = request.nextUrl.searchParams.get("role") ?? "";
   const account = devAccountByRole(role);
   if (!account) {
-    return NextResponse.redirect(new URL("/auth/dev?error=role", request.url));
+    return NextResponse.redirect(sameHost(request, "/auth/dev?error=role"));
   }
 
   const supabase = await createClient();
@@ -45,7 +61,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (error || !data.user) {
-    return NextResponse.redirect(new URL("/auth/dev?error=signin", request.url));
+    return NextResponse.redirect(sameHost(request, "/auth/dev?error=signin"));
   }
 
   if (account.role === "recruit") {
@@ -76,7 +92,7 @@ export async function GET(request: NextRequest) {
           : null;
         if (code) {
           return NextResponse.redirect(
-            new URL(`/join/${code}?demo=1`, request.url),
+            sameHost(request, `/join/${code}?demo=1`),
           );
         }
       }
@@ -87,9 +103,9 @@ export async function GET(request: NextRequest) {
   // bounce it. Send it straight into the console (the /admin guard re-checks the
   // admin flags). Production login behaviour is unchanged.
   if (account.role === "admin") {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    return NextResponse.redirect(sameHost(request, "/admin"));
   }
 
   const path = await resolveLandingPath(supabase, data.user.id);
-  return NextResponse.redirect(new URL(path, request.url));
+  return NextResponse.redirect(sameHost(request, path));
 }
