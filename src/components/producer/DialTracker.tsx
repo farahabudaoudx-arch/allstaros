@@ -167,14 +167,13 @@ export function DialTracker({ backHref }: { backHref: string }) {
   const totalDials = counts.dials;
 
   return (
-    // On a wide screen this fills top to bottom: the header takes what it needs
-    // and the two counter blocks share whatever is left, so nothing is cut off
-    // and nothing is stranded in a strip at the top.
-    //
-    // Below md it goes back to a plain stack that scrolls. Six cards in one
-    // narrow column can't be squeezed into a phone screen — forcing it made the
-    // rows overlap each other into an unreadable pile.
-    <div className="flex flex-col gap-3 md:min-h-0 md:flex-1">
+    // A plain stack at every size. This used to stretch to fill the viewport,
+    // but md: is a width breakpoint, so a wide-but-short laptop window took the
+    // fill-the-screen path with nowhere near the height the cards need: they
+    // were squeezed below their own content and the rows spilled over each
+    // other into an unreadable pile. Natural heights, and the page scrolls
+    // when there isn't room.
+    <div className="flex flex-col gap-3">
       <PageHeader title="Daily Tracker" backHref={backHref} compact>
         {/* Both controls are the same height and shape so the row reads level.
             Saving happens quietly in the background — no status chip. */}
@@ -216,10 +215,8 @@ export function DialTracker({ backHref }: { backHref: string }) {
         disabled={loading}
       />
 
-      {/* Remaining metrics — sales is excluded here; it's driven by Clients.
-          The two counter rows stretch; Policies Sold keeps its natural height
-          since it has nothing to tap. */}
-      <div className="grid gap-3 sm:grid-cols-2 md:min-h-0 md:flex-[1.35] md:grid-rows-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+      {/* Remaining metrics — sales is excluded here; it's driven by Clients. */}
+      <div className="grid gap-3 sm:grid-cols-2">
         {METRICS.filter((m) => m.key !== "dials" && m.key !== "sales").map((m) => (
           <CounterCard
             key={m.key}
@@ -318,8 +315,8 @@ function HeroDial({
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="overflow-hidden rounded-3xl bg-accent text-[#050505] md:min-h-0 md:flex-1">
-      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-7 sm:px-8 md:py-5">
+    <div className="overflow-hidden rounded-3xl bg-accent text-[#050505]">
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-7 sm:px-8">
         <div className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#050505]/70">
             Dials today
@@ -386,7 +383,7 @@ function CounterCard({
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    <div className="flex min-h-0 flex-col justify-center rounded-2xl border border-hairline bg-card p-4">
+    <div className="flex flex-col justify-center rounded-2xl border border-hairline bg-card p-4">
       <p className="text-center text-xs uppercase tracking-[0.12em] text-mute">{label}</p>
       <p className="mt-1 text-center text-xs leading-snug text-subtle">{hint}</p>
       {/* Centered −/value/+ controls — bigger tap targets, value front-and-center. */}
