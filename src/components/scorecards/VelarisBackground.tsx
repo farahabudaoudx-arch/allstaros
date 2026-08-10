@@ -45,23 +45,35 @@ float snoise(vec2 v) {
 
 void main() {
   vec2 uv = vUv;
-  vec2 p = uv - 0.5;
-  p.x *= u_resolution.x / u_resolution.y;
-  float t = u_time * 0.1;
-  float n1 = snoise(p * 0.4 + vec2(t * 0.2, -t * 0.3));
-  float n2 = snoise(p * 0.55 + vec2(-t * 0.15, t * 0.25) + n1 * 0.25);
-  float n3 = snoise(p * 0.75 + vec2(t * 0.1, -t * 0.2) + n2 * 0.2);
+  float aspect = u_resolution.x / u_resolution.y;
+  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+  float t = u_time;
+  float broadWarp = snoise(vec2(uv.x * 1.15 - t * 0.035, t * 0.025)) * 0.075;
+  float fineWarp = snoise(vec2(uv.x * 2.6 + t * 0.045, uv.y * 0.7)) * 0.022;
+
+  float waveA = 0.62 + sin(uv.x * 5.4 - t * 0.22) * 0.105 + broadWarp;
+  float waveB = 0.38 + sin(uv.x * 4.1 + t * 0.18 + 1.7) * 0.09 - broadWarp * 0.7;
+  float waveC = 0.16 + sin(uv.x * 6.2 - t * 0.14 + 3.1) * 0.055 + fineWarp;
+
+  float ribbonA = 1.0 - smoothstep(0.0, 0.16, abs(uv.y - waveA));
+  float ribbonB = 1.0 - smoothstep(0.0, 0.105, abs(uv.y - waveB));
+  float ribbonC = 1.0 - smoothstep(0.0, 0.065, abs(uv.y - waveC));
+  float edgeA = 1.0 - smoothstep(0.0, 0.012, abs(uv.y - waveA));
+  float edgeB = 1.0 - smoothstep(0.0, 0.009, abs(uv.y - waveB));
+
   vec3 col = u_bg;
-  float dist = length(p) * 1.5;
-  float vignette = 1.0 - smoothstep(0.3, 1.2, dist);
-  col = mix(col, u_colors[0], smoothstep(-0.2, 0.5, n1) * 0.72);
-  col = mix(col, u_colors[1], smoothstep(-0.1, 0.6, n2) * 0.58);
-  col = mix(col, u_colors[2], smoothstep(-0.3, 0.4, n3) * 0.34);
-  col = mix(col, u_colors[3], smoothstep(0.0, 0.7, n1 * n2) * 0.3);
-  col += u_colors[0] * smoothstep(0.8, 0.0, dist) * 0.14;
-  col = mix(col * 0.16, col, vignette);
+  col = mix(col, u_colors[2], ribbonA * 0.72);
+  col = mix(col, u_colors[1], ribbonB * 0.48);
+  col = mix(col, u_colors[2], ribbonC * 0.54);
+  col += u_colors[0] * edgeA * 0.18;
+  col += u_colors[3] * edgeB * 0.045;
+
+  float centerQuiet = smoothstep(0.0, 0.46, length(vec2(p.x * 0.52, p.y - 0.06)));
+  col *= mix(0.56, 1.0, centerQuiet);
+  float vignette = 1.0 - smoothstep(0.45, 1.25, length(p));
+  col *= mix(0.48, 1.0, vignette);
   float grain = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453 + u_time);
-  col += (grain - 0.5) * u_grain * 0.06;
+  col += (grain - 0.5) * u_grain * 0.035;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
