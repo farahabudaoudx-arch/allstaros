@@ -1,6 +1,6 @@
 "use client";
 
-import { toBlob } from "html-to-image";
+import { toBlob, toPng } from "html-to-image";
 import { useState } from "react";
 import {
   SCORECARD_EXPORTS,
@@ -36,6 +36,10 @@ async function renderSectionPng(
 ): Promise<Blob> {
   const source = document.getElementById(sectionId);
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
+  const sourceTrend = source.querySelector<HTMLElement>(".weekly-trend");
+  const trendSnapshot = sourceTrend
+    ? await toPng(sourceTrend, { pixelRatio: 2, cacheBust: true })
+    : null;
 
   const { width, height } = SCORECARD_EXPORTS[format];
   const stage = document.createElement("div");
@@ -98,127 +102,13 @@ async function renderSectionPng(
     });
   }
 
-  const trend = clone.querySelector(".weekly-trend");
-  const trendSvg = trend?.querySelector("svg");
-  if (trend && trendSvg) {
-    const pointGroups = [...trendSvg.querySelectorAll("g.weekly-trend__point")];
-    const points = pointGroups.flatMap((group) => {
-      const circle = group.querySelector("circle");
-      const text = group.querySelector("text")?.textContent?.trim();
-      if (!circle || !text) return [];
-      return [{
-        x: Number(circle.getAttribute("cx")),
-        y: Number(circle.getAttribute("cy")),
-        text,
-      }];
-    });
-    const axisLabels = [...trendSvg.querySelectorAll("g:not(.weekly-trend__point)")].flatMap((group) => {
-      const label = group.querySelector("text")?.textContent?.trim();
-      const tick = group.querySelector("line");
-      if (!label || !tick) return [];
-      return [{ x: Number(tick.getAttribute("x1")), label }];
-    });
-    if (format === "portrait") {
-      (trend as HTMLElement).style.marginTop = "48px";
-    }
-    const chartWrap = document.createElement("div");
-    chartWrap.style.cssText = format === "portrait"
-      ? "position:relative;width:100%;height:340px;overflow:visible;"
-      : "position:relative;width:100%;height:245px;overflow:visible;";
-    trendSvg.replaceWith(chartWrap);
-
-    const chartCanvas = document.createElement("canvas");
-    chartCanvas.width = 2000;
-    chartCanvas.height = 490;
-    const context = chartCanvas.getContext("2d");
-    if (context && points.length) {
-      context.scale(2, 2);
-      context.beginPath();
-      context.moveTo(points[0].x, points[0].y);
-      points.slice(1).forEach(({ x, y }) => context.lineTo(x, y));
-      context.lineTo(points.at(-1)!.x, 195);
-      context.lineTo(points[0].x, 195);
-      context.closePath();
-      context.fillStyle = "rgba(246,201,69,.2)";
-      context.fill();
-
-      context.beginPath();
-      context.moveTo(98, 195);
-      context.lineTo(945, 195);
-      context.strokeStyle = "#747474";
-      context.lineWidth = 2;
-      context.stroke();
-
-      context.beginPath();
-      context.moveTo(points[0].x, points[0].y);
-      points.slice(1).forEach(({ x, y }) => context.lineTo(x, y));
-      context.strokeStyle = "#f6c945";
-      context.lineWidth = format === "portrait" ? 6 : 4;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.stroke();
-    }
-    const chartImage = document.createElement("img");
-    chartImage.alt = "";
-    chartImage.src = chartCanvas.toDataURL("image/png");
-    chartImage.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
-    chartWrap.append(chartImage);
-
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:absolute;inset:0;pointer-events:none;";
-    points.forEach(({ x, y, text }) => {
-      const value = document.createElement("span");
-      value.textContent = text;
-      value.style.cssText = [
-        "position:absolute",
-        `left:${(x / 1000) * 100}%`,
-        `top:${Math.max(0, ((y - 64) / 245) * 100)}%`,
-        "transform:translateX(-50%)",
-        `min-width:${format === "portrait" ? "140px" : "112px"}`,
-        `padding:${format === "portrait" ? "11px 16px" : "8px 12px"}`,
-        "border:1px solid rgba(255,255,255,.18)",
-        "background:#111214",
-        "color:#f7f7f7",
-        `font-size:${format === "portrait" ? "22px" : "17px"}`,
-        "font-weight:650",
-        "line-height:1.2",
-        "text-align:center",
-        "border-radius:9px",
-        "box-sizing:border-box",
-      ].join(";");
-      overlay.append(value);
-
-      const dot = document.createElement("span");
-      const dotSize = format === "portrait" ? 16 : 12;
-      dot.style.cssText = [
-        "position:absolute",
-        `left:${(x / 1000) * 100}%`,
-        `top:${(y / 245) * 100}%`,
-        `width:${dotSize}px`,
-        `height:${dotSize}px`,
-        "transform:translate(-50%,-50%)",
-        "border-radius:50%",
-        "background:#f6c945",
-      ].join(";");
-      overlay.append(dot);
-    });
-
-    axisLabels.forEach(({ x, label }) => {
-      const axisLabel = document.createElement("span");
-      axisLabel.textContent = label;
-      axisLabel.style.cssText = [
-        "position:absolute",
-        `left:${(x / 1000) * 100}%`,
-        `top:${format === "portrait" ? "86%" : "88%"}`,
-        "transform:translateX(-50%)",
-        "color:rgba(247,247,247,.62)",
-        `font-size:${format === "portrait" ? "20px" : "14px"}`,
-        "font-weight:500",
-        "white-space:nowrap",
-      ].join(";");
-      overlay.append(axisLabel);
-    });
-    chartWrap.append(overlay);
+  const trend = clone.querySelector<HTMLElement>(".weekly-trend");
+  if (trend && trendSnapshot) {
+    const exactGraphic = document.createElement("img");
+    exactGraphic.alt = "Weekly issued premium trend by week";
+    exactGraphic.src = trendSnapshot;
+    exactGraphic.style.cssText = "display:block;width:100%;height:auto;object-fit:contain;";
+    trend.replaceWith(exactGraphic);
   }
 
   const artboard = document.createElement("div");
