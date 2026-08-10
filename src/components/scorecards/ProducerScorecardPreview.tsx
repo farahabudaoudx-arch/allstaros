@@ -152,9 +152,9 @@ const ACTIVITY_LABELS: Array<[keyof ProducerActivityTotals, string]> = [
 ];
 
 const STORY_TONES = {
-  gold: "bg-[#171407]",
-  ink: "bg-[#090909]",
-  status: "bg-[#120b08]",
+  gold: "bg-[#171407] light:bg-[#fff8df]",
+  ink: "bg-[#090909] light:bg-white",
+  status: "bg-[#120b08] light:bg-[#fff1ef]",
 } as const;
 
 function StorySection({
@@ -169,11 +169,11 @@ function StorySection({
   children: ReactNode;
 }) {
   return (
-    <section className={`flex min-h-[58svh] items-center border-t border-white/10 px-6 py-16 sm:min-h-[64svh] sm:px-12 lg:px-20 ${STORY_TONES[tone]}`}>
+    <section className={`flex min-h-[58svh] items-center border-t border-white/10 px-6 py-16 light:border-black/10 sm:min-h-[64svh] sm:px-12 lg:px-20 ${STORY_TONES[tone]}`}>
       <div className="mx-auto w-full max-w-4xl">
         <div className="flex items-baseline gap-4">
           <p className="text-sm font-semibold tabular-nums text-accent">{number}</p>
-          <h3 className="text-xl font-semibold tracking-[-0.025em] text-white sm:text-2xl">{title}</h3>
+          <h3 className="text-xl font-semibold tracking-[-0.025em] text-white light:text-ink sm:text-2xl">{title}</h3>
         </div>
         <div className="mt-12 sm:mt-16">{children}</div>
       </div>
@@ -181,23 +181,23 @@ function StorySection({
   );
 }
 
-function StoryValue({ value, detail, valueClass = "text-white" }: { value: string; detail: string; valueClass?: string }) {
+function StoryValue({ value, detail, valueClass = "text-white light:text-ink" }: { value: string; detail: string; valueClass?: string }) {
   return (
     <div className="max-w-3xl">
       <p className={`text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.07em] tabular-nums ${valueClass}`}>{value}</p>
-      <p className="mt-7 max-w-2xl text-base leading-7 text-white/60 sm:text-lg">{detail}</p>
+      <p className="mt-7 max-w-2xl text-base leading-7 text-white/60 light:text-black/60 sm:text-lg">{detail}</p>
     </div>
   );
 }
 
 function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
-  if (!reports.length) return <p className="mt-12 text-sm text-white/45">Waiting for the first Gateway report.</p>;
+  if (!reports.length) return <p className="mt-12 text-sm text-white/45 light:text-black/50">Waiting for the first Gateway report.</p>;
   return (
-    <div className="mt-14 grid grid-cols-2 gap-x-7 gap-y-6 border-t border-white/15 pt-7 sm:grid-cols-5">
+    <div className="mt-14 grid grid-cols-2 gap-x-7 gap-y-6 border-t border-white/15 pt-7 light:border-black/15 sm:grid-cols-5">
       {reports.map((week) => (
         <div key={week.reportDate}>
-          <p className="text-sm font-semibold text-white">{money(week.personalIpCents)}</p>
-          <p className="mt-1 text-xs text-white/45">{longDate(week.reportDate)}</p>
+          <p className="text-sm font-semibold text-white light:text-ink">{money(week.personalIpCents)}</p>
+          <p className="mt-1 text-xs text-white/45 light:text-black/50">{longDate(week.reportDate)}</p>
         </div>
       ))}
     </div>
@@ -206,26 +206,26 @@ function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
 
 function ActivityStory({ activity }: { activity: ProducerOverview["activity"] }) {
   return (
-    <section className="flex min-h-[72svh] items-center border-t border-white/10 bg-[#0d1109] px-6 py-16 sm:px-12 lg:px-20" aria-labelledby="activity-title">
+    <section className="flex min-h-[72svh] items-center border-t border-white/10 bg-[#0d1109] px-6 py-16 light:border-black/10 light:bg-[#f3f8ea] sm:px-12 lg:px-20" aria-labelledby="activity-title">
       <div className="mx-auto w-full max-w-4xl">
         <div className="flex items-baseline gap-4">
           <p className="text-sm font-semibold tabular-nums text-accent">04</p>
-          <h3 id="activity-title" className="text-xl font-semibold tracking-[-0.025em] text-white sm:text-2xl">Your activity</h3>
+          <h3 id="activity-title" className="text-xl font-semibold tracking-[-0.025em] text-white light:text-ink sm:text-2xl">Your activity</h3>
         </div>
         {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
           <div className="mt-14 max-w-2xl">
-            <p className="text-4xl font-semibold tracking-[-0.045em] text-white sm:text-6xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
-            <p className="mt-6 text-base leading-7 text-white/55">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
+            <p className="text-4xl font-semibold tracking-[-0.045em] text-white light:text-ink sm:text-6xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
+            <p className="mt-6 text-base leading-7 text-white/55 light:text-black/60">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
           </div>
         ) : (
           <>
-            <p className="mt-12 text-lg text-white/55">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
+            <p className="mt-12 text-lg text-white/55 light:text-black/60">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
             <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
               {ACTIVITY_LABELS.map(([key, label]) => (
-                <div key={key} className="border-t border-white/15 pt-4">
-                  <p className="text-sm text-white/50">{label}</p>
-                  <p className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-white tabular-nums sm:text-6xl">{activity.totals![key].toLocaleString()}</p>
-                  <p className="mt-2 text-sm text-white/45">{activity.perTrackedDay![key].toLocaleString()} per day</p>
+                <div key={key} className="border-t border-white/15 pt-4 light:border-black/15">
+                  <p className="text-sm text-white/50 light:text-black/55">{label}</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-white tabular-nums light:text-ink sm:text-6xl">{activity.totals![key].toLocaleString()}</p>
+                  <p className="mt-2 text-sm text-white/45 light:text-black/50">{activity.perTrackedDay![key].toLocaleString()} per day</p>
                 </div>
               ))}
             </div>
@@ -252,14 +252,14 @@ function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducer
   ];
 
   return (
-    <section className="border-t border-white/10 bg-black px-6 py-16 sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
+    <section className="border-t border-white/10 bg-black px-6 py-16 light:border-black/10 light:bg-[#f6f7f8] sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
       <div className="mx-auto max-w-4xl">
-        <h3 id="final-overview-title" className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">Your month, together</h3>
-        <dl className="mt-10 divide-y divide-white/12 border-y border-white/12">
+        <h3 id="final-overview-title" className="text-3xl font-semibold tracking-[-0.04em] text-white light:text-ink sm:text-5xl">Your month, together</h3>
+        <dl className="mt-10 divide-y divide-white/12 border-y border-white/12 light:divide-black/12 light:border-black/12">
           {rows.map(([label, value]) => (
             <div key={label} className="grid gap-2 py-5 sm:grid-cols-[13rem_1fr] sm:items-baseline">
-              <dt className="text-sm text-white/45">{label}</dt>
-              <dd className="text-lg font-semibold leading-7 text-white sm:text-xl">{value}</dd>
+              <dt className="text-sm text-white/45 light:text-black/50">{label}</dt>
+              <dd className="text-lg font-semibold leading-7 text-white light:text-ink sm:text-xl">{value}</dd>
             </div>
           ))}
         </dl>
