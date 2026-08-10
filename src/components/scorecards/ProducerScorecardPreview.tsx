@@ -202,7 +202,7 @@ function ActivityStory({ activity, submittedApCents }: { activity: ProducerOverv
           </div>
         ) : (
           <p className="mt-10 max-w-5xl text-pretty text-lg leading-8 text-subtle sm:text-xl sm:leading-9">
-            To hit that submitted volume, you made <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, generated <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
+            You logged <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
           </p>
         )}
       </div>
