@@ -153,33 +153,48 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
         }
       `}</style>
       <p className="mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
-      <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend by week">
-        <defs>
-          <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
-          </linearGradient>
-        </defs>
-        <line x1="98" y1="195" x2="945" y2="195" className="stroke-subtle" strokeWidth="2" />
-        <polygon points={areaPoints} fill="url(#weekly-ip-area)" className="weekly-trend__area text-accent" />
-        <polyline pathLength="1" points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="weekly-trend__line text-accent" />
-        {points.map(({ x, y }, index) => (
-          <g key={reports[index].reportDate} className="weekly-trend__point">
-            <rect x={Math.max(0, Math.min(860, x - 70))} y={y - 62} width="140" height="43" rx="10" className="fill-card stroke-hairline" />
-            <path d={`M ${x - 8} ${y - 19} L ${x} ${y - 10} L ${x + 8} ${y - 19} Z`} className="fill-card stroke-hairline" strokeLinejoin="round" />
-            <text x={x} y={y - 35} textAnchor="middle" dominantBaseline="middle" className="fill-ink text-[20px] font-semibold tabular-nums">
-              {money(reports[index].personalIpCents)}
-            </text>
-            <circle cx={x} cy={y} r="6" className="fill-accent" />
-          </g>
-        ))}
-        {points.map(({ x }, index) => (
-          <g key={`axis-${reports[index].reportDate}`}>
-            <line x1={x} y1="195" x2={x} y2="202" className="stroke-subtle" strokeWidth="2" />
-            <text x={x} y="225" textAnchor="middle" className="fill-subtle text-[15px] font-medium">{reports[index].label}</text>
-          </g>
-        ))}
-      </svg>
+      <div className="relative" role="img" aria-label="Weekly issued premium trend by week">
+        <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" aria-hidden="true">
+          <defs>
+            <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
+            </linearGradient>
+          </defs>
+          <line x1="98" y1="195" x2="945" y2="195" className="stroke-subtle" strokeWidth="2" />
+          <polygon points={areaPoints} fill="url(#weekly-ip-area)" className="weekly-trend__area text-accent" />
+          <polyline pathLength="1" points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="weekly-trend__line text-accent" />
+          {points.map(({ x }) => (
+            <line key={`tick-${x}`} x1={x} y1="195" x2={x} y2="202" className="stroke-subtle" strokeWidth="2" />
+          ))}
+        </svg>
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          {points.map(({ x, y }, index) => (
+            <div key={reports[index].reportDate} className="weekly-trend__point absolute inset-0">
+              <div
+                className="absolute min-w-[140px] -translate-x-1/2 rounded-[10px] border border-hairline bg-card px-4 py-2 text-center text-[20px] font-semibold leading-[1.3] text-ink tabular-nums"
+                style={{ left: `${x / 10}%`, top: `${((y - 62) / 245) * 100}%` }}
+              >
+                {money(reports[index].personalIpCents)}
+                <span className="absolute -bottom-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-hairline bg-card" />
+              </div>
+              <span
+                className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"
+                style={{ left: `${x / 10}%`, top: `${(y / 245) * 100}%` }}
+              />
+            </div>
+          ))}
+          {points.map(({ x }, index) => (
+            <span
+              key={`axis-${reports[index].reportDate}`}
+              className="absolute -translate-x-1/2 whitespace-nowrap text-[15px] font-medium text-subtle"
+              style={{ left: `${x / 10}%`, top: `${(211 / 245) * 100}%` }}
+            >
+              {reports[index].label}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

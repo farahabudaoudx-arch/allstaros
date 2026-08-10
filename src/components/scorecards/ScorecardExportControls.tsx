@@ -1,6 +1,6 @@
 "use client";
 
-import { toBlob, toPng } from "html-to-image";
+import { toBlob } from "html-to-image";
 import { useState } from "react";
 import {
   SCORECARD_EXPORTS,
@@ -36,10 +36,6 @@ async function renderSectionPng(
 ): Promise<Blob> {
   const source = document.getElementById(sectionId);
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
-  const sourceTrend = source.querySelector<HTMLElement>(".weekly-trend");
-  const trendSnapshot = sourceTrend
-    ? await toPng(sourceTrend, { pixelRatio: 2, cacheBust: true })
-    : null;
 
   const { width, height } = SCORECARD_EXPORTS[format];
   const stage = document.createElement("div");
@@ -100,15 +96,6 @@ async function renderSectionPng(
     clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
       element.style.maxWidth = "none";
     });
-  }
-
-  const trend = clone.querySelector<HTMLElement>(".weekly-trend");
-  if (trend && trendSnapshot) {
-    const exactGraphic = document.createElement("img");
-    exactGraphic.alt = "Weekly issued premium trend by week";
-    exactGraphic.src = trendSnapshot;
-    exactGraphic.style.cssText = "display:block;width:100%;height:auto;object-fit:contain;";
-    trend.replaceWith(exactGraphic);
   }
 
   const artboard = document.createElement("div");
