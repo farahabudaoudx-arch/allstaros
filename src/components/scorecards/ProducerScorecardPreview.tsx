@@ -6,6 +6,7 @@ import type {
 } from "@/lib/scorecards/lifecycle";
 import { ISSUANCE_THRESHOLD_SUMMARY } from "@/lib/scorecards/lifecycle";
 import { Avatar } from "@/components/Avatar";
+import type { ReactNode } from "react";
 import { VelarisBackground } from "./VelarisBackground";
 
 const STATUS_COPY: Record<
@@ -103,103 +104,41 @@ export function ProducerScorecardPreview({
         </header>
       </VelarisBackground>
 
-      <section aria-labelledby="overview-title" className="px-5 py-7 sm:px-7 sm:py-8">
-        <h3 id="overview-title" className="text-base font-semibold text-ink">At a glance</h3>
+      <StorySection number="01" title="Issued premium" tone="gold">
+        <StoryValue value={money(preview.totalIssuedIpCents)} detail={`${preview.sourceCoverage.reportCount} Gateway reports this month`} />
+        <WeeklyStory reports={preview.weeklyReports} />
+      </StorySection>
 
-        <div className="mt-4 grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-3">
-          <OverviewMetric label="Issued IP" value={money(preview.totalIssuedIpCents)} detail={`${preview.sourceCoverage.reportCount} Gateway reports`} />
-          <OverviewMetric label="Submitted AP" value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)} detail="Submitted business" />
-          <OverviewMetric
-            label="Average weekly IP"
-            value={money(preview.averageWeeklyIpCents)}
-            detail={`${headline.label} issuance`}
-            valueClass={headline.textClass}
-            detailClass={headline.textClass}
-            ariaLabel={`${headline.label} issuance status`}
-          />
-          <OverviewMetric label="Month-over-month" value={growth} detail="Personal Gateway IP" />
-          <OverviewMetric label="Company rank" value={`#${overview.rank.rank} of ${overview.rank.population}`} detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)}`}`} />
-          <OverviewMetric
-            label="Tracking consistency"
-            value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
-            detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected days` : `${overview.activity.trackedDays} tracked days · schedule not set`}
-          />
-        </div>
-        <p className="mt-3 text-xs leading-5 text-mute">{ISSUANCE_THRESHOLD_SUMMARY}</p>
-      </section>
+      <StorySection number="02" title="Submitted annual premium" tone="ink">
+        <StoryValue value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)} detail="Business submitted during this Scorecard period" />
+      </StorySection>
 
-      <ActivityOverview activity={overview.activity} />
+      <StorySection number="03" title="Average weekly issued premium" tone="status">
+        <StoryValue value={money(preview.averageWeeklyIpCents)} detail={`${headline.label} issuance · ${ISSUANCE_THRESHOLD_SUMMARY}`} valueClass={headline.textClass} />
+      </StorySection>
 
-      <section aria-labelledby="weekly-reports-title" className="border-t border-hairline px-5 py-6 sm:px-7 sm:py-7">
-        <div className="flex items-baseline justify-between gap-4">
-          <h3 id="weekly-reports-title" className="text-base font-semibold text-ink">Weekly Gateway reports</h3>
-          {preview.sourceCoverage.completeThrough ? (
-            <p className="text-xs text-mute">Through {longDate(preview.sourceCoverage.completeThrough)}</p>
-          ) : null}
-        </div>
+      <ActivityStory activity={overview.activity} />
 
-        {preview.weeklyReports.length ? (
-          <div className="mt-4 divide-y divide-hairline border-y border-hairline">
-            {preview.weeklyReports.map((week) => {
-              const status = STATUS_COPY[week.issuanceStatus];
-              return (
-                <div key={week.reportDate} className="grid grid-cols-[1fr_auto] items-center gap-4 py-4 sm:grid-cols-[1fr_11rem_6rem]">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">{week.label}</p>
-                    <p className="mt-1 text-xs text-mute">{longDate(week.reportDate)}</p>
-                  </div>
-                  <p className={`text-right text-base font-semibold tabular-nums sm:text-left ${status.textClass}`}>
-                    {money(week.personalIpCents)}
-                  </p>
-                  <p className={`col-span-2 text-xs font-medium sm:col-span-1 sm:text-right ${status.textClass}`}>
-                    {status.label}
-                    <span className="sr-only"> issuance status</span>
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-dashed border-hairline px-5 py-8 text-center">
-            <p className="text-sm font-medium text-ink">Waiting for the first Gateway report</p>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-subtle">
-              Your preview is ready. Weekly issued premium will appear here when this month’s first report arrives.
-            </p>
-          </div>
-        )}
+      <StorySection number="05" title="Month-over-month growth" tone="gold">
+        <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
+      </StorySection>
 
-        {!preview.hasProduction && preview.weeklyReports.length ? (
-          <div className="mt-5 border-l-2 border-accent pl-4">
-            <p className="text-sm font-medium text-ink">A clear starting point</p>
-            <p className="mt-1 text-sm leading-6 text-subtle">{preview.emptyMessage}</p>
-          </div>
-        ) : null}
-      </section>
+      <StorySection number="06" title="Company rank" tone="ink">
+        <StoryValue
+          value={`#${overview.rank.rank} of ${overview.rank.population}`}
+          detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)} from last month`}`}
+        />
+      </StorySection>
+
+      <StorySection number="07" title="Tracking consistency" tone="gold">
+        <StoryValue
+          value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
+          detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
+        />
+      </StorySection>
+
+      <FinalOverview preview={preview} overview={overview} growth={growth} />
     </article>
-  );
-}
-
-function OverviewMetric({
-  label,
-  value,
-  detail,
-  valueClass = "text-ink",
-  detailClass = "text-mute",
-  ariaLabel,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  valueClass?: string;
-  detailClass?: string;
-  ariaLabel?: string;
-}) {
-  return (
-    <div className="min-h-32 bg-card px-5 py-5" aria-label={ariaLabel}>
-      <p className="text-sm font-medium text-subtle">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold tracking-[-0.03em] tabular-nums ${valueClass}`}>{value}</p>
-      <p className={`mt-2 text-xs ${detailClass}`}>{detail}</p>
-    </div>
   );
 }
 
@@ -212,32 +151,119 @@ const ACTIVITY_LABELS: Array<[keyof ProducerActivityTotals, string]> = [
   ["sales", "Sales"],
 ];
 
-function ActivityOverview({ activity }: { activity: ProducerOverview["activity"] }) {
+const STORY_TONES = {
+  gold: "bg-[#171407]",
+  ink: "bg-[#090909]",
+  status: "bg-[#120b08]",
+} as const;
+
+function StorySection({
+  number,
+  title,
+  tone,
+  children,
+}: {
+  number: string;
+  title: string;
+  tone: keyof typeof STORY_TONES;
+  children: ReactNode;
+}) {
   return (
-    <section aria-labelledby="activity-title" className="border-t border-hairline px-5 py-7 sm:px-7 sm:py-8">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 id="activity-title" className="text-base font-semibold text-ink">Activity</h3>
-          <p className="mt-1 text-sm text-subtle">Totals and pace across submitted tracker days.</p>
+    <section className={`flex min-h-[58svh] items-center border-t border-white/10 px-6 py-16 sm:min-h-[64svh] sm:px-12 lg:px-20 ${STORY_TONES[tone]}`}>
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="flex items-baseline gap-4">
+          <p className="text-sm font-semibold tabular-nums text-accent">{number}</p>
+          <h3 className="text-xl font-semibold tracking-[-0.025em] text-white sm:text-2xl">{title}</h3>
         </div>
-        <p className="text-xs text-mute">{activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
+        <div className="mt-12 sm:mt-16">{children}</div>
       </div>
-      {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
-        <div className="mt-5 rounded-xl border border-dashed border-hairline px-5 py-7">
-          <p className="text-sm font-medium text-ink">{activity.availability === "partial" ? "Activity data is incomplete" : "No tracker submissions yet"}</p>
-          <p className="mt-2 text-sm leading-6 text-subtle">Activity is missing, not zero. {activity.availability === "partial" ? "Complete the missing tracker fields to establish an accurate pace." : "Submit a tracker day—even an intentional zero day—to establish your pace."}</p>
+    </section>
+  );
+}
+
+function StoryValue({ value, detail, valueClass = "text-white" }: { value: string; detail: string; valueClass?: string }) {
+  return (
+    <div className="max-w-3xl">
+      <p className={`text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.07em] tabular-nums ${valueClass}`}>{value}</p>
+      <p className="mt-7 max-w-2xl text-base leading-7 text-white/60 sm:text-lg">{detail}</p>
+    </div>
+  );
+}
+
+function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
+  if (!reports.length) return <p className="mt-12 text-sm text-white/45">Waiting for the first Gateway report.</p>;
+  return (
+    <div className="mt-14 grid grid-cols-2 gap-x-7 gap-y-6 border-t border-white/15 pt-7 sm:grid-cols-5">
+      {reports.map((week) => (
+        <div key={week.reportDate}>
+          <p className="text-sm font-semibold text-white">{money(week.personalIpCents)}</p>
+          <p className="mt-1 text-xs text-white/45">{longDate(week.reportDate)}</p>
         </div>
-      ) : (
-        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-5 border-y border-hairline py-5 sm:grid-cols-3 lg:grid-cols-6">
-          {ACTIVITY_LABELS.map(([key, label]) => (
-            <div key={key}>
-              <p className="text-xs text-mute">{label}</p>
-              <p className="mt-1 text-xl font-semibold text-ink tabular-nums">{activity.totals![key].toLocaleString()}</p>
-              <p className="mt-1 text-xs text-subtle">{activity.perTrackedDay![key].toLocaleString()} / day</p>
+      ))}
+    </div>
+  );
+}
+
+function ActivityStory({ activity }: { activity: ProducerOverview["activity"] }) {
+  return (
+    <section className="flex min-h-[72svh] items-center border-t border-white/10 bg-[#0d1109] px-6 py-16 sm:px-12 lg:px-20" aria-labelledby="activity-title">
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="flex items-baseline gap-4">
+          <p className="text-sm font-semibold tabular-nums text-accent">04</p>
+          <h3 id="activity-title" className="text-xl font-semibold tracking-[-0.025em] text-white sm:text-2xl">Your activity</h3>
+        </div>
+        {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
+          <div className="mt-14 max-w-2xl">
+            <p className="text-4xl font-semibold tracking-[-0.045em] text-white sm:text-6xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
+            <p className="mt-6 text-base leading-7 text-white/55">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
+          </div>
+        ) : (
+          <>
+            <p className="mt-12 text-lg text-white/55">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
+            <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
+              {ACTIVITY_LABELS.map(([key, label]) => (
+                <div key={key} className="border-t border-white/15 pt-4">
+                  <p className="text-sm text-white/50">{label}</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-white tabular-nums sm:text-6xl">{activity.totals![key].toLocaleString()}</p>
+                  <p className="mt-2 text-sm text-white/45">{activity.perTrackedDay![key].toLocaleString()} per day</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducerPreview; overview: ProducerOverview; growth: string }) {
+  const consistency = overview.activity.consistency;
+  const activitySummary = overview.activity.totals
+    ? `${overview.activity.totals.leads} leads · ${overview.activity.totals.dials} dials · ${overview.activity.totals.contacts} contacts · ${overview.activity.totals.appointments} appointments · ${overview.activity.totals.presentations} presentations · ${overview.activity.totals.sales} sales`
+    : "Activity unavailable";
+  const rows = [
+    ["Issued IP", money(preview.totalIssuedIpCents)],
+    ["Submitted AP", overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)],
+    ["Weekly average", money(preview.averageWeeklyIpCents)],
+    ["Activity", activitySummary],
+    ["Month-over-month", growth],
+    ["Company rank", `#${overview.rank.rank} of ${overview.rank.population}`],
+    ["Tracking consistency", consistency ? `${consistency.percentage}%` : "Schedule needed"],
+  ];
+
+  return (
+    <section className="border-t border-white/10 bg-black px-6 py-16 sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
+      <div className="mx-auto max-w-4xl">
+        <h3 id="final-overview-title" className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">Your month, together</h3>
+        <dl className="mt-10 divide-y divide-white/12 border-y border-white/12">
+          {rows.map(([label, value]) => (
+            <div key={label} className="grid gap-2 py-5 sm:grid-cols-[13rem_1fr] sm:items-baseline">
+              <dt className="text-sm text-white/45">{label}</dt>
+              <dd className="text-lg font-semibold leading-7 text-white sm:text-xl">{value}</dd>
             </div>
           ))}
-        </div>
-      )}
+        </dl>
+      </div>
     </section>
   );
 }
