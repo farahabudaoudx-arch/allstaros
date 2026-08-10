@@ -104,33 +104,33 @@ export function ProducerScorecardPreview({
         </header>
       </VelarisBackground>
 
-      <StorySection number="01" title="Issued premium" tone="gold">
+      <StorySection number="01" title="Issued premium">
         <StoryValue value={money(preview.totalIssuedIpCents)} detail={`${preview.sourceCoverage.reportCount} Gateway reports this month`} />
         <WeeklyStory reports={preview.weeklyReports} />
       </StorySection>
 
-      <StorySection number="02" title="Submitted annual premium" tone="ink">
+      <StorySection number="02" title="Submitted annual premium">
         <StoryValue value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)} detail="Business submitted during this Scorecard period" />
       </StorySection>
 
-      <StorySection number="03" title="Average weekly issued premium" tone="status">
+      <StorySection number="03" title="Average weekly issued premium">
         <StoryValue value={money(preview.averageWeeklyIpCents)} detail={`${headline.label} issuance · ${ISSUANCE_THRESHOLD_SUMMARY}`} valueClass={headline.textClass} />
       </StorySection>
 
       <ActivityStory activity={overview.activity} />
 
-      <StorySection number="05" title="Month-over-month growth" tone="gold">
+      <StorySection number="05" title="Month-over-month growth">
         <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
       </StorySection>
 
-      <StorySection number="06" title="Company rank" tone="ink">
+      <StorySection number="06" title="Company rank">
         <StoryValue
           value={`#${overview.rank.rank} of ${overview.rank.population}`}
           detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)} from last month`}`}
         />
       </StorySection>
 
-      <StorySection number="07" title="Tracking consistency" tone="gold">
+      <StorySection number="07" title="Tracking consistency">
         <StoryValue
           value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
           detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
@@ -151,29 +151,21 @@ const ACTIVITY_LABELS: Array<[keyof ProducerActivityTotals, string]> = [
   ["sales", "Sales"],
 ];
 
-const STORY_TONES = {
-  gold: "bg-[#171407] light:bg-[#fff8df]",
-  ink: "bg-[#090909] light:bg-white",
-  status: "bg-[#120b08] light:bg-[#fff1ef]",
-} as const;
-
 function StorySection({
   number,
   title,
-  tone,
   children,
 }: {
   number: string;
   title: string;
-  tone: keyof typeof STORY_TONES;
   children: ReactNode;
 }) {
   return (
-    <section className={`flex min-h-[58svh] items-center border-t border-white/10 px-6 py-16 light:border-black/10 sm:min-h-[64svh] sm:px-12 lg:px-20 ${STORY_TONES[tone]}`}>
+    <section className="flex min-h-[58svh] items-center border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:min-h-[64svh] sm:px-12 lg:px-20">
       <div className="mx-auto w-full max-w-4xl">
         <div className="flex items-baseline gap-4">
           <p className="text-sm font-semibold tabular-nums text-accent">{number}</p>
-          <h3 className="text-xl font-semibold tracking-[-0.025em] text-white light:text-ink sm:text-2xl">{title}</h3>
+          <h3 className="text-xl font-semibold text-ink sm:text-2xl">{title}</h3>
         </div>
         <div className="mt-12 sm:mt-16">{children}</div>
       </div>
@@ -181,23 +173,23 @@ function StorySection({
   );
 }
 
-function StoryValue({ value, detail, valueClass = "text-white light:text-ink" }: { value: string; detail: string; valueClass?: string }) {
+function StoryValue({ value, detail, valueClass = "text-ink" }: { value: string; detail: string; valueClass?: string }) {
   return (
     <div className="max-w-3xl">
-      <p className={`text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.07em] tabular-nums ${valueClass}`}>{value}</p>
-      <p className="mt-7 max-w-2xl text-base leading-7 text-white/60 light:text-black/60 sm:text-lg">{detail}</p>
+      <p className={`text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums ${valueClass}`}>{value}</p>
+      <p className="mt-7 max-w-2xl text-base leading-7 text-subtle sm:text-lg">{detail}</p>
     </div>
   );
 }
 
 function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
-  if (!reports.length) return <p className="mt-12 text-sm text-white/45 light:text-black/50">Waiting for the first Gateway report.</p>;
+  if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
   return (
-    <div className="mt-14 grid grid-cols-2 gap-x-7 gap-y-6 border-t border-white/15 pt-7 light:border-black/15 sm:grid-cols-5">
+    <div className="mt-14 grid grid-cols-2 gap-x-7 gap-y-6 border-t border-hairline pt-7 sm:grid-cols-5">
       {reports.map((week) => (
         <div key={week.reportDate}>
-          <p className="text-sm font-semibold text-white light:text-ink">{money(week.personalIpCents)}</p>
-          <p className="mt-1 text-xs text-white/45 light:text-black/50">{longDate(week.reportDate)}</p>
+          <p className="text-sm font-semibold text-ink">{money(week.personalIpCents)}</p>
+          <p className="mt-1 text-xs text-mute">{longDate(week.reportDate)}</p>
         </div>
       ))}
     </div>
@@ -206,26 +198,26 @@ function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
 
 function ActivityStory({ activity }: { activity: ProducerOverview["activity"] }) {
   return (
-    <section className="flex min-h-[72svh] items-center border-t border-white/10 bg-[#0d1109] px-6 py-16 light:border-black/10 light:bg-[#f3f8ea] sm:px-12 lg:px-20" aria-labelledby="activity-title">
+    <section className="flex min-h-[72svh] items-center border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:px-12 lg:px-20" aria-labelledby="activity-title">
       <div className="mx-auto w-full max-w-4xl">
         <div className="flex items-baseline gap-4">
           <p className="text-sm font-semibold tabular-nums text-accent">04</p>
-          <h3 id="activity-title" className="text-xl font-semibold tracking-[-0.025em] text-white light:text-ink sm:text-2xl">Your activity</h3>
+          <h3 id="activity-title" className="text-xl font-semibold text-ink sm:text-2xl">Your activity</h3>
         </div>
         {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
           <div className="mt-14 max-w-2xl">
-            <p className="text-4xl font-semibold tracking-[-0.045em] text-white light:text-ink sm:text-6xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
-            <p className="mt-6 text-base leading-7 text-white/55 light:text-black/60">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
+            <p className="text-4xl font-semibold text-ink sm:text-6xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
+            <p className="mt-6 text-base leading-7 text-subtle">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
           </div>
         ) : (
           <>
-            <p className="mt-12 text-lg text-white/55 light:text-black/60">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
+            <p className="mt-12 text-lg text-subtle">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
             <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
               {ACTIVITY_LABELS.map(([key, label]) => (
-                <div key={key} className="border-t border-white/15 pt-4 light:border-black/15">
-                  <p className="text-sm text-white/50 light:text-black/55">{label}</p>
-                  <p className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-white tabular-nums light:text-ink sm:text-6xl">{activity.totals![key].toLocaleString()}</p>
-                  <p className="mt-2 text-sm text-white/45 light:text-black/50">{activity.perTrackedDay![key].toLocaleString()} per day</p>
+                <div key={key} className="border-t border-hairline pt-4">
+                  <p className="text-sm text-subtle">{label}</p>
+                  <p className="mt-2 text-4xl font-semibold text-ink tabular-nums sm:text-6xl">{activity.totals![key].toLocaleString()}</p>
+                  <p className="mt-2 text-sm text-mute">{activity.perTrackedDay![key].toLocaleString()} per day</p>
                 </div>
               ))}
             </div>
@@ -252,14 +244,14 @@ function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducer
   ];
 
   return (
-    <section className="border-t border-white/10 bg-black px-6 py-16 light:border-black/10 light:bg-[#f6f7f8] sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
+    <section className="border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
       <div className="mx-auto max-w-4xl">
-        <h3 id="final-overview-title" className="text-3xl font-semibold tracking-[-0.04em] text-white light:text-ink sm:text-5xl">Your month, together</h3>
-        <dl className="mt-10 divide-y divide-white/12 border-y border-white/12 light:divide-black/12 light:border-black/12">
+        <h3 id="final-overview-title" className="text-3xl font-semibold text-ink sm:text-5xl">Your month, together</h3>
+        <dl className="mt-10 divide-y divide-hairline border-y border-hairline">
           {rows.map(([label, value]) => (
             <div key={label} className="grid gap-2 py-5 sm:grid-cols-[13rem_1fr] sm:items-baseline">
-              <dt className="text-sm text-white/45 light:text-black/50">{label}</dt>
-              <dd className="text-lg font-semibold leading-7 text-white light:text-ink sm:text-xl">{value}</dd>
+              <dt className="text-sm text-mute">{label}</dt>
+              <dd className="text-lg font-semibold leading-7 text-ink sm:text-xl">{value}</dd>
             </div>
           ))}
         </dl>
