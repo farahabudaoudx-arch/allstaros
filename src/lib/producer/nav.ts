@@ -128,6 +128,11 @@ const PERSONAL: NavEntry[] = [
         icon: "/menu-icons/resources/underwriting-wizard.png",
       },
       {
+        label: "Scripts",
+        href: "/producer/resources/scripts",
+        icon: "/menu-icons/resources/scripts.png",
+      },
+      {
         label: "Carrier Links",
         href: "/producer/resources/portal-links",
         icon: "/menu-icons/resources/carrier-links.png",
