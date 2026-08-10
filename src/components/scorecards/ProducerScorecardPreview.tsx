@@ -54,14 +54,14 @@ export function ProducerScorecardPreview({
       <StorySection number="01" title="Issued Premium" compact>
         <StoryValue
           intro="Across all IP reports from Gateway in January, you submitted:"
-          introClass="font-normal text-white"
+          introClass="font-normal text-accent"
           compact
           value={money(preview.totalIssuedIpCents)}
           valueClass={ISSUANCE_VALUE_CLASS[preview.issuanceStatus]}
         />
         <WeeklyTrend reports={preview.weeklyReports} />
         <div className="mt-10 max-w-3xl">
-          <p className="text-base font-normal text-ink sm:text-lg">This means your average weekly IP was:</p>
+          <p className="text-base font-normal text-accent sm:text-lg">This means your average weekly IP was:</p>
           <p className="mt-4 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
             {money(preview.averageWeeklyIpCents)}
           </p>
@@ -157,7 +157,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           .weekly-trend__area, .weekly-trend__line, .weekly-trend__point { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
         }
       `}</style>
-      <p className="mb-6 text-base font-normal text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
+      <p className="mb-6 text-base font-normal text-accent sm:text-lg">Here&apos;s what you submitted week by week:</p>
       <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend by week">
         <defs>
           <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
@@ -198,7 +198,7 @@ type ComparisonItem = {
 function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   return (
     <div className="mt-10 max-w-5xl">
-      <p className="text-base font-normal text-ink sm:text-lg">Here&apos;s how you matched up against the organization:</p>
+      <p className="text-base font-normal text-accent sm:text-lg">Here&apos;s how you matched up against the organization:</p>
       <div className={`mt-5 grid gap-3 ${items.length === 1 ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
         {items.map((item) => (
           <div key={item.label} className="rounded-xl border border-hairline bg-card px-5 py-4">
@@ -221,7 +221,7 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
           <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
         </div>
         <div className="mt-10 max-w-4xl">
-          <p className="text-base font-normal text-ink sm:text-lg">Inside the OS Tracker, you submitted:</p>
+          <p className="text-base font-normal text-accent sm:text-lg">Inside the OS Tracker, you submitted:</p>
           <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
             {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
           </p>
@@ -233,8 +233,8 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
           </div>
         ) : (
           <>
-            <p className="mt-10 max-w-5xl text-pretty text-lg leading-8 text-subtle sm:text-xl sm:leading-9">
-              You logged <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
+            <p className="mt-10 max-w-5xl text-pretty text-lg leading-8 text-accent sm:text-xl sm:leading-9">
+              You logged <strong className="font-semibold">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold">{activity.totals.sales.toLocaleString()} sales</strong>.
             </p>
             <OrganizationComparison
               items={[
