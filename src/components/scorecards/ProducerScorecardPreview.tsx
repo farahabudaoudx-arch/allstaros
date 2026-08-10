@@ -52,16 +52,15 @@ export function ProducerScorecardPreview({
           value={money(preview.totalIssuedIpCents)}
         />
         <WeeklyTrend reports={preview.weeklyReports} />
+        <div className="mt-12 max-w-3xl">
+          <p className="text-base font-normal text-ink sm:text-lg">This means your average weekly IP was:</p>
+          <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
+            {money(preview.averageWeeklyIpCents)}
+          </p>
+        </div>
       </StorySection>
 
-      <StorySection number="02" title="Average Weekly IP">
-        <StoryValue
-          intro={`Across ${preview.sourceCoverage.reportCount} Gateway reports in January, your average weekly IP was ${money(preview.averageWeeklyIpCents)}.`}
-          value={money(preview.averageWeeklyIpCents)}
-        />
-      </StorySection>
-
-      <StorySection number="03" title="Submitted Annual Premium">
+      <StorySection number="02" title="Submitted Annual Premium">
         <StoryValue
           intro={overview.submittedApCents == null ? "Submitted annual premium is currently unavailable." : `Inside the OS Tracker, you submitted ${money(overview.submittedApCents)} of written premium.`}
           value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)}
@@ -71,18 +70,18 @@ export function ProducerScorecardPreview({
 
       <ActivityStory activity={overview.activity} />
 
-      <StorySection number="05" title="Month-over-Month Growth">
+      <StorySection number="04" title="Month-over-Month Growth">
         <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
       </StorySection>
 
-      <StorySection number="06" title="Company Rank">
+      <StorySection number="05" title="Company Rank">
         <StoryValue
           value={`#${overview.rank.rank} of ${overview.rank.population}`}
           detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)} from last month`}`}
         />
       </StorySection>
 
-      <StorySection number="07" title="Tracking Consistency">
+      <StorySection number="06" title="Tracking Consistency">
         <StoryValue
           value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
           detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
@@ -202,7 +201,7 @@ function ActivityStory({ activity }: { activity: ProducerOverview["activity"] })
     <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
-          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">04</p>
+          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">03</p>
           <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
         </div>
         {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
