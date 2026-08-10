@@ -234,7 +234,7 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
         ) : (
           <>
             <p className="mt-10 max-w-5xl text-pretty text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
-              You logged <strong className="font-semibold">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold">{activity.totals.sales.toLocaleString()} sales</strong>.
+              You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-accent">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.
             </p>
             <OrganizationComparison
               items={[
