@@ -224,13 +224,13 @@ function MonthOverMonthStory({
 
   return (
     <div className="max-w-5xl border border-hairline">
-      <div className="grid grid-cols-3 border-b border-hairline text-sm font-medium text-subtle sm:text-base">
+      <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
         <p className="px-3 py-4 sm:px-6">{previousLabel}</p>
         <p className="border-l border-hairline px-3 py-4 sm:px-6">{preview.periodLabel}</p>
         <p className="border-l border-hairline px-3 py-4 text-right sm:px-6">Percent Change</p>
       </div>
       {comparisons.map((comparison) => (
-        <div key={comparison.label} className="grid grid-cols-3 border-b border-hairline last:border-b-0">
+        <div key={comparison.label} className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
           <p className="px-3 py-5 sm:px-6">
             <span className="block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
             <span className="mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.previous)}</span>
