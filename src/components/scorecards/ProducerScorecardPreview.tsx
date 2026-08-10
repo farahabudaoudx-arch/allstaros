@@ -51,28 +51,6 @@ function longDate(isoDate: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
-export function ScorecardPeriodControls() {
-  return (
-    <div className="flex flex-col gap-3 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="text-sm font-medium text-ink">Current period</p>
-        <p className="mt-1 text-sm text-subtle">Monthly preview updates with each Gateway report.</p>
-      </div>
-      <div className="grid grid-cols-3 gap-1 rounded-xl border border-hairline bg-card p-1" aria-label="Scorecard period">
-        <button type="button" aria-pressed="true" className="rounded-lg bg-card-hi px-3 py-2 text-sm font-medium text-ink ring-1 ring-hairline">
-          Monthly
-        </button>
-        <button type="button" disabled title="Quarterly Scorecards arrive after Q4 2026" className="rounded-lg px-3 py-2 text-sm text-mute disabled:cursor-not-allowed">
-          Quarterly
-        </button>
-        <button type="button" disabled title="Yearly Scorecards arrive after 2027" className="rounded-lg px-3 py-2 text-sm text-mute disabled:cursor-not-allowed">
-          Yearly
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function ProducerScorecardPreview({
   preview,
   overview,
@@ -263,16 +241,7 @@ function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducer
 export function ScorecardsPageShell({ preview, overview }: { preview: MonthlyProducerPreview; overview: ProducerOverview }) {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
-      <div className="mb-8 max-w-3xl">
-        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl">Scorecards</h1>
-        <p className="mt-3 text-base leading-7 text-subtle">
-          A focused review of your production, updated as authoritative company data arrives.
-        </p>
-      </div>
-      <ScorecardPeriodControls />
-      <div className="mt-6">
-        <ProducerScorecardPreview preview={preview} overview={overview} />
-      </div>
+      <ProducerScorecardPreview preview={preview} overview={overview} />
     </main>
   );
 }
