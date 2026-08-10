@@ -1,6 +1,5 @@
 import type {
   MonthlyProducerPreview,
-  ProducerActivityTotals,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
 import { Avatar } from "@/components/Avatar";
@@ -61,28 +60,20 @@ export function ProducerScorecardPreview({
         </div>
       </StorySection>
 
-      <StorySection number="02" title="Submitted Annual Premium">
-        <StoryValue
-          intro={overview.submittedApCents == null ? "Submitted annual premium is currently unavailable." : `Inside the OS Tracker, you submitted ${money(overview.submittedApCents)} of written premium.`}
-          value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)}
-          detail="Weekly AP points will appear when dated AP data is available."
-        />
-      </StorySection>
+      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} />
 
-      <ActivityStory activity={overview.activity} />
-
-      <StorySection number="04" title="Month-over-Month Growth">
+      <StorySection number="03" title="Month-over-Month Growth">
         <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
       </StorySection>
 
-      <StorySection number="05" title="Company Rank">
+      <StorySection number="04" title="Company Rank">
         <StoryValue
           value={`#${overview.rank.rank} of ${overview.rank.population}`}
           detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)} from last month`}`}
         />
       </StorySection>
 
-      <StorySection number="06" title="Tracking Consistency">
+      <StorySection number="05" title="Tracking Consistency">
         <StoryValue
           value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
           detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
@@ -93,15 +84,6 @@ export function ProducerScorecardPreview({
     </article>
   );
 }
-
-const ACTIVITY_LABELS: Array<[keyof ProducerActivityTotals, string]> = [
-  ["leads", "Leads"],
-  ["dials", "Dials"],
-  ["contacts", "Contacts"],
-  ["appointments", "Appointments"],
-  ["presentations", "Presentations"],
-  ["sales", "Sales"],
-];
 
 function StorySection({
   number,
@@ -199,32 +181,29 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   );
 }
 
-function ActivityStory({ activity }: { activity: ProducerOverview["activity"] }) {
+function ActivityStory({ activity, submittedApCents }: { activity: ProducerOverview["activity"]; submittedApCents: number | null }) {
   return (
     <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
-          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">03</p>
+          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">02</p>
           <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
         </div>
-        {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
-          <div className="mt-14 max-w-2xl">
-            <p className="text-4xl font-semibold text-ink sm:text-6xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
-            <p className="mt-6 text-base leading-7 text-subtle">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
+        <div className="mt-10 max-w-4xl">
+          <p className="text-base font-normal text-ink sm:text-lg">Inside the OS Tracker, you submitted:</p>
+          <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
+            {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
+          </p>
+        </div>
+        {activity.availability !== "tracked" || !activity.totals ? (
+          <div className="mt-10 max-w-2xl">
+            <p className="text-3xl font-semibold text-ink sm:text-5xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
+            <p className="mt-5 text-base leading-7 text-subtle">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
           </div>
         ) : (
-          <>
-            <p className="mt-12 text-lg text-subtle">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
-            <div className="mt-10 grid max-w-4xl grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
-              {ACTIVITY_LABELS.map(([key, label]) => (
-                <div key={key} className="border-t border-hairline pt-4">
-                  <p className="text-sm text-subtle">{label}</p>
-                  <p className="mt-2 text-4xl font-semibold text-ink tabular-nums sm:text-6xl">{activity.totals![key].toLocaleString()}</p>
-                  <p className="mt-2 text-sm text-mute">{activity.perTrackedDay![key].toLocaleString()} per day</p>
-                </div>
-              ))}
-            </div>
-          </>
+          <p className="mt-10 max-w-4xl text-xl leading-9 text-subtle sm:text-2xl sm:leading-10">
+            To hit that submitted volume, you made <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, generated <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
+          </p>
         )}
       </div>
     </section>
@@ -234,7 +213,7 @@ function ActivityStory({ activity }: { activity: ProducerOverview["activity"] })
 function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducerPreview; overview: ProducerOverview; growth: string }) {
   const consistency = overview.activity.consistency;
   const activitySummary = overview.activity.totals
-    ? `${overview.activity.totals.leads} leads · ${overview.activity.totals.dials} dials · ${overview.activity.totals.contacts} contacts · ${overview.activity.totals.appointments} appointments · ${overview.activity.totals.presentations} presentations · ${overview.activity.totals.sales} sales`
+    ? `${overview.activity.totals.dials} dials · ${overview.activity.totals.contacts} contacts · ${overview.activity.totals.appointments} appointments · ${overview.activity.totals.presentations} presentations · ${overview.activity.totals.sales} sales`
     : "Activity unavailable";
   const rows = [
     ["Issued IP", money(preview.totalIssuedIpCents)],
