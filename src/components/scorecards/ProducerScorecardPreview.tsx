@@ -201,7 +201,7 @@ function ActivityStory({ activity, submittedApCents }: { activity: ProducerOverv
             <p className="mt-5 text-base leading-7 text-subtle">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
           </div>
         ) : (
-          <p className="mt-10 max-w-4xl text-xl leading-9 text-subtle sm:text-2xl sm:leading-10">
+          <p className="mt-10 max-w-5xl text-pretty text-lg leading-8 text-subtle sm:text-xl sm:leading-9">
             To hit that submitted volume, you made <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, generated <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
           </p>
         )}
