@@ -172,7 +172,7 @@ export async function loadCurrentMonthlyProducerOverview(
 ): Promise<ProducerOverview> {
   const period = currentMonthlyPeriod(now);
   const prior = previousMonth(period.start);
-  const [clientRows, trackerResult, organizationClientRows, organizationTrackerRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
+  const [clientRows, trackerResult, priorTrackerResult, organizationClientRows, organizationTrackerRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
     await Promise.all([
       fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
         supabase
@@ -188,6 +188,12 @@ export async function loadCurrentMonthlyProducerOverview(
         .eq("person_id", producer.id)
         .gte("entry_date", period.start)
         .lte("entry_date", period.end),
+      supabase
+        .from("tracker_entry")
+        .select("entry_date, leads, dials, contacts, appointments, presentations, sales")
+        .eq("person_id", producer.id)
+        .gte("entry_date", prior.start)
+        .lte("entry_date", prior.end),
       fetchAllRows<ClientSaleFields & { id: string; person_id: string }>((lo, hi) =>
         supabase
           .from("clients")
@@ -249,12 +255,14 @@ export async function loadCurrentMonthlyProducerOverview(
       supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", period.start).lte("report_date", period.end),
       supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", prior.start).lte("report_date", prior.end),
     ]);
-  if (trackerResult.error) throw new Error(`Unable to load activity: ${trackerResult.error.message}`);
+  if (trackerResult.error || priorTrackerResult.error) throw new Error(`Unable to load activity: ${trackerResult.error?.message ?? priorTrackerResult.error?.message}`);
   if (peopleResult.error) throw new Error(`Unable to load rank population: ${peopleResult.error.message}`);
   if (currentImportsResult.error || priorImportsResult.error) throw new Error("Unable to load imported Gateway coverage for ranking.");
 
   let submittedApCents = 0;
+  let priorSubmittedApCents = 0;
   let submittedApAvailable = true;
+  let priorSubmittedApAvailable = true;
   for (const client of clientRows) {
     const day = saleDay(client, "America/Chicago");
     if (isSale(client) && day && day >= period.start && day <= period.end) {
@@ -264,9 +272,16 @@ export async function loadCurrentMonthlyProducerOverview(
         submittedApCents += dollarsToCents(client.annual_premium);
       }
     }
+    if (isSale(client) && day && day >= prior.start && day <= prior.end) {
+      if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) {
+        priorSubmittedApAvailable = false;
+      } else {
+        priorSubmittedApCents += dollarsToCents(client.annual_premium);
+      }
+    }
   }
 
-  const activityRows = ((trackerResult.data ?? []) as Array<Record<string, number | string | null>>).map<ProducerActivityRow>(
+  const mapActivityRows = (rows: Array<Record<string, number | string | null>>) => rows.map<ProducerActivityRow>(
     (row) => ({
       entryDate: String(row.entry_date),
       leads: row.leads == null ? null : Number(row.leads),
@@ -277,6 +292,8 @@ export async function loadCurrentMonthlyProducerOverview(
       sales: row.sales == null ? null : Number(row.sales),
     }),
   );
+  const activityRows = mapActivityRows((trackerResult.data ?? []) as Array<Record<string, number | string | null>>);
+  const priorActivityRows = mapActivityRows((priorTrackerResult.data ?? []) as Array<Record<string, number | string | null>>);
 
   const activeIds = new Set(
     ((peopleResult.data ?? []) as Array<{ id: string }>).map((person) => person.id),
@@ -390,6 +407,7 @@ export async function loadCurrentMonthlyProducerOverview(
     fullName: producer.full_name,
     photoUrl: approvedPhotoUrl(producer),
     submittedApCents: submittedApAvailable ? submittedApCents : null,
+    priorSubmittedApCents: priorSubmittedApAvailable ? priorSubmittedApCents : null,
     currentIssuedIpCents,
     priorIssuedIpCents,
     rank: {
@@ -401,6 +419,7 @@ export async function loadCurrentMonthlyProducerOverview(
     },
     organizationRanks: { submittedAp: submittedApRank, ...organizationRanks },
     activityRows,
+    priorActivityRows,
     expectedWorkingDates,
   });
 }

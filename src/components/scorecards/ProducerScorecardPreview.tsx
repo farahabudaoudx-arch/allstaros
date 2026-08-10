@@ -78,13 +78,7 @@ export function ProducerScorecardPreview({
       <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} />
 
       <StorySection number="03" title="Month-over-Month Growth">
-        <MonthOverMonthStory
-          currentLabel={preview.periodLabel}
-          currentValue={preview.totalIssuedIpCents}
-          previousLabel={previousMonthLabel(preview.periodStart)}
-          previousValue={overview.priorIssuedIpCents}
-          growth={growth}
-        />
+        <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
       <StorySection number="04" title="Tracking Consistency">
@@ -202,31 +196,50 @@ function previousMonthLabel(periodStart: string): string {
 }
 
 function MonthOverMonthStory({
-  previousLabel,
-  previousValue,
-  currentLabel,
-  currentValue,
-  growth,
+  preview,
+  overview,
 }: {
-  previousLabel: string;
-  previousValue: number | null;
-  currentLabel: string;
-  currentValue: number;
-  growth: string;
+  preview: MonthlyProducerPreview;
+  overview: ProducerOverview;
 }) {
-  const cards = [
-    { label: previousLabel, descriptor: "Last Month", value: previousValue == null ? "Unavailable" : money(previousValue) },
-    { label: currentLabel, descriptor: "This Month", value: money(currentValue) },
-    { label: "Change", descriptor: "Month over Month", value: growth },
+  const percentageChange = (previous: number | null, current: number | null) => {
+    if (previous == null || current == null) return "Unavailable";
+    if (previous === 0) return "New Baseline";
+    const percentage = Math.round(((current - previous) / previous) * 1_000) / 10;
+    return `${percentage > 0 ? "+" : ""}${percentage}%`;
+  };
+  const formatCount = (value: number | null) => value == null ? "Unavailable" : value.toLocaleString();
+  const previousActivity = overview.priorActivityTotals;
+  const currentActivity = overview.activity.totals;
+  const comparisons = [
+    { label: "Issued Premium", previous: overview.priorIssuedIpCents, current: preview.totalIssuedIpCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
+    { label: "Submitted AP", previous: overview.priorSubmittedApCents, current: overview.submittedApCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
+    { label: "Dials", previous: previousActivity?.dials ?? null, current: currentActivity?.dials ?? null, format: formatCount },
+    { label: "Contacts", previous: previousActivity?.contacts ?? null, current: currentActivity?.contacts ?? null, format: formatCount },
+    { label: "Appointments", previous: previousActivity?.appointments ?? null, current: currentActivity?.appointments ?? null, format: formatCount },
+    { label: "Presentations", previous: previousActivity?.presentations ?? null, current: currentActivity?.presentations ?? null, format: formatCount },
+    { label: "Sales", previous: previousActivity?.sales ?? null, current: currentActivity?.sales ?? null, format: formatCount },
   ];
 
   return (
-    <div className="grid max-w-5xl gap-3 sm:grid-cols-3">
-      {cards.map((card) => (
-        <div key={card.descriptor} className="rounded-xl border border-hairline bg-card px-5 py-5">
-          <p className="text-sm text-mute">{card.descriptor}</p>
-          <p className="mt-2 text-base font-medium text-subtle">{card.label}</p>
-          <p className="mt-5 text-3xl font-semibold tabular-nums text-ink sm:text-4xl">{card.value}</p>
+    <div className="max-w-5xl space-y-3">
+      {comparisons.map((comparison) => (
+        <div key={comparison.label} className="rounded-xl border border-hairline bg-card px-5 py-5">
+          <p className="text-base font-semibold text-ink">{comparison.label}</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-mute">{previousMonthLabel(preview.periodStart)}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">{comparison.format(comparison.previous)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-mute">{preview.periodLabel}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">{comparison.format(comparison.current)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-mute">Change</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-accent">{percentageChange(comparison.previous, comparison.current)}</p>
+            </div>
+          </div>
         </div>
       ))}
     </div>

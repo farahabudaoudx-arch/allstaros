@@ -25,6 +25,7 @@ export default function ScorecardsVisualPreviewPage() {
     fullName: "Jordan Taylor",
     photoUrl: "/headshot-sample.png",
     submittedApCents: protectedFixture.expected.submittedApCents,
+    priorSubmittedApCents: protectedFixture.expected.priorSubmittedApCents,
     currentIssuedIpCents: protectedFixture.expected.totalIssuedIpCents,
     priorIssuedIpCents: protectedFixture.expected.priorMonthIpCents,
     rank: {
@@ -40,6 +41,7 @@ export default function ScorecardsVisualPreviewPage() {
       ]),
     ) as Parameters<typeof createProducerOverview>[0]["organizationRanks"],
     activityRows: protectedFixture.expected.activityRows,
+    priorActivityRows: protectedFixture.expected.priorActivityRows,
     expectedWorkingDates: null,
   });
 

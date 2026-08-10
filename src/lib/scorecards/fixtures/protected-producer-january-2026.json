@@ -29,6 +29,10 @@
     "issuanceStatus": "green",
     "submittedApCents": 2412648,
     "priorMonthIpCents": 0,
+    "priorSubmittedApCents": 1800000,
+    "priorActivityRows": [
+      { "entryDate": "2025-12-05", "leads": 0, "dials": 50, "contacts": 20, "appointments": 5, "presentations": 3, "sales": 8 }
+    ],
     "rank": 3,
     "population": 424,
     "percentile": 100,

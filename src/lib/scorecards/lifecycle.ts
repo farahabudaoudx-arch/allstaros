@@ -92,7 +92,9 @@ export function createScorecardScheduleFacts(input: {
 export type ProducerOverview = {
   producer: { fullName: string; photoUrl: string | null; role: "Producer" };
   submittedApCents: number | null;
+  priorSubmittedApCents: number | null;
   priorIssuedIpCents: number | null;
+  priorActivityTotals: ProducerActivityTotals | null;
   growth:
     | { kind: "new_baseline"; percentage: null }
     | { kind: "percentage"; percentage: number };
@@ -118,11 +120,13 @@ export function createProducerOverview(input: {
   fullName: string;
   photoUrl: string | null;
   submittedApCents: number | null;
+  priorSubmittedApCents?: number | null;
   currentIssuedIpCents: number;
   priorIssuedIpCents: number | null;
   rank: ProducerOverview["rank"];
   organizationRanks: ProducerOverview["organizationRanks"];
   activityRows: ProducerActivityRow[];
+  priorActivityRows?: ProducerActivityRow[];
   expectedWorkingDates: string[] | null;
 }): ProducerOverview {
   const trackedDays = input.activityRows.length;
@@ -133,6 +137,24 @@ export function createProducerOverview(input: {
   const availability = trackedDays === 0 ? "missing" : hasIncompleteRow ? "partial" : "tracked";
   const totals = trackedDays && !hasIncompleteRow
     ? input.activityRows.reduce<ProducerActivityTotals>(
+        (sum, row) => ({
+          leads: sum.leads + row.leads!,
+          dials: sum.dials + row.dials!,
+          contacts: sum.contacts + row.contacts!,
+          appointments: sum.appointments + row.appointments!,
+          presentations: sum.presentations + row.presentations!,
+          sales: sum.sales + row.sales!,
+        }),
+        { leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+      )
+    : null;
+  const priorRows = input.priorActivityRows ?? [];
+  const priorHasIncompleteRow = priorRows.some((row) =>
+    [row.leads, row.dials, row.contacts, row.appointments, row.presentations, row.sales]
+      .some((value) => value == null),
+  );
+  const priorActivityTotals = priorRows.length && !priorHasIncompleteRow
+    ? priorRows.reduce<ProducerActivityTotals>(
         (sum, row) => ({
           leads: sum.leads + row.leads!,
           dials: sum.dials + row.dials!,
@@ -183,7 +205,9 @@ export function createProducerOverview(input: {
   return {
     producer: { fullName: input.fullName, photoUrl: input.photoUrl, role: "Producer" },
     submittedApCents: input.submittedApCents,
+    priorSubmittedApCents: input.priorSubmittedApCents ?? null,
     priorIssuedIpCents: input.priorIssuedIpCents,
+    priorActivityTotals,
     growth,
     rank: input.rank,
     organizationRanks: input.organizationRanks,
