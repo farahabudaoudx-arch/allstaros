@@ -72,6 +72,8 @@ async function renderSectionPng(
     content.style.margin = "0 auto";
     content.style.transform = format === "portrait" ? "scale(1.06)" : "scale(.84)";
     content.style.transformOrigin = "center";
+    const sectionNumber = content.querySelector(":scope > div:first-child > p:first-child") as HTMLElement | null;
+    if (sectionNumber) sectionNumber.style.display = "none";
   }
   if (format === "landscape") {
     clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
@@ -153,53 +155,20 @@ async function renderSectionPng(
     "color:#f7f7f7",
   ].join(";");
 
-  const frame = document.createElement("div");
-  frame.style.cssText = [
-    "position:absolute",
-    format === "portrait" ? "inset:36px" : "inset:30px",
-    "border:2px solid rgba(247,195,54,.7)",
-    "pointer-events:none",
-    "z-index:2",
-  ].join(";");
-
-  const brand = document.createElement("p");
-  brand.textContent = "All Star OS";
-  brand.style.cssText = [
-    "position:absolute",
-    format === "portrait" ? "left:80px;top:72px" : "right:112px;bottom:56px",
-    "margin:0",
-    "font-size:22px",
-    "line-height:1",
-    "font-weight:650",
-    "color:#f7f7f7",
-    "z-index:3",
-  ].join(";");
-
-  const progress = document.createElement("p");
-  progress.textContent = `${sectionId.slice(-2)} / 04`;
-  progress.style.cssText = [
-    "position:absolute",
-    format === "portrait" ? "right:80px;top:72px" : "right:112px;top:56px",
-    "margin:0",
-    "font-size:18px",
-    "line-height:1",
-    "font-weight:600",
-    "color:#f7c336",
-    "z-index:3",
-  ].join(";");
-
   const attribution = document.createElement("p");
   const producer = document.getElementById("producer-scorecard-title")?.textContent?.trim();
   const scorecardTitle = document.getElementById("producer-scorecard-title")?.nextElementSibling?.textContent?.trim();
-  attribution.textContent = [producer, scorecardTitle].filter(Boolean).join(" · ");
+  const period = scorecardTitle?.replace(/ Producer Scorecard$/, "");
+  attribution.textContent = [producer, period].filter(Boolean).join(" · ");
   attribution.style.cssText = [
     "position:absolute",
-    format === "portrait" ? "left:80px;right:80px;bottom:76px" : "left:112px;right:480px;bottom:60px",
+    format === "portrait" ? "left:80px;right:80px;bottom:76px" : "left:112px;right:112px;bottom:60px",
     "margin:0",
-    "font-size:18px",
+    "font-size:20px",
     "line-height:1.4",
-    "font-weight:500",
-    "color:rgba(247,247,247,.58)",
+    "font-weight:600",
+    "color:rgba(247,247,247,.72)",
+    "text-align:center",
     "z-index:3",
   ].join(";");
 
@@ -217,7 +186,7 @@ async function renderSectionPng(
       stroke-dashoffset: 0 !important;
     }
   `;
-  artboard.append(clone, frame, brand, progress, attribution);
+  artboard.append(clone, attribution);
   stage.append(motionReset, artboard);
   document.body.append(stage);
 
