@@ -403,7 +403,7 @@ function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducer
   return (
     <section className="border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
       <div className="mx-auto max-w-4xl">
-        <h3 id="final-overview-title" className="text-3xl font-semibold text-ink sm:text-5xl">Your month, together</h3>
+        <h3 id="final-overview-title" className="text-3xl font-semibold text-ink sm:text-5xl">Scorecard Summary</h3>
         <dl className="mt-10 divide-y divide-hairline border-y border-hairline">
           {rows.map(([label, value]) => (
             <div key={label} className="grid gap-2 py-5 sm:grid-cols-[13rem_1fr] sm:items-baseline">
