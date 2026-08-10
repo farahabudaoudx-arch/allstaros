@@ -71,7 +71,7 @@ async function renderSectionPng(
 
   try {
     await document.fonts.ready;
-    const blob = await toBlob(stage, {
+    const blob = await toBlob(clone, {
       width,
       height,
       canvasWidth: width,
