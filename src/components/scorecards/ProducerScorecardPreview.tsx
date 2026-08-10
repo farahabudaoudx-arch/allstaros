@@ -139,24 +139,51 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   const values = reports.map((report) => report.personalIpCents);
   const maximum = Math.max(...values, 1);
   const points = values.map((value, index) => {
-    const x = reports.length === 1 ? 50 : (index / (reports.length - 1)) * 100;
-    const y = 92 - (value / maximum) * 76;
+    const x = reports.length === 1 ? 500 : 55 + (index / (reports.length - 1)) * 890;
+    const y = 165 - (value / maximum) * 82;
     return { x, y };
   });
+  const linePoints = points.map(({ x, y }) => `${x},${y}`).join(" ");
+  const areaPoints = `${linePoints} ${points.at(-1)!.x},195 ${points[0].x},195`;
 
   return (
-    <div className="mt-10 max-w-4xl border-t border-hairline pt-7">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-36 w-full overflow-visible sm:h-44" role="img" aria-label="Weekly issued premium trend">
-        <polyline points={points.map(({ x, y }) => `${x},${y}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" className="text-accent" />
+    <div className="weekly-trend mt-10 max-w-4xl border-t border-hairline pt-7">
+      <style>{`
+        .weekly-trend { view-timeline-name: --weekly-trend; view-timeline-axis: block; }
+        .weekly-trend__area { animation: weekly-area-in linear both; animation-timeline: --weekly-trend; animation-range: entry 5% cover 32%; }
+        .weekly-trend__line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: weekly-line-in linear both; animation-timeline: --weekly-trend; animation-range: entry 10% cover 38%; }
+        .weekly-trend__point { opacity: 0; transform-box: fill-box; transform-origin: center; animation: weekly-point-in linear both; animation-timeline: --weekly-trend; animation-range: entry 24% cover 46%; }
+        @keyframes weekly-area-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes weekly-line-in { to { stroke-dashoffset: 0; } }
+        @keyframes weekly-point-in { from { opacity: 0; transform: translateY(8px) scale(.92); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) {
+          .weekly-trend__area, .weekly-trend__line, .weekly-trend__point { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
+        }
+      `}</style>
+      <svg viewBox="0 0 1000 210" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend">
+        <defs>
+          <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+        <polygon points={areaPoints} fill="url(#weekly-ip-area)" className="weekly-trend__area text-accent" />
+        <polyline pathLength="1" points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="weekly-trend__line text-accent" />
         {points.map(({ x, y }, index) => (
-          <circle key={reports[index].reportDate} cx={x} cy={y} r="1.8" vectorEffect="non-scaling-stroke" className="fill-background stroke-accent" strokeWidth="2" />
+          <g key={reports[index].reportDate} className="weekly-trend__point">
+            <rect x={Math.max(0, Math.min(860, x - 70))} y={y - 62} width="140" height="43" rx="10" className="fill-card stroke-hairline" />
+            <path d={`M ${x - 8} ${y - 19} L ${x} ${y - 10} L ${x + 8} ${y - 19} Z`} className="fill-card stroke-hairline" strokeLinejoin="round" />
+            <text x={x} y={y - 35} textAnchor="middle" dominantBaseline="middle" className="fill-ink text-[20px] font-semibold tabular-nums">
+              {money(reports[index].personalIpCents)}
+            </text>
+            <circle cx={x} cy={y} r="6" className="fill-accent" />
+          </g>
         ))}
       </svg>
       <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-5">
         {reports.map((week) => (
           <div key={week.reportDate}>
             <p className="text-xs font-medium text-subtle">{week.label}</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums text-ink">{money(week.personalIpCents)}</p>
           </div>
         ))}
       </div>
