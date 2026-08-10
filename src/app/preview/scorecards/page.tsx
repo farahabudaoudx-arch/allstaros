@@ -22,8 +22,8 @@ export default function ScorecardsVisualPreviewPage() {
     generatedAt: "2026-08-10T12:00:00.000Z",
   });
   const overview = createProducerOverview({
-    fullName: "Jordan Taylor",
-    photoUrl: "/headshot-sample.png",
+    fullName: "Jackson Rapaport",
+    photoUrl: "https://api.allstarlifegroup.com/storage/v1/object/public/headshots/aa7642c5-7b10-473e-ac8f-b9c21f958354.jpg?v=1784920841727",
     submittedApCents: protectedFixture.expected.submittedApCents,
     priorSubmittedApCents: protectedFixture.expected.priorSubmittedApCents,
     currentIssuedIpCents: protectedFixture.expected.totalIssuedIpCents,
