@@ -19,28 +19,18 @@ uniform float u_grain;
 uniform vec3 u_colors[4];
 uniform vec3 u_bg;
 
-vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
-float snoise(vec2 v) {
-  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-  vec2 i = floor(v + dot(v, C.yy));
-  vec2 x0 = v - i + dot(i, C.xx);
-  vec2 i1 = x0.x > x0.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-  vec4 x12 = x0.xyxy + C.xxzz;
-  x12.xy -= i1;
-  i = mod(i, 289.0);
-  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-  vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
-  m = m * m;
-  m = m * m;
-  vec3 x = 2.0 * fract(p * C.www) - 1.0;
-  vec3 h = abs(x) - 0.5;
-  vec3 ox = floor(x + 0.5);
-  vec3 a0 = x - ox;
-  m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
-  vec3 g;
-  g.x = a0.x * x0.x + h.x * x0.y;
-  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-  return 130.0 * dot(m, g);
+float lineGrid(float value, float frequency, float thickness) {
+  float distanceToLine = abs(fract(value * frequency) - 0.5);
+  return smoothstep(thickness, thickness + 0.055, distanceToLine);
+}
+
+float meshRibbon(vec2 uv, float center, float halfWidth, float phase) {
+  float normalizedY = (uv.y - center) / halfWidth;
+  float surface = 1.0 - smoothstep(0.88, 1.0, abs(normalizedY));
+  float contours = lineGrid(normalizedY + sin(uv.x * 8.0 + phase) * 0.035, 13.0, 0.445);
+  float crossLines = lineGrid(uv.x + normalizedY * 0.028 + sin(normalizedY * 2.4 + phase) * 0.006, 68.0, 0.43);
+  float boundary = 1.0 - smoothstep(0.012, 0.04, abs(abs(normalizedY) - 1.0));
+  return surface * max(max(contours, crossLines * 0.74), boundary);
 }
 
 void main() {
@@ -48,30 +38,27 @@ void main() {
   float aspect = u_resolution.x / u_resolution.y;
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
   float t = u_time;
-  float broadWarp = snoise(vec2(uv.x * 1.15 - t * 0.035, t * 0.025)) * 0.075;
-  float fineWarp = snoise(vec2(uv.x * 2.6 + t * 0.045, uv.y * 0.7)) * 0.022;
 
-  float waveA = 0.62 + sin(uv.x * 5.4 - t * 0.22) * 0.105 + broadWarp;
-  float waveB = 0.38 + sin(uv.x * 4.1 + t * 0.18 + 1.7) * 0.09 - broadWarp * 0.7;
-  float waveC = 0.16 + sin(uv.x * 6.2 - t * 0.14 + 3.1) * 0.055 + fineWarp;
+  float centerA = 0.49 + sin(uv.x * 6.0 - t * 0.24) * 0.13 + sin(uv.x * 13.0 + t * 0.11) * 0.025;
+  float centerB = 0.51 + sin(uv.x * 4.5 + t * 0.19 + 2.2) * 0.17 + sin(uv.x * 10.0 - t * 0.08) * 0.035;
+  float centerC = 0.48 + sin(uv.x * 7.4 - t * 0.14 + 4.0) * 0.095;
+  float widthA = 0.12 + (sin(uv.x * 5.0 + 0.7) + 1.0) * 0.025;
+  float widthB = 0.095 + (sin(uv.x * 6.5 + 2.0) + 1.0) * 0.018;
+  float widthC = 0.065 + (sin(uv.x * 8.0 + 4.2) + 1.0) * 0.014;
 
-  float ribbonA = 1.0 - smoothstep(0.0, 0.16, abs(uv.y - waveA));
-  float ribbonB = 1.0 - smoothstep(0.0, 0.105, abs(uv.y - waveB));
-  float ribbonC = 1.0 - smoothstep(0.0, 0.065, abs(uv.y - waveC));
-  float edgeA = 1.0 - smoothstep(0.0, 0.012, abs(uv.y - waveA));
-  float edgeB = 1.0 - smoothstep(0.0, 0.009, abs(uv.y - waveB));
+  float ribbonA = meshRibbon(uv, centerA, widthA, 0.5);
+  float ribbonB = meshRibbon(uv, centerB, widthB, 2.3);
+  float ribbonC = meshRibbon(uv, centerC, widthC, 4.6);
 
   vec3 col = u_bg;
-  col = mix(col, u_colors[2], ribbonA * 0.72);
-  col = mix(col, u_colors[1], ribbonB * 0.48);
-  col = mix(col, u_colors[2], ribbonC * 0.54);
-  col += u_colors[0] * edgeA * 0.18;
-  col += u_colors[3] * edgeB * 0.045;
+  col += u_colors[2] * ribbonA * 1.05;
+  col += u_colors[1] * ribbonB * 0.92;
+  col += u_colors[0] * ribbonC * 0.68;
 
-  float centerQuiet = smoothstep(0.0, 0.46, length(vec2(p.x * 0.52, p.y - 0.06)));
-  col *= mix(0.56, 1.0, centerQuiet);
+  float centerQuiet = smoothstep(0.0, 0.34, length(vec2(p.x * 0.48, p.y - 0.02)));
+  col *= mix(0.68, 1.0, centerQuiet);
   float vignette = 1.0 - smoothstep(0.45, 1.25, length(p));
-  col *= mix(0.48, 1.0, vignette);
+  col *= mix(0.58, 1.0, vignette);
   float grain = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453 + u_time);
   col += (grain - 0.5) * u_grain * 0.035;
   gl_FragColor = vec4(col, 1.0);
@@ -174,7 +161,7 @@ export function VelarisBackground({ children }: { children: ReactNode }) {
   return (
     <div ref={containerRef} className="relative overflow-hidden bg-black">
       <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/45" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/15" />
       <div className="relative z-10">{children}</div>
     </div>
   );
