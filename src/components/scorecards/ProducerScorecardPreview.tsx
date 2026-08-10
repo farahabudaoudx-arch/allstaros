@@ -47,7 +47,8 @@ export function ProducerScorecardPreview({
 
       <StorySection number="01" title="Issued Premium">
         <StoryValue
-          intro={`Across all IP reports from Gateway in January, you submitted ${money(preview.totalIssuedIpCents)}.`}
+          intro="Across all IP reports from Gateway in January, you submitted:"
+          introClass="font-bold text-white"
           value={money(preview.totalIssuedIpCents)}
         />
         <WeeklyTrend reports={preview.weeklyReports} />
@@ -124,10 +125,10 @@ function StorySection({
   );
 }
 
-function StoryValue({ value, intro, detail }: { value: string; intro?: string; detail?: string }) {
+function StoryValue({ value, intro, introClass = "text-subtle", detail }: { value: string; intro?: string; introClass?: string; detail?: string }) {
   return (
     <div className="max-w-3xl">
-      {intro ? <p className="max-w-2xl text-base leading-7 text-subtle sm:text-lg">{intro}</p> : null}
+      {intro ? <p className={`max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
       <p className={`${intro ? "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink`}>{value}</p>
       {detail ? <p className="mt-5 max-w-2xl text-sm leading-6 text-mute">{detail}</p> : null}
     </div>
