@@ -161,13 +161,13 @@ function StorySection({
   children: ReactNode;
 }) {
   return (
-    <section className="flex min-h-[58svh] items-center border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:min-h-[64svh] sm:px-12 lg:px-20">
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="flex items-baseline gap-4">
-          <p className="text-sm font-semibold tabular-nums text-accent">{number}</p>
-          <h3 className="text-xl font-semibold text-ink sm:text-2xl">{title}</h3>
+    <section className="min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20">
+      <div className="w-full">
+        <div className="flex items-start gap-5 sm:gap-7">
+          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
+          <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
         </div>
-        <div className="mt-12 sm:mt-16">{children}</div>
+        <div className="mt-10 max-w-4xl sm:mt-12">{children}</div>
       </div>
     </section>
   );
@@ -198,11 +198,11 @@ function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
 
 function ActivityStory({ activity }: { activity: ProducerOverview["activity"] }) {
   return (
-    <section className="flex min-h-[72svh] items-center border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:px-12 lg:px-20" aria-labelledby="activity-title">
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="flex items-baseline gap-4">
-          <p className="text-sm font-semibold tabular-nums text-accent">04</p>
-          <h3 id="activity-title" className="text-xl font-semibold text-ink sm:text-2xl">Your activity</h3>
+    <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
+      <div className="w-full">
+        <div className="flex items-start gap-5 sm:gap-7">
+          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">04</p>
+          <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your activity</h3>
         </div>
         {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
           <div className="mt-14 max-w-2xl">
@@ -212,7 +212,7 @@ function ActivityStory({ activity }: { activity: ProducerOverview["activity"] })
         ) : (
           <>
             <p className="mt-12 text-lg text-subtle">Your funnel across {activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
-            <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
+            <div className="mt-10 grid max-w-4xl grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
               {ACTIVITY_LABELS.map(([key, label]) => (
                 <div key={key} className="border-t border-hairline pt-4">
                   <p className="text-sm text-subtle">{label}</p>
