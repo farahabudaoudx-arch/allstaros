@@ -77,7 +77,7 @@ export function ProducerScorecardPreview({
 
       <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} />
 
-      <StorySection number="03" title="Month-over-Month Growth">
+      <StorySection number="03" title="Previous Month Growth">
         <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
