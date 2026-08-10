@@ -139,7 +139,6 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
   const values = reports.map((report) => report.personalIpCents);
   const axisMaximum = 10_000_000;
-  const yTicks = [10_000_000, 5_000_000, 2_500_000, 1_000_000, 0];
   const points = values.map((value, index) => {
     const x = reports.length === 1 ? 500 : 105 + (index / (reports.length - 1)) * 825;
     const y = 195 - (Math.min(value, axisMaximum) / axisMaximum) * 115;
@@ -162,25 +161,14 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           .weekly-trend__area, .weekly-trend__line, .weekly-trend__point { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
         }
       `}</style>
-      <p className="mb-7 text-base font-semibold text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
-      <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend with week and dollar axes">
+      <p className="mb-7 text-base font-normal text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
+      <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend by week">
         <defs>
           <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
             <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
           </linearGradient>
         </defs>
-        {yTicks.map((tick) => {
-          const y = 195 - (tick / axisMaximum) * 115;
-          const label = tick === 0 ? "$0" : `$${tick / 100_000}k`;
-          return (
-            <g key={tick}>
-              <line x1="98" y1={y} x2="945" y2={y} className="stroke-hairline" strokeWidth="1" />
-              <text x="86" y={y} textAnchor="end" dominantBaseline="middle" className="fill-mute text-[15px] tabular-nums">{label}</text>
-            </g>
-          );
-        })}
-        <line x1="98" y1="74" x2="98" y2="195" className="stroke-subtle" strokeWidth="2" />
         <line x1="98" y1="195" x2="945" y2="195" className="stroke-subtle" strokeWidth="2" />
         <polygon points={areaPoints} fill="url(#weekly-ip-area)" className="weekly-trend__area text-accent" />
         <polyline pathLength="1" points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="weekly-trend__line text-accent" />
