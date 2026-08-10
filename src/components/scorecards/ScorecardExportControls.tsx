@@ -30,11 +30,10 @@ function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
   );
 }
 
-async function exportSection(
+async function renderSectionPng(
   sectionId: string,
-  sectionName: string,
   format: ScorecardExportFormat,
-) {
+): Promise<Blob> {
   const source = document.getElementById(sectionId);
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
 
@@ -81,17 +80,29 @@ async function exportSection(
       cacheBust: true,
     });
     if (!blob) throw new Error("The scorecard PNG could not be created.");
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = scorecardExportFilename(sectionName, format);
-    link.href = objectUrl;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    return blob;
   } finally {
     stage.remove();
   }
+}
+
+function submitPngDownload(filename: string, dataUrl: string) {
+  const form = document.createElement("form");
+  form.method = "post";
+  form.action = "/preview/scorecards/export-png";
+  form.hidden = true;
+
+  for (const [name, value] of [["filename", filename], ["png", dataUrl]]) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.append(input);
+  }
+
+  document.body.append(form);
+  form.requestSubmit();
+  window.setTimeout(() => form.remove(), 1_000);
 }
 
 export function ScorecardExportControls({
@@ -103,14 +114,31 @@ export function ScorecardExportControls({
 }) {
   const [busyFormat, setBusyFormat] = useState<ScorecardExportFormat | null>(null);
   const [status, setStatus] = useState("");
+  const [readyDownload, setReadyDownload] = useState<{
+    format: ScorecardExportFormat;
+    filename: string;
+    dataUrl: string;
+  } | null>(null);
 
   const download = async (format: ScorecardExportFormat) => {
     if (busyFormat) return;
     setBusyFormat(format);
     setStatus("");
     try {
-      await exportSection(sectionId, sectionName, format);
-      setStatus(`${SCORECARD_EXPORTS[format].label} PNG downloaded.`);
+      const blob = await renderSectionPng(sectionId, format);
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      setReadyDownload({
+        format,
+        filename: scorecardExportFilename(sectionName, format),
+        dataUrl,
+      });
+      submitPngDownload(scorecardExportFilename(sectionName, format), dataUrl);
+      setStatus(`${SCORECARD_EXPORTS[format].label} PNG download started.`);
     } catch {
       setStatus("PNG download failed. Please try again.");
     } finally {
@@ -124,6 +152,29 @@ export function ScorecardExportControls({
       {(["portrait", "landscape"] as const).map((format) => {
         const label = SCORECARD_EXPORTS[format].label;
         const busy = busyFormat === format;
+        const ready = readyDownload?.format === format;
+        if (ready) {
+          const formId = `${sectionId}-${format}-download`;
+          return (
+            <form
+              key={format}
+              id={formId}
+              action="/preview/scorecards/export-png"
+              method="post"
+            >
+              <input type="hidden" name="filename" value={readyDownload.filename} />
+              <input type="hidden" name="png" value={readyDownload.dataUrl} />
+              <button
+                type="submit"
+                aria-label={`Save ${sectionName} as a ${label} PNG`}
+                title="PNG ready — click to save"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-accent bg-accent/15 text-accent transition-transform duration-150 ease-out active:scale-[0.97]"
+              >
+                <DownloadGlyph format={format} />
+              </button>
+            </form>
+          );
+        }
         return (
           <button
             key={format}
@@ -142,6 +193,15 @@ export function ScorecardExportControls({
           </button>
         );
       })}
+      {readyDownload ? (
+        <button
+          type="submit"
+          form={`${sectionId}-${readyDownload.format}-download`}
+          className="absolute right-0 top-12 whitespace-nowrap pt-2 text-xs font-medium text-accent underline underline-offset-4"
+        >
+          PNG ready — click to save
+        </button>
+      ) : null}
     </div>
   );
 }
