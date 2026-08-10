@@ -1,10 +1,17 @@
 import type {
+  IssuanceStatus,
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import { VelarisBackground } from "./VelarisBackground";
+
+const ISSUANCE_VALUE_CLASS: Record<IssuanceStatus, string> = {
+  green: "text-pos",
+  blue: "text-[#78a7ff] light:text-[#2859ad]",
+  red: "text-neg",
+};
 
 function money(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -50,6 +57,7 @@ export function ProducerScorecardPreview({
           introClass="font-normal text-white"
           compact
           value={money(preview.totalIssuedIpCents)}
+          valueClass={ISSUANCE_VALUE_CLASS[preview.issuanceStatus]}
         />
         <WeeklyTrend reports={preview.weeklyReports} />
         <div className="mt-10 max-w-3xl">
@@ -109,11 +117,11 @@ function StorySection({
   );
 }
 
-function StoryValue({ value, intro, introClass = "text-subtle", compact = false, detail }: { value: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
+function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-subtle", compact = false, detail }: { value: string; valueClass?: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
   return (
     <div className="max-w-3xl">
       {intro ? <p className={`max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
-      <p className={`${intro ? compact ? "mt-5" : "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink`}>{value}</p>
+      <p className={`${intro ? compact ? "mt-5" : "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums ${valueClass}`}>{value}</p>
       {detail ? <p className="mt-5 max-w-2xl text-sm leading-6 text-mute">{detail}</p> : null}
     </div>
   );
