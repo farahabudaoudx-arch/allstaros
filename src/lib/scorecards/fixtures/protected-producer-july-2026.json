@@ -1,0 +1,92 @@
+{
+  "fixtureVersion": 1,
+  "protection": {
+    "classification": "protected-historical",
+    "identity": "Jackson Rapaport",
+    "source": "Gateway weekly issued-premium reports",
+    "verifiedBy": "weekly-wtd-sum-matches-month-end-mtd",
+    "verifiedAt": "2026-08-10",
+    "monthEndMtdCents": 577500,
+    "notes": "Client-level data, email, NPN, and contact details are intentionally excluded. Aggregate July 2026 Gateway issued premium, submitted AP, tracker activity, and organization ranks belong to Jackson Rapaport and are retained for local visual verification. Expected tracking dates use the requested Monday-through-Saturday preview schedule because schedule-history tables are not present in this environment."
+  },
+  "producerId": "aa7642c5-7b10-473e-ac8f-b9c21f958354",
+  "period": {
+    "kind": "monthly",
+    "start": "2026-07-01",
+    "end": "2026-07-31",
+    "label": "July 2026"
+  },
+  "reports": [
+    { "reportDate": "2026-07-07", "label": "July Week 1", "personalIpCents": 577500 },
+    { "reportDate": "2026-07-21", "label": "July Week 3", "personalIpCents": 0 },
+    { "reportDate": "2026-07-31", "label": "July Week 5", "personalIpCents": 0 }
+  ],
+  "expected": {
+    "totalIssuedIpCents": 577500,
+    "averageWeeklyIpCents": 192500,
+    "issuanceStatus": "red",
+    "submittedApCents": 3094788,
+    "priorMonthIpCents": 2647666,
+    "priorSubmittedApCents": 2404044,
+    "priorActivityRows": [
+      { "entryDate": "2026-06-10", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-06-13", "leads": 0, "dials": 2, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-06-15", "leads": 7, "dials": 87, "contacts": 11, "appointments": 3, "presentations": 5, "sales": 2 },
+      { "entryDate": "2026-06-16", "leads": 0, "dials": 37, "contacts": 3, "appointments": 1, "presentations": 1, "sales": 1 },
+      { "entryDate": "2026-06-17", "leads": 0, "dials": 74, "contacts": 9, "appointments": 2, "presentations": 2, "sales": 2 },
+      { "entryDate": "2026-06-18", "leads": 0, "dials": 46, "contacts": 8, "appointments": 0, "presentations": 1, "sales": 0 },
+      { "entryDate": "2026-06-22", "leads": 4, "dials": 5, "contacts": 1, "appointments": 1, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-06-23", "leads": 10, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-06-24", "leads": 6, "dials": 76, "contacts": 6, "appointments": 2, "presentations": 2, "sales": 3 },
+      { "entryDate": "2026-06-25", "leads": 0, "dials": 74, "contacts": 13, "appointments": 3, "presentations": 1, "sales": 0 },
+      { "entryDate": "2026-06-26", "leads": 0, "dials": 15, "contacts": 1, "appointments": 0, "presentations": 1, "sales": 1 },
+      { "entryDate": "2026-06-29", "leads": 0, "dials": 6, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 }
+    ],
+    "rank": 86,
+    "population": 426,
+    "percentile": 80,
+    "organizationRanks": {
+      "submittedAp": 27,
+      "dials": 144,
+      "contacts": 109,
+      "appointments": 20,
+      "presentations": 65,
+      "sales": 59
+    },
+    "trackedDays": 16,
+    "expectedWorkingDates": [
+      "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-06",
+      "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10", "2026-07-11",
+      "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17",
+      "2026-07-18", "2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23",
+      "2026-07-24", "2026-07-25", "2026-07-27", "2026-07-28", "2026-07-29",
+      "2026-07-30", "2026-07-31"
+    ],
+    "activityRows": [
+      { "entryDate": "2026-07-08", "leads": 0, "dials": 59, "contacts": 3, "appointments": 1, "presentations": 1, "sales": 0 },
+      { "entryDate": "2026-07-09", "leads": 0, "dials": 62, "contacts": 6, "appointments": 2, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-07-10", "leads": 0, "dials": 0, "contacts": 1, "appointments": 0, "presentations": 1, "sales": 0 },
+      { "entryDate": "2026-07-13", "leads": 0, "dials": 6, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-07-14", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 2 },
+      { "entryDate": "2026-07-16", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-07-17", "leads": 0, "dials": 19, "contacts": 2, "appointments": 2, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-07-18", "leads": 8, "dials": 126, "contacts": 4, "appointments": 2, "presentations": 6, "sales": 0 },
+      { "entryDate": "2026-07-20", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-07-23", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-07-24", "leads": 0, "dials": 118, "contacts": 9, "appointments": 3, "presentations": 1, "sales": 1 },
+      { "entryDate": "2026-07-25", "leads": 0, "dials": 7, "contacts": 1, "appointments": 1, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-07-27", "leads": 0, "dials": 31, "contacts": 5, "appointments": 0, "presentations": 1, "sales": 3 },
+      { "entryDate": "2026-07-28", "leads": 0, "dials": 8, "contacts": 4, "appointments": 2, "presentations": 0, "sales": 0 },
+      { "entryDate": "2026-07-29", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-07-30", "leads": 0, "dials": 7, "contacts": 3, "appointments": 3, "presentations": 3, "sales": 0 }
+    ],
+    "activity": {
+      "leads": 0,
+      "dials": 443,
+      "contacts": 38,
+      "appointments": 16,
+      "presentations": 13,
+      "sales": 11
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import protectedFixture from "./fixtures/protected-producer-january-2026.json";
+import protectedFixture from "./fixtures/protected-producer-july-2026.json";
 import {
   createProducerOverview,
   createScorecardScheduleFacts,

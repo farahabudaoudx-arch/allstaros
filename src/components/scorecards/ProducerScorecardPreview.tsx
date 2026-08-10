@@ -47,7 +47,7 @@ export function ProducerScorecardPreview({
 
       <StorySection number="01" title="Issued Premium" compact>
         <StoryValue
-          intro="Across all IP reports from Gateway in January, you submitted:"
+          intro={`Across all IP reports from Gateway in ${preview.periodLabel.split(" ")[0]}, you submitted:`}
           introClass="font-normal italic text-white"
           compact
           value={money(preview.totalIssuedIpCents)}

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-january-2026.json";
+import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-july-2026.json";
 import {
   createMonthlyProducerPreview,
   createProducerOverview,
