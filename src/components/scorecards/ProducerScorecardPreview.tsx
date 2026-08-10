@@ -40,8 +40,7 @@ export function ProducerScorecardPreview({
           <h2 id="producer-scorecard-title" className="mt-6 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
             {overview.producer.fullName}
           </h2>
-          <p className="mt-3 text-base font-semibold text-white/85 sm:text-lg">{overview.producer.role}</p>
-          <p className="mt-1 text-lg font-semibold tracking-[-0.02em] text-white/75 sm:text-xl">{preview.title}</p>
+          <p className="mt-3 text-xl font-semibold tracking-[-0.025em] text-white/85 sm:text-2xl">{preview.title}</p>
         </header>
       </VelarisBackground>
 
