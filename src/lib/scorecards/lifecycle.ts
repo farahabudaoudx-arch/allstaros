@@ -37,7 +37,6 @@ export type ProducerScorecardWeek = {
   reportDate: string;
   label: string;
   personalIpCents: number;
-  issuanceStatus: IssuanceStatus;
 };
 
 export type ProducerActivityTotals = {
@@ -213,23 +212,12 @@ export type MonthlyProducerPreview = {
   };
 };
 
-export function issuanceStatusForAverage(averageWeeklyIpCents: number): IssuanceStatus {
-  if (!Number.isInteger(averageWeeklyIpCents) || averageWeeklyIpCents < 0) {
-    throw new Error("Average weekly issued premium must be non-negative integer cents.");
+export function issuanceStatusForMonthlyIp(monthlyIssuedIpCents: number): IssuanceStatus {
+  if (!Number.isInteger(monthlyIssuedIpCents) || monthlyIssuedIpCents < 0) {
+    throw new Error("Monthly issued premium must be non-negative integer cents.");
   }
-  if (averageWeeklyIpCents >= ISSUANCE_THRESHOLDS.greenMinimumCents) return "green";
-  if (averageWeeklyIpCents >= ISSUANCE_THRESHOLDS.blueMinimumCents) return "blue";
-  return "red";
-}
-
-function issuanceStatusForTotal(totalIssuedIpCents: number, reportCount: number): IssuanceStatus {
-  if (reportCount <= 0) return "red";
-  if (totalIssuedIpCents >= ISSUANCE_THRESHOLDS.greenMinimumCents * reportCount) {
-    return "green";
-  }
-  if (totalIssuedIpCents >= ISSUANCE_THRESHOLDS.blueMinimumCents * reportCount) {
-    return "blue";
-  }
+  if (monthlyIssuedIpCents >= ISSUANCE_THRESHOLDS.greenMinimumCents) return "green";
+  if (monthlyIssuedIpCents >= ISSUANCE_THRESHOLDS.blueMinimumCents) return "blue";
   return "red";
 }
 
@@ -265,7 +253,6 @@ export function createMonthlyProducerPreview(
       return {
         ...report,
         personalIpCents,
-        issuanceStatus: issuanceStatusForAverage(personalIpCents),
       };
     });
 
@@ -290,9 +277,7 @@ export function createMonthlyProducerPreview(
     weeklyReports,
     totalIssuedIpCents,
     averageWeeklyIpCents,
-    // Classify from the exact ratio. The rounded integer is presentation data;
-    // rounding 14,999.9975 up must never turn a Red result into Blue.
-    issuanceStatus: issuanceStatusForTotal(totalIssuedIpCents, weeklyReports.length),
+    issuanceStatus: issuanceStatusForMonthlyIp(totalIssuedIpCents),
     hasProduction,
     emptyMessage: hasProduction
       ? null

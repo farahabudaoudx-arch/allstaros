@@ -26,7 +26,7 @@
   "expected": {
     "totalIssuedIpCents": 4580978,
     "averageWeeklyIpCents": 916196,
-    "issuanceStatus": "red",
+    "issuanceStatus": "green",
     "submittedApCents": 2412648,
     "priorMonthIpCents": 0,
     "rank": 3,

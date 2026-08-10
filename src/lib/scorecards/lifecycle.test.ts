@@ -5,7 +5,7 @@ import {
   createScorecardScheduleFacts,
   createMonthlyProducerPreview,
   ISSUANCE_THRESHOLD_SUMMARY,
-  issuanceStatusForAverage,
+  issuanceStatusForMonthlyIp,
   type MonthlyProducerSource,
 } from "./lifecycle";
 
@@ -193,7 +193,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     ]);
     expect(preview.totalIssuedIpCents).toBe(1600000);
     expect(preview.averageWeeklyIpCents).toBe(400000);
-    expect(preview.issuanceStatus).toBe("red");
+    expect(preview.issuanceStatus).toBe("blue");
   });
 
   it("creates a useful red preview for an active producer with no production", () => {
@@ -210,11 +210,11 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     [1500000, "blue"],
     [2999999, "blue"],
     [3000000, "green"],
-  ] as const)("maps an average of %i cents to %s", (average, expected) => {
-    expect(issuanceStatusForAverage(average)).toBe(expected);
+  ] as const)("maps monthly IP of %i cents to %s", (monthlyIp, expected) => {
+    expect(issuanceStatusForMonthlyIp(monthlyIp)).toBe(expected);
   });
 
-  it("does not round a below-threshold exact average into Blue", () => {
+  it("classifies the exact monthly total rather than the weekly average", () => {
     const preview = createMonthlyProducerPreview(
       source({
         producerRows: [
@@ -226,8 +226,8 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       }),
     );
 
-    expect(preview.averageWeeklyIpCents).toBe(1_500_000);
-    expect(preview.issuanceStatus).toBe("red");
+    expect(preview.totalIssuedIpCents).toBe(5_999_999);
+    expect(preview.issuanceStatus).toBe("green");
   });
 
   it("rejects duplicate report dates so a source cannot silently double-count", () => {
