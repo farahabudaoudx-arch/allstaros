@@ -139,6 +139,25 @@ async function renderSectionPng(
     .scorecard-export-stage .weekly-trend__line {
       stroke-dashoffset: 0 !important;
     }
+    .scorecard-export-stage .weekly-trend__value {
+      min-width: 140px !important;
+      padding: 11px 16px !important;
+      border-radius: 9px !important;
+      font-size: 22px !important;
+      line-height: 1.2 !important;
+    }
+    .scorecard-export-stage .weekly-trend__tail {
+      bottom: -5px !important;
+      width: 10px !important;
+      height: 10px !important;
+    }
+    .scorecard-export-stage .weekly-trend__dot {
+      width: 16px !important;
+      height: 16px !important;
+    }
+    .scorecard-export-stage .weekly-trend__axis {
+      font-size: 20px !important;
+    }
   `;
   artboard.append(clone, attribution);
   stage.append(motionReset, artboard);

@@ -172,14 +172,14 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           {points.map(({ x, y }, index) => (
             <div key={reports[index].reportDate} className="weekly-trend__point absolute inset-0">
               <div
-                className="absolute min-w-[140px] -translate-x-1/2 rounded-[10px] border border-hairline bg-card px-4 py-2 text-center text-[20px] font-semibold leading-[1.3] text-ink tabular-nums"
+                className="weekly-trend__value absolute min-w-[72px] -translate-x-1/2 rounded-lg border border-hairline bg-card px-2 py-1.5 text-center text-xs font-semibold leading-[1.25] text-ink tabular-nums md:min-w-[96px] md:px-3 md:text-sm lg:min-w-[140px] lg:rounded-[10px] lg:px-4 lg:py-2 lg:text-[20px] lg:leading-[1.3]"
                 style={{ left: `${x / 10}%`, top: `${((y - 62) / 245) * 100}%` }}
               >
                 {money(reports[index].personalIpCents)}
-                <span className="absolute -bottom-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-hairline bg-card" />
+                <span className="weekly-trend__tail absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-hairline bg-card lg:-bottom-[5px] lg:h-2.5 lg:w-2.5" />
               </div>
               <span
-                className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"
+                className="weekly-trend__dot absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent lg:h-3 lg:w-3"
                 style={{ left: `${x / 10}%`, top: `${(y / 245) * 100}%` }}
               />
             </div>
@@ -187,7 +187,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           {points.map(({ x }, index) => (
             <span
               key={`axis-${reports[index].reportDate}`}
-              className="absolute -translate-x-1/2 whitespace-nowrap text-[15px] font-medium text-subtle"
+              className="weekly-trend__axis absolute -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-subtle sm:text-[11px] md:text-[13px] lg:text-[15px]"
               style={{ left: `${x / 10}%`, top: `${(211 / 245) * 100}%` }}
             >
               {reports[index].label}
