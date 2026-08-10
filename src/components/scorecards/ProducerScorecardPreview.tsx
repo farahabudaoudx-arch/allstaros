@@ -45,16 +45,17 @@ export function ProducerScorecardPreview({
         </header>
       </VelarisBackground>
 
-      <StorySection number="01" title="Issued Premium">
+      <StorySection number="01" title="Issued Premium" compact>
         <StoryValue
           intro="Across all IP reports from Gateway in January, you submitted:"
           introClass="font-normal text-white"
+          compact
           value={money(preview.totalIssuedIpCents)}
         />
         <WeeklyTrend reports={preview.weeklyReports} />
-        <div className="mt-12 max-w-3xl">
+        <div className="mt-10 max-w-3xl">
           <p className="text-base font-normal text-ink sm:text-lg">This means your average weekly IP was:</p>
-          <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
+          <p className="mt-4 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
             {money(preview.averageWeeklyIpCents)}
           </p>
         </div>
@@ -105,10 +106,12 @@ const ACTIVITY_LABELS: Array<[keyof ProducerActivityTotals, string]> = [
 function StorySection({
   number,
   title,
+  compact = false,
   children,
 }: {
   number: string;
   title: string;
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -118,17 +121,17 @@ function StorySection({
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
           <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
         </div>
-        <div className="mt-10 max-w-4xl sm:mt-12">{children}</div>
+        <div className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl`}>{children}</div>
       </div>
     </section>
   );
 }
 
-function StoryValue({ value, intro, introClass = "text-subtle", detail }: { value: string; intro?: string; introClass?: string; detail?: string }) {
+function StoryValue({ value, intro, introClass = "text-subtle", compact = false, detail }: { value: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
   return (
     <div className="max-w-3xl">
       {intro ? <p className={`max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
-      <p className={`${intro ? "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink`}>{value}</p>
+      <p className={`${intro ? compact ? "mt-5" : "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink`}>{value}</p>
       {detail ? <p className="mt-5 max-w-2xl text-sm leading-6 text-mute">{detail}</p> : null}
     </div>
   );
@@ -151,7 +154,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   const areaPoints = `${linePoints} ${points.at(-1)!.x},195 ${points[0].x},195`;
 
   return (
-    <div className="weekly-trend mt-10 max-w-4xl">
+    <div className="weekly-trend mt-8 max-w-4xl">
       <style>{`
         .weekly-trend { view-timeline-name: --weekly-trend; view-timeline-axis: block; }
         .weekly-trend__area { animation: weekly-area-in linear both; animation-timeline: --weekly-trend; animation-range: entry 5% cover 32%; }
@@ -164,7 +167,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           .weekly-trend__area, .weekly-trend__line, .weekly-trend__point { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
         }
       `}</style>
-      <p className="mb-7 text-base font-normal text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
+      <p className="mb-6 text-base font-normal text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
       <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend by week">
         <defs>
           <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
