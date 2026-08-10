@@ -32,8 +32,6 @@ export function ProducerScorecardPreview({
     overview.growth.kind === "new_baseline"
       ? "New baseline"
       : `${overview.growth.percentage > 0 ? "+" : ""}${overview.growth.percentage}%`;
-  const consistency = overview.activity.consistency;
-
   return (
     <article aria-labelledby="producer-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
       <VelarisBackground>
@@ -82,10 +80,7 @@ export function ProducerScorecardPreview({
       </StorySection>
 
       <StorySection number="04" title="Tracking Consistency">
-        <StoryValue
-          value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
-          detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
-        />
+        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} />
       </StorySection>
 
       <FinalOverview preview={preview} overview={overview} growth={growth} />
@@ -193,6 +188,80 @@ function previousMonthLabel(periodStart: string): string {
   const [year, month] = periodStart.split("-").map(Number);
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
     .format(new Date(Date.UTC(year, month - 2, 1)));
+}
+
+function calendarDates(periodStart: string, periodEnd: string): Array<string | null> {
+  const first = new Date(`${periodStart}T00:00:00Z`);
+  const last = new Date(`${periodEnd}T00:00:00Z`);
+  const dates: Array<string | null> = Array.from({ length: first.getUTCDay() }, () => null);
+
+  for (const date = new Date(first); date <= last; date.setUTCDate(date.getUTCDate() + 1)) {
+    dates.push(date.toISOString().slice(0, 10));
+  }
+
+  return dates;
+}
+
+function TrackingConsistencyCalendar({
+  preview,
+  activity,
+}: {
+  preview: MonthlyProducerPreview;
+  activity: ProducerOverview["activity"];
+}) {
+  const consistency = activity.consistency;
+  if (!consistency || !activity.expectedDates) {
+    return (
+      <StoryValue
+        value="Schedule Needed"
+        detail={`${activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
+      />
+    );
+  }
+
+  const loggedDates = new Set(activity.loggedDates);
+  const expectedDates = new Set(activity.expectedDates);
+  const dates = calendarDates(preview.periodStart, preview.periodEnd);
+  const dayFormatter = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+
+  return (
+    <div className="max-w-4xl">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{consistency.percentage}%</p>
+          <p className="mt-3 text-base text-subtle sm:text-lg">{consistency.loggedDays} of {consistency.expectedDays} expected workdays logged</p>
+        </div>
+        <div className="flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
+          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>
+          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-neg" aria-hidden="true" />Did Not Log</span>
+        </div>
+      </div>
+
+      <div className="mt-8 border border-hairline" aria-label={`${preview.periodLabel} tracking calendar`}>
+        <div className="grid grid-cols-7 border-b border-hairline text-center text-xs font-medium text-subtle sm:text-sm">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <p key={day} className="py-3">{day}</p>)}
+        </div>
+        <div className="grid grid-cols-7">
+          {dates.map((date, index) => {
+            if (!date) return <div key={`empty-${index}`} className="min-h-16 border-b border-r border-hairline bg-card/30 sm:min-h-20" aria-hidden="true" />;
+            const logged = loggedDates.has(date);
+            const missed = expectedDates.has(date) && !logged;
+            const status = logged ? "Logged" : missed ? "Did Not Log" : "Not Scheduled";
+            return (
+              <div
+                key={date}
+                aria-label={`${dayFormatter.format(new Date(`${date}T00:00:00Z`))}: ${status}`}
+                className="min-h-16 border-b border-r border-hairline p-2 last:border-r-0 sm:min-h-20 sm:p-3"
+              >
+                <p className="text-sm font-medium tabular-nums text-ink">{Number(date.slice(-2))}</p>
+                {(logged || missed) && <span className={`mt-3 block h-2.5 w-2.5 rounded-full ${logged ? "bg-pos" : "bg-neg"}`} aria-hidden="true" />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function MonthOverMonthStory({

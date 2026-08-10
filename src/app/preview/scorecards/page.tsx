@@ -42,7 +42,7 @@ export default function ScorecardsVisualPreviewPage() {
     ) as Parameters<typeof createProducerOverview>[0]["organizationRanks"],
     activityRows: protectedFixture.expected.activityRows,
     priorActivityRows: protectedFixture.expected.priorActivityRows,
-    expectedWorkingDates: null,
+    expectedWorkingDates: protectedFixture.expected.expectedWorkingDates,
   });
 
   return (

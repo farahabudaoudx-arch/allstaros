@@ -110,6 +110,8 @@ export type ProducerOverview = {
   activity: {
     availability: "tracked" | "partial" | "missing";
     trackedDays: number;
+    loggedDates: string[];
+    expectedDates: string[] | null;
     consistency: { loggedDays: number; expectedDays: number; percentage: number } | null;
     totals: ProducerActivityTotals | null;
     perTrackedDay: ProducerActivityTotals | null;
@@ -211,7 +213,15 @@ export function createProducerOverview(input: {
     growth,
     rank: input.rank,
     organizationRanks: input.organizationRanks,
-    activity: { availability, trackedDays, consistency, totals, perTrackedDay },
+    activity: {
+      availability,
+      trackedDays,
+      loggedDates: [...new Set(input.activityRows.map((row) => row.entryDate))].sort(),
+      expectedDates: input.expectedWorkingDates ? [...new Set(input.expectedWorkingDates)].sort() : null,
+      consistency,
+      totals,
+      perTrackedDay,
+    },
   };
 }
 

@@ -106,6 +106,8 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     });
 
     expect(overview.activity.availability).toBe("missing");
+    expect(overview.activity.loggedDates).toEqual([]);
+    expect(overview.activity.expectedDates).toEqual(["2026-08-03", "2026-08-04"]);
     expect(overview.activity.consistency).toEqual({ loggedDays: 0, expectedDays: 2, percentage: 0 });
     expect(overview.activity.totals).toBeNull();
     expect(overview.activity.perTrackedDay).toBeNull();
