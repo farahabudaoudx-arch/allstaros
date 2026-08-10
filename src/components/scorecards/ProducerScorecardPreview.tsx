@@ -1,37 +1,11 @@
 import type {
-  IssuanceStatus,
   MonthlyProducerPreview,
   ProducerActivityTotals,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
-import { ISSUANCE_THRESHOLD_SUMMARY } from "@/lib/scorecards/lifecycle";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import { VelarisBackground } from "./VelarisBackground";
-
-const STATUS_COPY: Record<
-  IssuanceStatus,
-  { label: string; textClass: string; borderClass: string; backgroundClass: string }
-> = {
-  green: {
-    label: "Green",
-    textClass: "text-pos",
-    borderClass: "border-pos/35",
-    backgroundClass: "bg-pos/[0.06]",
-  },
-  blue: {
-    label: "Blue",
-    textClass: "text-[#78a7ff] light:text-[#2859ad]",
-    borderClass: "border-[#78a7ff]/35 light:border-[#2859ad]/30",
-    backgroundClass: "bg-[#78a7ff]/[0.06] light:bg-[#2859ad]/[0.05]",
-  },
-  red: {
-    label: "Red",
-    textClass: "text-neg",
-    borderClass: "border-neg/35",
-    backgroundClass: "bg-neg/[0.06]",
-  },
-};
 
 function money(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -41,16 +15,6 @@ function money(cents: number): string {
   }).format(cents / 100);
 }
 
-function longDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
 export function ProducerScorecardPreview({
   preview,
   overview,
@@ -58,7 +22,6 @@ export function ProducerScorecardPreview({
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 }) {
-  const headline = STATUS_COPY[preview.issuanceStatus];
   const growth =
     overview.growth.kind === "new_baseline"
       ? "New baseline"
@@ -82,33 +45,43 @@ export function ProducerScorecardPreview({
         </header>
       </VelarisBackground>
 
-      <StorySection number="01" title="Issued premium">
-        <StoryValue value={money(preview.totalIssuedIpCents)} detail={`${preview.sourceCoverage.reportCount} Gateway reports this month`} />
-        <WeeklyStory reports={preview.weeklyReports} />
+      <StorySection number="01" title="Issued Premium">
+        <StoryValue
+          intro={`Across all IP reports from Gateway in January, you submitted ${money(preview.totalIssuedIpCents)}.`}
+          value={money(preview.totalIssuedIpCents)}
+        />
+        <WeeklyTrend reports={preview.weeklyReports} />
       </StorySection>
 
-      <StorySection number="02" title="Submitted annual premium">
-        <StoryValue value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)} detail="Business submitted during this Scorecard period" />
+      <StorySection number="02" title="Average Weekly IP">
+        <StoryValue
+          intro={`Across ${preview.sourceCoverage.reportCount} Gateway reports in January, your average weekly IP was ${money(preview.averageWeeklyIpCents)}.`}
+          value={money(preview.averageWeeklyIpCents)}
+        />
       </StorySection>
 
-      <StorySection number="03" title="Average weekly issued premium">
-        <StoryValue value={money(preview.averageWeeklyIpCents)} detail={`${headline.label} issuance · ${ISSUANCE_THRESHOLD_SUMMARY}`} valueClass={headline.textClass} />
+      <StorySection number="03" title="Submitted Annual Premium">
+        <StoryValue
+          intro={overview.submittedApCents == null ? "Submitted annual premium is currently unavailable." : `Inside the OS Tracker, you submitted ${money(overview.submittedApCents)} of written premium.`}
+          value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)}
+          detail="Weekly AP points will appear when dated AP data is available."
+        />
       </StorySection>
 
       <ActivityStory activity={overview.activity} />
 
-      <StorySection number="05" title="Month-over-month growth">
+      <StorySection number="05" title="Month-over-Month Growth">
         <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
       </StorySection>
 
-      <StorySection number="06" title="Company rank">
+      <StorySection number="06" title="Company Rank">
         <StoryValue
           value={`#${overview.rank.rank} of ${overview.rank.population}`}
           detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)} from last month`}`}
         />
       </StorySection>
 
-      <StorySection number="07" title="Tracking consistency">
+      <StorySection number="07" title="Tracking Consistency">
         <StoryValue
           value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
           detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
@@ -141,7 +114,7 @@ function StorySection({
   return (
     <section className="min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20">
       <div className="w-full">
-        <div className="flex items-start gap-5 sm:gap-7">
+        <div className="flex items-baseline gap-5 sm:gap-7">
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
           <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
         </div>
@@ -151,25 +124,42 @@ function StorySection({
   );
 }
 
-function StoryValue({ value, detail, valueClass = "text-ink" }: { value: string; detail: string; valueClass?: string }) {
+function StoryValue({ value, intro, detail }: { value: string; intro?: string; detail?: string }) {
   return (
     <div className="max-w-3xl">
-      <p className={`text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums ${valueClass}`}>{value}</p>
-      <p className="mt-7 max-w-2xl text-base leading-7 text-subtle sm:text-lg">{detail}</p>
+      {intro ? <p className="max-w-2xl text-base leading-7 text-subtle sm:text-lg">{intro}</p> : null}
+      <p className={`${intro ? "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink`}>{value}</p>
+      {detail ? <p className="mt-5 max-w-2xl text-sm leading-6 text-mute">{detail}</p> : null}
     </div>
   );
 }
 
-function WeeklyStory({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
+function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
   if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
+  const values = reports.map((report) => report.personalIpCents);
+  const maximum = Math.max(...values, 1);
+  const points = values.map((value, index) => {
+    const x = reports.length === 1 ? 50 : (index / (reports.length - 1)) * 100;
+    const y = 92 - (value / maximum) * 76;
+    return { x, y };
+  });
+
   return (
-    <div className="mt-14 grid grid-cols-2 gap-x-7 gap-y-6 border-t border-hairline pt-7 sm:grid-cols-5">
-      {reports.map((week) => (
-        <div key={week.reportDate}>
-          <p className="text-sm font-semibold text-ink">{money(week.personalIpCents)}</p>
-          <p className="mt-1 text-xs text-mute">{longDate(week.reportDate)}</p>
-        </div>
-      ))}
+    <div className="mt-10 max-w-4xl border-t border-hairline pt-7">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-36 w-full overflow-visible sm:h-44" role="img" aria-label="Weekly issued premium trend">
+        <polyline points={points.map(({ x, y }) => `${x},${y}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" className="text-accent" />
+        {points.map(({ x, y }, index) => (
+          <circle key={reports[index].reportDate} cx={x} cy={y} r="1.8" vectorEffect="non-scaling-stroke" className="fill-background stroke-accent" strokeWidth="2" />
+        ))}
+      </svg>
+      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-5">
+        {reports.map((week) => (
+          <div key={week.reportDate}>
+            <p className="text-xs font-medium text-subtle">{week.label}</p>
+            <p className="mt-1 text-sm font-semibold tabular-nums text-ink">{money(week.personalIpCents)}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -178,9 +168,9 @@ function ActivityStory({ activity }: { activity: ProducerOverview["activity"] })
   return (
     <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
       <div className="w-full">
-        <div className="flex items-start gap-5 sm:gap-7">
+        <div className="flex items-baseline gap-5 sm:gap-7">
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">04</p>
-          <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your activity</h3>
+          <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
         </div>
         {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
           <div className="mt-14 max-w-2xl">
@@ -214,11 +204,11 @@ function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducer
   const rows = [
     ["Issued IP", money(preview.totalIssuedIpCents)],
     ["Submitted AP", overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)],
-    ["Weekly average", money(preview.averageWeeklyIpCents)],
+    ["Weekly Average", money(preview.averageWeeklyIpCents)],
     ["Activity", activitySummary],
-    ["Month-over-month", growth],
-    ["Company rank", `#${overview.rank.rank} of ${overview.rank.population}`],
-    ["Tracking consistency", consistency ? `${consistency.percentage}%` : "Schedule needed"],
+    ["Month-over-Month", growth],
+    ["Company Rank", `#${overview.rank.rank} of ${overview.rank.population}`],
+    ["Tracking Consistency", consistency ? `${consistency.percentage}%` : "Schedule needed"],
   ];
 
   return (
