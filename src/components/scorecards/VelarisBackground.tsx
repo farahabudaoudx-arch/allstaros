@@ -29,22 +29,22 @@ void main() {
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
   float t = u_time;
 
-  float primaryWave = 0.5
+  float primaryWave = 0.46
     + sin(uv.x * 5.2 - t * 0.18) * 0.115
     + sin(uv.x * 10.5 + t * 0.08) * 0.025;
-  float secondaryWave = 0.49
+  float secondaryWave = 0.43
     + sin(uv.x * 4.1 + t * 0.13 + 2.1) * 0.14;
 
   float primaryDistance = abs(uv.y - primaryWave);
   float secondaryDistance = abs(uv.y - secondaryWave);
-  float primaryHalo = aura(primaryDistance, 0.24);
-  float primaryCore = aura(primaryDistance, 0.07);
-  float secondaryHalo = aura(secondaryDistance, 0.18);
+  float primaryHalo = aura(primaryDistance, 0.48);
+  float primaryCore = aura(primaryDistance, 0.105);
+  float secondaryHalo = aura(secondaryDistance, 0.42);
 
   vec3 col = u_bg;
-  col += u_colors[2] * secondaryHalo * 0.2;
-  col += u_colors[1] * primaryHalo * 0.36;
-  col += u_colors[0] * primaryCore * 0.24;
+  col += u_colors[2] * secondaryHalo * 0.24;
+  col += u_colors[1] * primaryHalo * 0.44;
+  col += u_colors[0] * primaryCore * 0.28;
 
   float centerQuiet = smoothstep(0.0, 0.29, length(vec2(p.x * 0.52, p.y - 0.01)));
   col *= mix(0.62, 1.0, centerQuiet);
@@ -124,7 +124,7 @@ export function VelarisBackground({ children }: { children: ReactNode }) {
     let frame = 0;
     const render = (milliseconds: number) => {
       gl.uniform2f(resolution, canvas.width, canvas.height);
-      gl.uniform1f(time, reduceMotion ? 0 : milliseconds * 0.00045);
+      gl.uniform1f(time, reduceMotion ? 0 : milliseconds * 0.0007);
       gl.uniform1f(grain, 0.16);
       gl.uniform3f(background, 0, 0, 0);
       gl.uniform3fv(colors, flatColors);
@@ -152,7 +152,7 @@ export function VelarisBackground({ children }: { children: ReactNode }) {
   return (
     <div ref={containerRef} className="relative overflow-hidden bg-black">
       <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full scale-[1.06] blur-xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/20" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/10" />
       <div className="relative z-10">{children}</div>
     </div>
   );
