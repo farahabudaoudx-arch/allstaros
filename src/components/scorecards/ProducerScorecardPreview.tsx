@@ -233,9 +233,13 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
           </div>
         ) : (
           <>
-            <p className="mt-10 max-w-5xl text-pretty text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
-              You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-accent">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.
-            </p>
+            <div className="mt-10 max-w-5xl space-y-1 text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
+              <p>You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>.</p>
+              <p>You spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>.</p>
+              <p>You booked <strong className="font-semibold text-accent">{activity.totals.appointments.toLocaleString()} appointments</strong>.</p>
+              <p>You ran <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>.</p>
+              <p>You submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.</p>
+            </div>
             <OrganizationComparison
               items={[
                 { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: `#${organizationRanks.submittedAp.rank} of ${organizationRanks.submittedAp.population}` },
