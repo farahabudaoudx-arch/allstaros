@@ -138,10 +138,14 @@ function StoryValue({ value, intro, introClass = "text-subtle", detail }: { valu
 function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
   if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
   const values = reports.map((report) => report.personalIpCents);
-  const axisMaximum = 10_000_000;
+  const cappedValues = values.map((value) => Math.min(value, 10_000_000));
+  const minimum = Math.min(...cappedValues);
+  const maximum = Math.max(...cappedValues);
+  const range = maximum - minimum;
   const points = values.map((value, index) => {
     const x = reports.length === 1 ? 500 : 105 + (index / (reports.length - 1)) * 825;
-    const y = 195 - (Math.min(value, axisMaximum) / axisMaximum) * 115;
+    const normalized = range === 0 ? 0.5 : (Math.min(value, 10_000_000) - minimum) / range;
+    const y = 180 - normalized * 95;
     return { x, y };
   });
   const linePoints = points.map(({ x, y }) => `${x},${y}`).join(" ");
