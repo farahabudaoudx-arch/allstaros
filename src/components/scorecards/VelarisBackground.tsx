@@ -19,18 +19,8 @@ uniform float u_grain;
 uniform vec3 u_colors[4];
 uniform vec3 u_bg;
 
-float lineGrid(float value, float frequency, float thickness) {
-  float distanceToLine = abs(fract(value * frequency) - 0.5);
-  return smoothstep(thickness, thickness + 0.055, distanceToLine);
-}
-
-float meshRibbon(vec2 uv, float center, float halfWidth, float phase) {
-  float normalizedY = (uv.y - center) / halfWidth;
-  float surface = 1.0 - smoothstep(0.88, 1.0, abs(normalizedY));
-  float contours = lineGrid(normalizedY + sin(uv.x * 8.0 + phase) * 0.035, 13.0, 0.445);
-  float crossLines = lineGrid(uv.x + normalizedY * 0.028 + sin(normalizedY * 2.4 + phase) * 0.006, 68.0, 0.43);
-  float boundary = 1.0 - smoothstep(0.012, 0.04, abs(abs(normalizedY) - 1.0));
-  return surface * max(max(contours, crossLines * 0.74), boundary);
+float aura(float distanceFromWave, float radius) {
+  return 1.0 - smoothstep(0.0, radius, distanceFromWave);
 }
 
 void main() {
@@ -39,28 +29,29 @@ void main() {
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
   float t = u_time;
 
-  float centerA = 0.49 + sin(uv.x * 6.0 - t * 0.24) * 0.13 + sin(uv.x * 13.0 + t * 0.11) * 0.025;
-  float centerB = 0.51 + sin(uv.x * 4.5 + t * 0.19 + 2.2) * 0.17 + sin(uv.x * 10.0 - t * 0.08) * 0.035;
-  float centerC = 0.48 + sin(uv.x * 7.4 - t * 0.14 + 4.0) * 0.095;
-  float widthA = 0.12 + (sin(uv.x * 5.0 + 0.7) + 1.0) * 0.025;
-  float widthB = 0.095 + (sin(uv.x * 6.5 + 2.0) + 1.0) * 0.018;
-  float widthC = 0.065 + (sin(uv.x * 8.0 + 4.2) + 1.0) * 0.014;
+  float primaryWave = 0.5
+    + sin(uv.x * 5.2 - t * 0.18) * 0.115
+    + sin(uv.x * 10.5 + t * 0.08) * 0.025;
+  float secondaryWave = 0.49
+    + sin(uv.x * 4.1 + t * 0.13 + 2.1) * 0.14;
 
-  float ribbonA = meshRibbon(uv, centerA, widthA, 0.5);
-  float ribbonB = meshRibbon(uv, centerB, widthB, 2.3);
-  float ribbonC = meshRibbon(uv, centerC, widthC, 4.6);
+  float primaryDistance = abs(uv.y - primaryWave);
+  float secondaryDistance = abs(uv.y - secondaryWave);
+  float primaryHalo = aura(primaryDistance, 0.24);
+  float primaryCore = aura(primaryDistance, 0.07);
+  float secondaryHalo = aura(secondaryDistance, 0.18);
 
   vec3 col = u_bg;
-  col += u_colors[2] * ribbonA * 1.05;
-  col += u_colors[1] * ribbonB * 0.92;
-  col += u_colors[0] * ribbonC * 0.68;
+  col += u_colors[2] * secondaryHalo * 0.2;
+  col += u_colors[1] * primaryHalo * 0.36;
+  col += u_colors[0] * primaryCore * 0.24;
 
-  float centerQuiet = smoothstep(0.0, 0.34, length(vec2(p.x * 0.48, p.y - 0.02)));
-  col *= mix(0.68, 1.0, centerQuiet);
+  float centerQuiet = smoothstep(0.0, 0.29, length(vec2(p.x * 0.52, p.y - 0.01)));
+  col *= mix(0.62, 1.0, centerQuiet);
   float vignette = 1.0 - smoothstep(0.45, 1.25, length(p));
   col *= mix(0.58, 1.0, vignette);
   float grain = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453 + u_time);
-  col += (grain - 0.5) * u_grain * 0.035;
+  col += (grain - 0.5) * u_grain * 0.018;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -160,8 +151,8 @@ export function VelarisBackground({ children }: { children: ReactNode }) {
 
   return (
     <div ref={containerRef} className="relative overflow-hidden bg-black">
-      <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/15" />
+      <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full scale-[1.06] blur-xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/20" />
       <div className="relative z-10">{children}</div>
     </div>
   );
