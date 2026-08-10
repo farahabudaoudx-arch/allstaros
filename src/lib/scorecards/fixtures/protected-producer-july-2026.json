@@ -6,8 +6,8 @@
     "source": "Gateway weekly issued-premium reports",
     "verifiedBy": "weekly-wtd-sum-matches-month-end-mtd",
     "verifiedAt": "2026-08-10",
-    "monthEndMtdCents": 577500,
-    "notes": "Client-level data, email, NPN, and contact details are intentionally excluded. Aggregate July 2026 Gateway issued premium, submitted AP, tracker activity, and organization ranks belong to Jackson Rapaport and are retained for local visual verification. Expected tracking dates use the requested Monday-through-Saturday preview schedule because schedule-history tables are not present in this environment."
+    "monthEndMtdCents": 3376680,
+    "notes": "Client-level data, email, NPN, and contact details are intentionally excluded. Aggregate July 2026 Gateway issued premium, submitted AP, tracker activity, and organization ranks belong to Jackson Rapaport and are retained for local visual verification. Week 2 and Week 4 All Life WTD values were verified by the user in Gateway and reconcile exactly to the stored July month-end MTD total. Expected tracking dates use the requested Monday-through-Saturday preview schedule because schedule-history tables are not present in this environment."
   },
   "producerId": "aa7642c5-7b10-473e-ac8f-b9c21f958354",
   "period": {
@@ -18,13 +18,15 @@
   },
   "reports": [
     { "reportDate": "2026-07-07", "label": "July Week 1", "personalIpCents": 577500 },
-    { "reportDate": "2026-07-21", "label": "July Week 3", "personalIpCents": 0 },
+    { "reportDate": "2026-07-14", "label": "July Week 2", "personalIpCents": 824400 },
+    { "reportDate": "2026-07-21", "label": "July Week 3", "personalIpCents": 97560 },
+    { "reportDate": "2026-07-28", "label": "July Week 4", "personalIpCents": 1877220 },
     { "reportDate": "2026-07-31", "label": "July Week 5", "personalIpCents": 0 }
   ],
   "expected": {
-    "totalIssuedIpCents": 577500,
-    "averageWeeklyIpCents": 192500,
-    "issuanceStatus": "red",
+    "totalIssuedIpCents": 3376680,
+    "averageWeeklyIpCents": 675336,
+    "issuanceStatus": "green",
     "submittedApCents": 3094788,
     "priorMonthIpCents": 2647666,
     "priorSubmittedApCents": 2404044,
@@ -42,9 +44,9 @@
       { "entryDate": "2026-06-26", "leads": 0, "dials": 15, "contacts": 1, "appointments": 0, "presentations": 1, "sales": 1 },
       { "entryDate": "2026-06-29", "leads": 0, "dials": 6, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 }
     ],
-    "rank": 86,
+    "rank": 10,
     "population": 426,
-    "percentile": 80,
+    "percentile": 98,
     "organizationRanks": {
       "submittedAp": 27,
       "dials": 144,
