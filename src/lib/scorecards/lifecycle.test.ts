@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import protectedFixture from "./fixtures/protected-producer-january-2026.json";
 import {
+  createProducerOverview,
+  createScorecardScheduleFacts,
   createMonthlyProducerPreview,
   ISSUANCE_THRESHOLD_SUMMARY,
   issuanceStatusForAverage,
@@ -31,6 +33,108 @@ function source(overrides: Partial<MonthlyProducerSource> = {}): MonthlyProducer
 }
 
 describe("Scorecard lifecycle — monthly Producer preview", () => {
+  it("freezes expected workdays and tracker submissions as dated finalization facts", () => {
+    expect(
+      createScorecardScheduleFacts({
+        periodStart: "2026-08-02",
+        periodEnd: "2026-08-04",
+        expectedWorkingDates: ["2026-08-03", "2026-08-04"],
+        activityRows: [
+          { entryDate: "2026-08-02", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+          { entryDate: "2026-08-03", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+        ],
+      }),
+    ).toEqual([
+      { factDate: "2026-08-02", expectedWorkingDay: false, trackerSubmitted: true },
+      { factDate: "2026-08-03", expectedWorkingDay: true, trackerSubmitted: true },
+      { factDate: "2026-08-04", expectedWorkingDay: true, trackerSubmitted: false },
+    ]);
+  });
+
+  it("builds the complete at-a-glance Producer overview without hiding missing tracking", () => {
+    const overview = createProducerOverview({
+      fullName: "Jordan Taylor",
+      photoUrl: "/headshot-sample.png",
+      submittedApCents: 2_412_648,
+      currentIssuedIpCents: 4_580_978,
+      priorIssuedIpCents: 0,
+      rank: { rank: 3, population: 424, percentile: 100, movement: 2 },
+      activityRows: [
+        { entryDate: "2026-08-03", leads: 12, dials: 100, contacts: 40, appointments: 10, presentations: 6, sales: 2 },
+        { entryDate: "2026-08-04", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+      ],
+      expectedWorkingDates: null,
+    });
+
+    expect(overview).toMatchObject({
+      producer: { fullName: "Jordan Taylor", role: "Producer" },
+      submittedApCents: 2_412_648,
+      growth: { kind: "new_baseline" },
+      rank: { rank: 3, population: 424, percentile: 100, movement: 2 },
+      activity: {
+        availability: "tracked",
+        trackedDays: 2,
+        consistency: null,
+        totals: { leads: 12, dials: 100, contacts: 40, appointments: 10, presentations: 6, sales: 2 },
+        perTrackedDay: { leads: 6, dials: 50, contacts: 20, appointments: 5, presentations: 3, sales: 1 },
+      },
+    });
+  });
+
+  it("labels absent tracker submissions as missing rather than zero activity", () => {
+    const overview = createProducerOverview({
+      fullName: "Jordan Taylor",
+      photoUrl: null,
+      submittedApCents: 0,
+      currentIssuedIpCents: 0,
+      priorIssuedIpCents: null,
+      rank: { rank: 20, population: 20, percentile: 5, movement: null },
+      activityRows: [],
+      expectedWorkingDates: ["2026-08-03", "2026-08-04"],
+    });
+
+    expect(overview.activity.availability).toBe("missing");
+    expect(overview.activity.consistency).toEqual({ loggedDays: 0, expectedDays: 2, percentage: 0 });
+    expect(overview.activity.totals).toBeNull();
+    expect(overview.activity.perTrackedDay).toBeNull();
+  });
+
+  it("labels a partially populated tracker row instead of turning missing fields into zero", () => {
+    const overview = createProducerOverview({
+      fullName: "Jordan Taylor",
+      photoUrl: null,
+      submittedApCents: null,
+      currentIssuedIpCents: 0,
+      priorIssuedIpCents: null,
+      rank: { rank: 1, population: 1, percentile: 100, movement: null },
+      activityRows: [
+        { entryDate: "2026-08-03", leads: null, dials: 10, contacts: 2, appointments: 1, presentations: 0, sales: 0 },
+      ],
+      expectedWorkingDates: ["2026-08-03"],
+    });
+
+    expect(overview.activity.availability).toBe("partial");
+    expect(overview.activity.totals).toBeNull();
+    expect(overview.activity.perTrackedDay).toBeNull();
+  });
+
+  it("does not count a tracker submission on a non-working day toward consistency", () => {
+    const overview = createProducerOverview({
+      fullName: "Jordan Taylor",
+      photoUrl: null,
+      submittedApCents: 0,
+      currentIssuedIpCents: 0,
+      priorIssuedIpCents: 0,
+      rank: { rank: 1, population: 1, percentile: 100, movement: 0 },
+      activityRows: [
+        { entryDate: "2026-08-02", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+        { entryDate: "2026-08-03", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+      ],
+      expectedWorkingDates: ["2026-08-03", "2026-08-04"],
+    });
+
+    expect(overview.activity.consistency).toEqual({ loggedDays: 1, expectedDays: 2, percentage: 50 });
+  });
   it("derives the visible threshold guidance from the calculation constants", () => {
     expect(ISSUANCE_THRESHOLD_SUMMARY).toBe(
       "Green $30k+ · Blue $15k–$29,999.99 · Red below $15k",

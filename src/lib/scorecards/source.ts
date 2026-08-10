@@ -1,5 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MonthlyProducerSource } from "./lifecycle";
+import { approvedPhotoUrl, type PhotoFields } from "@/lib/headshots/photo";
+import {
+  dollarsToCents,
+  fetchAllRows,
+  isSale,
+  saleDay,
+  type ClientSaleFields,
+} from "@/lib/producer/metrics";
+import {
+  createProducerOverview,
+  type MonthlyProducerSource,
+  type ProducerActivityRow,
+  type ProducerOverview,
+} from "./lifecycle";
 
 type GatewayWeekRow = {
   person_id: string;
@@ -13,7 +26,7 @@ type GatewayWeekImport = {
   gateway_label: string | null;
 };
 
-function datePartsInChicago(now: Date): { year: number; month: number } {
+function datePartsInChicago(now: Date): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
     year: "numeric",
@@ -22,6 +35,7 @@ function datePartsInChicago(now: Date): { year: number; month: number } {
   return {
     year: Number(parts.find((part) => part.type === "year")?.value),
     month: Number(parts.find((part) => part.type === "month")?.value),
+    day: Number(parts.find((part) => part.type === "day")?.value),
   };
 }
 
@@ -126,6 +140,269 @@ export async function loadCurrentMonthlyProducerSource(
     rows: (rowsResult.data ?? []) as GatewayWeekRow[],
     generatedAt: now.toISOString(),
   });
+}
+
+function previousMonth(periodStart: string): { start: string; end: string } {
+  const [year, month] = periodStart.split("-").map(Number);
+  const previous = new Date(Date.UTC(year, month - 2, 1));
+  const previousYear = previous.getUTCFullYear();
+  const previousMonthNumber = previous.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(previousYear, previousMonthNumber, 0)).getUTCDate();
+  return {
+    start: `${previousYear}-${pad2(previousMonthNumber)}-01`,
+    end: `${previousYear}-${pad2(previousMonthNumber)}-${pad2(lastDay)}`,
+  };
+}
+
+export async function loadCurrentMonthlyProducerOverview(
+  supabase: SupabaseClient,
+  producer: {
+    id: string;
+    full_name: string;
+  } & PhotoFields,
+  currentIssuedIpCents: number,
+  now = new Date(),
+): Promise<ProducerOverview> {
+  const period = currentMonthlyPeriod(now);
+  const prior = previousMonth(period.start);
+  const [clientRows, trackerResult, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
+    await Promise.all([
+      fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
+        supabase
+          .from("clients")
+          .select("id, annual_premium, sale_status, submit_date, date, created_at")
+          .eq("person_id", producer.id)
+          .order("id")
+          .range(lo, hi),
+      ),
+      supabase
+        .from("tracker_entry")
+        .select("entry_date, leads, dials, contacts, appointments, presentations, sales")
+        .eq("person_id", producer.id)
+        .gte("entry_date", period.start)
+        .lte("entry_date", period.end),
+      fetchAllRows<{ id: string; person_id: string; report_date: string; personal_ip_cents: number }>((lo, hi) =>
+        supabase
+          .from("producer_issued_premium")
+          .select("id, person_id, report_date, personal_ip_cents")
+          .eq("period_type", "wtd")
+          .gte("report_date", period.start)
+          .lte("report_date", period.end)
+          .order("id")
+          .range(lo, hi),
+      ),
+      fetchAllRows<{ id: string; person_id: string; report_date: string; personal_ip_cents: number }>((lo, hi) =>
+        supabase
+          .from("producer_issued_premium")
+          .select("id, person_id, report_date, personal_ip_cents")
+          .eq("period_type", "wtd")
+          .gte("report_date", prior.start)
+          .lte("report_date", prior.end)
+          .order("id")
+          .range(lo, hi),
+      ),
+      supabase
+        .from("person")
+        .select("id")
+        .eq("status", "active")
+        .eq("is_producer", true),
+      supabase
+        .from("member_work_schedule")
+        .select("id, effective_from, effective_to, working_weekdays, created_at")
+        .eq("person_id", producer.id)
+        .lte("effective_from", period.end)
+        .or(`effective_to.is.null,effective_to.gte.${period.start}`)
+        .order("effective_from", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", period.start).lte("report_date", period.end),
+      supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", prior.start).lte("report_date", prior.end),
+    ]);
+  if (trackerResult.error) throw new Error(`Unable to load activity: ${trackerResult.error.message}`);
+  if (peopleResult.error) throw new Error(`Unable to load rank population: ${peopleResult.error.message}`);
+  if (currentImportsResult.error || priorImportsResult.error) throw new Error("Unable to load imported Gateway coverage for ranking.");
+
+  let submittedApCents = 0;
+  let submittedApAvailable = true;
+  for (const client of clientRows) {
+    const day = saleDay(client, "America/Chicago");
+    if (isSale(client) && day && day >= period.start && day <= period.end) {
+      if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) {
+        submittedApAvailable = false;
+      } else {
+        submittedApCents += dollarsToCents(client.annual_premium);
+      }
+    }
+  }
+
+  const activityRows = ((trackerResult.data ?? []) as Array<Record<string, number | string | null>>).map<ProducerActivityRow>(
+    (row) => ({
+      entryDate: String(row.entry_date),
+      leads: row.leads == null ? null : Number(row.leads),
+      dials: row.dials == null ? null : Number(row.dials),
+      contacts: row.contacts == null ? null : Number(row.contacts),
+      appointments: row.appointments == null ? null : Number(row.appointments),
+      presentations: row.presentations == null ? null : Number(row.presentations),
+      sales: row.sales == null ? null : Number(row.sales),
+    }),
+  );
+
+  const activeIds = new Set(
+    ((peopleResult.data ?? []) as Array<{ id: string }>).map((person) => person.id),
+  );
+  if (!activeIds.has(producer.id)) {
+    throw new Error("Producer is not in the active Producer ranking population.");
+  }
+  const totalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
+  const currentImportedDates = new Set((currentImportsResult.data ?? []).map((row) => String(row.report_date)));
+  for (const row of currentPremiumRows) {
+    if (!activeIds.has(row.person_id) || !currentImportedDates.has(row.report_date)) continue;
+    totalsByPerson.set(
+      row.person_id,
+      (totalsByPerson.get(row.person_id) ?? 0) + row.personal_ip_cents,
+    );
+  }
+  const rankingIssuedIpCents = totalsByPerson.get(producer.id);
+  if (rankingIssuedIpCents == null || rankingIssuedIpCents !== currentIssuedIpCents) {
+    throw new Error("Producer rank source does not match the Scorecard issued-IP total.");
+  }
+  const sortedTotals = [...totalsByPerson.values()].sort((a, b) => b - a);
+  const rankIndex = sortedTotals.findIndex((value) => value === rankingIssuedIpCents);
+  if (rankIndex < 0) throw new Error("Unable to establish Producer rank.");
+  const rank = rankIndex + 1;
+  const population = sortedTotals.length;
+  const percentile = population
+    ? Math.max(1, Math.round(((population - rank + 1) / population) * 100))
+    : 100;
+  const priorImportedDates = new Set((priorImportsResult.data ?? []).map((row) => String(row.report_date)));
+  const priorTotalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
+  for (const row of priorPremiumRows) {
+    if (!activeIds.has(row.person_id) || !priorImportedDates.has(row.report_date)) continue;
+    priorTotalsByPerson.set(row.person_id, (priorTotalsByPerson.get(row.person_id) ?? 0) + row.personal_ip_cents);
+  }
+  const priorIssuedIpCents = priorPremiumRows
+    .filter((row) => row.person_id === producer.id && priorImportedDates.has(row.report_date))
+    .reduce((total, row) => total + row.personal_ip_cents, 0);
+  const priorSortedTotals = [...priorTotalsByPerson.values()].sort((a, b) => b - a);
+  const priorRankIndex = priorSortedTotals.findIndex((value) => value === priorIssuedIpCents);
+
+  let expectedWorkingDates: string[] | null = null;
+  if (!scheduleResult.error && scheduleResult.data?.length) {
+    const schedules = scheduleResult.data as Array<{
+      id: string;
+      effective_from: string;
+      effective_to: string | null;
+      working_weekdays: number[];
+      created_at: string;
+    }>;
+    const { data: exceptionRows, error: exceptionError } = await supabase
+      .from("member_work_schedule_exception")
+      .select("schedule_id, exception_date, is_working_day, created_at")
+      .in("schedule_id", schedules.map((schedule) => schedule.id))
+      .gte("exception_date", period.start)
+      .lte("exception_date", period.end)
+      .order("created_at", { ascending: true });
+    if (exceptionError) throw new Error(`Unable to load schedule exceptions: ${exceptionError.message}`);
+    const todayParts = datePartsInChicago(now);
+    const businessToday = `${todayParts.year}-${pad2(todayParts.month)}-${pad2(todayParts.day)}`;
+    expectedWorkingDates = expectedDatesForScheduleHistory({
+      periodStart: period.start,
+      periodEnd: businessToday < period.end ? businessToday : period.end,
+      schedules,
+      exceptions: (exceptionRows ?? []) as Array<{
+        schedule_id: string;
+        exception_date: string;
+        is_working_day: boolean;
+      }>,
+    });
+  } else if (scheduleResult.error && !isMissingRelationError(scheduleResult.error)) {
+    throw new Error(`Unable to load work schedule: ${scheduleResult.error.message}`);
+  }
+
+  return createProducerOverview({
+    fullName: producer.full_name,
+    photoUrl: approvedPhotoUrl(producer),
+    submittedApCents: submittedApAvailable ? submittedApCents : null,
+    currentIssuedIpCents,
+    priorIssuedIpCents,
+    rank: {
+      rank,
+      population,
+      percentile,
+      movement:
+        priorImportedDates.size === 0 || priorRankIndex < 0 ? null : priorRankIndex + 1 - rank,
+    },
+    activityRows,
+    expectedWorkingDates,
+  });
+}
+
+function isMissingRelationError(error: { code?: string; message: string }): boolean {
+  return error.code === "PGRST205" ||
+    (/member_work_schedule/i.test(error.message) && /not find|does not exist/i.test(error.message));
+}
+
+export function expectedDatesForSchedule(args: {
+  periodStart: string;
+  periodEnd: string;
+  workingWeekdays: number[];
+  exceptions: Array<{ exception_date: string; is_working_day: boolean }>;
+}): string[] {
+  const exceptions = new Map(args.exceptions.map((row) => [row.exception_date, row.is_working_day]));
+  const weekdays = new Set(args.workingWeekdays);
+  const dates: string[] = [];
+  const cursor = new Date(`${args.periodStart}T00:00:00Z`);
+  const end = new Date(`${args.periodEnd}T00:00:00Z`);
+  while (cursor <= end) {
+    const date = cursor.toISOString().slice(0, 10);
+    const expected = exceptions.get(date) ?? weekdays.has(cursor.getUTCDay());
+    if (expected) dates.push(date);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+export function expectedDatesForScheduleHistory(args: {
+  periodStart: string;
+  periodEnd: string;
+  schedules: Array<{
+    id: string;
+    effective_from: string;
+    effective_to: string | null;
+    working_weekdays: number[];
+    created_at: string;
+  }>;
+  exceptions: Array<{
+    schedule_id: string;
+    exception_date: string;
+    is_working_day: boolean;
+  }>;
+}): string[] {
+  const exceptions = new Map(
+    args.exceptions.map((row) => [
+      `${row.schedule_id}:${row.exception_date}`,
+      row.is_working_day,
+    ]),
+  );
+  const dates: string[] = [];
+  const cursor = new Date(`${args.periodStart}T00:00:00Z`);
+  const end = new Date(`${args.periodEnd}T00:00:00Z`);
+  while (cursor <= end) {
+    const date = cursor.toISOString().slice(0, 10);
+    const applicable = args.schedules.filter(
+      (schedule) =>
+        schedule.effective_from <= date &&
+        (schedule.effective_to == null || schedule.effective_to >= date),
+    );
+    const schedule = applicable.at(-1);
+    if (schedule) {
+      const expected =
+        exceptions.get(`${schedule.id}:${date}`) ??
+        new Set(schedule.working_weekdays).has(cursor.getUTCDay());
+      if (expected) dates.push(date);
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 function formatReportDate(isoDate: string): string {

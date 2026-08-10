@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-january-2026.json";
-import { createMonthlyProducerPreview } from "@/lib/scorecards/lifecycle";
+import {
+  createMonthlyProducerPreview,
+  createProducerOverview,
+} from "@/lib/scorecards/lifecycle";
 import { ScorecardsPageShell } from "@/components/scorecards/ProducerScorecardPreview";
 
 /** Local visual-acceptance route. Production returns 404, and the fixture is
@@ -18,10 +21,25 @@ export default function ScorecardsVisualPreviewPage() {
     producerRows: protectedFixture.reports.map(({ reportDate, personalIpCents }) => ({ reportDate, personalIpCents })),
     generatedAt: "2026-08-10T12:00:00.000Z",
   });
+  const overview = createProducerOverview({
+    fullName: "Jordan Taylor",
+    photoUrl: "/headshot-sample.png",
+    submittedApCents: protectedFixture.expected.submittedApCents,
+    currentIssuedIpCents: protectedFixture.expected.totalIssuedIpCents,
+    priorIssuedIpCents: protectedFixture.expected.priorMonthIpCents,
+    rank: {
+      rank: protectedFixture.expected.rank,
+      population: protectedFixture.expected.population,
+      percentile: protectedFixture.expected.percentile,
+      movement: null,
+    },
+    activityRows: protectedFixture.expected.activityRows,
+    expectedWorkingDates: null,
+  });
 
   return (
     <div className="min-h-dvh bg-background text-ink">
-      <ScorecardsPageShell preview={preview} />
+      <ScorecardsPageShell preview={preview} overview={overview} />
     </div>
   );
 }

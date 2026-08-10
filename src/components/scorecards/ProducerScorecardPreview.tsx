@@ -1,8 +1,11 @@
 import type {
   IssuanceStatus,
   MonthlyProducerPreview,
+  ProducerActivityTotals,
+  ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
 import { ISSUANCE_THRESHOLD_SUMMARY } from "@/lib/scorecards/lifecycle";
+import { Avatar } from "@/components/Avatar";
 
 const STATUS_COPY: Record<
   IssuanceStatus,
@@ -70,56 +73,68 @@ export function ScorecardPeriodControls() {
 
 export function ProducerScorecardPreview({
   preview,
+  overview,
 }: {
   preview: MonthlyProducerPreview;
+  overview: ProducerOverview;
 }) {
   const headline = STATUS_COPY[preview.issuanceStatus];
+  const growth =
+    overview.growth.kind === "new_baseline"
+      ? "New baseline"
+      : `${overview.growth.percentage > 0 ? "+" : ""}${overview.growth.percentage}%`;
+  const consistency = overview.activity.consistency;
 
   return (
     <article aria-labelledby="producer-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
-      <header className="border-b border-hairline px-5 py-6 sm:px-7 sm:py-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h2 id="producer-scorecard-title" className="text-xl font-semibold tracking-[-0.025em] text-ink sm:text-2xl">
-                Producer
-              </h2>
-              <span className="rounded-md border border-hairline bg-card-hi px-2 py-1 text-xs font-medium text-subtle">
-                In progress
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-subtle">{preview.periodLabel} · Gateway issued premium</p>
-          </div>
-          <p className="max-w-xs text-sm leading-6 text-subtle sm:text-right">
-            Live preview. Official Scorecards are preserved only after the period closes and source data is complete.
-          </p>
+      <header className="border-b border-hairline px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
+        <Avatar
+          name={overview.producer.fullName}
+          photoUrl={overview.producer.photoUrl}
+          className="mx-auto h-24 w-24 text-2xl ring-4 ring-card outline outline-1 outline-offset-4 outline-hairline sm:h-28 sm:w-28"
+        />
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+          <h2 id="producer-scorecard-title" className="text-2xl font-semibold tracking-[-0.035em] text-ink sm:text-3xl">
+            {overview.producer.fullName}
+          </h2>
+          <span className="text-sm font-medium text-subtle">In progress</span>
         </div>
+        <p className="mt-2 text-sm font-medium text-subtle">{overview.producer.role}</p>
+        <p className="mt-1 text-sm text-mute">{preview.title}</p>
       </header>
 
-      <div className="grid gap-px bg-hairline lg:grid-cols-[1.2fr_0.8fr]">
-        <section aria-label="Issued premium summary" className="bg-card px-5 py-7 sm:px-7 sm:py-8">
-          <p className="text-sm font-medium text-subtle">Total issued IP</p>
-          <p className="mt-2 text-4xl font-semibold tracking-[-0.045em] text-ink tabular-nums sm:text-5xl">
-            {money(preview.totalIssuedIpCents)}
-          </p>
-          <p className="mt-3 text-sm leading-6 text-subtle">
-            Across {preview.sourceCoverage.reportCount} Gateway {preview.sourceCoverage.reportCount === 1 ? "report" : "reports"} this month.
-          </p>
-        </section>
-
-        <section aria-label={`${headline.label} issuance status`} className="bg-card px-5 py-7 sm:px-7 sm:py-8">
-          <div className={`rounded-xl border p-4 ${headline.borderClass} ${headline.backgroundClass}`}>
-            <p className="text-sm font-medium text-subtle">Average weekly IP</p>
-            <p className={`mt-2 text-3xl font-semibold tracking-[-0.035em] tabular-nums ${headline.textClass}`}>
-              {money(preview.averageWeeklyIpCents)}
-            </p>
-            <p className={`mt-2 text-sm font-semibold ${headline.textClass}`}>{headline.label} issuance</p>
+      <section aria-labelledby="overview-title" className="px-5 py-7 sm:px-7 sm:py-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 id="overview-title" className="text-base font-semibold text-ink">At a glance</h3>
+            <p className="mt-1 text-sm text-subtle">Your complete monthly Producer picture.</p>
           </div>
-          <p className="mt-3 text-xs leading-5 text-mute">
-            {ISSUANCE_THRESHOLD_SUMMARY}
-          </p>
-        </section>
-      </div>
+          <p className="text-xs text-mute">Live preview · updates as source data arrives</p>
+        </div>
+
+        <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-3">
+          <OverviewMetric label="Issued IP" value={money(preview.totalIssuedIpCents)} detail={`${preview.sourceCoverage.reportCount} Gateway reports`} />
+          <OverviewMetric label="Submitted AP" value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)} detail="Submitted business" />
+          <OverviewMetric
+            label="Average weekly IP"
+            value={money(preview.averageWeeklyIpCents)}
+            detail={`${headline.label} issuance`}
+            valueClass={headline.textClass}
+            detailClass={headline.textClass}
+            ariaLabel={`${headline.label} issuance status`}
+          />
+          <OverviewMetric label="Month-over-month" value={growth} detail="Personal Gateway IP" />
+          <OverviewMetric label="Company rank" value={`#${overview.rank.rank} of ${overview.rank.population}`} detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)}`}`} />
+          <OverviewMetric
+            label="Tracking consistency"
+            value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
+            detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected days` : `${overview.activity.trackedDays} tracked days · schedule not set`}
+          />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-mute">{ISSUANCE_THRESHOLD_SUMMARY}</p>
+      </section>
+
+      <ActivityOverview activity={overview.activity} />
 
       <section aria-labelledby="weekly-reports-title" className="border-t border-hairline px-5 py-6 sm:px-7 sm:py-7">
         <div className="flex items-baseline justify-between gap-4">
@@ -170,7 +185,70 @@ export function ProducerScorecardPreview({
   );
 }
 
-export function ScorecardsPageShell({ preview }: { preview: MonthlyProducerPreview }) {
+function OverviewMetric({
+  label,
+  value,
+  detail,
+  valueClass = "text-ink",
+  detailClass = "text-mute",
+  ariaLabel,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  valueClass?: string;
+  detailClass?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <div className="min-h-32 bg-card px-5 py-5" aria-label={ariaLabel}>
+      <p className="text-sm font-medium text-subtle">{label}</p>
+      <p className={`mt-2 text-2xl font-semibold tracking-[-0.03em] tabular-nums ${valueClass}`}>{value}</p>
+      <p className={`mt-2 text-xs ${detailClass}`}>{detail}</p>
+    </div>
+  );
+}
+
+const ACTIVITY_LABELS: Array<[keyof ProducerActivityTotals, string]> = [
+  ["leads", "Leads"],
+  ["dials", "Dials"],
+  ["contacts", "Contacts"],
+  ["appointments", "Appointments"],
+  ["presentations", "Presentations"],
+  ["sales", "Sales"],
+];
+
+function ActivityOverview({ activity }: { activity: ProducerOverview["activity"] }) {
+  return (
+    <section aria-labelledby="activity-title" className="border-t border-hairline px-5 py-7 sm:px-7 sm:py-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 id="activity-title" className="text-base font-semibold text-ink">Activity</h3>
+          <p className="mt-1 text-sm text-subtle">Totals and pace across submitted tracker days.</p>
+        </div>
+        <p className="text-xs text-mute">{activity.trackedDays} tracked {activity.trackedDays === 1 ? "day" : "days"}</p>
+      </div>
+      {activity.availability !== "tracked" || !activity.totals || !activity.perTrackedDay ? (
+        <div className="mt-5 rounded-xl border border-dashed border-hairline px-5 py-7">
+          <p className="text-sm font-medium text-ink">{activity.availability === "partial" ? "Activity data is incomplete" : "No tracker submissions yet"}</p>
+          <p className="mt-2 text-sm leading-6 text-subtle">Activity is missing, not zero. {activity.availability === "partial" ? "Complete the missing tracker fields to establish an accurate pace." : "Submit a tracker day—even an intentional zero day—to establish your pace."}</p>
+        </div>
+      ) : (
+        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-5 border-y border-hairline py-5 sm:grid-cols-3 lg:grid-cols-6">
+          {ACTIVITY_LABELS.map(([key, label]) => (
+            <div key={key}>
+              <p className="text-xs text-mute">{label}</p>
+              <p className="mt-1 text-xl font-semibold text-ink tabular-nums">{activity.totals![key].toLocaleString()}</p>
+              <p className="mt-1 text-xs text-subtle">{activity.perTrackedDay![key].toLocaleString()} / day</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function ScorecardsPageShell({ preview, overview }: { preview: MonthlyProducerPreview; overview: ProducerOverview }) {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
       <div className="mb-8 max-w-3xl">
@@ -181,7 +259,7 @@ export function ScorecardsPageShell({ preview }: { preview: MonthlyProducerPrevi
       </div>
       <ScorecardPeriodControls />
       <div className="mt-6">
-        <ProducerScorecardPreview preview={preview} />
+        <ProducerScorecardPreview preview={preview} overview={overview} />
       </div>
     </main>
   );

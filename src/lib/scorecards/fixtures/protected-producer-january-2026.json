@@ -6,8 +6,8 @@
     "source": "Gateway weekly issued-premium reports",
     "verifiedBy": "weekly-wtd-sum-matches-month-end-mtd",
     "verifiedAt": "2026-08-10",
-    "monthEndMtdCents": 5871192,
-    "notes": "Names, IDs, NPNs, emails, client data, and unrelated performance fields are intentionally excluded."
+    "monthEndMtdCents": 4580978,
+    "notes": "Names, IDs, NPNs, emails, and client-level data are intentionally excluded. Aggregate submitted AP, tracker, and rank values are retained for regression coverage."
   },
   "producerId": "protected-producer-001",
   "period": {
@@ -17,15 +17,39 @@
     "label": "January 2026"
   },
   "reports": [
-    { "reportDate": "2026-01-07", "label": "January Week 1", "personalIpCents": 2742012 },
-    { "reportDate": "2026-01-14", "label": "January Week 2", "personalIpCents": 460512 },
-    { "reportDate": "2026-01-21", "label": "January Week 3", "personalIpCents": 1343460 },
-    { "reportDate": "2026-01-28", "label": "January Week 4", "personalIpCents": 1184964 },
-    { "reportDate": "2026-01-31", "label": "January Week 5", "personalIpCents": 140244 }
+    { "reportDate": "2026-01-07", "label": "January Week 1", "personalIpCents": 2116038 },
+    { "reportDate": "2026-01-14", "label": "January Week 2", "personalIpCents": 476928 },
+    { "reportDate": "2026-01-21", "label": "January Week 3", "personalIpCents": 1064128 },
+    { "reportDate": "2026-01-28", "label": "January Week 4", "personalIpCents": 324384 },
+    { "reportDate": "2026-01-31", "label": "January Week 5", "personalIpCents": 599500 }
   ],
   "expected": {
-    "totalIssuedIpCents": 5871192,
-    "averageWeeklyIpCents": 1174238,
-    "issuanceStatus": "red"
+    "totalIssuedIpCents": 4580978,
+    "averageWeeklyIpCents": 916196,
+    "issuanceStatus": "red",
+    "submittedApCents": 2412648,
+    "priorMonthIpCents": 0,
+    "rank": 3,
+    "population": 424,
+    "percentile": 100,
+    "trackedDays": 8,
+    "activityRows": [
+      { "entryDate": "2026-01-01", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 3 },
+      { "entryDate": "2026-01-03", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 2 },
+      { "entryDate": "2026-01-05", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-01-10", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-01-15", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 2 },
+      { "entryDate": "2026-01-19", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-01-22", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 },
+      { "entryDate": "2026-01-28", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 1 }
+    ],
+    "activity": {
+      "leads": 0,
+      "dials": 0,
+      "contacts": 0,
+      "appointments": 0,
+      "presentations": 0,
+      "sales": 12
+    }
   }
 }

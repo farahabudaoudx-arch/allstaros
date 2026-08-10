@@ -40,6 +40,146 @@ export type ProducerScorecardWeek = {
   issuanceStatus: IssuanceStatus;
 };
 
+export type ProducerActivityTotals = {
+  leads: number;
+  dials: number;
+  contacts: number;
+  appointments: number;
+  presentations: number;
+  sales: number;
+};
+
+export type ProducerActivityRow = {
+  entryDate: string;
+  leads: number | null;
+  dials: number | null;
+  contacts: number | null;
+  appointments: number | null;
+  presentations: number | null;
+  sales: number | null;
+};
+
+export type ScorecardScheduleFact = {
+  factDate: string;
+  expectedWorkingDay: boolean;
+  trackerSubmitted: boolean;
+};
+
+export function createScorecardScheduleFacts(input: {
+  periodStart: string;
+  periodEnd: string;
+  expectedWorkingDates: string[];
+  activityRows: ProducerActivityRow[];
+}): ScorecardScheduleFact[] {
+  const expectedDates = new Set(input.expectedWorkingDates);
+  const submittedDates = new Set(input.activityRows.map((row) => row.entryDate));
+  const facts: ScorecardScheduleFact[] = [];
+  const cursor = new Date(`${input.periodStart}T00:00:00Z`);
+  const end = new Date(`${input.periodEnd}T00:00:00Z`);
+
+  while (cursor <= end) {
+    const factDate = cursor.toISOString().slice(0, 10);
+    facts.push({
+      factDate,
+      expectedWorkingDay: expectedDates.has(factDate),
+      trackerSubmitted: submittedDates.has(factDate),
+    });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return facts;
+}
+
+export type ProducerOverview = {
+  producer: { fullName: string; photoUrl: string | null; role: "Producer" };
+  submittedApCents: number | null;
+  growth:
+    | { kind: "new_baseline"; percentage: null }
+    | { kind: "percentage"; percentage: number };
+  rank: { rank: number; population: number; percentile: number; movement: number | null };
+  activity: {
+    availability: "tracked" | "partial" | "missing";
+    trackedDays: number;
+    consistency: { loggedDays: number; expectedDays: number; percentage: number } | null;
+    totals: ProducerActivityTotals | null;
+    perTrackedDay: ProducerActivityTotals | null;
+  };
+};
+
+export function createProducerOverview(input: {
+  fullName: string;
+  photoUrl: string | null;
+  submittedApCents: number | null;
+  currentIssuedIpCents: number;
+  priorIssuedIpCents: number | null;
+  rank: ProducerOverview["rank"];
+  activityRows: ProducerActivityRow[];
+  expectedWorkingDates: string[] | null;
+}): ProducerOverview {
+  const trackedDays = input.activityRows.length;
+  const hasIncompleteRow = input.activityRows.some((row) =>
+    [row.leads, row.dials, row.contacts, row.appointments, row.presentations, row.sales]
+      .some((value) => value == null),
+  );
+  const availability = trackedDays === 0 ? "missing" : hasIncompleteRow ? "partial" : "tracked";
+  const totals = trackedDays && !hasIncompleteRow
+    ? input.activityRows.reduce<ProducerActivityTotals>(
+        (sum, row) => ({
+          leads: sum.leads + row.leads!,
+          dials: sum.dials + row.dials!,
+          contacts: sum.contacts + row.contacts!,
+          appointments: sum.appointments + row.appointments!,
+          presentations: sum.presentations + row.presentations!,
+          sales: sum.sales + row.sales!,
+        }),
+        { leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
+      )
+    : null;
+  const perTrackedDay = totals
+    ? Object.fromEntries(
+        Object.entries(totals).map(([key, value]) => [
+          key,
+          Math.round((value / trackedDays) * 10) / 10,
+        ]),
+      ) as ProducerActivityTotals
+    : null;
+  const expectedDates = input.expectedWorkingDates == null ? null : new Set(input.expectedWorkingDates);
+  const loggedExpectedDays = expectedDates
+    ? new Set(input.activityRows.map((row) => row.entryDate).filter((date) => expectedDates.has(date))).size
+    : 0;
+  const consistency =
+    expectedDates == null
+      ? null
+      : {
+          loggedDays: loggedExpectedDays,
+          expectedDays: expectedDates.size,
+          percentage:
+            expectedDates.size > 0
+              ? Math.round((loggedExpectedDays / expectedDates.size) * 100)
+              : 0,
+        };
+  const growth =
+    input.priorIssuedIpCents == null || input.priorIssuedIpCents === 0
+      ? ({ kind: "new_baseline", percentage: null } as const)
+      : ({
+          kind: "percentage",
+          percentage:
+            Math.round(
+              ((input.currentIssuedIpCents - input.priorIssuedIpCents) /
+                input.priorIssuedIpCents) *
+                1_000,
+            ) / 10,
+        } as const);
+
+  return {
+    producer: { fullName: input.fullName, photoUrl: input.photoUrl, role: "Producer" },
+    submittedApCents: input.submittedApCents,
+    growth,
+    rank: input.rank,
+    activity: { availability, trackedDays, consistency, totals, perTrackedDay },
+  };
+}
+
 export type MonthlyProducerPreview = {
   cardType: "producer";
   periodKind: "monthly";
