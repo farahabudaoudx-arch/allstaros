@@ -63,17 +63,34 @@ async function renderSectionPng(
   clone.style.display = "flex";
   clone.style.alignItems = "center";
   clone.style.border = "0";
-  clone.style.padding = format === "portrait" ? "150px 80px 190px" : "130px 96px 140px";
+  clone.style.padding = format === "portrait" ? "120px 64px 160px" : "130px 96px 140px";
 
   const content = clone.firstElementChild as HTMLElement | null;
   if (content) {
     content.style.width = "100%";
-    content.style.maxWidth = format === "portrait" ? "920px" : "1696px";
+    content.style.maxWidth = format === "portrait" ? "952px" : "1696px";
     content.style.margin = "0 auto";
-    content.style.transform = format === "portrait" ? "scale(1.06)" : "scale(.84)";
+    content.style.transform = format === "portrait" ? "none" : "scale(.84)";
     content.style.transformOrigin = "center";
     const sectionNumber = content.querySelector(":scope > div:first-child > p:first-child") as HTMLElement | null;
     if (sectionNumber) sectionNumber.style.display = "none";
+    if (format === "portrait") {
+      const heading = content.querySelector("h3") as HTMLElement | null;
+      if (heading) {
+        heading.style.fontSize = "72px";
+        heading.style.lineHeight = "1";
+      }
+      content.querySelectorAll<HTMLElement>(".italic").forEach((element) => {
+        element.style.fontSize = "26px";
+        element.style.lineHeight = "1.35";
+      });
+      content.querySelectorAll<HTMLElement>(".tabular-nums").forEach((element) => {
+        if (String(element.className).includes("text-[clamp")) {
+          element.style.fontSize = "140px";
+          element.style.lineHeight = ".9";
+        }
+      });
+    }
   }
   if (format === "landscape") {
     clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
@@ -84,8 +101,28 @@ async function renderSectionPng(
   const trend = clone.querySelector(".weekly-trend");
   const trendSvg = trend?.querySelector("svg");
   if (trend && trendSvg) {
+    const baseline = trendSvg.querySelector(":scope > line");
+    const area = trendSvg.querySelector("polygon");
+    const line = trendSvg.querySelector("polyline");
+    baseline?.setAttribute("stroke", "rgba(247,247,247,.46)");
+    area?.setAttribute("fill", "#f6c945");
+    area?.setAttribute("fill-opacity", ".16");
+    line?.setAttribute("stroke", "#f6c945");
+    line?.setAttribute("stroke-dasharray", "none");
+    line?.setAttribute("stroke-dashoffset", "0");
+    trendSvg.querySelectorAll("circle").forEach((circle) => circle.setAttribute("fill", "#f6c945"));
+    if (format === "portrait") {
+      (trend as HTMLElement).style.marginTop = "48px";
+      trendSvg.setAttribute("preserveAspectRatio", "none");
+      trendSvg.style.width = "100%";
+      trendSvg.style.height = "340px";
+      line?.setAttribute("stroke-width", "6");
+      trendSvg.querySelectorAll("circle").forEach((circle) => circle.setAttribute("r", "8"));
+    }
     const chartWrap = document.createElement("div");
-    chartWrap.style.cssText = "position:relative;width:100%;";
+    chartWrap.style.cssText = format === "portrait"
+      ? "position:relative;width:100%;height:340px;overflow:visible;"
+      : "position:relative;width:100%;overflow:visible;";
     trendSvg.replaceWith(chartWrap);
     chartWrap.append(trendSvg);
 
@@ -105,12 +142,12 @@ async function renderSectionPng(
         `left:${(x / 1000) * 100}%`,
         `top:${Math.max(0, ((y - 64) / 245) * 100)}%`,
         "transform:translateX(-50%)",
-        "min-width:112px",
-        "padding:8px 12px",
+        `min-width:${format === "portrait" ? "140px" : "112px"}`,
+        `padding:${format === "portrait" ? "11px 16px" : "8px 12px"}`,
         "border:1px solid rgba(255,255,255,.18)",
         "background:#111214",
         "color:#f7f7f7",
-        "font-size:17px",
+        `font-size:${format === "portrait" ? "22px" : "17px"}`,
         "font-weight:650",
         "line-height:1.2",
         "text-align:center",
@@ -131,10 +168,10 @@ async function renderSectionPng(
       axisLabel.style.cssText = [
         "position:absolute",
         `left:${(x / 1000) * 100}%`,
-        "top:88%",
+        `top:${format === "portrait" ? "86%" : "88%"}`,
         "transform:translateX(-50%)",
         "color:rgba(247,247,247,.62)",
-        "font-size:14px",
+        `font-size:${format === "portrait" ? "20px" : "14px"}`,
         "font-weight:500",
         "white-space:nowrap",
       ].join(";");
@@ -164,7 +201,7 @@ async function renderSectionPng(
     "position:absolute",
     format === "portrait" ? "left:80px;right:80px;bottom:76px" : "left:112px;right:112px;bottom:60px",
     "margin:0",
-    "font-size:20px",
+    `font-size:${format === "portrait" ? "24px" : "20px"}`,
     "line-height:1.4",
     "font-weight:600",
     "color:rgba(247,247,247,.72)",
