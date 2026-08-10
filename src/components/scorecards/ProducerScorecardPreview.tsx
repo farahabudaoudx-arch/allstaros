@@ -223,7 +223,7 @@ function MonthOverMonthStory({
   const previousLabel = previousMonthLabel(preview.periodStart);
 
   return (
-    <div className="max-w-5xl border-y border-hairline">
+    <div className="max-w-5xl border border-hairline">
       <div className="grid grid-cols-3 border-b border-hairline text-sm font-medium text-subtle sm:text-base">
         <p className="px-3 py-4 sm:px-6">{previousLabel}</p>
         <p className="border-l border-hairline px-3 py-4 sm:px-6">{preview.periodLabel}</p>
