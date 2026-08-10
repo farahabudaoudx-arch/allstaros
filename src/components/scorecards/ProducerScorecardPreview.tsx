@@ -251,7 +251,7 @@ function TrackingConsistencyCalendar({
               <div
                 key={date}
                 aria-label={`${dayFormatter.format(new Date(`${date}T00:00:00Z`))}: ${status}`}
-                className="min-h-16 border-b border-r border-hairline p-2 last:border-r-0 sm:min-h-20 sm:p-3"
+                className="flex min-h-16 flex-col items-center border-b border-r border-hairline p-2 text-center last:border-r-0 sm:min-h-20 sm:p-3"
               >
                 <p className="text-sm font-medium tabular-nums text-ink">{Number(date.slice(-2))}</p>
                 {(logged || missed) && <span className={`mt-3 block h-2.5 w-2.5 rounded-full ${logged ? "bg-pos" : "bg-neg"}`} aria-hidden="true" />}
