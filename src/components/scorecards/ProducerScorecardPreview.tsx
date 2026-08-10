@@ -28,10 +28,6 @@ export function ProducerScorecardPreview({
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 }) {
-  const growth =
-    overview.growth.kind === "new_baseline"
-      ? "New baseline"
-      : `${overview.growth.percentage > 0 ? "+" : ""}${overview.growth.percentage}%`;
   return (
     <article aria-labelledby="producer-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
       <VelarisBackground>
@@ -83,7 +79,6 @@ export function ProducerScorecardPreview({
         <TrackingConsistencyCalendar preview={preview} activity={overview.activity} />
       </StorySection>
 
-      <FinalOverview preview={preview} overview={overview} growth={growth} />
     </article>
   );
 }
@@ -380,38 +375,6 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
             />
           </>
         )}
-      </div>
-    </section>
-  );
-}
-
-function FinalOverview({ preview, overview, growth }: { preview: MonthlyProducerPreview; overview: ProducerOverview; growth: string }) {
-  const consistency = overview.activity.consistency;
-  const activitySummary = overview.activity.totals
-    ? `${overview.activity.totals.dials} dials · ${overview.activity.totals.contacts} contacts · ${overview.activity.totals.appointments} appointments · ${overview.activity.totals.presentations} presentations · ${overview.activity.totals.sales} sales`
-    : "Activity unavailable";
-  const rows = [
-    ["Issued IP", money(preview.totalIssuedIpCents)],
-    ["Submitted AP", overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)],
-    ["Weekly Average", money(preview.averageWeeklyIpCents)],
-    ["Activity", activitySummary],
-    ["Month-over-Month", growth],
-    ["Company Rank", `#${overview.rank.rank} of ${overview.rank.population}`],
-    ["Tracking Consistency", consistency ? `${consistency.percentage}%` : "Schedule needed"],
-  ];
-
-  return (
-    <section className="border-t border-hairline bg-background px-6 py-16 [letter-spacing:0.2px] sm:px-12 sm:py-20 lg:px-20" aria-labelledby="final-overview-title">
-      <div className="mx-auto max-w-4xl">
-        <h3 id="final-overview-title" className="text-3xl font-semibold text-ink sm:text-5xl">Scorecard Summary</h3>
-        <dl className="mt-10 divide-y divide-hairline border-y border-hairline">
-          {rows.map(([label, value]) => (
-            <div key={label} className="grid gap-2 py-5 sm:grid-cols-[13rem_1fr] sm:items-baseline">
-              <dt className="text-sm text-mute">{label}</dt>
-              <dd className="text-lg font-semibold leading-7 text-ink sm:text-xl">{value}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
     </section>
   );
