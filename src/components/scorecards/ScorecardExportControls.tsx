@@ -22,7 +22,7 @@ function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      {portrait ? <rect x="7" y="2" width="10" height="20" rx="1" /> : <rect x="2" y="7" width="20" height="10" rx="1" />}
+      {portrait ? <rect x="6.5" y="2" width="11" height="20" rx="1" /> : <rect x="1.5" y="7" width="21" height="10" rx="1" />}
       <path d="M12 8.5v5" />
       <path d="m9.75 11.75 2.25 2.25 2.25-2.25" />
       <path d="M9.5 15.5h5" />
