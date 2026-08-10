@@ -6,6 +6,7 @@ import type {
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import { VelarisBackground } from "./VelarisBackground";
+import { ScorecardExportControls } from "./ScorecardExportControls";
 
 const ISSUANCE_VALUE_CLASS: Record<IssuanceStatus, string> = {
   green: "text-pos",
@@ -44,7 +45,7 @@ export function ProducerScorecardPreview({
         </header>
       </VelarisBackground>
 
-      <StorySection number="01" title="Issued Premium" compact>
+      <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium">
         <StoryValue
           intro={`Across all IP reports from Gateway in ${preview.periodLabel.split(" ")[0]}, you submitted:`}
           introClass="font-normal italic text-white"
@@ -70,11 +71,11 @@ export function ProducerScorecardPreview({
 
       <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} />
 
-      <StorySection number="03" title="Previous Month Growth">
+      <StorySection number="03" title="Previous Month Growth" sectionId="scorecard-section-03" exportName="03 Previous Month Growth">
         <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
-      <StorySection number="04" title="Tracking Consistency">
+      <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency">
         <TrackingConsistencyCalendar preview={preview} activity={overview.activity} />
       </StorySection>
 
@@ -86,15 +87,20 @@ function StorySection({
   number,
   title,
   compact = false,
+  sectionId,
+  exportName,
   children,
 }: {
   number: string;
   title: string;
   compact?: boolean;
+  sectionId: string;
+  exportName: string;
   children: ReactNode;
 }) {
   return (
-    <section className="min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20">
+    <section id={sectionId} className="relative min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20">
+      <ScorecardExportControls sectionId={sectionId} sectionName={exportName} />
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
@@ -336,7 +342,8 @@ function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
 
 function ActivityStory({ activity, submittedApCents, organizationRanks }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"] }) {
   return (
-    <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
+    <section id="scorecard-section-02" className="relative min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
+      <ScorecardExportControls sectionId="scorecard-section-02" sectionName="02 Your Activity" />
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">02</p>
