@@ -148,7 +148,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   const areaPoints = `${linePoints} ${points.at(-1)!.x},195 ${points[0].x},195`;
 
   return (
-    <div className="weekly-trend mt-10 max-w-4xl border-t border-hairline pt-7">
+    <div className="weekly-trend mt-10 max-w-4xl">
       <style>{`
         .weekly-trend { view-timeline-name: --weekly-trend; view-timeline-axis: block; }
         .weekly-trend__area { animation: weekly-area-in linear both; animation-timeline: --weekly-trend; animation-range: entry 5% cover 32%; }
@@ -161,6 +161,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           .weekly-trend__area, .weekly-trend__line, .weekly-trend__point { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
         }
       `}</style>
+      <p className="mb-7 text-base font-semibold text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
       <svg viewBox="0 0 1000 210" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend">
         <defs>
           <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
