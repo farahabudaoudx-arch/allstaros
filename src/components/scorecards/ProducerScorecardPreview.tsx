@@ -37,10 +37,10 @@ export function ProducerScorecardPreview({
             photoUrl={overview.producer.photoUrl}
             className="mx-auto h-24 w-24 text-2xl ring-4 ring-black/70 outline outline-1 outline-offset-4 outline-white/25 sm:h-28 sm:w-28"
           />
-          <h2 id="producer-scorecard-title" className="mt-6 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
+          <h2 id="producer-scorecard-title" className="mt-6 text-lg font-semibold tracking-[-0.035em] text-white sm:text-[1.40625rem]">
             {overview.producer.fullName}
           </h2>
-          <p className="mt-3 text-xl font-semibold tracking-[-0.025em] text-white/85 sm:text-2xl">{preview.title}</p>
+          <p className="mt-3 text-[1.5625rem] font-semibold tracking-[-0.025em] text-white/85 sm:text-3xl">{preview.title}</p>
         </header>
       </VelarisBackground>
 
