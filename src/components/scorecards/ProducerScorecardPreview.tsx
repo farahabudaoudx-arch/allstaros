@@ -58,22 +58,23 @@ export function ProducerScorecardPreview({
             {money(preview.averageWeeklyIpCents)}
           </p>
         </div>
+        <OrganizationComparison
+          population={overview.rank.population}
+          items={[{
+            label: "Issued Premium",
+            value: money(preview.totalIssuedIpCents),
+            rank: `#${overview.rank.rank} of ${overview.rank.population}`,
+          }]}
+        />
       </StorySection>
 
-      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} />
+      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} rankPopulation={overview.rank.population} />
 
       <StorySection number="03" title="Month-over-Month Growth">
         <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
       </StorySection>
 
-      <StorySection number="04" title="Company Rank">
-        <StoryValue
-          value={`#${overview.rank.rank} of ${overview.rank.population}`}
-          detail={`${overview.rank.percentile}th percentile · ${overview.rank.movement == null ? "First ranking" : overview.rank.movement === 0 ? "No change" : `${overview.rank.movement > 0 ? "Up" : "Down"} ${Math.abs(overview.rank.movement)} from last month`}`}
-        />
-      </StorySection>
-
-      <StorySection number="05" title="Tracking Consistency">
+      <StorySection number="04" title="Tracking Consistency">
         <StoryValue
           value={consistency ? `${consistency.percentage}%` : "Schedule needed"}
           detail={consistency ? `${consistency.loggedDays} of ${consistency.expectedDays} expected workdays tracked` : `${overview.activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
@@ -181,7 +182,30 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   );
 }
 
-function ActivityStory({ activity, submittedApCents }: { activity: ProducerOverview["activity"]; submittedApCents: number | null }) {
+type ComparisonItem = {
+  label: string;
+  value: string;
+  rank: string | null;
+};
+
+function OrganizationComparison({ items, population }: { items: ComparisonItem[]; population: number }) {
+  return (
+    <div className="mt-10 max-w-5xl">
+      <p className="text-base font-normal text-ink sm:text-lg">Here&apos;s how you matched up against the organization:</p>
+      <div className={`mt-5 grid gap-3 ${items.length === 1 ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+        {items.map((item) => (
+          <div key={item.label} className="rounded-xl border border-hairline bg-card px-5 py-4">
+            <p className="text-sm text-subtle">{item.label}</p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
+            <p className="mt-3 text-sm font-medium text-accent">{item.rank ?? `Rank — of ${population}`}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActivityStory({ activity, submittedApCents, rankPopulation }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; rankPopulation: number }) {
   return (
     <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
       <div className="w-full">
@@ -201,9 +225,22 @@ function ActivityStory({ activity, submittedApCents }: { activity: ProducerOverv
             <p className="mt-5 text-base leading-7 text-subtle">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
           </div>
         ) : (
-          <p className="mt-10 max-w-5xl text-pretty text-lg leading-8 text-subtle sm:text-xl sm:leading-9">
-            You logged <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
-          </p>
+          <>
+            <p className="mt-10 max-w-5xl text-pretty text-lg leading-8 text-subtle sm:text-xl sm:leading-9">
+              You logged <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
+            </p>
+            <OrganizationComparison
+              population={rankPopulation}
+              items={[
+                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: null },
+                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: null },
+                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: null },
+                { label: "Appointments", value: activity.totals.appointments.toLocaleString(), rank: null },
+                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: null },
+                { label: "Sales", value: activity.totals.sales.toLocaleString(), rank: null },
+              ]}
+            />
+          </>
         )}
       </div>
     </section>
