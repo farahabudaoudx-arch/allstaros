@@ -101,40 +101,72 @@ async function renderSectionPng(
   const trend = clone.querySelector(".weekly-trend");
   const trendSvg = trend?.querySelector("svg");
   if (trend && trendSvg) {
-    const baseline = trendSvg.querySelector(":scope > line");
-    const area = trendSvg.querySelector("polygon");
-    const line = trendSvg.querySelector("polyline");
-    baseline?.setAttribute("stroke", "rgba(247,247,247,.46)");
-    area?.setAttribute("fill", "#f6c945");
-    area?.setAttribute("fill-opacity", ".16");
-    line?.setAttribute("stroke", "#f6c945");
-    line?.setAttribute("stroke-dasharray", "none");
-    line?.setAttribute("stroke-dashoffset", "0");
-    trendSvg.querySelectorAll("circle").forEach((circle) => circle.setAttribute("fill", "#f6c945"));
+    const pointGroups = [...trendSvg.querySelectorAll("g.weekly-trend__point")];
+    const points = pointGroups.flatMap((group) => {
+      const circle = group.querySelector("circle");
+      const text = group.querySelector("text")?.textContent?.trim();
+      if (!circle || !text) return [];
+      return [{
+        x: Number(circle.getAttribute("cx")),
+        y: Number(circle.getAttribute("cy")),
+        text,
+      }];
+    });
+    const axisLabels = [...trendSvg.querySelectorAll("g:not(.weekly-trend__point)")].flatMap((group) => {
+      const label = group.querySelector("text")?.textContent?.trim();
+      const tick = group.querySelector("line");
+      if (!label || !tick) return [];
+      return [{ x: Number(tick.getAttribute("x1")), label }];
+    });
     if (format === "portrait") {
       (trend as HTMLElement).style.marginTop = "48px";
-      trendSvg.setAttribute("preserveAspectRatio", "none");
-      trendSvg.style.width = "100%";
-      trendSvg.style.height = "340px";
-      line?.setAttribute("stroke-width", "6");
-      trendSvg.querySelectorAll("circle").forEach((circle) => circle.setAttribute("r", "8"));
     }
     const chartWrap = document.createElement("div");
     chartWrap.style.cssText = format === "portrait"
       ? "position:relative;width:100%;height:340px;overflow:visible;"
-      : "position:relative;width:100%;overflow:visible;";
+      : "position:relative;width:100%;height:245px;overflow:visible;";
     trendSvg.replaceWith(chartWrap);
-    chartWrap.append(trendSvg);
+
+    const chartCanvas = document.createElement("canvas");
+    chartCanvas.width = 2000;
+    chartCanvas.height = 490;
+    const context = chartCanvas.getContext("2d");
+    if (context && points.length) {
+      context.scale(2, 2);
+      context.beginPath();
+      context.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach(({ x, y }) => context.lineTo(x, y));
+      context.lineTo(points.at(-1)!.x, 195);
+      context.lineTo(points[0].x, 195);
+      context.closePath();
+      context.fillStyle = "rgba(246,201,69,.2)";
+      context.fill();
+
+      context.beginPath();
+      context.moveTo(98, 195);
+      context.lineTo(945, 195);
+      context.strokeStyle = "#747474";
+      context.lineWidth = 2;
+      context.stroke();
+
+      context.beginPath();
+      context.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach(({ x, y }) => context.lineTo(x, y));
+      context.strokeStyle = "#f6c945";
+      context.lineWidth = format === "portrait" ? 6 : 4;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.stroke();
+    }
+    const chartImage = document.createElement("img");
+    chartImage.alt = "";
+    chartImage.src = chartCanvas.toDataURL("image/png");
+    chartImage.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+    chartWrap.append(chartImage);
 
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:absolute;inset:0;pointer-events:none;";
-    const pointGroups = trendSvg.querySelectorAll("g.weekly-trend__point");
-    pointGroups.forEach((group) => {
-      const circle = group.querySelector("circle");
-      const text = group.querySelector("text")?.textContent?.trim();
-      if (!circle || !text) return;
-      const x = Number(circle.getAttribute("cx"));
-      const y = Number(circle.getAttribute("cy"));
+    points.forEach(({ x, y, text }) => {
       const value = document.createElement("span");
       value.textContent = text;
       value.style.cssText = [
@@ -155,14 +187,23 @@ async function renderSectionPng(
         "box-sizing:border-box",
       ].join(";");
       overlay.append(value);
-      group.querySelectorAll("rect,path,text").forEach((node) => node.remove());
+
+      const dot = document.createElement("span");
+      const dotSize = format === "portrait" ? 16 : 12;
+      dot.style.cssText = [
+        "position:absolute",
+        `left:${(x / 1000) * 100}%`,
+        `top:${(y / 245) * 100}%`,
+        `width:${dotSize}px`,
+        `height:${dotSize}px`,
+        "transform:translate(-50%,-50%)",
+        "border-radius:50%",
+        "background:#f6c945",
+      ].join(";");
+      overlay.append(dot);
     });
 
-    trendSvg.querySelectorAll("g:not(.weekly-trend__point)").forEach((group) => {
-      const label = group.querySelector("text")?.textContent?.trim();
-      const tick = group.querySelector("line");
-      if (!label || !tick) return;
-      const x = Number(tick.getAttribute("x1"));
+    axisLabels.forEach(({ x, label }) => {
       const axisLabel = document.createElement("span");
       axisLabel.textContent = label;
       axisLabel.style.cssText = [
@@ -176,7 +217,6 @@ async function renderSectionPng(
         "white-space:nowrap",
       ].join(";");
       overlay.append(axisLabel);
-      group.querySelector("text")?.remove();
     });
     chartWrap.append(overlay);
   }
