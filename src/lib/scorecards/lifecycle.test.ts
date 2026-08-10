@@ -79,6 +79,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     expect(overview).toMatchObject({
       producer: { fullName: "Jordan Taylor", role: "Producer" },
       submittedApCents: 2_412_648,
+      priorIssuedIpCents: 0,
       growth: { kind: "new_baseline" },
       rank: { rank: 3, population: 424, percentile: 100, movement: 2 },
       activity: {

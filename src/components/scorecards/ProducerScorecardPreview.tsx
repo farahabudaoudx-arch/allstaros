@@ -78,7 +78,13 @@ export function ProducerScorecardPreview({
       <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} />
 
       <StorySection number="03" title="Month-over-Month Growth">
-        <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
+        <MonthOverMonthStory
+          currentLabel={preview.periodLabel}
+          currentValue={preview.totalIssuedIpCents}
+          previousLabel={previousMonthLabel(preview.periodStart)}
+          previousValue={overview.priorIssuedIpCents}
+          growth={growth}
+        />
       </StorySection>
 
       <StorySection number="04" title="Tracking Consistency">
@@ -185,6 +191,44 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+function previousMonthLabel(periodStart: string): string {
+  const [year, month] = periodStart.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year, month - 2, 1)));
+}
+
+function MonthOverMonthStory({
+  previousLabel,
+  previousValue,
+  currentLabel,
+  currentValue,
+  growth,
+}: {
+  previousLabel: string;
+  previousValue: number | null;
+  currentLabel: string;
+  currentValue: number;
+  growth: string;
+}) {
+  const cards = [
+    { label: previousLabel, descriptor: "Last Month", value: previousValue == null ? "Unavailable" : money(previousValue) },
+    { label: currentLabel, descriptor: "This Month", value: money(currentValue) },
+    { label: "Change", descriptor: "Month over Month", value: growth },
+  ];
+
+  return (
+    <div className="grid max-w-5xl gap-3 sm:grid-cols-3">
+      {cards.map((card) => (
+        <div key={card.descriptor} className="rounded-xl border border-hairline bg-card px-5 py-5">
+          <p className="text-sm text-mute">{card.descriptor}</p>
+          <p className="mt-2 text-base font-medium text-subtle">{card.label}</p>
+          <p className="mt-5 text-3xl font-semibold tabular-nums text-ink sm:text-4xl">{card.value}</p>
+        </div>
+      ))}
     </div>
   );
 }

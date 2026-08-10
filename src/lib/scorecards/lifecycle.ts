@@ -92,6 +92,7 @@ export function createScorecardScheduleFacts(input: {
 export type ProducerOverview = {
   producer: { fullName: string; photoUrl: string | null; role: "Producer" };
   submittedApCents: number | null;
+  priorIssuedIpCents: number | null;
   growth:
     | { kind: "new_baseline"; percentage: null }
     | { kind: "percentage"; percentage: number };
@@ -182,6 +183,7 @@ export function createProducerOverview(input: {
   return {
     producer: { fullName: input.fullName, photoUrl: input.photoUrl, role: "Producer" },
     submittedApCents: input.submittedApCents,
+    priorIssuedIpCents: input.priorIssuedIpCents,
     growth,
     rank: input.rank,
     organizationRanks: input.organizationRanks,
