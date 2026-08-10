@@ -222,27 +222,79 @@ function MonthOverMonthStory({
   ];
 
   return (
-    <div className="max-w-5xl space-y-3">
+    <div className="grid max-w-5xl gap-4 lg:grid-cols-2">
       {comparisons.map((comparison) => (
         <div key={comparison.label} className="rounded-xl border border-hairline bg-card px-5 py-5">
-          <p className="text-base font-semibold text-ink">{comparison.label}</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-mute">{previousMonthLabel(preview.periodStart)}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">{comparison.format(comparison.previous)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-mute">{preview.periodLabel}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">{comparison.format(comparison.current)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-mute">Change</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-accent">{percentageChange(comparison.previous, comparison.current)}</p>
-            </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-base font-semibold text-ink">{comparison.label}</p>
+            <p className="text-sm font-semibold tabular-nums text-accent">{percentageChange(comparison.previous, comparison.current)}</p>
           </div>
+          <MonthlyComparisonChart
+            label={comparison.label}
+            previousLabel={previousMonthLabel(preview.periodStart)}
+            previousValue={comparison.previous}
+            currentLabel={preview.periodLabel}
+            currentValue={comparison.current}
+            format={comparison.format}
+          />
         </div>
       ))}
     </div>
+  );
+}
+
+function MonthlyComparisonChart({
+  label,
+  previousLabel,
+  previousValue,
+  currentLabel,
+  currentValue,
+  format,
+}: {
+  label: string;
+  previousLabel: string;
+  previousValue: number | null;
+  currentLabel: string;
+  currentValue: number | null;
+  format: (value: number | null) => string;
+}) {
+  const numericValues = [previousValue ?? 0, currentValue ?? 0];
+  const minimum = Math.min(...numericValues);
+  const maximum = Math.max(...numericValues);
+  const range = maximum - minimum;
+  const xValues = [90, 410];
+  const points = numericValues.map((value, index) => ({
+    x: xValues[index],
+    y: range === 0 ? 112 : 138 - ((value - minimum) / range) * 58,
+  }));
+  const linePoints = points.map(({ x, y }) => `${x},${y}`).join(" ");
+  const areaPoints = `${linePoints} 410,150 90,150`;
+  const gradientId = `month-comparison-${label.toLowerCase().replaceAll(" ", "-")}`;
+  const labels = [previousLabel, currentLabel];
+  const values = [previousValue, currentValue];
+
+  return (
+    <svg viewBox="0 0 500 190" className="mt-4 h-auto w-full overflow-visible" role="img" aria-label={`${label} comparison between ${previousLabel} and ${currentLabel}`}>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
+        </linearGradient>
+      </defs>
+      <line x1="70" y1="150" x2="430" y2="150" className="stroke-subtle" strokeWidth="2" />
+      <polygon points={areaPoints} fill={`url(#${gradientId})`} className="text-accent" />
+      <polyline points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="text-accent" />
+      {points.map(({ x, y }, index) => (
+        <g key={labels[index]}>
+          <rect x={x - 70} y={y - 48} width="140" height="34" rx="9" className="fill-background stroke-hairline" />
+          <path d={`M ${x - 7} ${y - 14} L ${x} ${y - 7} L ${x + 7} ${y - 14} Z`} className="fill-background stroke-hairline" strokeLinejoin="round" />
+          <text x={x} y={y - 31} textAnchor="middle" dominantBaseline="middle" className="fill-ink text-[17px] font-semibold tabular-nums">{format(values[index])}</text>
+          <circle cx={x} cy={y} r="6" className="fill-accent" />
+          <line x1={x} y1="150" x2={x} y2="157" className="stroke-subtle" strokeWidth="2" />
+          <text x={x} y="178" textAnchor="middle" className="fill-subtle text-[14px] font-medium">{labels[index]}</text>
+        </g>
+      ))}
+    </svg>
   );
 }
 
