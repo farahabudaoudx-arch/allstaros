@@ -139,9 +139,11 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
   if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
   const values = reports.map((report) => report.personalIpCents);
   const maximum = Math.max(...values, 1);
+  const axisMaximum = Math.ceil(maximum / 500_000) * 500_000;
+  const yTicks = [axisMaximum, axisMaximum / 2, 0];
   const points = values.map((value, index) => {
-    const x = reports.length === 1 ? 500 : 55 + (index / (reports.length - 1)) * 890;
-    const y = 165 - (value / maximum) * 82;
+    const x = reports.length === 1 ? 500 : 105 + (index / (reports.length - 1)) * 825;
+    const y = 195 - (value / axisMaximum) * 115;
     return { x, y };
   });
   const linePoints = points.map(({ x, y }) => `${x},${y}`).join(" ");
@@ -162,13 +164,25 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
         }
       `}</style>
       <p className="mb-7 text-base font-semibold text-ink sm:text-lg">Here&apos;s what you submitted week by week:</p>
-      <svg viewBox="0 0 1000 210" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend">
+      <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" role="img" aria-label="Weekly issued premium trend with week and dollar axes">
         <defs>
           <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
             <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
           </linearGradient>
         </defs>
+        {yTicks.map((tick) => {
+          const y = 195 - (tick / axisMaximum) * 115;
+          const label = tick === 0 ? "$0" : `$${tick / 100_000}k`;
+          return (
+            <g key={tick}>
+              <line x1="98" y1={y} x2="945" y2={y} className="stroke-hairline" strokeWidth="1" />
+              <text x="86" y={y} textAnchor="end" dominantBaseline="middle" className="fill-mute text-[15px] tabular-nums">{label}</text>
+            </g>
+          );
+        })}
+        <line x1="98" y1="74" x2="98" y2="195" className="stroke-subtle" strokeWidth="2" />
+        <line x1="98" y1="195" x2="945" y2="195" className="stroke-subtle" strokeWidth="2" />
         <polygon points={areaPoints} fill="url(#weekly-ip-area)" className="weekly-trend__area text-accent" />
         <polyline pathLength="1" points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="weekly-trend__line text-accent" />
         {points.map(({ x, y }, index) => (
@@ -181,14 +195,13 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
             <circle cx={x} cy={y} r="6" className="fill-accent" />
           </g>
         ))}
-      </svg>
-      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-5">
-        {reports.map((week) => (
-          <div key={week.reportDate}>
-            <p className="text-xs font-medium text-subtle">{week.label}</p>
-          </div>
+        {points.map(({ x }, index) => (
+          <g key={`axis-${reports[index].reportDate}`}>
+            <line x1={x} y1="195" x2={x} y2="202" className="stroke-subtle" strokeWidth="2" />
+            <text x={x} y="225" textAnchor="middle" className="fill-subtle text-[15px] font-medium">{reports[index].label}</text>
+          </g>
         ))}
-      </div>
+      </svg>
     </div>
   );
 }
