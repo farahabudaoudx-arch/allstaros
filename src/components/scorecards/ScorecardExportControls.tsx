@@ -12,24 +12,21 @@ function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
   const portrait = format === "portrait";
 
   return (
-    <span className="relative flex h-6 w-6 items-center justify-center" aria-hidden="true">
-      <span
-        className={`border border-current ${portrait ? "h-5 w-3" : "h-3 w-5"}`}
-      />
-      <svg
-        viewBox="0 0 16 16"
-        className="absolute h-3.5 w-3.5 bg-card"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M8 2.5v7" />
-        <path d="m5.5 7.5 2.5 2.5 2.5-2.5" />
-        <path d="M3.5 12.5h9" />
-      </svg>
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {portrait ? <rect x="7" y="2" width="10" height="20" rx="1" /> : <rect x="2" y="7" width="20" height="10" rx="1" />}
+      <path d="M12 8.5v5" />
+      <path d="m9.75 11.75 2.25 2.25 2.25-2.25" />
+      <path d="M9.5 15.5h5" />
+    </svg>
   );
 }
 
