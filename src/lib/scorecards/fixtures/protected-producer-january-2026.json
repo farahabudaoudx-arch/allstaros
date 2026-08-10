@@ -1,0 +1,31 @@
+{
+  "fixtureVersion": 1,
+  "protection": {
+    "classification": "protected-historical",
+    "identity": "anonymized-real-producer",
+    "source": "Gateway weekly issued-premium reports",
+    "verifiedBy": "weekly-wtd-sum-matches-month-end-mtd",
+    "verifiedAt": "2026-08-10",
+    "monthEndMtdCents": 5871192,
+    "notes": "Names, IDs, NPNs, emails, client data, and unrelated performance fields are intentionally excluded."
+  },
+  "producerId": "protected-producer-001",
+  "period": {
+    "kind": "monthly",
+    "start": "2026-01-01",
+    "end": "2026-01-31",
+    "label": "January 2026"
+  },
+  "reports": [
+    { "reportDate": "2026-01-07", "label": "January Week 1", "personalIpCents": 2742012 },
+    { "reportDate": "2026-01-14", "label": "January Week 2", "personalIpCents": 460512 },
+    { "reportDate": "2026-01-21", "label": "January Week 3", "personalIpCents": 1343460 },
+    { "reportDate": "2026-01-28", "label": "January Week 4", "personalIpCents": 1184964 },
+    { "reportDate": "2026-01-31", "label": "January Week 5", "personalIpCents": 140244 }
+  ],
+  "expected": {
+    "totalIssuedIpCents": 5871192,
+    "averageWeeklyIpCents": 1174238,
+    "issuanceStatus": "red"
+  }
+}

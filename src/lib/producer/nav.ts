@@ -47,6 +47,10 @@ export function isGroup(entry: NavEntry): entry is NavGroup {
  *  block, so the two roles can never drift apart. */
 const PERSONAL: NavEntry[] = [
   {
+    label: "Scorecards",
+    href: "/producer/scorecards",
+  },
+  {
     label: "Daily Tracker",
     href: "/producer/tracker",
     icon: "/menu-icons/producer/daily-tracker.png",
