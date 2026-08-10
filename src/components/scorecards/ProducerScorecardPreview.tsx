@@ -230,13 +230,14 @@ function MonthOverMonthStory({
         <p className="border-l border-hairline px-3 py-4 text-right sm:px-6">Percent Change</p>
       </div>
       {comparisons.map((comparison) => (
-        <div key={comparison.label} className="relative grid grid-cols-3 border-b border-hairline last:border-b-0">
-          <p className="absolute left-3 top-5 text-sm font-medium text-subtle sm:left-6 sm:text-base">{comparison.label}</p>
-          <p className="px-3 pb-5 pt-12 text-xl font-semibold tabular-nums text-ink sm:px-6 sm:text-3xl">
-            {comparison.format(comparison.previous)}
+        <div key={comparison.label} className="grid grid-cols-3 border-b border-hairline last:border-b-0">
+          <p className="px-3 py-5 sm:px-6">
+            <span className="block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
+            <span className="mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.previous)}</span>
           </p>
-          <p className="border-l border-hairline px-3 pb-5 pt-12 text-xl font-semibold tabular-nums text-ink sm:px-6 sm:text-3xl">
-            {comparison.format(comparison.current)}
+          <p className="border-l border-hairline px-3 py-5 sm:px-6">
+            <span className="block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
+            <span className="mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.current)}</span>
           </p>
           <p className="border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">
             {percentageChange(comparison.previous, comparison.current)}
