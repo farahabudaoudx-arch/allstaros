@@ -154,6 +154,13 @@ function previousMonth(periodStart: string): { start: string; end: string } {
   };
 }
 
+export function rankForTotal(value: number, totals: Iterable<number>): { rank: number; population: number } {
+  const sorted = [...totals].sort((a, b) => b - a);
+  const rankIndex = sorted.findIndex((total) => total === value);
+  if (rankIndex < 0) throw new Error("Unable to establish organization metric rank.");
+  return { rank: rankIndex + 1, population: sorted.length };
+}
+
 export async function loadCurrentMonthlyProducerOverview(
   supabase: SupabaseClient,
   producer: {
@@ -165,7 +172,7 @@ export async function loadCurrentMonthlyProducerOverview(
 ): Promise<ProducerOverview> {
   const period = currentMonthlyPeriod(now);
   const prior = previousMonth(period.start);
-  const [clientRows, trackerResult, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
+  const [clientRows, trackerResult, organizationClientRows, organizationTrackerRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
     await Promise.all([
       fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
         supabase
@@ -181,6 +188,31 @@ export async function loadCurrentMonthlyProducerOverview(
         .eq("person_id", producer.id)
         .gte("entry_date", period.start)
         .lte("entry_date", period.end),
+      fetchAllRows<ClientSaleFields & { id: string; person_id: string }>((lo, hi) =>
+        supabase
+          .from("clients")
+          .select("id, person_id, annual_premium, sale_status, submit_date, date, created_at")
+          .order("id")
+          .range(lo, hi),
+      ),
+      fetchAllRows<{
+        id: string;
+        person_id: string;
+        entry_date: string;
+        dials: number | null;
+        contacts: number | null;
+        appointments: number | null;
+        presentations: number | null;
+        sales: number | null;
+      }>((lo, hi) =>
+        supabase
+          .from("tracker_entry")
+          .select("id, person_id, entry_date, dials, contacts, appointments, presentations, sales")
+          .gte("entry_date", period.start)
+          .lte("entry_date", period.end)
+          .order("id")
+          .range(lo, hi),
+      ),
       fetchAllRows<{ id: string; person_id: string; report_date: string; personal_ip_cents: number }>((lo, hi) =>
         supabase
           .from("producer_issued_premium")
@@ -252,6 +284,42 @@ export async function loadCurrentMonthlyProducerOverview(
   if (!activeIds.has(producer.id)) {
     throw new Error("Producer is not in the active Producer ranking population.");
   }
+  const organizationApTotals = new Map([...activeIds].map((id) => [id, 0]));
+  for (const client of organizationClientRows) {
+    if (!activeIds.has(client.person_id)) continue;
+    const day = saleDay(client, "America/Chicago");
+    if (!isSale(client) || !day || day < period.start || day > period.end) continue;
+    if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) continue;
+    organizationApTotals.set(
+      client.person_id,
+      (organizationApTotals.get(client.person_id) ?? 0) + dollarsToCents(client.annual_premium),
+    );
+  }
+  const activityMetricKeys = ["dials", "contacts", "appointments", "presentations", "sales"] as const;
+  const organizationActivityTotals = Object.fromEntries(
+    activityMetricKeys.map((metric) => [metric, new Map([...activeIds].map((id) => [id, 0]))]),
+  ) as Record<(typeof activityMetricKeys)[number], Map<string, number>>;
+  for (const row of organizationTrackerRows) {
+    if (!activeIds.has(row.person_id)) continue;
+    for (const metric of activityMetricKeys) {
+      const value = row[metric];
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      organizationActivityTotals[metric].set(
+        row.person_id,
+        (organizationActivityTotals[metric].get(row.person_id) ?? 0) + value,
+      );
+    }
+  }
+  const submittedApRank = rankForTotal(organizationApTotals.get(producer.id) ?? 0, organizationApTotals.values());
+  const organizationRanks = Object.fromEntries(
+    activityMetricKeys.map((metric) => [
+      metric,
+      rankForTotal(
+        organizationActivityTotals[metric].get(producer.id) ?? 0,
+        organizationActivityTotals[metric].values(),
+      ),
+    ]),
+  ) as Omit<ProducerOverview["organizationRanks"], "submittedAp">;
   const totalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
   const currentImportedDates = new Set((currentImportsResult.data ?? []).map((row) => String(row.report_date)));
   for (const row of currentPremiumRows) {
@@ -331,6 +399,7 @@ export async function loadCurrentMonthlyProducerOverview(
       movement:
         priorImportedDates.size === 0 || priorRankIndex < 0 ? null : priorRankIndex + 1 - rank,
     },
+    organizationRanks: { submittedAp: submittedApRank, ...organizationRanks },
     activityRows,
     expectedWorkingDates,
   });

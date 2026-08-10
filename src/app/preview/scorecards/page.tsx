@@ -33,6 +33,12 @@ export default function ScorecardsVisualPreviewPage() {
       percentile: protectedFixture.expected.percentile,
       movement: null,
     },
+    organizationRanks: Object.fromEntries(
+      Object.entries(protectedFixture.expected.organizationRanks).map(([metric, rank]) => [
+        metric,
+        { rank, population: protectedFixture.expected.population },
+      ]),
+    ) as Parameters<typeof createProducerOverview>[0]["organizationRanks"],
     activityRows: protectedFixture.expected.activityRows,
     expectedWorkingDates: null,
   });

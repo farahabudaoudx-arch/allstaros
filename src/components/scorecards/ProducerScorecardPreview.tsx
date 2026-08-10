@@ -59,7 +59,6 @@ export function ProducerScorecardPreview({
           </p>
         </div>
         <OrganizationComparison
-          population={overview.rank.population}
           items={[{
             label: "Issued Premium",
             value: money(preview.totalIssuedIpCents),
@@ -68,7 +67,7 @@ export function ProducerScorecardPreview({
         />
       </StorySection>
 
-      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} rankPopulation={overview.rank.population} />
+      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} />
 
       <StorySection number="03" title="Month-over-Month Growth">
         <StoryValue value={growth} detail="Compared with your prior month of personal Gateway issued premium" />
@@ -185,10 +184,10 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
 type ComparisonItem = {
   label: string;
   value: string;
-  rank: string | null;
+  rank: string;
 };
 
-function OrganizationComparison({ items, population }: { items: ComparisonItem[]; population: number }) {
+function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   return (
     <div className="mt-10 max-w-5xl">
       <p className="text-base font-normal text-ink sm:text-lg">Here&apos;s how you matched up against the organization:</p>
@@ -197,7 +196,7 @@ function OrganizationComparison({ items, population }: { items: ComparisonItem[]
           <div key={item.label} className="rounded-xl border border-hairline bg-card px-5 py-4">
             <p className="text-sm text-subtle">{item.label}</p>
             <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
-            <p className="mt-3 text-sm font-medium text-accent">{item.rank ?? `Rank — of ${population}`}</p>
+            <p className="mt-3 text-sm font-medium text-accent">{item.rank}</p>
           </div>
         ))}
       </div>
@@ -205,7 +204,7 @@ function OrganizationComparison({ items, population }: { items: ComparisonItem[]
   );
 }
 
-function ActivityStory({ activity, submittedApCents, rankPopulation }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; rankPopulation: number }) {
+function ActivityStory({ activity, submittedApCents, organizationRanks }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"] }) {
   return (
     <section className="min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
       <div className="w-full">
@@ -230,14 +229,13 @@ function ActivityStory({ activity, submittedApCents, rankPopulation }: { activit
               You logged <strong className="font-semibold text-ink">{activity.totals.dials.toLocaleString()} dials</strong>, spoke with <strong className="font-semibold text-ink">{activity.totals.contacts.toLocaleString()} people</strong>, booked <strong className="font-semibold text-ink">{activity.totals.appointments.toLocaleString()} appointments</strong>, delivered <strong className="font-semibold text-ink">{activity.totals.presentations.toLocaleString()} presentations</strong>, and submitted <strong className="font-semibold text-ink">{activity.totals.sales.toLocaleString()} sales</strong>.
             </p>
             <OrganizationComparison
-              population={rankPopulation}
               items={[
-                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: null },
-                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: null },
-                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: null },
-                { label: "Appointments", value: activity.totals.appointments.toLocaleString(), rank: null },
-                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: null },
-                { label: "Sales", value: activity.totals.sales.toLocaleString(), rank: null },
+                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: `#${organizationRanks.submittedAp.rank} of ${organizationRanks.submittedAp.population}` },
+                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: `#${organizationRanks.dials.rank} of ${organizationRanks.dials.population}` },
+                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: `#${organizationRanks.contacts.rank} of ${organizationRanks.contacts.population}` },
+                { label: "Appointments", value: activity.totals.appointments.toLocaleString(), rank: `#${organizationRanks.appointments.rank} of ${organizationRanks.appointments.population}` },
+                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: `#${organizationRanks.presentations.rank} of ${organizationRanks.presentations.population}` },
+                { label: "Sales", value: activity.totals.sales.toLocaleString(), rank: `#${organizationRanks.sales.rank} of ${organizationRanks.sales.population}` },
               ]}
             />
           </>

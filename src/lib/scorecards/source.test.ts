@@ -4,9 +4,15 @@ import {
   expectedDatesForSchedule,
   expectedDatesForScheduleHistory,
   monthlyProducerSourceFromRows,
+  rankForTotal,
 } from "./source";
 
 describe("monthly Producer source adapter", () => {
+  it("uses competition ranking across the complete measured population", () => {
+    expect(rankForTotal(50, [100, 50, 50, 20, 0])).toEqual({ rank: 2, population: 5 });
+    expect(rankForTotal(0, [100, 50, 50, 20, 0])).toEqual({ rank: 5, population: 5 });
+  });
+
   it("applies workday exceptions without marking ordinary days off", () => {
     expect(
       expectedDatesForSchedule({

@@ -7,7 +7,7 @@
     "verifiedBy": "weekly-wtd-sum-matches-month-end-mtd",
     "verifiedAt": "2026-08-10",
     "monthEndMtdCents": 4580978,
-    "notes": "Names, IDs, NPNs, emails, and client-level data are intentionally excluded. Aggregate submitted AP, tracker, and rank values are retained for regression coverage."
+    "notes": "Names, IDs, NPNs, emails, and client-level data are intentionally excluded. Aggregate submitted AP, tracker, and issued-IP rank values are retained for regression coverage. AP and activity ranks are illustrative values used only by the local visual preview."
   },
   "producerId": "protected-producer-001",
   "period": {
@@ -32,6 +32,14 @@
     "rank": 3,
     "population": 424,
     "percentile": 100,
+    "organizationRanks": {
+      "submittedAp": 8,
+      "dials": 424,
+      "contacts": 424,
+      "appointments": 424,
+      "presentations": 424,
+      "sales": 6
+    },
     "trackedDays": 8,
     "activityRows": [
       { "entryDate": "2026-01-01", "leads": 0, "dials": 0, "contacts": 0, "appointments": 0, "presentations": 0, "sales": 3 },

@@ -9,6 +9,15 @@ import {
   type MonthlyProducerSource,
 } from "./lifecycle";
 
+const organizationRanks = {
+  submittedAp: { rank: 8, population: 424 },
+  dials: { rank: 20, population: 424 },
+  contacts: { rank: 18, population: 424 },
+  appointments: { rank: 12, population: 424 },
+  presentations: { rank: 10, population: 424 },
+  sales: { rank: 6, population: 424 },
+};
+
 function source(overrides: Partial<MonthlyProducerSource> = {}): MonthlyProducerSource {
   return {
     producerId: "producer-1",
@@ -59,6 +68,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       currentIssuedIpCents: 4_580_978,
       priorIssuedIpCents: 0,
       rank: { rank: 3, population: 424, percentile: 100, movement: 2 },
+      organizationRanks,
       activityRows: [
         { entryDate: "2026-08-03", leads: 12, dials: 100, contacts: 40, appointments: 10, presentations: 6, sales: 2 },
         { entryDate: "2026-08-04", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
@@ -89,6 +99,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       currentIssuedIpCents: 0,
       priorIssuedIpCents: null,
       rank: { rank: 20, population: 20, percentile: 5, movement: null },
+      organizationRanks,
       activityRows: [],
       expectedWorkingDates: ["2026-08-03", "2026-08-04"],
     });
@@ -107,6 +118,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       currentIssuedIpCents: 0,
       priorIssuedIpCents: null,
       rank: { rank: 1, population: 1, percentile: 100, movement: null },
+      organizationRanks,
       activityRows: [
         { entryDate: "2026-08-03", leads: null, dials: 10, contacts: 2, appointments: 1, presentations: 0, sales: 0 },
       ],
@@ -126,6 +138,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       currentIssuedIpCents: 0,
       priorIssuedIpCents: 0,
       rank: { rank: 1, population: 1, percentile: 100, movement: 0 },
+      organizationRanks,
       activityRows: [
         { entryDate: "2026-08-02", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },
         { entryDate: "2026-08-03", leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 },

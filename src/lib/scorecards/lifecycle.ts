@@ -97,6 +97,14 @@ export type ProducerOverview = {
     | { kind: "new_baseline"; percentage: null }
     | { kind: "percentage"; percentage: number };
   rank: { rank: number; population: number; percentile: number; movement: number | null };
+  organizationRanks: {
+    submittedAp: { rank: number; population: number };
+    dials: { rank: number; population: number };
+    contacts: { rank: number; population: number };
+    appointments: { rank: number; population: number };
+    presentations: { rank: number; population: number };
+    sales: { rank: number; population: number };
+  };
   activity: {
     availability: "tracked" | "partial" | "missing";
     trackedDays: number;
@@ -113,6 +121,7 @@ export function createProducerOverview(input: {
   currentIssuedIpCents: number;
   priorIssuedIpCents: number | null;
   rank: ProducerOverview["rank"];
+  organizationRanks: ProducerOverview["organizationRanks"];
   activityRows: ProducerActivityRow[];
   expectedWorkingDates: string[] | null;
 }): ProducerOverview {
@@ -176,6 +185,7 @@ export function createProducerOverview(input: {
     submittedApCents: input.submittedApCents,
     growth,
     rank: input.rank,
+    organizationRanks: input.organizationRanks,
     activity: { availability, trackedDays, consistency, totals, perTrackedDay },
   };
 }
