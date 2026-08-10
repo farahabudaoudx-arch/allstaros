@@ -89,33 +89,24 @@ export function ProducerScorecardPreview({
   return (
     <article aria-labelledby="producer-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
       <VelarisBackground>
-      <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
-        <Avatar
-          name={overview.producer.fullName}
-          photoUrl={overview.producer.photoUrl}
-          className="mx-auto h-24 w-24 text-2xl ring-4 ring-black/70 outline outline-1 outline-offset-4 outline-white/25 sm:h-28 sm:w-28"
-        />
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-          <h2 id="producer-scorecard-title" className="text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
+        <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
+          <Avatar
+            name={overview.producer.fullName}
+            photoUrl={overview.producer.photoUrl}
+            className="mx-auto h-24 w-24 text-2xl ring-4 ring-black/70 outline outline-1 outline-offset-4 outline-white/25 sm:h-28 sm:w-28"
+          />
+          <h2 id="producer-scorecard-title" className="mt-6 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
             {overview.producer.fullName}
           </h2>
-          <span className="text-sm font-medium text-white/70">In progress</span>
-        </div>
-        <p className="mt-2 text-sm font-medium text-white/75">{overview.producer.role}</p>
-        <p className="mt-1 text-sm text-white/55">{preview.title}</p>
-      </header>
+          <p className="mt-3 text-base font-semibold text-white/85 sm:text-lg">{overview.producer.role}</p>
+          <p className="mt-1 text-lg font-semibold tracking-[-0.02em] text-white/75 sm:text-xl">{preview.title}</p>
+        </header>
       </VelarisBackground>
 
       <section aria-labelledby="overview-title" className="px-5 py-7 sm:px-7 sm:py-8">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h3 id="overview-title" className="text-base font-semibold text-ink">At a glance</h3>
-            <p className="mt-1 text-sm text-subtle">Your complete monthly Producer picture.</p>
-          </div>
-          <p className="text-xs text-mute">Live preview · updates as source data arrives</p>
-        </div>
+        <h3 id="overview-title" className="text-base font-semibold text-ink">At a glance</h3>
 
-        <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-4 grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-3">
           <OverviewMetric label="Issued IP" value={money(preview.totalIssuedIpCents)} detail={`${preview.sourceCoverage.reportCount} Gateway reports`} />
           <OverviewMetric label="Submitted AP" value={overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents)} detail="Submitted business" />
           <OverviewMetric
