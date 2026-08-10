@@ -53,11 +53,155 @@ async function renderSectionPng(
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute("id");
   clone.querySelectorAll("[data-export-controls]").forEach((node) => node.remove());
+  clone.style.position = "absolute";
+  clone.style.inset = "0";
   clone.style.width = `${width}px`;
   clone.style.height = `${height}px`;
   clone.style.minHeight = `${height}px`;
   clone.style.maxHeight = `${height}px`;
   clone.style.boxSizing = "border-box";
+  clone.style.display = "flex";
+  clone.style.alignItems = "center";
+  clone.style.border = "0";
+  clone.style.padding = format === "portrait" ? "150px 80px 190px" : "130px 96px 140px";
+
+  const content = clone.firstElementChild as HTMLElement | null;
+  if (content) {
+    content.style.width = "100%";
+    content.style.maxWidth = format === "portrait" ? "920px" : "1696px";
+    content.style.margin = "0 auto";
+    content.style.transform = format === "portrait" ? "scale(1.06)" : "scale(.84)";
+    content.style.transformOrigin = "center";
+  }
+  if (format === "landscape") {
+    clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
+      element.style.maxWidth = "none";
+    });
+  }
+
+  const trend = clone.querySelector(".weekly-trend");
+  const trendSvg = trend?.querySelector("svg");
+  if (trend && trendSvg) {
+    const chartWrap = document.createElement("div");
+    chartWrap.style.cssText = "position:relative;width:100%;";
+    trendSvg.replaceWith(chartWrap);
+    chartWrap.append(trendSvg);
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:absolute;inset:0;pointer-events:none;";
+    const pointGroups = trendSvg.querySelectorAll("g.weekly-trend__point");
+    pointGroups.forEach((group) => {
+      const circle = group.querySelector("circle");
+      const text = group.querySelector("text")?.textContent?.trim();
+      if (!circle || !text) return;
+      const x = Number(circle.getAttribute("cx"));
+      const y = Number(circle.getAttribute("cy"));
+      const value = document.createElement("span");
+      value.textContent = text;
+      value.style.cssText = [
+        "position:absolute",
+        `left:${(x / 1000) * 100}%`,
+        `top:${Math.max(0, ((y - 64) / 245) * 100)}%`,
+        "transform:translateX(-50%)",
+        "min-width:112px",
+        "padding:8px 12px",
+        "border:1px solid rgba(255,255,255,.18)",
+        "background:#111214",
+        "color:#f7f7f7",
+        "font-size:17px",
+        "font-weight:650",
+        "line-height:1.2",
+        "text-align:center",
+        "border-radius:9px",
+        "box-sizing:border-box",
+      ].join(";");
+      overlay.append(value);
+      group.querySelectorAll("rect,path,text").forEach((node) => node.remove());
+    });
+
+    trendSvg.querySelectorAll("g:not(.weekly-trend__point)").forEach((group) => {
+      const label = group.querySelector("text")?.textContent?.trim();
+      const tick = group.querySelector("line");
+      if (!label || !tick) return;
+      const x = Number(tick.getAttribute("x1"));
+      const axisLabel = document.createElement("span");
+      axisLabel.textContent = label;
+      axisLabel.style.cssText = [
+        "position:absolute",
+        `left:${(x / 1000) * 100}%`,
+        "top:88%",
+        "transform:translateX(-50%)",
+        "color:rgba(247,247,247,.62)",
+        "font-size:14px",
+        "font-weight:500",
+        "white-space:nowrap",
+      ].join(";");
+      overlay.append(axisLabel);
+      group.querySelector("text")?.remove();
+    });
+    chartWrap.append(overlay);
+  }
+
+  const artboard = document.createElement("div");
+  artboard.style.cssText = [
+    "position:relative",
+    `width:${width}px`,
+    `height:${height}px`,
+    "overflow:hidden",
+    "box-sizing:border-box",
+    "background:#050505",
+    "color:#f7f7f7",
+  ].join(";");
+
+  const frame = document.createElement("div");
+  frame.style.cssText = [
+    "position:absolute",
+    format === "portrait" ? "inset:36px" : "inset:30px",
+    "border:2px solid rgba(247,195,54,.7)",
+    "pointer-events:none",
+    "z-index:2",
+  ].join(";");
+
+  const brand = document.createElement("p");
+  brand.textContent = "All Star OS";
+  brand.style.cssText = [
+    "position:absolute",
+    format === "portrait" ? "left:80px;top:72px" : "right:112px;bottom:56px",
+    "margin:0",
+    "font-size:22px",
+    "line-height:1",
+    "font-weight:650",
+    "color:#f7f7f7",
+    "z-index:3",
+  ].join(";");
+
+  const progress = document.createElement("p");
+  progress.textContent = `${sectionId.slice(-2)} / 04`;
+  progress.style.cssText = [
+    "position:absolute",
+    format === "portrait" ? "right:80px;top:72px" : "right:112px;top:56px",
+    "margin:0",
+    "font-size:18px",
+    "line-height:1",
+    "font-weight:600",
+    "color:#f7c336",
+    "z-index:3",
+  ].join(";");
+
+  const attribution = document.createElement("p");
+  const producer = document.getElementById("producer-scorecard-title")?.textContent?.trim();
+  const scorecardTitle = document.getElementById("producer-scorecard-title")?.nextElementSibling?.textContent?.trim();
+  attribution.textContent = [producer, scorecardTitle].filter(Boolean).join(" · ");
+  attribution.style.cssText = [
+    "position:absolute",
+    format === "portrait" ? "left:80px;right:80px;bottom:76px" : "left:112px;right:480px;bottom:60px",
+    "margin:0",
+    "font-size:18px",
+    "line-height:1.4",
+    "font-weight:500",
+    "color:rgba(247,247,247,.58)",
+    "z-index:3",
+  ].join(";");
 
   const motionReset = document.createElement("style");
   motionReset.textContent = `
@@ -65,13 +209,21 @@ async function renderSectionPng(
       animation: none !important;
       transition: none !important;
     }
+    .scorecard-export-stage .weekly-trend__point {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .scorecard-export-stage .weekly-trend__line {
+      stroke-dashoffset: 0 !important;
+    }
   `;
-  stage.append(motionReset, clone);
+  artboard.append(clone, frame, brand, progress, attribution);
+  stage.append(motionReset, artboard);
   document.body.append(stage);
 
   try {
     await document.fonts.ready;
-    const blob = await toBlob(clone, {
+    const blob = await toBlob(artboard, {
       width,
       height,
       canvasWidth: width,
