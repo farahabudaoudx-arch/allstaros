@@ -139,6 +139,12 @@ async function renderSectionPng(
     .scorecard-export-stage .weekly-trend__line {
       stroke-dashoffset: 0 !important;
     }
+    .scorecard-export-stage .weekly-trend__mobile {
+      display: none !important;
+    }
+    .scorecard-export-stage .weekly-trend__desktop {
+      display: block !important;
+    }
     .scorecard-export-stage .weekly-trend__value {
       min-width: 140px !important;
       padding: 11px 16px !important;

@@ -153,7 +153,24 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
         }
       `}</style>
       <p className="mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
-      <div className="relative" role="img" aria-label="Weekly issued premium trend by week">
+      <div className="weekly-trend__mobile space-y-4 md:hidden" role="img" aria-label="Weekly issued premium by week">
+        {reports.map((report) => {
+          const relativeWidth = maximum === 0 ? 0 : (Math.min(report.personalIpCents, 10_000_000) / maximum) * 100;
+          return (
+            <div key={report.reportDate} className="grid grid-cols-[5.25rem_minmax(0,1fr)_4.5rem] items-center gap-3">
+              <span className="text-xs font-medium text-subtle">{report.label}</span>
+              <span className="relative h-3 overflow-hidden rounded-sm bg-card">
+                <span
+                  className="block h-full origin-left rounded-sm bg-accent"
+                  style={{ width: `${relativeWidth}%` }}
+                />
+              </span>
+              <span className="text-right text-sm font-semibold text-ink tabular-nums">{money(report.personalIpCents)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="weekly-trend__desktop relative hidden md:block" role="img" aria-label="Weekly issued premium trend by week">
         <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" aria-hidden="true">
           <defs>
             <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
