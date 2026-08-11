@@ -70,10 +70,14 @@ async function renderSectionPng(
     content.style.width = "100%";
     content.style.maxWidth = format === "portrait" ? "952px" : "1696px";
     content.style.margin = "0 auto";
+    content.style.textAlign = "center";
     content.style.transform = format === "portrait" ? "none" : "scale(.84)";
     content.style.transformOrigin = "center";
     const sectionNumber = content.querySelector(":scope > div:first-child > p:first-child") as HTMLElement | null;
-    if (sectionNumber) sectionNumber.style.display = "none";
+    if (sectionNumber) {
+      sectionNumber.style.display = "none";
+      if (sectionNumber.parentElement) sectionNumber.parentElement.style.justifyContent = "center";
+    }
     if (format === "portrait") {
       const heading = content.querySelector("h3") as HTMLElement | null;
       if (heading) {
@@ -91,6 +95,10 @@ async function renderSectionPng(
         }
       });
     }
+    content.querySelectorAll<HTMLElement>(".max-w-2xl, .max-w-3xl, .max-w-4xl, .max-w-5xl, .max-w-sm").forEach((element) => {
+      element.style.marginLeft = "auto";
+      element.style.marginRight = "auto";
+    });
   }
   if (format === "landscape") {
     clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
@@ -156,6 +164,50 @@ async function renderSectionPng(
     .scorecard-export-stage .weekly-trend__bar-label,
     .scorecard-export-stage .weekly-trend__bar-value { font-size: 20px !important; }
     .scorecard-export-stage .weekly-trend__bar-track { height: 18px !important; }
+    .scorecard-export-stage .scorecard-copy,
+    .scorecard-export-stage .activity-story-lines { text-align: center !important; }
+    .scorecard-export-stage .scorecard-copy,
+    .scorecard-export-stage .activity-story-lines,
+    .scorecard-export-stage .organization-grid,
+    .scorecard-export-stage .growth-table,
+    .scorecard-export-stage .tracking-story { margin-left: auto !important; margin-right: auto !important; }
+    .scorecard-export-stage .organization-card,
+    .scorecard-export-stage .growth-header-cell,
+    .scorecard-export-stage .growth-cell { text-align: center !important; }
+    .scorecard-export-stage .organization-card-label { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
+    .scorecard-export-stage .organization-card-value { font-size: ${format === "portrait" ? "34px" : "32px"} !important; }
+    .scorecard-export-stage .organization-card-rank { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
+    .scorecard-export-stage .activity-story-lines {
+      font-size: ${format === "portrait" ? "28px" : "26px"} !important;
+      line-height: 1.5 !important;
+    }
+    .scorecard-export-stage .growth-header-cell,
+    .scorecard-export-stage .growth-title { font-size: 22px !important; }
+    .scorecard-export-stage .growth-value { font-size: 32px !important; }
+    .scorecard-export-stage .tracking-story { text-align: center !important; }
+    .scorecard-export-stage .tracking-head {
+      align-items: center !important;
+      flex-direction: column !important;
+      justify-content: center !important;
+    }
+    .scorecard-export-stage .tracking-summary { font-size: 30px !important; }
+    .scorecard-export-stage .tracking-legend {
+      font-size: 24px !important;
+      justify-content: center !important;
+    }
+    ${format === "portrait" ? `
+      .scorecard-export-stage .scorecard-intro {
+        max-width: none !important;
+        white-space: nowrap !important;
+      }
+    ` : `
+      .scorecard-export-stage .scorecard-copy { font-size: 24px !important; line-height: 1.4 !important; }
+      .scorecard-export-stage .growth-header-cell { padding-top: 10px !important; padding-bottom: 10px !important; }
+      .scorecard-export-stage .growth-cell { padding-top: 10px !important; padding-bottom: 10px !important; }
+    `}
+    ${sectionId === "scorecard-section-02" ? `
+      .scorecard-export-stage .organization-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    ` : ""}
   `;
   artboard.append(clone, attribution);
   if (brandLogo) artboard.append(brandLogo);
@@ -248,20 +300,14 @@ export function ScorecardExportControls({
         const busy = busyFormat === format;
         const ready = readyDownload?.format === format;
         if (ready) {
-          const formId = `${sectionId}-${format}-download`;
           return (
-            <form
-              key={format}
-              id={formId}
-              action="/preview/scorecards/export-png"
-              method="post"
-            >
+            <form key={format} action="/preview/scorecards/export-png" method="post">
               <input type="hidden" name="filename" value={readyDownload.filename} />
               <input type="hidden" name="png" value={readyDownload.dataUrl} />
               <button
                 type="submit"
-                aria-label={`Save ${sectionName} as a ${label} PNG`}
-                title="PNG ready — click to save"
+                aria-label={`Download ${sectionName} as a ${label} PNG`}
+                title={`Download ${label} PNG`}
                 className="flex h-11 w-11 items-center justify-center rounded-full border border-accent bg-accent/15 text-accent transition-transform duration-150 ease-out active:scale-[0.97]"
               >
                 <DownloadGlyph format={format} />
@@ -287,15 +333,6 @@ export function ScorecardExportControls({
           </button>
         );
       })}
-      {readyDownload ? (
-        <button
-          type="submit"
-          form={`${sectionId}-${readyDownload.format}-download`}
-          className="absolute right-0 top-12 whitespace-nowrap pt-2 text-xs font-medium text-accent underline underline-offset-4"
-        >
-          PNG ready — click to save
-        </button>
-      ) : null}
     </div>
   );
 }

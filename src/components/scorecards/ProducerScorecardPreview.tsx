@@ -64,7 +64,7 @@ export function ProducerScorecardPreview({
         />
         <WeeklyTrend reports={preview.weeklyReports} />
         <div className="mt-10 max-w-3xl">
-          <p className="text-base font-normal italic text-white sm:text-lg">This means your average weekly IP was:</p>
+          <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">This means your average weekly IP was:</p>
           <p className="mt-4 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
             {money(preview.averageWeeklyIpCents)}
           </p>
@@ -124,7 +124,7 @@ function StorySection({
 function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-subtle", compact = false, detail }: { value: string; valueClass?: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
   return (
     <div className="max-w-3xl">
-      {intro ? <p className={`max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
+      {intro ? <p className={`scorecard-copy scorecard-intro max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
       <p className={`${intro ? compact ? "mt-5" : "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums ${valueClass}`}>{value}</p>
       {detail ? <p className="mt-5 max-w-2xl text-sm leading-6 text-mute">{detail}</p> : null}
     </div>
@@ -137,7 +137,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
 
   return (
     <div className="weekly-trend mt-8 max-w-4xl">
-      <p className="mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
+      <p className="scorecard-copy mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
       <div className="weekly-trend__bars space-y-4 md:space-y-5" role="img" aria-label="Weekly issued premium by week">
         {reports.map((report) => {
           const relativeWidth = maximum === 0 ? 0 : (Math.min(report.personalIpCents, 10_000_000) / maximum) * 100;
@@ -200,13 +200,13 @@ function TrackingConsistencyCalendar({
   const dayFormatter = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
 
   return (
-    <div className="max-w-4xl">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="tracking-story max-w-4xl">
+      <div className="tracking-head flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{consistency.percentage}%</p>
-          <p className="mt-3 text-base text-subtle sm:text-lg">{consistency.loggedDays} of {consistency.expectedDays} expected workdays logged</p>
+          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">{consistency.loggedDays} of {consistency.expectedDays} expected workdays logged</p>
         </div>
-        <div className="flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
+        <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-neg" aria-hidden="true" />Did Not Log</span>
         </div>
@@ -267,23 +267,23 @@ function MonthOverMonthStory({
   const previousLabel = previousMonthLabel(preview.periodStart);
 
   return (
-    <div className="max-w-5xl border border-hairline">
+    <div className="growth-table max-w-5xl border border-hairline">
       <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
-        <p className="px-3 py-4 sm:px-6">{previousLabel}</p>
-        <p className="border-l border-hairline px-3 py-4 sm:px-6">{preview.periodLabel}</p>
-        <p className="border-l border-hairline px-3 py-4 text-right sm:px-6">Percent Change</p>
+        <p className="growth-header-cell px-3 py-4 sm:px-6">{previousLabel}</p>
+        <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{preview.periodLabel}</p>
+        <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">Percent Change</p>
       </div>
       {comparisons.map((comparison) => (
-        <div key={comparison.label} className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
-          <p className="px-3 py-5 sm:px-6">
-            <span className="block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
-            <span className="mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.previous)}</span>
+        <div key={comparison.label} className="growth-row grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
+          <p className="growth-cell px-3 py-5 sm:px-6">
+            <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
+            <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.previous)}</span>
           </p>
-          <p className="border-l border-hairline px-3 py-5 sm:px-6">
-            <span className="block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
-            <span className="mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.current)}</span>
+          <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
+            <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
+            <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.current)}</span>
           </p>
-          <p className="border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">
+          <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">
             {percentageChange(comparison.previous, comparison.current)}
           </p>
         </div>
@@ -303,17 +303,17 @@ function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
 
   return (
     <div className="mt-10 max-w-5xl">
-      <p className="text-base font-normal italic text-white sm:text-lg">Here&apos;s how you matched up against the organization:</p>
-      <div className={`mt-5 grid gap-3 ${rankOnly ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+      <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">Here&apos;s how you matched up against the organization:</p>
+      <div className={`organization-grid mt-5 grid gap-3 ${rankOnly ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
         {items.map((item) => (
-          <div key={item.label} className={`rounded-xl border border-hairline bg-card ${rankOnly ? "px-6 py-6" : "px-5 py-4"}`}>
+          <div key={item.label} className={`organization-card rounded-xl border border-hairline bg-card ${rankOnly ? "px-6 py-6" : "px-5 py-4"}`}>
             {rankOnly ? (
               <p className="text-4xl font-semibold leading-none tabular-nums text-accent sm:text-5xl">{item.rank}</p>
             ) : (
               <>
-                <p className="text-sm text-subtle">{item.label}</p>
-                <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
-                <p className="mt-3 text-sm font-medium text-accent">{item.rank}</p>
+                <p className="organization-card-label text-sm text-subtle">{item.label}</p>
+                <p className="organization-card-value mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
+                <p className="organization-card-rank mt-3 text-sm font-medium text-accent">{item.rank}</p>
               </>
             )}
           </div>
@@ -333,7 +333,7 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
           <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
         </div>
         <div className="mt-10 max-w-4xl">
-          <p className="text-base font-normal italic text-white sm:text-lg">Inside the OS Tracker, you submitted:</p>
+          <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">Inside the OS Tracker, you submitted:</p>
           <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
             {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
           </p>
@@ -345,7 +345,7 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
           </div>
         ) : (
           <>
-            <div className="mt-10 max-w-5xl space-y-1 text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
+            <div className="activity-story-lines mt-10 max-w-5xl space-y-1 text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
               <p>You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>.</p>
               <p>You spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>.</p>
               <p>You booked <strong className="font-semibold text-accent">{activity.totals.appointments.toLocaleString()} appointments</strong>.</p>
