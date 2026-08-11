@@ -3,6 +3,7 @@ import type {
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
+import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import { VelarisBackground } from "./VelarisBackground";
@@ -33,6 +34,14 @@ export function ProducerScorecardPreview({
     <article aria-labelledby="producer-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
       <VelarisBackground>
         <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
+          <Image
+            src="/logo.png"
+            alt="All Star"
+            width={160}
+            height={90}
+            priority
+            className="mx-auto mb-6 h-10 w-auto opacity-90 sm:h-12"
+          />
           <Avatar
             name={overview.producer.fullName}
             photoUrl={overview.producer.photoUrl}
