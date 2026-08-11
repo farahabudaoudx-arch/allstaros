@@ -333,7 +333,7 @@ function ActivityStory({ activity, submittedApCents, organizationRanks }: { acti
           <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
         </div>
         <div className="mt-10 max-w-4xl">
-          <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">Inside the OS Tracker, you submitted:</p>
+          <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">In July you submitted:</p>
           <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
             {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
           </p>
