@@ -3,6 +3,7 @@ import type {
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
+import { weeklyShares } from "@/lib/scorecards/weekly-trend";
 import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
@@ -133,21 +134,20 @@ function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-
 
 function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
   if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
-  const maximum = Math.max(...reports.map((report) => Math.min(report.personalIpCents, 10_000_000)));
+  const shares = weeklyShares(reports.map((report) => report.personalIpCents));
 
   return (
     <div className="weekly-trend mt-8 max-w-4xl">
       <p className="scorecard-copy mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
       <div className="weekly-trend__bars space-y-4 md:space-y-5" role="img" aria-label="Weekly issued premium by week">
-        {reports.map((report) => {
-          const relativeWidth = maximum === 0 ? 0 : (Math.min(report.personalIpCents, 10_000_000) / maximum) * 100;
+        {reports.map((report, index) => {
           return (
             <div key={report.reportDate} className="weekly-trend__bar-row grid grid-cols-[5.25rem_minmax(0,1fr)_4.5rem] items-center gap-3 md:grid-cols-[8rem_minmax(0,1fr)_6.5rem] md:gap-5">
               <span className="weekly-trend__bar-label text-xs font-medium text-subtle md:text-sm lg:text-base">{report.label}</span>
               <span className="weekly-trend__bar-track relative h-3 overflow-hidden rounded-sm bg-card md:h-4">
                 <span
                   className="weekly-trend__bar-fill block h-full origin-left rounded-sm bg-accent"
-                  style={{ width: `${relativeWidth}%` }}
+                  style={{ width: `${shares[index]}%` }}
                 />
               </span>
               <span className="weekly-trend__bar-value text-right text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(report.personalIpCents)}</span>
