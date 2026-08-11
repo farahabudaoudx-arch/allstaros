@@ -8,6 +8,12 @@ import {
   type ScorecardExportFormat,
 } from "@/lib/scorecards/export";
 
+type ScorecardExportMetadata = {
+  cardType: "producer" | "builder";
+  memberName: string;
+  periodLabel: string;
+};
+
 function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
   const portrait = format === "portrait";
 
@@ -33,6 +39,7 @@ function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
 async function renderSectionPng(
   sectionId: string,
   format: ScorecardExportFormat,
+  metadata: ScorecardExportMetadata,
 ): Promise<Blob> {
   const source = document.getElementById(sectionId);
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
@@ -118,10 +125,7 @@ async function renderSectionPng(
   ].join(";");
 
   const attribution = document.createElement("p");
-  const producer = document.getElementById("producer-scorecard-title")?.textContent?.trim();
-  const scorecardTitle = document.getElementById("producer-scorecard-title")?.nextElementSibling?.textContent?.trim();
-  const period = scorecardTitle?.replace(/ Producer Scorecard$/, "");
-  attribution.textContent = [producer, period].filter(Boolean).join(" · ");
+  attribution.textContent = `${metadata.memberName} · ${metadata.periodLabel} · ${metadata.cardType === "producer" ? "Producer" : "Builder"} Scorecard`;
   attribution.style.cssText = [
     "position:absolute",
     format === "portrait" ? "left:80px;right:80px;bottom:76px" : "left:112px;right:112px;bottom:60px",
@@ -254,10 +258,13 @@ function submitPngDownload(filename: string, dataUrl: string) {
 export function ScorecardExportControls({
   sectionId,
   sectionName,
+  cardType,
+  memberName,
+  periodLabel,
 }: {
   sectionId: string;
   sectionName: string;
-}) {
+} & ScorecardExportMetadata) {
   const [busyFormat, setBusyFormat] = useState<ScorecardExportFormat | null>(null);
   const [status, setStatus] = useState("");
   const [readyDownload, setReadyDownload] = useState<{
@@ -271,7 +278,8 @@ export function ScorecardExportControls({
     setBusyFormat(format);
     setStatus("");
     try {
-      const blob = await renderSectionPng(sectionId, format);
+      const metadata = { cardType, memberName, periodLabel, sectionName };
+      const blob = await renderSectionPng(sectionId, format, metadata);
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
@@ -280,10 +288,10 @@ export function ScorecardExportControls({
       });
       setReadyDownload({
         format,
-        filename: scorecardExportFilename(sectionName, format),
+        filename: scorecardExportFilename(metadata, format),
         dataUrl,
       });
-      submitPngDownload(scorecardExportFilename(sectionName, format), dataUrl);
+      submitPngDownload(scorecardExportFilename(metadata, format), dataUrl);
       setStatus(`${SCORECARD_EXPORTS[format].label} PNG download started.`);
     } catch {
       setStatus("PNG download failed. Please try again.");

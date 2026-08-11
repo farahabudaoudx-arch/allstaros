@@ -16,7 +16,7 @@ const ISSUANCE_VALUE_CLASS: Record<IssuanceStatus, string> = {
   red: "text-neg",
 };
 
-function money(cents: number): string {
+export function money(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -31,31 +31,21 @@ export function ProducerScorecardPreview({
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 }) {
+  const exportMetadata = {
+    cardType: "producer" as const,
+    memberName: overview.producer.fullName,
+    periodLabel: preview.periodLabel,
+  };
   return (
     <article aria-labelledby="producer-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
-      <VelarisBackground>
-        <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
-          <Image
-            src="/logo.png"
-            alt="All Star"
-            width={160}
-            height={90}
-            priority
-            className="mx-auto mb-6 h-10 w-auto opacity-90 sm:h-12"
-          />
-          <Avatar
-            name={overview.producer.fullName}
-            photoUrl={overview.producer.photoUrl}
-            className="mx-auto h-24 w-24 text-2xl ring-4 ring-black/70 outline outline-1 outline-offset-4 outline-white/25 sm:h-28 sm:w-28"
-          />
-          <h2 id="producer-scorecard-title" className="mt-6 text-lg font-semibold tracking-[-0.035em] text-white sm:text-[1.40625rem]">
-            {overview.producer.fullName}
-          </h2>
-          <p className="mt-3 text-[1.5625rem] font-semibold tracking-[-0.025em] text-white/85 sm:text-3xl">{preview.title}</p>
-        </header>
-      </VelarisBackground>
+      <ScorecardHeader
+        titleId="producer-scorecard-title"
+        memberName={overview.producer.fullName}
+        photoUrl={overview.producer.photoUrl}
+        title={preview.title}
+      />
 
-      <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium">
+      <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium" exportMetadata={exportMetadata}>
         <StoryValue
           intro={`Across all IP reports from Gateway in ${preview.periodLabel.split(" ")[0]}, you submitted:`}
           introClass="font-normal italic text-white"
@@ -79,13 +69,13 @@ export function ProducerScorecardPreview({
         />
       </StorySection>
 
-      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} />
+      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} exportMetadata={exportMetadata} />
 
-      <StorySection number="03" title="Previous Month Growth" sectionId="scorecard-section-03" exportName="03 Previous Month Growth">
+      <StorySection number="03" title="Previous Month Growth" sectionId="scorecard-section-03" exportName="03 Previous Month Growth" exportMetadata={exportMetadata}>
         <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
-      <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency">
+      <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency" exportMetadata={exportMetadata}>
         <TrackingConsistencyCalendar preview={preview} activity={overview.activity} />
       </StorySection>
 
@@ -93,12 +83,49 @@ export function ProducerScorecardPreview({
   );
 }
 
-function StorySection({
+export function ScorecardHeader({
+  titleId,
+  memberName,
+  photoUrl,
+  title,
+}: {
+  titleId: string;
+  memberName: string;
+  photoUrl: string | null;
+  title: string;
+}) {
+  return (
+    <VelarisBackground>
+      <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
+        <Image
+          src="/logo.png"
+          alt="All Star"
+          width={160}
+          height={90}
+          priority
+          className="mx-auto mb-6 h-10 w-auto opacity-90 sm:h-12"
+        />
+        <Avatar
+          name={memberName}
+          photoUrl={photoUrl}
+          className="mx-auto h-24 w-24 text-2xl ring-4 ring-black/70 outline outline-1 outline-offset-4 outline-white/25 sm:h-28 sm:w-28"
+        />
+        <h2 id={titleId} className="mt-6 text-lg font-semibold tracking-[-0.035em] text-white sm:text-[1.40625rem]">
+          {memberName}
+        </h2>
+        <p className="mt-3 text-[1.5625rem] font-semibold tracking-[-0.025em] text-white/85 sm:text-3xl">{title}</p>
+      </header>
+    </VelarisBackground>
+  );
+}
+
+export function StorySection({
   number,
   title,
   compact = false,
   sectionId,
   exportName,
+  exportMetadata,
   children,
 }: {
   number: string;
@@ -106,11 +133,12 @@ function StorySection({
   compact?: boolean;
   sectionId: string;
   exportName: string;
+  exportMetadata: { cardType: "producer" | "builder"; memberName: string; periodLabel: string };
   children: ReactNode;
 }) {
   return (
     <section id={sectionId} className="relative min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20">
-      <ScorecardExportControls sectionId={sectionId} sectionName={exportName} />
+      <ScorecardExportControls sectionId={sectionId} sectionName={exportName} {...exportMetadata} />
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
@@ -122,7 +150,7 @@ function StorySection({
   );
 }
 
-function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-subtle", compact = false, detail }: { value: string; valueClass?: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
+export function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-subtle", compact = false, detail }: { value: string; valueClass?: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
   return (
     <div className="max-w-3xl">
       {intro ? <p className={`scorecard-copy scorecard-intro max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
@@ -298,7 +326,7 @@ type ComparisonItem = {
   rank: string;
 };
 
-function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
+export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   const rankOnly = items.length === 1;
 
   return (
@@ -323,10 +351,10 @@ function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   );
 }
 
-function ActivityStory({ activity, submittedApCents, organizationRanks }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"] }) {
+function ActivityStory({ activity, submittedApCents, organizationRanks, exportMetadata }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"]; exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string } }) {
   return (
     <section id="scorecard-section-02" className="relative min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
-      <ScorecardExportControls sectionId="scorecard-section-02" sectionName="02 Your Activity" />
+      <ScorecardExportControls sectionId="scorecard-section-02" sectionName="02 Your Activity" {...exportMetadata} />
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">02</p>

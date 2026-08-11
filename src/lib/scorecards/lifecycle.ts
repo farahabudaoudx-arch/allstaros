@@ -1,5 +1,5 @@
 export const SCORECARD_CARD_TYPES = ["producer", "builder"] as const;
-export const SCORECARD_PERIOD_KINDS = ["monthly", "quarterly", "yearly"] as const;
+export const SCORECARD_PERIOD_KINDS = ["monthly", "quarterly", "annual"] as const;
 export const SCORECARD_LIFECYCLE_STATUSES = [
   "in_progress",
   "waiting_for_data",

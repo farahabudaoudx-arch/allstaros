@@ -1,0 +1,177 @@
+import type { BuilderPeriodMetric, ScorecardPeriodKind } from "@/lib/scorecards/run";
+import {
+  money,
+  OrganizationComparison,
+  ScorecardHeader,
+  StorySection,
+  StoryValue,
+} from "./ProducerScorecardPreview";
+
+export type BuilderScorecardView = {
+  member: { fullName: string; photoUrl: string | null };
+  period: {
+    kind: ScorecardPeriodKind;
+    label: string;
+    previousLabel: string;
+  };
+  metric: BuilderScorecardMetric;
+};
+
+export type BuilderScorecardMetric = Pick<BuilderPeriodMetric,
+  | "teamIpCents"
+  | "teamRank"
+  | "teamRankUnavailableReason"
+  | "activeWriters"
+  | "firstLegPercent"
+  | "averageMonthlyIpPerWriterCents"
+  | "monthCount"
+  | "growth"
+  | "recruitsAdded"
+  | "recruitingRank"
+  | "trend"
+>;
+
+function rank(rank: { rank: number; population: number } | null) {
+  return rank ? `#${rank.rank} of ${rank.population}` : "Unavailable";
+}
+
+function percent(value: number | null) {
+  if (value == null) return "Unavailable";
+  return `${value > 0 ? "+" : ""}${value.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+}
+
+function TeamTrend({ trend }: { trend: BuilderScorecardMetric["trend"] }) {
+  if (!trend.length) {
+    return <p className="mt-8 text-sm text-mute">No Team IP was reported for this period.</p>;
+  }
+
+  return (
+    <div className="weekly-trend mt-8 max-w-4xl">
+      <p className="scorecard-copy mb-6 text-base font-normal italic text-white sm:text-lg">
+        Here&apos;s how team production moved through the period:
+      </p>
+      <ul className="weekly-trend__bars space-y-4 md:space-y-5" aria-label="Team issued premium by reporting bucket">
+        {trend.map((bucket) => (
+          <li key={bucket.reportDate} className="weekly-trend__bar-row grid grid-cols-[5.25rem_minmax(0,1fr)_5.5rem] items-center gap-3 md:grid-cols-[8rem_minmax(0,1fr)_7.5rem] md:gap-5">
+            <span className="weekly-trend__bar-label text-xs font-medium text-subtle md:text-sm lg:text-base">{bucket.label}</span>
+            <span className="weekly-trend__bar-track relative h-3 overflow-hidden rounded-sm bg-card md:h-4">
+              <span className="weekly-trend__bar-fill block h-full origin-left rounded-sm bg-accent" style={{ width: `${bucket.share}%` }} />
+            </span>
+            <span className="weekly-trend__bar-value text-right text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(bucket.teamIpCents)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ProductivityGrid({ metric }: { metric: BuilderScorecardMetric }) {
+  const items = [
+    {
+      label: "Active Writers",
+      value: metric.activeWriters.toLocaleString(),
+      detail: "Unique writers with personal IP in the six-report window, including you.",
+    },
+    {
+      label: "Weighted First Leg %",
+      value: metric.firstLegPercent == null ? "Unavailable" : `${metric.firstLegPercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`,
+      detail: metric.firstLegPercent == null ? "No Team IP denominator was available." : "Weighted by Team IP across the period.",
+    },
+    {
+      label: "Average Monthly IP per Writer",
+      value: metric.averageMonthlyIpPerWriterCents == null ? "Unavailable" : money(metric.averageMonthlyIpPerWriterCents),
+      detail: `${money(metric.teamIpCents)} Team IP across ${metric.monthCount} month${metric.monthCount === 1 ? "" : "s"} and ${metric.activeWriters} active writer${metric.activeWriters === 1 ? "" : "s"}.`,
+    },
+  ];
+
+  return (
+    <div className="organization-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((item) => (
+        <div key={item.label} className="organization-card rounded-xl border border-hairline bg-card px-5 py-5">
+          <p className="organization-card-label text-sm text-subtle">{item.label}</p>
+          <p className="organization-card-value mt-3 text-3xl font-semibold tabular-nums text-ink">{item.value}</p>
+          <p className="mt-4 text-sm leading-6 text-mute">{item.detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GrowthTable({ view }: { view: BuilderScorecardView }) {
+  const { metric, period } = view;
+  return (
+    <div className="growth-table max-w-5xl border border-hairline">
+      <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
+        <p className="growth-header-cell px-3 py-4 sm:px-6">{period.previousLabel}</p>
+        <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{period.label}</p>
+        <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">{metric.growth.comparison.toUpperCase()}</p>
+      </div>
+      <div className="growth-row grid grid-cols-[3fr_3fr_2fr]">
+        <p className="growth-cell px-3 py-5 sm:px-6">
+          <span className="growth-title block text-sm font-medium text-subtle sm:text-base">Team IP</span>
+          <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metric.growth.priorTeamIpCents == null ? "Unavailable" : money(metric.growth.priorTeamIpCents)}</span>
+        </p>
+        <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
+          <span className="growth-title block text-sm font-medium text-subtle sm:text-base">Team IP</span>
+          <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{money(metric.growth.currentTeamIpCents)}</span>
+        </p>
+        <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">{percent(metric.growth.percentage)}</p>
+      </div>
+    </div>
+  );
+}
+
+export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
+  const exportMetadata = {
+    cardType: "builder" as const,
+    memberName: view.member.fullName,
+    periodLabel: view.period.label,
+  };
+
+  return (
+    <article aria-labelledby="builder-scorecard-title" className="overflow-hidden rounded-[1.4rem] border border-hairline bg-card">
+      <ScorecardHeader
+        titleId="builder-scorecard-title"
+        memberName={view.member.fullName}
+        photoUrl={view.member.photoUrl}
+        title={`${view.period.label}${view.period.kind === "annual" ? " Annual" : ""} Builder Scorecard`}
+      />
+
+      <StorySection number="01" title="Team Issued Premium" compact sectionId="builder-scorecard-section-01" exportName="01 Team Issued Premium" exportMetadata={exportMetadata}>
+        <StoryValue
+          intro={`Across all Team IP reports in ${view.period.label}, your team submitted:`}
+          introClass="font-normal italic text-white"
+          compact
+          value={money(view.metric.teamIpCents)}
+        />
+        <TeamTrend trend={view.metric.trend} />
+        {view.metric.teamRank ? (
+          <OrganizationComparison items={[{ label: "Team IP", value: money(view.metric.teamIpCents), rank: rank(view.metric.teamRank) }]} />
+        ) : (
+          <div className="mt-10 max-w-2xl border-l-2 border-accent pl-5">
+            <p className="text-2xl font-semibold text-ink">Team Ranking unavailable</p>
+            <p className="mt-3 text-sm leading-6 text-subtle">You were not represented by a matched Gateway row in this period. Your Scorecard remains valid.</p>
+          </div>
+        )}
+      </StorySection>
+
+      <StorySection number="02" title="Team Productivity" sectionId="builder-scorecard-section-02" exportName="02 Team Productivity" exportMetadata={exportMetadata}>
+        <ProductivityGrid metric={view.metric} />
+      </StorySection>
+
+      <StorySection number="03" title="Previous Period Growth" sectionId="builder-scorecard-section-03" exportName="03 Previous Period Growth" exportMetadata={exportMetadata}>
+        <GrowthTable view={view} />
+      </StorySection>
+
+      <StorySection number="04" title="Recruiting" sectionId="builder-scorecard-section-04" exportName="04 Recruiting" exportMetadata={exportMetadata}>
+        <StoryValue
+          intro={`Across your full team in ${view.period.label}, this many recruits entered the pipeline:`}
+          introClass="font-normal italic text-white"
+          compact
+          value={view.metric.recruitsAdded.toLocaleString()}
+        />
+        <OrganizationComparison items={[{ label: "Recruits Added", value: view.metric.recruitsAdded.toLocaleString(), rank: rank(view.metric.recruitingRank) }]} />
+      </StorySection>
+    </article>
+  );
+}

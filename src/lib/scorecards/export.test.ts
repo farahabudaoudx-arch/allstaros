@@ -8,11 +8,21 @@ describe("scorecard PNG exports", () => {
   });
 
   it("builds a safe filename that identifies the section and ratio", () => {
-    expect(scorecardExportFilename("01 Issued Premium", "portrait")).toBe(
-      "01-issued-premium-9x16.png",
+    expect(scorecardExportFilename({
+      cardType: "builder",
+      memberName: "Alex Builder",
+      periodLabel: "August 2026",
+      sectionName: "01 Team Issued Premium",
+    }, "portrait")).toBe(
+      "alex-builder-august-2026-builder-scorecard-01-team-issued-premium-9x16.png",
     );
-    expect(scorecardExportFilename("Your Activity", "landscape")).toBe(
-      "your-activity-16x9.png",
+    expect(scorecardExportFilename({
+      cardType: "producer",
+      memberName: "Jordan Taylor",
+      periodLabel: "Q3 2026",
+      sectionName: "Your Activity",
+    }, "landscape")).toBe(
+      "jordan-taylor-q3-2026-producer-scorecard-your-activity-16x9.png",
     );
   });
 });

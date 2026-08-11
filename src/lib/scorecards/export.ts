@@ -9,10 +9,20 @@ export const SCORECARD_EXPORTS = {
 >;
 
 export function scorecardExportFilename(
-  sectionName: string,
+  metadata: {
+    cardType: "producer" | "builder";
+    memberName: string;
+    periodLabel: string;
+    sectionName: string;
+  },
   format: ScorecardExportFormat,
 ): string {
-  const safeName = sectionName
+  const safeName = [
+    metadata.memberName,
+    metadata.periodLabel,
+    `${metadata.cardType} scorecard`,
+    metadata.sectionName,
+  ].join(" ")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
