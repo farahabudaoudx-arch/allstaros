@@ -299,15 +299,23 @@ type ComparisonItem = {
 };
 
 function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
+  const rankOnly = items.length === 1;
+
   return (
     <div className="mt-10 max-w-5xl">
       <p className="text-base font-normal italic text-white sm:text-lg">Here&apos;s how you matched up against the organization:</p>
-      <div className={`mt-5 grid gap-3 ${items.length === 1 ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+      <div className={`mt-5 grid gap-3 ${rankOnly ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
         {items.map((item) => (
-          <div key={item.label} className="rounded-xl border border-hairline bg-card px-5 py-4">
-            <p className="text-sm text-subtle">{item.label}</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
-            <p className="mt-3 text-sm font-medium text-accent">{item.rank}</p>
+          <div key={item.label} className={`rounded-xl border border-hairline bg-card ${rankOnly ? "px-6 py-6" : "px-5 py-4"}`}>
+            {rankOnly ? (
+              <p className="text-4xl font-semibold leading-none tabular-nums text-accent sm:text-5xl">{item.rank}</p>
+            ) : (
+              <>
+                <p className="text-sm text-subtle">{item.label}</p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
+                <p className="mt-3 text-sm font-medium text-accent">{item.rank}</p>
+              </>
+            )}
           </div>
         ))}
       </div>
