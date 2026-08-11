@@ -132,38 +132,14 @@ async function renderSectionPng(
       animation: none !important;
       transition: none !important;
     }
-    .scorecard-export-stage .weekly-trend__point {
-      opacity: 1 !important;
-      transform: none !important;
+    .scorecard-export-stage .weekly-trend__bars { row-gap: 22px !important; }
+    .scorecard-export-stage .weekly-trend__bar-row {
+      grid-template-columns: 150px minmax(0, 1fr) 125px !important;
+      column-gap: 24px !important;
     }
-    .scorecard-export-stage .weekly-trend__line {
-      stroke-dashoffset: 0 !important;
-    }
-    .scorecard-export-stage .weekly-trend__mobile {
-      display: none !important;
-    }
-    .scorecard-export-stage .weekly-trend__desktop {
-      display: block !important;
-    }
-    .scorecard-export-stage .weekly-trend__value {
-      min-width: 140px !important;
-      padding: 11px 16px !important;
-      border-radius: 9px !important;
-      font-size: 22px !important;
-      line-height: 1.2 !important;
-    }
-    .scorecard-export-stage .weekly-trend__tail {
-      bottom: -5px !important;
-      width: 10px !important;
-      height: 10px !important;
-    }
-    .scorecard-export-stage .weekly-trend__dot {
-      width: 16px !important;
-      height: 16px !important;
-    }
-    .scorecard-export-stage .weekly-trend__axis {
-      font-size: 20px !important;
-    }
+    .scorecard-export-stage .weekly-trend__bar-label,
+    .scorecard-export-stage .weekly-trend__bar-value { font-size: 20px !important; }
+    .scorecard-export-stage .weekly-trend__bar-track { height: 18px !important; }
   `;
   artboard.append(clone, attribution);
   stage.append(motionReset, artboard);

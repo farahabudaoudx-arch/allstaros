@@ -124,93 +124,27 @@ function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-
 
 function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
   if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
-  const values = reports.map((report) => report.personalIpCents);
-  const cappedValues = values.map((value) => Math.min(value, 10_000_000));
-  const minimum = Math.min(...cappedValues);
-  const maximum = Math.max(...cappedValues);
-  const range = maximum - minimum;
-  const points = values.map((value, index) => {
-    const x = reports.length === 1 ? 500 : 105 + (index / (reports.length - 1)) * 825;
-    const normalized = range === 0 ? 0.5 : (Math.min(value, 10_000_000) - minimum) / range;
-    const y = 180 - normalized * 95;
-    return { x, y };
-  });
-  const linePoints = points.map(({ x, y }) => `${x},${y}`).join(" ");
-  const areaPoints = `${linePoints} ${points.at(-1)!.x},195 ${points[0].x},195`;
+  const maximum = Math.max(...reports.map((report) => Math.min(report.personalIpCents, 10_000_000)));
 
   return (
     <div className="weekly-trend mt-8 max-w-4xl">
-      <style>{`
-        .weekly-trend { view-timeline-name: --weekly-trend; view-timeline-axis: block; }
-        .weekly-trend__area { animation: weekly-area-in linear both; animation-timeline: --weekly-trend; animation-range: entry 5% cover 32%; }
-        .weekly-trend__line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: weekly-line-in linear both; animation-timeline: --weekly-trend; animation-range: entry 10% cover 38%; }
-        .weekly-trend__point { opacity: 0; transform-box: fill-box; transform-origin: center; animation: weekly-point-in linear both; animation-timeline: --weekly-trend; animation-range: entry 24% cover 46%; }
-        @keyframes weekly-area-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes weekly-line-in { to { stroke-dashoffset: 0; } }
-        @keyframes weekly-point-in { from { opacity: 0; transform: translateY(8px) scale(.92); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @media (prefers-reduced-motion: reduce) {
-          .weekly-trend__area, .weekly-trend__line, .weekly-trend__point { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
-        }
-      `}</style>
       <p className="mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
-      <div className="weekly-trend__mobile space-y-4 md:hidden" role="img" aria-label="Weekly issued premium by week">
+      <div className="weekly-trend__bars space-y-4 md:space-y-5" role="img" aria-label="Weekly issued premium by week">
         {reports.map((report) => {
           const relativeWidth = maximum === 0 ? 0 : (Math.min(report.personalIpCents, 10_000_000) / maximum) * 100;
           return (
-            <div key={report.reportDate} className="grid grid-cols-[5.25rem_minmax(0,1fr)_4.5rem] items-center gap-3">
-              <span className="text-xs font-medium text-subtle">{report.label}</span>
-              <span className="relative h-3 overflow-hidden rounded-sm bg-card">
+            <div key={report.reportDate} className="weekly-trend__bar-row grid grid-cols-[5.25rem_minmax(0,1fr)_4.5rem] items-center gap-3 md:grid-cols-[8rem_minmax(0,1fr)_6.5rem] md:gap-5">
+              <span className="weekly-trend__bar-label text-xs font-medium text-subtle md:text-sm lg:text-base">{report.label}</span>
+              <span className="weekly-trend__bar-track relative h-3 overflow-hidden rounded-sm bg-card md:h-4">
                 <span
-                  className="block h-full origin-left rounded-sm bg-accent"
+                  className="weekly-trend__bar-fill block h-full origin-left rounded-sm bg-accent"
                   style={{ width: `${relativeWidth}%` }}
                 />
               </span>
-              <span className="text-right text-sm font-semibold text-ink tabular-nums">{money(report.personalIpCents)}</span>
+              <span className="weekly-trend__bar-value text-right text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(report.personalIpCents)}</span>
             </div>
           );
         })}
-      </div>
-      <div className="weekly-trend__desktop relative hidden md:block" role="img" aria-label="Weekly issued premium trend by week">
-        <svg viewBox="0 0 1000 245" className="h-auto w-full overflow-visible" aria-hidden="true">
-          <defs>
-            <linearGradient id="weekly-ip-area" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" />
-            </linearGradient>
-          </defs>
-          <line x1="98" y1="195" x2="945" y2="195" className="stroke-subtle" strokeWidth="2" />
-          <polygon points={areaPoints} fill="url(#weekly-ip-area)" className="weekly-trend__area text-accent" />
-          <polyline pathLength="1" points={linePoints} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="weekly-trend__line text-accent" />
-          {points.map(({ x }) => (
-            <line key={`tick-${x}`} x1={x} y1="195" x2={x} y2="202" className="stroke-subtle" strokeWidth="2" />
-          ))}
-        </svg>
-        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-          {points.map(({ x, y }, index) => (
-            <div key={reports[index].reportDate} className="weekly-trend__point absolute inset-0">
-              <div
-                className="weekly-trend__value absolute min-w-[72px] -translate-x-1/2 rounded-lg border border-hairline bg-card px-2 py-1.5 text-center text-xs font-semibold leading-[1.25] text-ink tabular-nums md:min-w-[96px] md:px-3 md:text-sm lg:min-w-[140px] lg:rounded-[10px] lg:px-4 lg:py-2 lg:text-[20px] lg:leading-[1.3]"
-                style={{ left: `${x / 10}%`, top: `${((y - 62) / 245) * 100}%` }}
-              >
-                {money(reports[index].personalIpCents)}
-                <span className="weekly-trend__tail absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-hairline bg-card lg:-bottom-[5px] lg:h-2.5 lg:w-2.5" />
-              </div>
-              <span
-                className="weekly-trend__dot absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent lg:h-3 lg:w-3"
-                style={{ left: `${x / 10}%`, top: `${(y / 245) * 100}%` }}
-              />
-            </div>
-          ))}
-          {points.map(({ x }, index) => (
-            <span
-              key={`axis-${reports[index].reportDate}`}
-              className="weekly-trend__axis absolute -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-subtle sm:text-[11px] md:text-[13px] lg:text-[15px]"
-              style={{ left: `${x / 10}%`, top: `${(211 / 245) * 100}%` }}
-            >
-              {reports[index].label}
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   );
