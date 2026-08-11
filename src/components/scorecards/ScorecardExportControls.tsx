@@ -126,6 +126,22 @@ async function renderSectionPng(
     "z-index:3",
   ].join(";");
 
+  const brandLogo = format === "portrait" ? document.createElement("img") : null;
+  if (brandLogo) {
+    brandLogo.src = "/logo.png";
+    brandLogo.alt = "";
+    brandLogo.style.cssText = [
+      "position:absolute",
+      "left:50%",
+      "top:220px",
+      "width:180px",
+      "height:auto",
+      "transform:translateX(-50%)",
+      "opacity:.92",
+      "z-index:3",
+    ].join(";");
+  }
+
   const motionReset = document.createElement("style");
   motionReset.textContent = `
     .scorecard-export-stage *, .scorecard-export-stage *::before, .scorecard-export-stage *::after {
@@ -142,11 +158,13 @@ async function renderSectionPng(
     .scorecard-export-stage .weekly-trend__bar-track { height: 18px !important; }
   `;
   artboard.append(clone, attribution);
+  if (brandLogo) artboard.append(brandLogo);
   stage.append(motionReset, artboard);
   document.body.append(stage);
 
   try {
     await document.fonts.ready;
+    if (brandLogo) await brandLogo.decode().catch(() => undefined);
     const blob = await toBlob(artboard, {
       width,
       height,
