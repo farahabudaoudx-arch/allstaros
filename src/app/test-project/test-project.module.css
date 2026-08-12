@@ -1,0 +1,145 @@
+.portal {
+  --os-paper: #fff;
+  --os-well: #f5f5f7;
+  --os-ink: #1d1d1f;
+  --os-ink-2: #424245;
+  --os-muted: #6e6e73;
+  --os-faint: #86868b;
+  --os-rule: #e3e3e8;
+  --os-rule-strong: #d2d2d7;
+  --os-blue: #0066cc;
+  --os-blue-hover: #0a4f9e;
+  --os-tint: rgba(0, 102, 204, .05);
+  --os-tint-border: rgba(0, 102, 204, .18);
+  --os-ring: rgba(0, 102, 204, .16);
+  min-height: 100dvh;
+  background: var(--os-paper);
+  color: var(--os-ink);
+  font-family: "Helvetica Neue", Helvetica, Arial, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 17px;
+  line-height: 1.47;
+}
+
+.shell { display: flex; min-height: 100dvh; }
+.sidebar { position: sticky; top: 0; display: flex; width: 320px; height: 100dvh; flex-shrink: 0; flex-direction: column; gap: 32px; overflow-y: auto; padding: 32px 24px; background: var(--os-blue); color: #fff; }
+.brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; font-size: 17px; font-weight: 500; letter-spacing: -.01em; }
+.mark { display: block; width: 40px; height: 40px; flex-shrink: 0; }
+.sideIntro h2 { margin: 56px 0 0; color: #fff; font-size: 32px; line-height: 1.2; letter-spacing: -.025em; }
+.sideIntro p { margin: 8px 0 0; color: rgba(255,255,255,.78); font-size: 17px; }
+.stepList { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.stepList li { border-radius: 12px; }
+.stepList button { display: flex; width: 100%; align-items: flex-start; gap: 12px; padding: 12px 16px; border: 0; border-radius: 12px; background: transparent; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.stepList button:disabled { cursor: default; }
+.stepNumber { display: grid; width: 26px; height: 26px; flex: 0 0 26px; place-items: center; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; font-size: 13px; font-variant-numeric: tabular-nums; }
+.stepList strong, .stepList small { display: block; }
+.stepList strong { font-size: 17px; font-weight: 500; }
+.stepList small { margin-top: 4px; color: rgba(255,255,255,.7); font-size: 13px; line-height: 1.4; }
+.activeStep { background: #fff; }
+.activeStep button { color: var(--os-blue); }
+.activeStep .stepNumber { border-color: var(--os-blue); background: var(--os-blue); color: #fff; }
+.activeStep .stepList strong { font-weight: 700; }
+.activeStep small { color: var(--os-muted); }
+.progressLabel { display: flex; justify-content: space-between; margin-top: auto; color: rgba(255,255,255,.85); font-size: 13px; font-variant-numeric: tabular-nums; }
+.progressTrack { height: 4px; margin-top: -24px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.25); }
+.progressTrack span { display: block; height: 100%; border-radius: inherit; background: #fff; transition: width .3s cubic-bezier(.2,.7,.2,1); }
+
+.content { min-width: 0; flex: 1; opacity: 0; transition: opacity .2s ease; }
+.content.ready { opacity: 1; }
+.page { width: 100%; max-width: 760px; margin: 0 auto; padding: 48px 40px 96px; }
+.page > h1 { margin: 0; color: var(--os-ink); font-size: 40px; font-weight: 700; letter-spacing: -.025em; line-height: 1.07; text-wrap: balance; }
+.lede { margin: 16px 0 0; color: var(--os-ink-2); font-size: 19px; line-height: 1.55; text-wrap: pretty; }
+.context { margin: 0 0 8px; color: var(--os-muted); font-size: 13px; }
+
+.briefGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 32px; padding: 24px; border: 1px solid var(--os-tint-border); border-radius: 12px; background: var(--os-tint); }
+.briefGrid span, .briefGrid strong { display: block; }
+.briefGrid span { color: var(--os-faint); font-size: 13px; }
+.briefGrid strong { margin-top: 4px; font-size: 17px; }
+.overview, .projectSection, .checklist { margin-top: 48px; }
+.overview > h2, .projectSection > h2, .checklist > h2 { margin: 0 0 16px; font-size: 24px; letter-spacing: -.015em; }
+.outline { border-top: 1px solid var(--os-rule); }
+.outline article { display: grid; grid-template-columns: 36px 1fr; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--os-rule); }
+.outline article > span { padding-top: 3px; color: var(--os-blue); font: 13px ui-monospace, "SFMono-Regular", Menlo, monospace; }
+.outline h3, .outline p { margin: 0; }
+.outline h3 { font-size: 17px; }
+.outline p { margin-top: 4px; color: var(--os-muted); font-size: 15px; line-height: 1.55; }
+
+.form, .signatureForm { margin-top: 48px; padding: 24px; border: 1px solid var(--os-tint-border); border-radius: 12px; background: var(--os-tint); }
+.formHeading span { color: var(--os-blue); font-size: 13px; }
+.formHeading h2 { margin: 4px 0 0; font-size: 24px; letter-spacing: -.015em; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+.form label, .signatureForm label { display: flex; flex-direction: column; gap: 8px; color: var(--os-ink); font-size: 15px; font-weight: 500; }
+.form input, .signatureForm input { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid var(--os-rule-strong); border-radius: 8px; outline: none; background: #fff; color: var(--os-ink); font: 17px/1.47 inherit; }
+.form input:focus, .signatureForm input:focus { border-color: var(--os-blue); box-shadow: 0 0 0 3px var(--os-ring); }
+.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; margin-top: 20px; padding: 8px 20px; border: 1px solid var(--os-blue); border-radius: 8px; font: 500 15px/1.47 inherit; text-decoration: none; cursor: pointer; transition: background .2s ease, border-color .2s ease, color .2s ease; }
+.primary { background: var(--os-blue); color: #fff; }
+.primary:hover { border-color: var(--os-blue-hover); background: var(--os-blue-hover); }
+.primary svg { width: 18px; }
+.secondary { background: #fff; color: var(--os-ink); border-color: var(--os-rule-strong); }
+.secondary:hover { border-color: var(--os-blue); color: var(--os-blue); }
+
+.document { margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--os-rule); color: var(--os-ink); }
+.documentTitle { display: flex; justify-content: space-between; color: var(--os-faint); font-size: 13px; }
+.document h2 { margin: 8px 0 24px; font-size: 24px; letter-spacing: -.015em; }
+.document h3 { margin: 24px 0 8px; font-size: 17px; }
+.document p { margin: 0; font-size: 17px; line-height: 1.6; }
+.signatureForm { margin-top: 32px; }
+.signatureForm > label:first-child input { font-size: 24px; letter-spacing: .01em; }
+.consent { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 12px !important; margin-top: 16px; font-weight: 400 !important; line-height: 1.47; }
+.consent input { width: 16px; height: 16px; min-height: 0; margin-top: 3px; flex: 0 0 16px; accent-color: var(--os-blue); }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.error { margin: 12px 0 0; color: #d70015; font-size: 15px; }
+
+.accessCard { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 32px; padding: 24px; border: 1px solid var(--os-tint-border); border-radius: 12px; background: var(--os-tint); }
+.accessCard span { color: var(--os-faint); font-size: 13px; }
+.accessCard h2 { margin: 4px 0; font-size: 24px; }
+.accessCard p { margin: 0; color: var(--os-muted); font-size: 15px; }
+.accessCard .primary { flex: 0 0 auto; margin: 0; }
+.assignment { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.assignment article { padding: 24px; border: 1px solid var(--os-tint-border); border-radius: 12px; background: var(--os-tint); }
+.assignment span { color: var(--os-blue); font-family: inherit; font-size: 13px; }
+.assignment h3 { margin: 12px 0 8px; font-size: 19px; line-height: 1.25; }
+.assignment p { margin: 0; color: var(--os-muted); font-size: 15px; line-height: 1.55; }
+.checklist ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--os-rule); }
+.checklist li { display: grid; grid-template-columns: 30px 1fr; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--os-rule); }
+.checklist li > span { display: grid; width: 26px; height: 26px; place-items: center; border: 1px solid var(--os-blue); border-radius: 50%; color: var(--os-blue); font-size: 13px; }
+.checklist strong, .checklist p { display: block; margin: 0; }
+.checklist p { margin-top: 4px; color: var(--os-muted); font-size: 15px; line-height: 1.5; }
+.checklist code { padding: 2px 4px; border-radius: 4px; background: var(--os-well); font-size: 13px; }
+.videoStep > div { min-width: 0; }
+.videoFrame { position: relative; width: 100%; margin-top: 16px; padding-top: 56.25%; overflow: hidden; border-radius: 12px; background: var(--os-well); }
+.videoFrame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.videoPlaceholder { display: grid; min-height: 180px; place-items: center; margin-top: 16px; border: 1px dashed var(--os-rule-strong); border-radius: 12px; background: var(--os-well); color: var(--os-faint); font-size: 15px; text-align: center; }
+.readmeLink { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--os-blue); font-size: 15px; font-weight: 500; text-decoration: none; }
+.readmeLink:hover { color: var(--os-blue-hover); text-decoration: underline; }
+.readmeLink svg { width: 18px; }
+.signedNote { margin-top: 32px; padding: 24px; border: 1px solid var(--os-tint-border); border-radius: 12px; background: var(--os-tint); color: var(--os-muted); font-size: 15px; }
+
+@media (max-width: 900px) {
+  .shell { flex-direction: column; }
+  .sidebar { position: static; width: 100%; height: auto; gap: 16px; padding: 20px; }
+  .sideIntro h2 { margin-top: 16px; font-size: 24px; }
+  .sideIntro p, .stepList small { display: none; }
+  .stepList { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .stepList li { flex: 1; min-width: 155px; }
+  .stepList button { align-items: center; padding: 8px 12px; }
+  .stepList strong { font-size: 15px; }
+  .progressLabel { margin-top: 0; }
+  .progressTrack { margin-top: -8px; }
+  .page { padding: 32px 20px 80px; }
+  .page > h1 { font-size: 30px; }
+}
+
+@media (max-width: 640px) {
+  .brand { font-size: 15px; }
+  .mark { width: 34px; height: 34px; }
+  .sideIntro h2 { margin-top: 12px; }
+  .stepList li { min-width: 0; }
+  .stepList button { display: block; text-align: center; }
+  .stepNumber { margin: auto; }
+  .stepList strong { margin-top: 5px; font-size: 13px; }
+  .briefGrid, .fields, .assignment { grid-template-columns: 1fr; }
+  .accessCard, .actions { align-items: stretch; flex-direction: column; }
+  .actions .primary, .actions .secondary, .accessCard .primary { width: 100%; }
+  .accessCard .primary { margin-top: 8px; }
+  .documentTitle { gap: 16px; }
+}
