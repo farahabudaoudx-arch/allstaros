@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { submitCandidateDetails } from "./actions";
 import styles from "./test-project.module.css";
 
@@ -100,10 +99,10 @@ export function TestProjectPortal() {
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
           <div className={styles.sideIntro}>
-            <Link href="/" className={styles.brand} aria-label="OperatingSystems.com home">
+            <a href="/" className={styles.brand} aria-label="OperatingSystems.com home">
               <img src="https://www.operatingsystems.com/os-landing/os-rim.png" alt="" className={styles.mark} />
               <span>OperatingSystems.com</span>
-            </Link>
+            </a>
             <h2>{candidate.fullName ? `Welcome, ${candidate.fullName.trim().split(/\s+/)[0]}` : "Welcome"}</h2>
             <p>Paid Coding Project</p>
           </div>
