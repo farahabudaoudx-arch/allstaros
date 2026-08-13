@@ -124,6 +124,7 @@ export function StorySection({
   title,
   compact = false,
   condensed = false,
+  centerContent = false,
   sectionId,
   exportName,
   exportMetadata,
@@ -133,6 +134,7 @@ export function StorySection({
   title: string;
   compact?: boolean;
   condensed?: boolean;
+  centerContent?: boolean;
   sectionId: string;
   exportName: string;
   exportMetadata: { cardType: "producer" | "builder"; memberName: string; periodLabel: string };
@@ -149,7 +151,7 @@ export function StorySection({
           <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
           <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
         </div>
-        <div className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl`}>{children}</div>
+        <div className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl ${centerContent ? "mx-auto" : ""}`}>{children}</div>
       </div>
     </section>
   );

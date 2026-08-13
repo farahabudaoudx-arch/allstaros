@@ -157,7 +157,7 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
         )}
       </StorySection>
 
-      <StorySection number="02" title="Team Productivity" sectionId="builder-scorecard-section-02" exportName="02 Team Productivity" exportMetadata={exportMetadata}>
+      <StorySection number="02" title="Team Productivity" centerContent sectionId="builder-scorecard-section-02" exportName="02 Team Productivity" exportMetadata={exportMetadata}>
         <ProductivityGrid metric={view.metric} />
       </StorySection>
 
