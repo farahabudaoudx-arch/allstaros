@@ -85,12 +85,14 @@ function ProductivityGrid({ metric }: { metric: BuilderScorecardMetric }) {
   ];
 
   return (
-    <div className="organization-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="organization-grid grid max-w-4xl gap-3">
       {items.map((item) => (
-        <div key={item.label} className="organization-card rounded-xl border border-hairline bg-card px-5 py-5">
-          <p className="organization-card-label text-sm text-subtle">{item.label}</p>
-          <p className="organization-card-value mt-3 text-3xl font-semibold tabular-nums text-ink">{item.value}</p>
-          <p className="mt-4 text-sm leading-6 text-mute">{item.detail}</p>
+        <div key={item.label} className="organization-card grid gap-5 rounded-xl border border-hairline bg-card px-5 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-8 sm:py-7">
+          <div>
+            <p className="organization-card-label text-base font-medium text-subtle sm:text-lg">{item.label}</p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-mute">{item.detail}</p>
+          </div>
+          <p className="organization-card-value text-[clamp(3.5rem,9vw,6.5rem)] font-semibold leading-[0.88] tabular-nums tracking-[-0.04em] text-ink sm:text-right">{item.value}</p>
         </div>
       ))}
     </div>
@@ -159,7 +161,7 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
         <ProductivityGrid metric={view.metric} />
       </StorySection>
 
-      <StorySection number="03" title="Previous Period Growth" sectionId="builder-scorecard-section-03" exportName="03 Previous Period Growth" exportMetadata={exportMetadata}>
+      <StorySection number="03" title="Previous Period Growth" condensed sectionId="builder-scorecard-section-03" exportName="03 Previous Period Growth" exportMetadata={exportMetadata}>
         <GrowthTable view={view} />
       </StorySection>
 

@@ -123,6 +123,7 @@ export function StorySection({
   number,
   title,
   compact = false,
+  condensed = false,
   sectionId,
   exportName,
   exportMetadata,
@@ -131,13 +132,17 @@ export function StorySection({
   number: string;
   title: string;
   compact?: boolean;
+  condensed?: boolean;
   sectionId: string;
   exportName: string;
   exportMetadata: { cardType: "producer" | "builder"; memberName: string; periodLabel: string };
   children: ReactNode;
 }) {
   return (
-    <section id={sectionId} className="relative min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20">
+    <section
+      id={sectionId}
+      className={`relative border-t border-hairline bg-background px-6 [letter-spacing:0.2px] sm:px-12 lg:px-20 ${condensed ? "py-10 sm:py-12" : "min-h-[46svh] py-12 sm:min-h-[51svh] sm:py-[3.2rem]"}`}
+    >
       <ScorecardExportControls sectionId={sectionId} sectionName={exportName} {...exportMetadata} />
       <div className="w-full">
         <div className="flex items-baseline gap-5 sm:gap-7">
@@ -332,11 +337,11 @@ export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   return (
     <div className="mt-10 max-w-5xl">
       <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">Here&apos;s how you matched up against the organization:</p>
-      <div className={`organization-grid mt-5 grid gap-3 ${rankOnly ? "max-w-sm" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+      <div className={`organization-grid mt-5 grid gap-3 ${rankOnly ? "w-fit max-w-full" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
         {items.map((item) => (
-          <div key={item.label} className={`organization-card rounded-xl border border-hairline bg-card ${rankOnly ? "px-6 py-6" : "px-5 py-4"}`}>
+          <div key={item.label} className={`organization-card rounded-xl border border-hairline bg-card ${rankOnly ? "w-fit px-4 py-4 sm:px-5 sm:py-5" : "px-5 py-4"}`}>
             {rankOnly ? (
-              <p className="text-4xl font-semibold leading-none tabular-nums text-accent sm:text-5xl">{item.rank}</p>
+              <p className="whitespace-nowrap text-3xl font-semibold leading-none tabular-nums text-accent sm:text-4xl">{item.rank}</p>
             ) : (
               <>
                 <p className="organization-card-label text-sm text-subtle">{item.label}</p>
