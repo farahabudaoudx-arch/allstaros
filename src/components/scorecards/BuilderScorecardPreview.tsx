@@ -75,7 +75,7 @@ function ProductivityGrid({ metric }: { metric: BuilderScorecardMetric }) {
     {
       label: "Weighted First Leg %",
       value: metric.firstLegPercent == null ? "Unavailable" : `${metric.firstLegPercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`,
-      detail: metric.firstLegPercent == null ? "No Team IP denominator was available." : "Weighted by Team IP across the period.",
+      detail: metric.firstLegPercent == null ? "No Team IP denominator was available." : "The month-end Gateway MTD share of Team IP.",
     },
     {
       label: "Average Monthly IP per Writer",
@@ -139,7 +139,7 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
 
       <StorySection number="01" title="Team Issued Premium" compact sectionId="builder-scorecard-section-01" exportName="01 Team Issued Premium" exportMetadata={exportMetadata}>
         <StoryValue
-          intro={`Across all Team IP reports in ${view.period.label}, your team submitted:`}
+          intro={`By the end of ${view.period.label}, your team submitted:`}
           introClass="font-normal italic text-white"
           compact
           value={money(view.metric.teamIpCents)}
