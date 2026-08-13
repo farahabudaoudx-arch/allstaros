@@ -58,6 +58,7 @@ describe("monthly Builder Team IP reconciliation", () => {
       { label: "Week 4", teamIpCents: 22_004_379 },
       { label: "Week 5", teamIpCents: 6_141_231 },
     ]);
+    expect(metric.trend.map(({ share }) => share)).toEqual([31, 19, 19, 24, 7]);
     expect(metric.trend.reduce((sum, week) => sum + week.teamIpCents, 0)).toBe(91_506_494);
   });
 });

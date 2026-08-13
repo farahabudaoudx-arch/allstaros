@@ -111,19 +111,15 @@ export function reconcileMonthlyBuilderTeamIp(
     throw new Error("Builder weekly Team IP does not reconcile to the month-end MTD total.");
   }
 
-  const maximumWeeklyTeamIp = Math.max(
-    ...[...weeklyValues.values()].map((week) => week.teamIpCents),
-    0,
-  );
   const trend = [...weeklyValues.entries()]
     .sort(([left], [right]) => left - right)
     .map(([week, value]) => ({
       reportDate: value.reportDate,
       label: `Week ${week}`,
       teamIpCents: value.teamIpCents,
-      share: maximumWeeklyTeamIp === 0
+      share: monthEnd.teamIpCents === 0
         ? 0
-        : Math.round((value.teamIpCents / maximumWeeklyTeamIp) * 100),
+        : Math.round((value.teamIpCents / monthEnd.teamIpCents) * 100),
     }));
 
   return {
