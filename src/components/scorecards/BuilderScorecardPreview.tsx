@@ -57,7 +57,7 @@ function TeamTrend({ trend }: { trend: BuilderScorecardMetric["trend"] }) {
             <span className="weekly-trend__bar-track relative h-3 overflow-hidden rounded-sm bg-card md:h-4">
               <span className="weekly-trend__bar-fill block h-full origin-left rounded-sm bg-accent" style={{ width: `${bucket.share}%` }} />
             </span>
-            <span className="weekly-trend__bar-value text-right text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(bucket.teamIpCents)}</span>
+            <span className="weekly-trend__bar-value text-left text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(bucket.teamIpCents)}</span>
           </li>
         ))}
       </ul>

@@ -185,7 +185,7 @@ function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyRepor
                   style={{ width: `${shares[index]}%` }}
                 />
               </span>
-              <span className="weekly-trend__bar-value text-right text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(report.personalIpCents)}</span>
+              <span className="weekly-trend__bar-value text-left text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(report.personalIpCents)}</span>
             </div>
           );
         })}
