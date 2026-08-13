@@ -9,8 +9,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 
 const builderViewIdentity = {
   member: {
-    fullName: "Jackson Rapaport",
-    photoUrl: "https://api.allstarlifegroup.com/storage/v1/object/public/headshots/aa7642c5-7b10-473e-ac8f-b9c21f958354.jpg?v=1784920841727",
+    fullName: "Ronny Bucica",
+    photoUrl: "https://api.allstarlifegroup.com/storage/v1/object/public/headshots/ce7623c3-838e-4a3c-9750-583a05e6f7b2.jpg?v=1784935412655",
   },
   period: { kind: "monthly", label: "July 2026", previousLabel: "June 2026" },
 } satisfies Omit<BuilderScorecardView, "metric">;
@@ -56,7 +56,7 @@ function growthPercentage(current: number, prior: number) {
 
 async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> {
   const service = createServiceRoleClient();
-  const builderId = protectedFixture.producerId;
+  const builderId = "ce7623c3-838e-4a3c-9750-583a05e6f7b2";
   const [leaderboard, currentResult, priorResult, peopleResult, recruitsResult, writerReportDatesResult] = await Promise.all([
     computeIpLeaderboard(service, {
       board: "team",
