@@ -50,9 +50,9 @@
     "percentile": 98,
     "organizationRanks": {
       "submittedAp": 27,
+      "leadSpend": 43,
       "dials": 144,
       "contacts": 109,
-      "appointments": 20,
       "presentations": 65,
       "sales": 59
     },

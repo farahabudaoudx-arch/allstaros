@@ -11,9 +11,9 @@ import {
 
 const organizationRanks = {
   submittedAp: { rank: 8, population: 424 },
+  leadSpend: { rank: 14, population: 424 },
   dials: { rank: 20, population: 424 },
   contacts: { rank: 18, population: 424 },
-  appointments: { rank: 12, population: 424 },
   presentations: { rank: 10, population: 424 },
   sales: { rank: 6, population: 424 },
 };

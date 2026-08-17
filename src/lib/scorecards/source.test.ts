@@ -3,11 +3,29 @@ import {
   currentMonthlyPeriod,
   expectedDatesForSchedule,
   expectedDatesForScheduleHistory,
+  monthlyLeadSpendTotals,
   monthlyProducerSourceFromRows,
   rankForTotal,
 } from "./source";
 
 describe("monthly Producer source adapter", () => {
+  it("ranks Lead Spend across the active population for the requested month", () => {
+    expect([...monthlyLeadSpendTotals({
+      activeIds: ["producer-a", "producer-b", "producer-c"],
+      period: { start: "2026-07-01", end: "2026-07-31" },
+      rows: [
+        { person_id: "producer-a", amount: 1_250, purchase_date: "2026-07-10", created_at: "2026-08-01T00:00:00Z" },
+        { person_id: "producer-b", amount: 500, purchase_date: null, created_at: "2026-08-01T04:30:00Z" },
+        { person_id: "producer-b", amount: 900, purchase_date: "2026-08-01", created_at: "2026-07-15T00:00:00Z" },
+        { person_id: "not-active", amount: 5_000, purchase_date: "2026-07-10", created_at: "2026-07-10T00:00:00Z" },
+      ],
+    }).entries()]).toEqual([
+      ["producer-a", 125_000],
+      ["producer-b", 50_000],
+      ["producer-c", 0],
+    ]);
+  });
+
   it("uses competition ranking across the complete measured population", () => {
     expect(rankForTotal(50, [100, 50, 50, 20, 0])).toEqual({ rank: 2, population: 5 });
     expect(rankForTotal(0, [100, 50, 50, 20, 0])).toEqual({ rank: 5, population: 5 });

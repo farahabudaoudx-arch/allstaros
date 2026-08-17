@@ -101,9 +101,9 @@ export type ProducerOverview = {
   rank: { rank: number; population: number; percentile: number; movement: number | null };
   organizationRanks: {
     submittedAp: { rank: number; population: number };
+    leadSpend: { rank: number; population: number };
     dials: { rank: number; population: number };
     contacts: { rank: number; population: number };
-    appointments: { rank: number; population: number };
     presentations: { rank: number; population: number };
     sales: { rank: number; population: number };
   };

@@ -7,6 +7,12 @@ import { weeklyShares } from "@/lib/scorecards/weekly-trend";
 import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
+import {
+  createProducerStarSummary,
+  producerMetricStars,
+  type ProducerStarSummary,
+  type StarRating,
+} from "@/lib/scorecards/ratings";
 import { VelarisBackground } from "./VelarisBackground";
 import { ScorecardExportControls } from "./ScorecardExportControls";
 
@@ -31,6 +37,8 @@ export function ProducerScorecardPreview({
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 }) {
+  const starSummary = producerStarSummary(preview, overview);
+  const ratings = producerRatings(preview, overview);
   const exportMetadata = {
     cardType: "producer" as const,
     memberName: overview.producer.fullName,
@@ -43,6 +51,8 @@ export function ProducerScorecardPreview({
         memberName={overview.producer.fullName}
         photoUrl={overview.producer.photoUrl}
         title={preview.title}
+        averageStars={starSummary?.average ?? null}
+        totalStars={starSummary?.total ?? null}
       />
 
       <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium" exportMetadata={exportMetadata}>
@@ -52,6 +62,7 @@ export function ProducerScorecardPreview({
           compact
           value={money(preview.totalIssuedIpCents)}
           valueClass={ISSUANCE_VALUE_CLASS[preview.issuanceStatus]}
+          rating={{ value: ratings.issuedIp, label: "Issued Premium" }}
         />
         <WeeklyTrend reports={preview.weeklyReports} />
         <div className="mt-10 max-w-3xl">
@@ -69,17 +80,96 @@ export function ProducerScorecardPreview({
         />
       </StorySection>
 
-      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} exportMetadata={exportMetadata} />
+      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} ratings={ratings} exportMetadata={exportMetadata} />
 
       <StorySection number="03" title="Previous Month Growth" sectionId="scorecard-section-03" exportName="03 Previous Month Growth" exportMetadata={exportMetadata}>
         <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
       <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency" exportMetadata={exportMetadata}>
-        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} />
+        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} />
       </StorySection>
 
     </article>
+  );
+}
+
+type ProducerRatings = {
+  issuedIp: StarRating;
+  submittedAp: StarRating | null;
+  leadSpend: StarRating;
+  dials: StarRating | null;
+  contacts: StarRating | null;
+  presentations: StarRating | null;
+  sales: StarRating | null;
+  trackingConsistency: StarRating | null;
+};
+
+function producerRatings(
+  preview: MonthlyProducerPreview,
+  overview: ProducerOverview,
+): ProducerRatings {
+  const totals = overview.activity.totals;
+  return {
+    issuedIp: producerMetricStars("issuedIpCents", preview.totalIssuedIpCents),
+    submittedAp: overview.submittedApCents == null
+      ? null
+      : producerMetricStars("submittedApCents", overview.submittedApCents),
+    leadSpend: producerMetricStars("leadSpendCents", overview.activity.leadSpendCents),
+    dials: totals ? producerMetricStars("dials", totals.dials) : null,
+    contacts: totals ? producerMetricStars("contacts", totals.contacts) : null,
+    presentations: totals ? producerMetricStars("presentations", totals.presentations) : null,
+    sales: totals ? producerMetricStars("sales", totals.sales) : null,
+    trackingConsistency: overview.activity.consistency
+      ? producerMetricStars("trackingConsistency", overview.activity.consistency.percentage)
+      : null,
+  };
+}
+
+function producerStarSummary(
+  preview: MonthlyProducerPreview,
+  overview: ProducerOverview,
+): ProducerStarSummary | null {
+  const totals = overview.activity.totals;
+  const consistency = overview.activity.consistency;
+  if (overview.submittedApCents == null || !totals || !consistency) return null;
+  return createProducerStarSummary({
+    issuedIpCents: preview.totalIssuedIpCents,
+    submittedApCents: overview.submittedApCents,
+    leadSpendCents: overview.activity.leadSpendCents,
+    dials: totals.dials,
+    contacts: totals.contacts,
+    presentations: totals.presentations,
+    sales: totals.sales,
+    trackingConsistency: consistency.percentage,
+  });
+}
+
+function StarScale({
+  value,
+  label,
+  prominent = false,
+}: {
+  value: number;
+  label: string;
+  prominent?: boolean;
+}) {
+  const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 leading-none ${prominent ? "text-2xl sm:text-3xl" : "text-lg"}`}
+      aria-label={`${label}: ${displayValue} out of 5 stars`}
+    >
+      {Array.from({ length: 5 }, (_, index) => {
+        const fill = Math.max(0, Math.min(1, value - index));
+        return (
+          <span key={index} className="relative inline-block text-white/15" aria-hidden="true">
+            ★
+            <span className="absolute inset-y-0 left-0 overflow-hidden text-accent" style={{ width: `${fill * 100}%` }}>★</span>
+          </span>
+        );
+      })}
+    </span>
   );
 }
 
@@ -88,11 +178,15 @@ export function ScorecardHeader({
   memberName,
   photoUrl,
   title,
+  averageStars,
+  totalStars,
 }: {
   titleId: string;
   memberName: string;
   photoUrl: string | null;
   title: string;
+  averageStars?: number | null;
+  totalStars?: number | null;
 }) {
   return (
     <VelarisBackground>
@@ -114,6 +208,14 @@ export function ScorecardHeader({
           {memberName}
         </h2>
         <p className="mt-3 text-[1.5625rem] font-semibold tracking-[-0.025em] text-white/85 sm:text-3xl">{title}</p>
+        {averageStars != null && totalStars != null ? (
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <StarScale value={averageStars} label="Average rating" prominent />
+            <p className="text-sm font-medium tabular-nums text-white/65">
+              {averageStars.toFixed(1)} average · {totalStars} of 40 total stars
+            </p>
+          </div>
+        ) : null}
       </header>
     </VelarisBackground>
   );
@@ -157,11 +259,14 @@ export function StorySection({
   );
 }
 
-export function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-subtle", compact = false, detail }: { value: string; valueClass?: string; intro?: string; introClass?: string; compact?: boolean; detail?: string }) {
+export function StoryValue({ value, valueClass = "text-ink", intro, introClass = "text-subtle", compact = false, detail, rating }: { value: string; valueClass?: string; intro?: string; introClass?: string; compact?: boolean; detail?: string; rating?: { value: StarRating; label: string } }) {
   return (
     <div className="max-w-3xl">
       {intro ? <p className={`scorecard-copy scorecard-intro max-w-2xl text-base leading-7 sm:text-lg ${introClass}`}>{intro}</p> : null}
-      <p className={`${intro ? compact ? "mt-5" : "mt-6" : ""} text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums ${valueClass}`}>{value}</p>
+      <div className={`${intro ? compact ? "mt-5" : "mt-6" : ""} flex flex-wrap items-end gap-x-5 gap-y-3`}>
+        <p className={`text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums ${valueClass}`}>{value}</p>
+        {rating ? <span className="pb-1 sm:pb-2"><StarScale value={rating.value} label={rating.label} /></span> : null}
+      </div>
       {detail ? <p className="mt-5 max-w-2xl text-sm leading-6 text-mute">{detail}</p> : null}
     </div>
   );
@@ -215,9 +320,11 @@ function calendarDates(periodStart: string, periodEnd: string): Array<string | n
 function TrackingConsistencyCalendar({
   preview,
   activity,
+  rating,
 }: {
   preview: MonthlyProducerPreview;
   activity: ProducerOverview["activity"];
+  rating: StarRating | null;
 }) {
   const consistency = activity.consistency;
   if (!consistency || !activity.expectedDates) {
@@ -238,7 +345,10 @@ function TrackingConsistencyCalendar({
     <div className="tracking-story max-w-4xl">
       <div className="tracking-head flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{consistency.percentage}%</p>
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+            <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{consistency.percentage}%</p>
+            {rating != null ? <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span> : null}
+          </div>
           <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">{consistency.loggedDays} of {consistency.expectedDays} expected workdays logged</p>
         </div>
         <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
@@ -295,7 +405,6 @@ function MonthOverMonthStory({
     { label: "Submitted AP", previous: overview.priorSubmittedApCents, current: overview.submittedApCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
     { label: "Dials", previous: previousActivity?.dials ?? null, current: currentActivity?.dials ?? null, format: formatCount },
     { label: "Contacts", previous: previousActivity?.contacts ?? null, current: currentActivity?.contacts ?? null, format: formatCount },
-    { label: "Appointments", previous: previousActivity?.appointments ?? null, current: currentActivity?.appointments ?? null, format: formatCount },
     { label: "Presentations", previous: previousActivity?.presentations ?? null, current: currentActivity?.presentations ?? null, format: formatCount },
     { label: "Sales", previous: previousActivity?.sales ?? null, current: currentActivity?.sales ?? null, format: formatCount },
   ];
@@ -331,6 +440,7 @@ type ComparisonItem = {
   label: string;
   value: string;
   rank: string;
+  stars?: StarRating;
 };
 
 export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
@@ -348,6 +458,7 @@ export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
               <>
                 <p className="organization-card-label text-sm text-subtle">{item.label}</p>
                 <p className="organization-card-value mt-2 text-2xl font-semibold tabular-nums text-ink">{item.value}</p>
+                {item.stars != null ? <p className="mt-3"><StarScale value={item.stars} label={item.label} /></p> : null}
                 <p className="organization-card-rank mt-3 text-sm font-medium text-accent">{item.rank}</p>
               </>
             )}
@@ -358,7 +469,7 @@ export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   );
 }
 
-function ActivityStory({ activity, submittedApCents, organizationRanks, exportMetadata }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"]; exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string } }) {
+function ActivityStory({ activity, submittedApCents, organizationRanks, ratings, exportMetadata }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"]; ratings: ProducerRatings; exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string } }) {
   return (
     <section id="scorecard-section-02" className="relative min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
       <ScorecardExportControls sectionId="scorecard-section-02" sectionName="02 Your Activity" {...exportMetadata} />
@@ -369,9 +480,12 @@ function ActivityStory({ activity, submittedApCents, organizationRanks, exportMe
         </div>
         <div className="mt-10 max-w-4xl">
           <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">In July you submitted:</p>
-          <p className="mt-5 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
-            {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
-          </p>
+          <div className="mt-5 flex flex-wrap items-end gap-x-5 gap-y-3">
+            <p className="text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
+              {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
+            </p>
+            {ratings.submittedAp != null ? <span className="pb-1 sm:pb-2"><StarScale value={ratings.submittedAp} label="Submitted AP" /></span> : null}
+          </div>
         </div>
         {activity.availability !== "tracked" || !activity.totals ? (
           <div className="mt-10 max-w-2xl">
@@ -381,27 +495,35 @@ function ActivityStory({ activity, submittedApCents, organizationRanks, exportMe
         ) : (
           <>
             <div className="activity-story-lines mt-10 max-w-5xl space-y-1 text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
-              <p>You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>.</p>
-              <p>You spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>.</p>
-              <p>You booked <strong className="font-semibold text-accent">{activity.totals.appointments.toLocaleString()} appointments</strong>.</p>
-              <p>You ran <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>.</p>
-              <p>You submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.</p>
-              <p>You spent <strong className="font-semibold text-accent">{money(activity.leadSpendCents)} on leads</strong>.</p>
+              <ActivityRatingLine label="Dials" rating={ratings.dials}><span>You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>.</span></ActivityRatingLine>
+              <ActivityRatingLine label="Contacts" rating={ratings.contacts}><span>You spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>.</span></ActivityRatingLine>
+              <ActivityRatingLine label="Presentations" rating={ratings.presentations}><span>You ran <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>.</span></ActivityRatingLine>
+              <ActivityRatingLine label="Submitted Sales" rating={ratings.sales}><span>You submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.</span></ActivityRatingLine>
+              <ActivityRatingLine label="Lead Spend" rating={ratings.leadSpend}><span>You spent <strong className="font-semibold text-accent">{money(activity.leadSpendCents)} on leads</strong>.</span></ActivityRatingLine>
             </div>
             <OrganizationComparison
               items={[
-                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: `#${organizationRanks.submittedAp.rank} of ${organizationRanks.submittedAp.population}` },
-                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: `#${organizationRanks.dials.rank} of ${organizationRanks.dials.population}` },
-                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: `#${organizationRanks.contacts.rank} of ${organizationRanks.contacts.population}` },
-                { label: "Appointments", value: activity.totals.appointments.toLocaleString(), rank: `#${organizationRanks.appointments.rank} of ${organizationRanks.appointments.population}` },
-                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: `#${organizationRanks.presentations.rank} of ${organizationRanks.presentations.population}` },
-                { label: "Sales", value: activity.totals.sales.toLocaleString(), rank: `#${organizationRanks.sales.rank} of ${organizationRanks.sales.population}` },
+                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: `#${organizationRanks.submittedAp.rank} of ${organizationRanks.submittedAp.population}`, stars: ratings.submittedAp ?? undefined },
+                { label: "Lead Spend", value: money(activity.leadSpendCents), rank: `#${organizationRanks.leadSpend.rank} of ${organizationRanks.leadSpend.population}`, stars: ratings.leadSpend ?? undefined },
+                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: `#${organizationRanks.dials.rank} of ${organizationRanks.dials.population}`, stars: ratings.dials ?? undefined },
+                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: `#${organizationRanks.contacts.rank} of ${organizationRanks.contacts.population}`, stars: ratings.contacts ?? undefined },
+                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: `#${organizationRanks.presentations.rank} of ${organizationRanks.presentations.population}`, stars: ratings.presentations ?? undefined },
+                { label: "Submitted Sales", value: activity.totals.sales.toLocaleString(), rank: `#${organizationRanks.sales.rank} of ${organizationRanks.sales.population}`, stars: ratings.sales ?? undefined },
               ]}
             />
           </>
         )}
       </div>
     </section>
+  );
+}
+
+function ActivityRatingLine({ label, rating, children }: { label: string; rating: StarRating | null; children: ReactNode }) {
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      {children}
+      {rating != null ? <StarScale value={rating} label={label} /> : null}
+    </p>
   );
 }
 

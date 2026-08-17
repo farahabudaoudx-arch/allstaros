@@ -36,8 +36,8 @@ function producerPayload(personId: string) {
         growth: { kind: "new_baseline" as const, percentage: null },
         rank: { rank: 1, population: 4, percentile: 100, movement: null },
         organizationRanks: {
-          submittedAp: { rank: 1, population: 4 }, dials: { rank: 1, population: 4 },
-          contacts: { rank: 1, population: 4 }, appointments: { rank: 1, population: 4 },
+          submittedAp: { rank: 1, population: 4 }, leadSpend: { rank: 1, population: 4 },
+          dials: { rank: 1, population: 4 }, contacts: { rank: 1, population: 4 },
           presentations: { rank: 1, population: 4 }, sales: { rank: 1, population: 4 },
         },
         activity: {

@@ -181,6 +181,28 @@ export function rankForTotal(value: number, totals: Iterable<number>): { rank: n
   return { rank: rankIndex + 1, population: sorted.length };
 }
 
+type LeadSpendRow = {
+  person_id: string;
+  amount: number | string | null;
+  purchase_date: string | null;
+  created_at: string | null;
+};
+
+export function monthlyLeadSpendTotals(args: {
+  activeIds: Iterable<string>;
+  period: { start: string; end: string };
+  rows: LeadSpendRow[];
+}): Map<string, number> {
+  const totals = new Map([...args.activeIds].map((id) => [id, 0]));
+  for (const row of args.rows) {
+    if (!totals.has(row.person_id)) continue;
+    const day = dayOfDateColumn(row.purchase_date) ?? dayOfInstantInChicago(row.created_at);
+    if (!day || day < args.period.start || day > args.period.end) continue;
+    totals.set(row.person_id, (totals.get(row.person_id) ?? 0) + dollarsToCents(row.amount));
+  }
+  return totals;
+}
+
 export async function loadCurrentMonthlyProducerOverview(
   supabase: SupabaseClient,
   producer: {
@@ -192,7 +214,7 @@ export async function loadCurrentMonthlyProducerOverview(
 ): Promise<ProducerOverview> {
   const period = currentMonthlyPeriod(now);
   const prior = previousMonth(period.start);
-  const [clientRows, trackerResult, priorTrackerResult, leadSpendResult, organizationClientRows, organizationTrackerRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
+  const [clientRows, trackerResult, priorTrackerResult, leadSpendResult, organizationClientRows, organizationTrackerRows, organizationLeadSpendRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
     await Promise.all([
       fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
         supabase
@@ -240,6 +262,13 @@ export async function loadCurrentMonthlyProducerOverview(
           .select("id, person_id, entry_date, dials, contacts, appointments, presentations, sales")
           .gte("entry_date", period.start)
           .lte("entry_date", period.end)
+          .order("id")
+          .range(lo, hi),
+      ),
+      fetchAllRows<LeadSpendRow & { id: string }>((lo, hi) =>
+        supabase
+          .from("lead_purchases")
+          .select("id, person_id, amount, purchase_date, created_at")
           .order("id")
           .range(lo, hi),
       ),
@@ -348,7 +377,7 @@ export async function loadCurrentMonthlyProducerOverview(
       (organizationApTotals.get(client.person_id) ?? 0) + dollarsToCents(client.annual_premium),
     );
   }
-  const activityMetricKeys = ["dials", "contacts", "appointments", "presentations", "sales"] as const;
+  const activityMetricKeys = ["dials", "contacts", "presentations", "sales"] as const;
   const organizationActivityTotals = Object.fromEntries(
     activityMetricKeys.map((metric) => [metric, new Map([...activeIds].map((id) => [id, 0]))]),
   ) as Record<(typeof activityMetricKeys)[number], Map<string, number>>;
@@ -364,6 +393,15 @@ export async function loadCurrentMonthlyProducerOverview(
     }
   }
   const submittedApRank = rankForTotal(organizationApTotals.get(producer.id) ?? 0, organizationApTotals.values());
+  const organizationLeadSpendTotals = monthlyLeadSpendTotals({
+    activeIds,
+    period,
+    rows: organizationLeadSpendRows,
+  });
+  const leadSpendRank = rankForTotal(
+    organizationLeadSpendTotals.get(producer.id) ?? 0,
+    organizationLeadSpendTotals.values(),
+  );
   const organizationRanks = Object.fromEntries(
     activityMetricKeys.map((metric) => [
       metric,
@@ -372,7 +410,7 @@ export async function loadCurrentMonthlyProducerOverview(
         organizationActivityTotals[metric].values(),
       ),
     ]),
-  ) as Omit<ProducerOverview["organizationRanks"], "submittedAp">;
+  ) as Omit<ProducerOverview["organizationRanks"], "submittedAp" | "leadSpend">;
   const totalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
   const currentImportedDates = new Set((currentImportsResult.data ?? []).map((row) => String(row.report_date)));
   for (const row of currentPremiumRows) {
@@ -454,7 +492,11 @@ export async function loadCurrentMonthlyProducerOverview(
       movement:
         priorImportedDates.size === 0 || priorRankIndex < 0 ? null : priorRankIndex + 1 - rank,
     },
-    organizationRanks: { submittedAp: submittedApRank, ...organizationRanks },
+    organizationRanks: {
+      submittedAp: submittedApRank,
+      leadSpend: leadSpendRank,
+      ...organizationRanks,
+    },
     activityRows,
     priorActivityRows,
     expectedWorkingDates,
