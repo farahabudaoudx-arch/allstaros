@@ -24,6 +24,7 @@ export default function ProducerScorecardVisualPreviewPage() {
     submittedApCents: protectedFixture.expected.submittedApCents,
     leadSpendCents: protectedFixture.expected.leadSpendCents,
     priorSubmittedApCents: protectedFixture.expected.priorSubmittedApCents,
+    priorLeadSpendCents: protectedFixture.expected.priorLeadSpendCents,
     currentIssuedIpCents: protectedFixture.expected.totalIssuedIpCents,
     priorIssuedIpCents: protectedFixture.expected.priorMonthIpCents,
     rank: {

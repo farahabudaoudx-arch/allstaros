@@ -93,6 +93,7 @@ export type ProducerOverview = {
   producer: { fullName: string; photoUrl: string | null; role: "Producer" };
   submittedApCents: number | null;
   priorSubmittedApCents: number | null;
+  priorLeadSpendCents: number | null;
   priorIssuedIpCents: number | null;
   priorActivityTotals: ProducerActivityTotals | null;
   growth:
@@ -126,6 +127,7 @@ export function createProducerOverview(input: {
   submittedApCents: number | null;
   leadSpendCents: number;
   priorSubmittedApCents?: number | null;
+  priorLeadSpendCents?: number | null;
   currentIssuedIpCents: number;
   priorIssuedIpCents: number | null;
   rank: ProducerOverview["rank"];
@@ -211,6 +213,7 @@ export function createProducerOverview(input: {
     producer: { fullName: input.fullName, photoUrl: input.photoUrl, role: "Producer" },
     submittedApCents: input.submittedApCents,
     priorSubmittedApCents: input.priorSubmittedApCents ?? null,
+    priorLeadSpendCents: input.priorLeadSpendCents ?? null,
     priorIssuedIpCents: input.priorIssuedIpCents,
     priorActivityTotals,
     growth,

@@ -9,7 +9,7 @@
     "rankingVerifiedAt": "2026-08-17",
     "rankingPopulation": "Active producers with positive recorded performance in each July metric; tracking uses distinct submitted tracker dates.",
     "monthEndMtdCents": 3376680,
-    "notes": "Client-level data, email, NPN, and contact details are intentionally excluded. Aggregate July 2026 Gateway issued premium, submitted AP, tracker activity, and organization ranks belong to Jackson Rapaport and are retained for local visual verification. Week 2 and Week 4 All Life WTD values were verified by the user in Gateway and reconcile exactly to the stored July month-end MTD total. Expected tracking dates use the requested Monday-through-Saturday preview schedule because schedule-history tables are not present in this environment."
+    "notes": "Client-level data, email, NPN, and contact details are intentionally excluded. Aggregate July 2026 Gateway issued premium, submitted AP, tracker activity, lead spend, and organization ranks belong to Jackson Rapaport and are retained for local visual verification. June and July contain no recorded lead purchases for this producer. Week 2 and Week 4 All Life WTD values were verified by the user in Gateway and reconcile exactly to the stored July month-end MTD total. Expected tracking dates use the requested Monday-through-Saturday preview schedule because schedule-history tables are not present in this environment."
   },
   "producerId": "aa7642c5-7b10-473e-ac8f-b9c21f958354",
   "period": {
@@ -31,6 +31,7 @@
     "issuanceStatus": "green",
     "submittedApCents": 3094788,
     "leadSpendCents": 0,
+    "priorLeadSpendCents": 0,
     "priorMonthIpCents": 2647666,
     "priorSubmittedApCents": 2404044,
     "priorActivityRows": [

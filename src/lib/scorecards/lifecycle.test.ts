@@ -67,6 +67,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       photoUrl: "/headshot-sample.png",
       submittedApCents: 2_412_648,
       leadSpendCents: 185_075,
+      priorLeadSpendCents: 92_500,
       currentIssuedIpCents: 4_580_978,
       priorIssuedIpCents: 0,
       rank: { rank: 3, population: 424, percentile: 100, movement: 2 },
@@ -81,6 +82,7 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     expect(overview).toMatchObject({
       producer: { fullName: "Jordan Taylor", role: "Producer" },
       submittedApCents: 2_412_648,
+      priorLeadSpendCents: 92_500,
       priorIssuedIpCents: 0,
       growth: { kind: "new_baseline" },
       rank: { rank: 3, population: 424, percentile: 100, movement: 2 },

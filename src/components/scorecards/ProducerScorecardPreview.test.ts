@@ -63,6 +63,7 @@ describe("Producer Scorecard preview", () => {
       submittedApCents: protectedFixture.expected.submittedApCents,
       leadSpendCents: protectedFixture.expected.leadSpendCents,
       priorSubmittedApCents: protectedFixture.expected.priorSubmittedApCents,
+      priorLeadSpendCents: protectedFixture.expected.priorLeadSpendCents,
       currentIssuedIpCents: protectedFixture.expected.totalIssuedIpCents,
       priorIssuedIpCents: protectedFixture.expected.priorMonthIpCents,
       rank: {
@@ -94,7 +95,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("No recorded performance");
     expect(html).not.toMatch(/appointments/i);
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(23);
-    expect(html.match(/data-export-exclude=""/g)).toHaveLength(9);
+    expect(html.match(/data-export-exclude=""/g)).toHaveLength(12);
     expect(html).toContain(">How Scorecards Work</h3>");
     expect(html).not.toContain("Download How Scorecards Work");
     expect(html).toMatch(/<details open=""/);
@@ -116,9 +117,15 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toContain("what you submitted week by week");
     expect(html).not.toContain("average weekly IP");
     expect(html).toMatch(/aria-label="July 2026 producer numbers"[\s\S]*?>IP<[\s\S]*?>\$33,767<[\s\S]*?>Top 20% of producers<[\s\S]*?>AP<[\s\S]*?>\$30,948<[\s\S]*?>Lead Spend<[\s\S]*?>\$0<[\s\S]*?>No recorded performance<[\s\S]*?>Dials<[\s\S]*?>443<[\s\S]*?>21st–40th percentile<[\s\S]*?>Contacts<[\s\S]*?>38<[\s\S]*?>41st–60th percentile<[\s\S]*?>Presentations<[\s\S]*?>13<[\s\S]*?>61st–80th percentile<[\s\S]*?>Submitted Sales<[\s\S]*?>11</);
-    expect(html).toContain('aria-label="Download 01 Your Numbers as a 9:16 PNG"');
-    expect(html).toContain('aria-label="Download 02 Your Tracking as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Your Numbers as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Your Tracking as a 9:16 PNG"');
     expect(html).not.toContain("Download 04 Tracking Consistency");
+    expect(html.match(/<details open=""/g)).toHaveLength(4);
+    expect(html).toContain('aria-label="Toggle Your Numbers"');
+    expect(html).toContain('aria-label="Toggle Your Tracking"');
+    expect(html).toContain('aria-label="Toggle Previous Month Growth"');
+    expect(html).not.toMatch(/>0[123]<\/p>/);
+    expect(html).toMatch(/>Lead Spend<\/span><span[^>]*>\$0<\/span><\/p><p[^>]*><span[^>]*>Lead Spend<\/span><span[^>]*>\$0<\/span><\/p><p[^>]*>0%<\/p>/);
     expect(html.indexOf(">How Scorecards Work</h3>")).toBeLessThan(html.indexOf(">Your Numbers</h3>"));
     expect(html.indexOf(">Your Numbers</h3>")).toBeLessThan(html.indexOf(">Your Tracking</h3>"));
     expect(html.indexOf(">Your Tracking</h3>")).toBeLessThan(html.indexOf(">Previous Month Growth</h3>"));

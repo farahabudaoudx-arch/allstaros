@@ -50,15 +50,15 @@ export function ProducerScorecardPreview({
 
       <ScorecardHowItWorks />
 
-      <StorySection number="01" title="Your Numbers" sectionId="scorecard-section-01" exportName="01 Your Numbers" exportMetadata={exportMetadata}>
+      <StorySection number={null} title="Your Numbers" collapsible sectionId="scorecard-section-01" exportName="Your Numbers" exportMetadata={exportMetadata}>
         <ProducerNumbersGrid preview={preview} overview={overview} ratings={ratings} />
       </StorySection>
 
-      <StorySection number="02" title="Your Tracking" sectionId="scorecard-section-02" exportName="02 Your Tracking" exportMetadata={exportMetadata}>
+      <StorySection number={null} title="Your Tracking" collapsible sectionId="scorecard-section-02" exportName="Your Tracking" exportMetadata={exportMetadata}>
         <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} />
       </StorySection>
 
-      <StorySection number="03" title="Previous Month Growth" sectionId="scorecard-section-03" exportName="03 Previous Month Growth" exportMetadata={exportMetadata}>
+      <StorySection number={null} title="Previous Month Growth" collapsible sectionId="scorecard-section-03" exportName="Previous Month Growth" exportMetadata={exportMetadata}>
         <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
@@ -355,6 +355,7 @@ export function StorySection({
   condensed = false,
   centerContent = false,
   centerHeading = false,
+  collapsible = false,
   sectionId,
   exportName,
   exportMetadata,
@@ -366,6 +367,7 @@ export function StorySection({
   condensed?: boolean;
   centerContent?: boolean;
   centerHeading?: boolean;
+  collapsible?: boolean;
   sectionId: string;
   exportName: string;
   exportMetadata: { cardType: "producer" | "builder"; memberName: string; periodLabel: string };
@@ -374,15 +376,35 @@ export function StorySection({
   return (
     <section
       id={sectionId}
-      className={`relative border-t border-hairline bg-background px-6 [letter-spacing:0.2px] sm:px-12 lg:px-20 ${condensed ? "py-10 sm:py-12" : "min-h-[46svh] py-12 sm:min-h-[51svh] sm:py-[3.2rem]"}`}
+      className={`relative border-t border-hairline bg-background px-6 [letter-spacing:0.2px] sm:px-12 lg:px-20 ${collapsible || condensed ? "py-10 sm:py-12" : "min-h-[46svh] py-12 sm:min-h-[51svh] sm:py-[3.2rem]"}`}
     >
       <ScorecardExportControls sectionId={sectionId} sectionName={exportName} {...exportMetadata} />
       <div className="w-full">
-        <div className={`flex items-baseline gap-5 sm:gap-7 ${centerHeading ? "justify-center text-center" : ""}`}>
-          {number ? <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p> : null}
-          <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
-        </div>
-        <div className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl ${centerContent ? "mx-auto" : ""}`}>{children}</div>
+        {collapsible ? (
+          <details open className="scorecard-guide">
+            <summary
+              aria-label={`Toggle ${title}`}
+              aria-controls={`${sectionId}-content`}
+              className="scorecard-guide__summary flex cursor-pointer list-none items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background sm:gap-5 [&::-webkit-details-marker]:hidden"
+            >
+              <span data-export-exclude="" aria-hidden="true" className="scorecard-guide__chevron grid size-10 shrink-0 place-items-center text-accent sm:size-12">
+                <svg viewBox="0 0 24 24" className="size-6 sm:size-7" fill="none">
+                  <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
+            </summary>
+            <div id={`${sectionId}-content`} className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl ${centerContent ? "mx-auto" : ""}`}>{children}</div>
+          </details>
+        ) : (
+          <>
+            <div className={`flex items-baseline gap-5 sm:gap-7 ${centerHeading ? "justify-center text-center" : ""}`}>
+              {number ? <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p> : null}
+              <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
+            </div>
+            <div className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl ${centerContent ? "mx-auto" : ""}`}>{children}</div>
+          </>
+        )}
       </div>
     </section>
   );
@@ -497,7 +519,7 @@ function MonthOverMonthStory({
 }) {
   const percentageChange = (previous: number | null, current: number | null) => {
     if (previous == null || current == null) return "Unavailable";
-    if (previous === 0) return "New Baseline";
+    if (previous === 0) return current === 0 ? "0%" : "New Baseline";
     const percentage = Math.round(((current - previous) / previous) * 1_000) / 10;
     return `${percentage > 0 ? "+" : ""}${percentage}%`;
   };
@@ -507,6 +529,7 @@ function MonthOverMonthStory({
   const comparisons = [
     { label: "Issued Premium", previous: overview.priorIssuedIpCents, current: preview.totalIssuedIpCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
     { label: "Submitted AP", previous: overview.priorSubmittedApCents, current: overview.submittedApCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
+    { label: "Lead Spend", previous: overview.priorLeadSpendCents, current: overview.activity.leadSpendCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
     { label: "Dials", previous: previousActivity?.dials ?? null, current: currentActivity?.dials ?? null, format: formatCount },
     { label: "Contacts", previous: previousActivity?.contacts ?? null, current: currentActivity?.contacts ?? null, format: formatCount },
     { label: "Presentations", previous: previousActivity?.presentations ?? null, current: currentActivity?.presentations ?? null, format: formatCount },

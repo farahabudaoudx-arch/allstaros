@@ -31,6 +31,7 @@ function producerPayload(personId: string) {
         producer: { fullName: personId, photoUrl: null, role: "Producer" as const },
         submittedApCents: 0,
         priorSubmittedApCents: 0,
+        priorLeadSpendCents: 0,
         priorIssuedIpCents: 0,
         priorActivityTotals: null,
         growth: { kind: "new_baseline" as const, percentage: null },

@@ -138,6 +138,9 @@ async function renderSectionPng(
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute("id");
   clone.querySelectorAll("[data-export-controls], [data-export-exclude]").forEach((node) => node.remove());
+  clone.querySelectorAll<HTMLDetailsElement>("details").forEach((details) => {
+    details.open = true;
+  });
   clone.style.position = "absolute";
   clone.style.inset = "0";
   clone.style.width = `${width}px`;

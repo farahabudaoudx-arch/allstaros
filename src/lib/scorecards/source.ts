@@ -324,6 +324,7 @@ export async function loadCurrentMonthlyProducerOverview(
   let submittedApCents = 0;
   let priorSubmittedApCents = 0;
   let leadSpendCents = 0;
+  let priorLeadSpendCents = 0;
   let submittedApAvailable = true;
   let priorSubmittedApAvailable = true;
   for (const client of clientRows) {
@@ -350,8 +351,13 @@ export async function loadCurrentMonthlyProducerOverview(
     created_at: string | null;
   }>) {
     const day = dayOfDateColumn(purchase.purchase_date) ?? dayOfInstantInChicago(purchase.created_at);
-    if (!day || day < period.start || day > period.end) continue;
-    leadSpendCents += dollarsToCents(purchase.amount);
+    if (!day) continue;
+    if (day >= period.start && day <= period.end) {
+      leadSpendCents += dollarsToCents(purchase.amount);
+    }
+    if (day >= prior.start && day <= prior.end) {
+      priorLeadSpendCents += dollarsToCents(purchase.amount);
+    }
   }
 
   const mapActivityRows = (rows: Array<Record<string, number | string | null>>) => rows.map<ProducerActivityRow>(
@@ -500,6 +506,7 @@ export async function loadCurrentMonthlyProducerOverview(
     submittedApCents: submittedApAvailable ? submittedApCents : null,
     leadSpendCents,
     priorSubmittedApCents: priorSubmittedApAvailable ? priorSubmittedApCents : null,
+    priorLeadSpendCents,
     currentIssuedIpCents,
     priorIssuedIpCents,
     rank: {
