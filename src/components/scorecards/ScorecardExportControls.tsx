@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   PRODUCER_CARD_EXPORT_LAYOUT,
   SCORECARD_EXPORTS,
+  SCORECARD_EXPORT_PIXEL_RATIO,
   scorecardExportFilename,
   type ScorecardExportFormat,
 } from "@/lib/scorecards/export";
@@ -344,7 +345,8 @@ async function renderSectionPng(
       height,
       canvasWidth: width,
       canvasHeight: height,
-      pixelRatio: 1,
+      pixelRatio: SCORECARD_EXPORT_PIXEL_RATIO,
+      skipAutoScale: true,
       cacheBust: true,
     });
     if (!blob) throw new Error("The scorecard PNG could not be created.");

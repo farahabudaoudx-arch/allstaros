@@ -1,5 +1,7 @@
 export type ScorecardExportFormat = "portrait" | "landscape";
 
+export const SCORECARD_EXPORT_PIXEL_RATIO = 2;
+
 export const SCORECARD_EXPORTS = {
   portrait: { width: 1080, height: 1920, label: "9:16" },
   landscape: { width: 1920, height: 1080, label: "16:9" },

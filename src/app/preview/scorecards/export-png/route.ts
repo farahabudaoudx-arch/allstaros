@@ -1,4 +1,4 @@
-const MAX_PNG_BYTES = 10 * 1024 * 1024;
+const MAX_PNG_BYTES = 30 * 1024 * 1024;
 
 function safeFilename(value: FormDataEntryValue | null): string {
   if (typeof value !== "string") return "scorecard.png";

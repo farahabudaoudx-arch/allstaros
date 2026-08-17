@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   PRODUCER_CARD_EXPORT_LAYOUT,
   SCORECARD_EXPORTS,
+  SCORECARD_EXPORT_PIXEL_RATIO,
   scorecardExportFilename,
 } from "./export";
 
@@ -9,6 +10,14 @@ describe("scorecard PNG exports", () => {
   it("uses exact 9:16 and 16:9 canvas dimensions", () => {
     expect(SCORECARD_EXPORTS.portrait).toMatchObject({ width: 1080, height: 1920 });
     expect(SCORECARD_EXPORTS.landscape).toMatchObject({ width: 1920, height: 1080 });
+  });
+
+  it("renders PNG downloads at double resolution for sharper text and images", () => {
+    expect(SCORECARD_EXPORT_PIXEL_RATIO).toBe(2);
+    expect(SCORECARD_EXPORTS.portrait.width * SCORECARD_EXPORT_PIXEL_RATIO).toBe(2160);
+    expect(SCORECARD_EXPORTS.portrait.height * SCORECARD_EXPORT_PIXEL_RATIO).toBe(3840);
+    expect(SCORECARD_EXPORTS.landscape.width * SCORECARD_EXPORT_PIXEL_RATIO).toBe(3840);
+    expect(SCORECARD_EXPORTS.landscape.height * SCORECARD_EXPORT_PIXEL_RATIO).toBe(2160);
   });
 
   it("uses the approved staggered two-face layout for producer scorecard downloads", () => {
