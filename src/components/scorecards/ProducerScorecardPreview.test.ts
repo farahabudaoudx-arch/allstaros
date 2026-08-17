@@ -54,5 +54,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("Lead Spend");
     expect(html).toContain("Tracking Consistency: 3 out of 5 stars");
     expect(html).not.toMatch(/appointments/i);
+    expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(15);
+    expect(html.match(/data-export-exclude=""/g)).toHaveLength(15);
   });
 });

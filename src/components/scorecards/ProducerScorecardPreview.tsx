@@ -157,6 +157,7 @@ function StarScale({
   const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1);
   return (
     <span
+      data-export-exclude=""
       className={`inline-flex items-center gap-1 leading-none ${prominent ? "text-2xl sm:text-3xl" : "text-lg"}`}
       aria-label={`${label}: ${displayValue} out of 5 stars`}
     >
