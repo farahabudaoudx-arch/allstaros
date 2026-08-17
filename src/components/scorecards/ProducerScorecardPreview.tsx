@@ -129,12 +129,12 @@ const PRODUCER_SCORECARD_AREAS = [
 ] as const;
 
 const PRODUCER_SCORECARD_LEVELS = [
-  { stars: "0 stars", description: "No recorded performance" },
-  { stars: "1 star", description: "Bottom 20% of producers" },
-  { stars: "2 stars", description: "21st–40th percentile" },
-  { stars: "3 stars", description: "41st–60th percentile" },
-  { stars: "4 stars", description: "61st–80th percentile" },
-  { stars: "5 stars", description: "Top 20% of producers" },
+  { stars: 0, description: "No recorded performance" },
+  { stars: 1, description: "Bottom 20% of producers" },
+  { stars: 2, description: "21st–40th percentile" },
+  { stars: 3, description: "41st–60th percentile" },
+  { stars: 4, description: "61st–80th percentile" },
+  { stars: 5, description: "Top 20% of producers" },
 ] as const;
 
 function ScorecardHowItWorks() {
@@ -175,14 +175,20 @@ function ScorecardHowItWorks() {
             ))}
           </ul>
 
-          <div className="mt-9 max-w-4xl text-base leading-7 text-subtle sm:text-lg sm:leading-8">
+          <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
             <p>We then rank your performance in all 8 areas against the entire organization and average out your rankings to give you an overall score:</p>
 
-            <dl className="mt-6 border-y border-hairline">
+            <dl className="mx-auto mt-6 max-w-2xl border-y border-hairline">
               {PRODUCER_SCORECARD_LEVELS.map((level) => (
-                <div key={level.stars} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 border-b border-hairline py-3.5 last:border-b-0 sm:grid-cols-[7rem_minmax(0,1fr)]">
-                  <dt className="font-semibold text-accent">{level.stars}</dt>
-                  <dd>{level.description}</dd>
+                <div key={level.stars} className="grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-4 border-b border-hairline py-3.5 last:border-b-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                  <dt>
+                    <span className="inline-flex items-center gap-1 text-lg leading-none sm:text-xl" aria-label={`${level.stars} out of 5 stars`}>
+                      {Array.from({ length: 5 }, (_, index) => (
+                        <span key={index} className={index < level.stars ? "text-accent" : "text-white/20"} aria-hidden="true">★</span>
+                      ))}
+                    </span>
+                  </dt>
+                  <dd className="text-white">{level.description}</dd>
                 </div>
               ))}
             </dl>
