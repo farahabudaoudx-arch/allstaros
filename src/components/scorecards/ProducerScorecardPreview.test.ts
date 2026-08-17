@@ -6,7 +6,34 @@ import {
   createMonthlyProducerPreview,
   createProducerOverview,
 } from "@/lib/scorecards/lifecycle";
+import { ProducerBaseballCard } from "./ProducerBaseballCard";
 import { ProducerScorecardPreview } from "./ProducerScorecardPreview";
+
+describe("Producer baseball card", () => {
+  it("renders a portrait front and the producer rankings on its back", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProducerBaseballCard, {
+        memberName: "Jackson Rapaport",
+        photoUrl: null,
+        periodLabel: "July 2026",
+        averageRating: 2.1,
+        totalRating: 17,
+        rankings: [
+          { label: "Issued Premium", rank: 10, population: 426 },
+          { label: "Submitted AP", rank: 16, population: 426 },
+        ],
+      }),
+    );
+
+    expect(html).toContain('aria-label="Flip Jackson Rapaport scorecard to the back"');
+    expect(html).toContain("Jackson Rapaport");
+    expect(html).toContain("July 2026 Producer");
+    expect(html).toContain("2.1 average");
+    expect(html).toContain("17 of 40 points");
+    expect(html).toContain("Issued Premium");
+    expect(html).toContain("#10 of 426");
+  });
+});
 
 describe("Producer Scorecard preview", () => {
   it("shows the eight-rating average and the approved activity metrics", () => {
@@ -56,5 +83,6 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toMatch(/appointments/i);
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(15);
     expect(html.match(/data-export-exclude=""/g)).toHaveLength(15);
+    expect(html).toContain(">Your Scorecard</h3>");
   });
 });

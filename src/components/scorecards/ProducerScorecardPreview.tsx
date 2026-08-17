@@ -15,6 +15,7 @@ import {
 } from "@/lib/scorecards/ratings";
 import { VelarisBackground } from "./VelarisBackground";
 import { ScorecardExportControls } from "./ScorecardExportControls";
+import { ProducerBaseballCard } from "./ProducerBaseballCard";
 
 const ISSUANCE_VALUE_CLASS: Record<IssuanceStatus, string> = {
   green: "text-pos",
@@ -88,6 +89,25 @@ export function ProducerScorecardPreview({
 
       <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency" exportMetadata={exportMetadata}>
         <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} />
+      </StorySection>
+
+      <StorySection number="05" title="Your Scorecard" centerContent sectionId="scorecard-section-05" exportName="05 Your Scorecard" exportMetadata={exportMetadata}>
+        <ProducerBaseballCard
+          memberName={overview.producer.fullName}
+          photoUrl={overview.producer.photoUrl}
+          periodLabel={preview.periodLabel}
+          averageRating={starSummary?.average ?? null}
+          totalRating={starSummary?.total ?? null}
+          rankings={[
+            { label: "Issued Premium", rank: overview.rank.rank, population: overview.rank.population },
+            { label: "Submitted AP", ...overview.organizationRanks.submittedAp },
+            { label: "Lead Spend", ...overview.organizationRanks.leadSpend },
+            { label: "Dials", ...overview.organizationRanks.dials },
+            { label: "Contacts", ...overview.organizationRanks.contacts },
+            { label: "Presentations", ...overview.organizationRanks.presentations },
+            { label: "Submitted Sales", ...overview.organizationRanks.sales },
+          ]}
+        />
       </StorySection>
 
     </article>
