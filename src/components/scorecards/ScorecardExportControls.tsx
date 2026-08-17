@@ -16,7 +16,7 @@ type ScorecardExportMetadata = {
   periodLabel: string;
 };
 
-function applyProducerCardExportLayout(
+function applyBaseballCardExportLayout(
   clone: HTMLElement,
   content: HTMLElement,
   format: ScorecardExportFormat,
@@ -123,7 +123,9 @@ async function renderSectionPng(
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
 
   const { width, height } = SCORECARD_EXPORTS[format];
-  const isProducerCardExport = metadata.cardType === "producer" && sectionId === "scorecard-section-card";
+  const isBaseballCardExport = (
+    sectionId === "scorecard-section-card" || sectionId === "builder-scorecard-section-card"
+  ) && source.querySelector(".producer-baseball-card") != null;
   const stage = document.createElement("div");
   stage.className = "scorecard-export-stage";
   stage.style.cssText = [
@@ -188,7 +190,7 @@ async function renderSectionPng(
       element.style.marginLeft = "auto";
       element.style.marginRight = "auto";
     });
-    if (isProducerCardExport) applyProducerCardExportLayout(clone, content, format);
+    if (isBaseballCardExport) applyBaseballCardExportLayout(clone, content, format);
   }
   if (format === "landscape") {
     clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
@@ -221,7 +223,7 @@ async function renderSectionPng(
     "z-index:3",
   ].join(";");
 
-  const brandLogo = format === "portrait" && !isProducerCardExport ? document.createElement("img") : null;
+  const brandLogo = format === "portrait" && !isBaseballCardExport ? document.createElement("img") : null;
   if (brandLogo) {
     brandLogo.src = "/logo.png";
     brandLogo.alt = "";
@@ -308,7 +310,7 @@ async function renderSectionPng(
     ${sectionId === "scorecard-section-02" ? `
       .scorecard-export-stage .organization-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
     ` : ""}
-    ${isProducerCardExport ? `
+    ${isBaseballCardExport ? `
       .scorecard-export-stage .producer-baseball-card__front > span,
       .scorecard-export-stage .producer-baseball-card__back > span {
         margin: ${format === "portrait" ? "12px" : "9px"} !important;
@@ -332,7 +334,7 @@ async function renderSectionPng(
     ` : ""}
   `;
   artboard.append(clone);
-  if (!isProducerCardExport) artboard.append(attribution);
+  if (!isBaseballCardExport) artboard.append(attribution);
   if (brandLogo) artboard.append(brandLogo);
   stage.append(motionReset, artboard);
   document.body.append(stage);

@@ -271,7 +271,7 @@ function producerStarSummary(
   });
 }
 
-function StarScale({
+export function StarScale({
   value,
   label,
   prominent = false,
@@ -307,6 +307,7 @@ export function ScorecardHeader({
   title,
   averageStars,
   totalStars,
+  maximumStars = 40,
 }: {
   titleId: string;
   memberName: string;
@@ -314,6 +315,7 @@ export function ScorecardHeader({
   title: string;
   averageStars?: number | null;
   totalStars?: number | null;
+  maximumStars?: number;
 }) {
   return (
     <VelarisBackground>
@@ -339,7 +341,7 @@ export function ScorecardHeader({
           <div className="mt-5 flex flex-col items-center gap-2">
             <StarScale value={averageStars} label="Average rating" prominent />
             <p className="text-sm font-medium tabular-nums text-white/65">
-              {averageStars.toFixed(1)} average · {totalStars} of 40 total stars
+              {averageStars.toFixed(1)} average · {totalStars} of {maximumStars} total stars
             </p>
           </div>
         ) : null}

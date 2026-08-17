@@ -2,10 +2,10 @@ import "server-only";
 
 import type { BuilderScorecardView } from "@/components/scorecards/BuilderScorecardPreview";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
-import { fetchAllRows } from "@/lib/producer/metrics";
+import { computeLeaderboard, fetchAllRows } from "@/lib/producer/metrics";
 import { reconcileMonthlyBuilderTeamIp } from "@/lib/scorecards/builder-period";
+import { createBuilderAgencyPerformance } from "@/lib/scorecards/builder-performance";
 import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-july-2026.json";
-import { rankForTotal } from "@/lib/scorecards/source";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 const builderViewIdentity = {
@@ -27,6 +27,7 @@ type TeamIpRow = {
 type TeamLeaderboardRow = {
   person_id: string;
   team_ip_cents: number;
+  first_leg_percent: number | string | null;
 };
 
 type PersonRow = {
@@ -37,24 +38,7 @@ type PersonRow = {
 };
 
 type RecruitRow = { person_id: string };
-type WriterRow = { person_id: string };
-
-function descendantIds(rootId: string, people: PersonRow[]) {
-  const descendants = new Set([rootId]);
-  let foundAnother = true;
-
-  while (foundAnother) {
-    foundAnother = false;
-    for (const person of people) {
-      if (person.upline_id && descendants.has(person.upline_id) && !descendants.has(person.id)) {
-        descendants.add(person.id);
-        foundAnother = true;
-      }
-    }
-  }
-
-  return descendants;
-}
+type WriterRow = { id: string; person_id: string };
 
 function growthPercentage(current: number, prior: number) {
   if (prior === 0) return current === 0 ? 0 : 100;
@@ -65,7 +49,7 @@ function growthPercentage(current: number, prior: number) {
 async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> {
   const service = createServiceRoleClient();
   const builderId = "ce7623c3-838e-4a3c-9750-583a05e6f7b2";
-  const [currentResult, priorResult, leaderboardResult, peopleResult, recruitsResult, writerReportDatesResult] = await Promise.all([
+  const [currentResult, priorResult, leaderboardResult, peopleResult, recruitsResult, writerReportDatesResult, productionLeaderboard] = await Promise.all([
     service
       .from("producer_issued_premium")
       .select("report_date, period_type, gateway_label, team_ip_cents, first_leg_percent")
@@ -86,7 +70,7 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       .limit(1),
     service
       .from("producer_issued_premium")
-      .select("person_id, team_ip_cents")
+      .select("person_id, team_ip_cents, first_leg_percent")
       .eq("period_type", "mtd")
       .eq("report_date", protectedFixture.period.end),
     service.from("person").select("id, upline_id, status, is_builder"),
@@ -104,6 +88,13 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       .lte("report_date", protectedFixture.period.end)
       .order("report_date", { ascending: false })
       .limit(50),
+    computeLeaderboard(service, {
+      rangeKey: "custom",
+      tz: "America/Chicago",
+      from: protectedFixture.period.start,
+      to: protectedFixture.period.end,
+      metric: "ap_cents",
+    }),
   ]);
 
   if (currentResult.error) throw new Error(`Unable to load July Builder Team IP: ${currentResult.error.message}`);
@@ -125,23 +116,18 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
   })));
   const currentTeamIpCents = reconciledTeamIp.teamIpCents;
   const priorTeamIpCents = Number(priorResult.data?.[0]?.team_ip_cents ?? 0);
-  const activeBuilderIds = new Set(
-    people
-      .filter((person) => person.status === "active" && person.is_builder)
-      .map((person) => person.id),
+  const activeBuilders = people.filter((person) =>
+    person.status === "active" && person.is_builder && !isLeaderboardExcluded(person.id)
   );
+  const activeBuilderIds = new Set(activeBuilders.map((person) => person.id));
   const leaderboard = ((leaderboardResult.data ?? []) as TeamLeaderboardRow[])
-    .filter((row) => activeBuilderIds.has(row.person_id) && !isLeaderboardExcluded(row.person_id));
+    .filter((row) => activeBuilderIds.has(row.person_id));
   const member = leaderboard.find((row) => row.person_id === builderId);
 
-  if (member && member.team_ip_cents !== currentTeamIpCents) {
+  if (member && Number(member.team_ip_cents) !== currentTeamIpCents) {
     throw new Error("Builder month-end Team IP does not match the organization leaderboard source.");
   }
 
-  const teamRank = member
-    ? rankForTotal(member.team_ip_cents, leaderboard.map((row) => row.team_ip_cents))
-    : null;
-  const team = descendantIds(builderId, people);
   const recentReportDates = [...new Set(
     (writerReportDatesResult.data ?? [])
       .map(({ report_date }) => report_date)
@@ -152,39 +138,49 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
     : await fetchAllRows<WriterRow>((from, to) =>
       service
         .from("producer_issued_premium")
-        .select("person_id")
+        .select("id, person_id")
         .eq("period_type", "wtd")
         .gt("personal_ip_cents", 0)
-        .in("person_id", [...team])
         .in("report_date", recentReportDates)
         .order("id")
         .range(from, to),
     );
-  const activeWriters = new Set(writerRows.map((row) => row.person_id)).size;
-  const activeBuilders = people.filter((person) => person.status === "active" && person.is_builder);
-  const recruitTotals = activeBuilders.map((builder) => {
-    const builderTeam = descendantIds(builder.id, people);
-    builderTeam.delete(builder.id);
-    return {
-      personId: builder.id,
-      value: recruits.filter((recruit) => builderTeam.has(recruit.person_id)).length,
-    };
+  const agencyPerformance = createBuilderAgencyPerformance({
+    people: people.map((person) => ({ id: person.id, uplineId: person.upline_id })),
+    eligibleBuilderIds: activeBuilders.map((person) => person.id),
+    gatewayRows: leaderboard.map((row) => ({
+      builderId: row.person_id,
+      teamIpCents: Number(row.team_ip_cents),
+      firstLegPercent: row.first_leg_percent == null ? null : Number(row.first_leg_percent),
+    })),
+    activeWriterIds: writerRows.map((row) => row.person_id),
+    personProduction: productionLeaderboard.rows.map((row) => ({
+      personId: row.person_id,
+      dials: row.dials,
+      contacts: row.contacts,
+      presentations: row.presentations,
+      sales: row.sales,
+      apCents: row.ap_cents,
+    })),
+    recruitPersonIds: recruits.map((recruit) => recruit.person_id),
   });
-  const memberRecruitTotal = recruitTotals.find(({ personId }) => personId === builderId);
-  if (!memberRecruitTotal) throw new Error("Builder preview member is outside the active Builder population.");
-  const recruitingRank = rankForTotal(
-    memberRecruitTotal.value,
-    recruitTotals.map(({ value }) => value),
-  );
+  const performance = agencyPerformance.get(builderId);
+  if (!performance) throw new Error("Builder preview member is outside the active Builder population.");
+  const teamRank = performance.teamIp.rank.rank == null
+    ? null
+    : { rank: performance.teamIp.rank.rank, population: performance.teamIp.rank.population };
+  const recruitingRank = {
+    rank: performance.recruits.rank.rank ?? Math.max(1, performance.recruits.rank.population),
+    population: performance.recruits.rank.population,
+  };
 
   return {
     teamIpCents: currentTeamIpCents,
     teamRank,
     teamRankUnavailableReason: teamRank ? null : "not_represented_in_gateway",
-    firstLegPercent: reconciledTeamIp.firstLegPercent,
-    activeWriters,
-    averageMonthlyIpPerWriterCents:
-      activeWriters === 0 ? null : Math.round(currentTeamIpCents / activeWriters),
+    firstLegPercent: performance.firstLegPercent.value,
+    activeWriters: performance.activeWriters.value ?? 0,
+    averageMonthlyIpPerWriterCents: performance.averageIpPerWriter.value,
     monthCount: 1,
     growth: {
       comparison: "mom",
@@ -192,9 +188,10 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       currentTeamIpCents,
       percentage: growthPercentage(currentTeamIpCents, priorTeamIpCents),
     },
-    recruitsAdded: memberRecruitTotal.value,
+    recruitsAdded: performance.recruits.value ?? 0,
     recruitingRank,
     trend: reconciledTeamIp.trend,
+    performance,
   };
 }
 

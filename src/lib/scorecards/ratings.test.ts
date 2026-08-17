@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  builderRankStars,
+  createBuilderStarSummary,
   createProducerStarSummary,
   producerRankStars,
 } from "./ratings";
@@ -40,6 +42,44 @@ describe("Producer Scorecard star ratings", () => {
       },
       total: 27,
       average: 3.375,
+    });
+  });
+});
+
+describe("Builder Scorecard star ratings", () => {
+  it("uses the same organization percentile tiers for active agencies", () => {
+    expect(builderRankStars(0, { rank: 99, population: 99 })).toBe(0);
+    expect(builderRankStars(43, { rank: 18, population: 99 })).toBe(5);
+    expect(builderRankStars(443, { rank: 59, population: 99 })).toBe(3);
+  });
+
+  it("averages the nine Team Production ratings and Recruiting", () => {
+    expect(createBuilderStarSummary({
+      activeWriters: 5,
+      teamDials: 4,
+      teamContacts: 4,
+      teamPresentations: 3,
+      teamSales: 3,
+      teamAp: 5,
+      teamIp: 5,
+      firstLegPercent: 4,
+      averageIpPerWriter: 4,
+      recruits: 5,
+    })).toEqual({
+      ratings: {
+        activeWriters: 5,
+        teamDials: 4,
+        teamContacts: 4,
+        teamPresentations: 3,
+        teamSales: 3,
+        teamAp: 5,
+        teamIp: 5,
+        firstLegPercent: 4,
+        averageIpPerWriter: 4,
+        recruits: 5,
+      },
+      total: 42,
+      average: 4.2,
     });
   });
 });

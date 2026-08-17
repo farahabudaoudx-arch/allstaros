@@ -27,6 +27,8 @@ export function producerRankStars(value: number, organizationRank: OrganizationR
   return starsForPercentile(percentile);
 }
 
+export const builderRankStars = producerRankStars;
+
 export type ProducerStarRatings = {
   issuedIp: StarRating;
   submittedAp: StarRating;
@@ -47,4 +49,28 @@ export type ProducerStarSummary = {
 export function createProducerStarSummary(ratings: ProducerStarRatings): ProducerStarSummary {
   const total = Object.values(ratings).reduce<number>((sum, rating) => sum + rating, 0);
   return { ratings, total, average: total / 8 };
+}
+
+export type BuilderStarRatings = {
+  activeWriters: StarRating;
+  teamDials: StarRating;
+  teamContacts: StarRating;
+  teamPresentations: StarRating;
+  teamSales: StarRating;
+  teamAp: StarRating;
+  teamIp: StarRating;
+  firstLegPercent: StarRating;
+  averageIpPerWriter: StarRating;
+  recruits: StarRating;
+};
+
+export type BuilderStarSummary = {
+  ratings: BuilderStarRatings;
+  total: number;
+  average: number;
+};
+
+export function createBuilderStarSummary(ratings: BuilderStarRatings): BuilderStarSummary {
+  const total = Object.values(ratings).reduce<number>((sum, rating) => sum + rating, 0);
+  return { ratings, total, average: total / 10 };
 }

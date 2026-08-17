@@ -1,11 +1,19 @@
 import type { BuilderPeriodMetric, ScorecardPeriodKind } from "@/lib/scorecards/run";
+import type { BuilderAgencyPerformance, BuilderPerformanceKey } from "@/lib/scorecards/builder-performance";
+import {
+  builderRankStars,
+  createBuilderStarSummary,
+  type BuilderStarRatings,
+  type BuilderStarSummary,
+  type StarRating,
+} from "@/lib/scorecards/ratings";
 import {
   money,
-  OrganizationComparison,
   ScorecardHeader,
+  StarScale,
   StorySection,
-  StoryValue,
 } from "./ProducerScorecardPreview";
+import { ScorecardBaseballCard } from "./ProducerBaseballCard";
 
 export type BuilderScorecardView = {
   member: { fullName: string; photoUrl: string | null };
@@ -29,12 +37,40 @@ export type BuilderScorecardMetric = Pick<BuilderPeriodMetric,
   | "recruitsAdded"
   | "recruitingRank"
   | "trend"
->;
+> & { performance: BuilderAgencyPerformance };
 
 const BUILDER_SCORECARD_AREAS = [
   "Team Production",
   "Recruiting",
 ] as const;
+
+const BUILDER_SCORECARD_LEVELS = [
+  { stars: 0, description: "No recorded performance" },
+  { stars: 1, description: "Bottom 20% of agencies" },
+  { stars: 2, description: "21st–40th percentile" },
+  { stars: 3, description: "41st–60th percentile" },
+  { stars: 4, description: "61st–80th percentile" },
+  { stars: 5, description: "Top 20% of agencies" },
+] as const;
+
+type BuilderRatings = Record<BuilderPerformanceKey, StarRating | null>;
+
+function builderRatings(performance: BuilderAgencyPerformance): BuilderRatings {
+  return Object.fromEntries(Object.entries(performance).map(([key, metric]) => [
+    key,
+    metric.value == null ? null : builderRankStars(metric.value, metric.rank),
+  ])) as BuilderRatings;
+}
+
+function builderStarSummary(ratings: BuilderRatings): BuilderStarSummary | null {
+  if (Object.values(ratings).some((rating) => rating == null)) return null;
+  return createBuilderStarSummary(ratings as BuilderStarRatings);
+}
+
+function agencyPercentileLabel(rating: StarRating | null): string {
+  if (rating == null) return "Unavailable";
+  return BUILDER_SCORECARD_LEVELS.find((level) => level.stars === rating)?.description ?? "Unavailable";
+}
 
 function BuilderScorecardHowItWorks() {
   return (
@@ -82,6 +118,22 @@ function BuilderScorecardHowItWorks() {
             <p>
               We rank your agency against other active agencies in the organization, not against producers.
             </p>
+            <p className="mt-6">We then average all 10 ratings to give your agency an overall score:</p>
+
+            <dl className="mx-auto mt-6 max-w-2xl border-y border-hairline">
+              {BUILDER_SCORECARD_LEVELS.map((level) => (
+                <div key={level.stars} className="grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-4 border-b border-hairline py-3.5 last:border-b-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                  <dt>
+                    <span className="inline-flex items-center gap-1 text-lg leading-none sm:text-xl" aria-label={`${level.stars} out of 5 stars`}>
+                      {Array.from({ length: 5 }, (_, index) => (
+                        <span key={index} className={index < level.stars ? "text-accent" : "text-white/20"} aria-hidden="true">★</span>
+                      ))}
+                    </span>
+                  </dt>
+                  <dd className="text-white">{level.description}</dd>
+                </div>
+              ))}
+            </dl>
             <p className="mt-6">
               You can download 9:16 or 16:9 screenshots of each section to post online.
             </p>
@@ -95,70 +147,53 @@ function BuilderScorecardHowItWorks() {
   );
 }
 
-function rank(rank: { rank: number; population: number } | null) {
-  return rank ? `#${rank.rank} of ${rank.population}` : "Unavailable";
-}
-
 function percent(value: number | null) {
   if (value == null) return "Unavailable";
   return `${value > 0 ? "+" : ""}${value.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 }
 
-function TeamTrend({ trend }: { trend: BuilderScorecardMetric["trend"] }) {
-  if (!trend.length) {
-    return <p className="mt-8 text-sm text-mute">No Team IP was reported for this period.</p>;
-  }
+function TeamProductionGrid({
+  performance,
+  ratings,
+}: {
+  performance: BuilderAgencyPerformance;
+  ratings: BuilderRatings;
+}) {
+  const items: Array<{ key: Exclude<BuilderPerformanceKey, "recruits">; label: string; value: string }> = [
+    { key: "activeWriters", label: "Total Active Writers", value: performance.activeWriters.value?.toLocaleString() ?? "Unavailable" },
+    { key: "teamDials", label: "Total Team Dials", value: performance.teamDials.value?.toLocaleString() ?? "Unavailable" },
+    { key: "teamContacts", label: "Total Team Contacts", value: performance.teamContacts.value?.toLocaleString() ?? "Unavailable" },
+    { key: "teamPresentations", label: "Total Team Presentations", value: performance.teamPresentations.value?.toLocaleString() ?? "Unavailable" },
+    { key: "teamSales", label: "Total Team Sales", value: performance.teamSales.value?.toLocaleString() ?? "Unavailable" },
+    { key: "teamAp", label: "Total Team AP", value: performance.teamAp.value == null ? "Unavailable" : money(performance.teamAp.value) },
+    { key: "teamIp", label: "Total Team IP", value: performance.teamIp.value == null ? "Unavailable" : money(performance.teamIp.value) },
+    { key: "firstLegPercent", label: "First Leg %", value: performance.firstLegPercent.value == null ? "Unavailable" : `${performance.firstLegPercent.value.toLocaleString("en-US", { maximumFractionDigits: 2 })}%` },
+    { key: "averageIpPerWriter", label: "Avg IP Per Writer", value: performance.averageIpPerWriter.value == null ? "Unavailable" : money(performance.averageIpPerWriter.value) },
+  ];
 
   return (
-    <div className="weekly-trend mt-8 max-w-4xl">
-      <p className="scorecard-copy mb-6 text-base font-normal italic text-white sm:text-lg">
-        Here&apos;s how team production moved through the period:
-      </p>
-      <ul className="weekly-trend__bars space-y-4 md:space-y-5" aria-label="Team issued premium by reporting bucket">
-        {trend.map((bucket) => (
-          <li key={bucket.reportDate} className="weekly-trend__bar-row grid grid-cols-[5.25rem_minmax(0,1fr)_5.5rem] items-center gap-3 md:grid-cols-[8rem_minmax(0,1fr)_7.5rem] md:gap-5">
-            <span className="weekly-trend__bar-label text-xs font-medium text-subtle md:text-sm lg:text-base">{bucket.label}</span>
-            <span className="weekly-trend__bar-track relative h-3 overflow-hidden rounded-sm bg-card md:h-4">
-              <span className="weekly-trend__bar-fill block h-full origin-left rounded-sm bg-accent" style={{ width: `${bucket.share}%` }} />
-            </span>
-            <span className="weekly-trend__bar-value text-left text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(bucket.teamIpCents)}</span>
-          </li>
-        ))}
-      </ul>
+    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label="Builder Team Production metrics">
+      {items.map((item) => (
+        <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]" role="listitem">
+          <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
+          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{item.value}</p>
+          {ratings[item.key] != null ? <p className="mt-4"><StarScale value={ratings[item.key]!} label={item.label} /></p> : null}
+          <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{agencyPercentileLabel(ratings[item.key])}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-function ProductivityGrid({ metric }: { metric: BuilderScorecardMetric }) {
-  const items = [
-    {
-      label: "Active Writers",
-      value: metric.activeWriters.toLocaleString(),
-      detail: "Unique writers with personal IP in the six-report window, including you.",
-    },
-    {
-      label: "Weighted First Leg %",
-      value: metric.firstLegPercent == null ? "Unavailable" : `${metric.firstLegPercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`,
-      detail: metric.firstLegPercent == null ? "No Team IP denominator was available." : "The month-end Gateway MTD share of Team IP.",
-    },
-    {
-      label: "Average Monthly IP per Writer",
-      value: metric.averageMonthlyIpPerWriterCents == null ? "Unavailable" : money(metric.averageMonthlyIpPerWriterCents),
-      detail: `${money(metric.teamIpCents)} Team IP across ${metric.monthCount} month${metric.monthCount === 1 ? "" : "s"} and ${metric.activeWriters} active writer${metric.activeWriters === 1 ? "" : "s"}.`,
-    },
-  ];
-
+function RecruitingMetric({ performance, rating }: { performance: BuilderAgencyPerformance; rating: StarRating | null }) {
   return (
-    <div className="organization-grid grid max-w-4xl gap-3">
-      {items.map((item) => (
-        <div key={item.label} className="organization-card grid gap-5 rounded-xl border border-hairline bg-card px-5 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-8 sm:py-7">
-          <div>
-            <p className="organization-card-label text-base font-medium text-subtle sm:text-lg">{item.label}</p>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-mute">{item.detail}</p>
-          </div>
-          <p className="organization-card-value text-[clamp(3.5rem,9vw,6.5rem)] font-semibold leading-[0.88] tabular-nums tracking-[-0.04em] text-ink sm:text-right">{item.value}</p>
-        </div>
-      ))}
+    <div className="producer-numbers-grid flex justify-center" role="list" aria-label="Builder Recruiting metric">
+      <div className="producer-number-card w-full max-w-sm rounded-xl border border-hairline bg-card px-5 py-5" role="listitem">
+        <p className="producer-number-card__label text-sm text-subtle">Recruits Entered the Pipeline</p>
+        <p className="producer-number-card__value mt-3 text-[clamp(2.5rem,7vw,5rem)] font-semibold leading-none tabular-nums text-ink">{performance.recruits.value?.toLocaleString() ?? "Unavailable"}</p>
+        {rating != null ? <p className="mt-4"><StarScale value={rating} label="Recruiting" /></p> : null}
+        <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{agencyPercentileLabel(rating)}</p>
+      </div>
     </div>
   );
 }
@@ -188,6 +223,8 @@ function GrowthTable({ view }: { view: BuilderScorecardView }) {
 }
 
 export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
+  const ratings = builderRatings(view.metric.performance);
+  const summary = builderStarSummary(ratings);
   const exportMetadata = {
     cardType: "builder" as const,
     memberName: view.member.fullName,
@@ -201,44 +238,47 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
         memberName={view.member.fullName}
         photoUrl={view.member.photoUrl}
         title={`${view.period.label}${view.period.kind === "annual" ? " Annual" : ""} Builder Scorecard`}
+        averageStars={summary?.average ?? null}
+        totalStars={summary?.total ?? null}
+        maximumStars={50}
       />
 
       <BuilderScorecardHowItWorks />
 
-      <StorySection number="01" title="Team Issued Premium" compact sectionId="builder-scorecard-section-01" exportName="01 Team Issued Premium" exportMetadata={exportMetadata}>
-        <StoryValue
-          intro={`By the end of ${view.period.label}, your team submitted:`}
-          introClass="font-normal italic text-white"
-          compact
-          value={money(view.metric.teamIpCents)}
-        />
-        <TeamTrend trend={view.metric.trend} />
-        {view.metric.teamRank ? (
-          <OrganizationComparison items={[{ label: "Team IP", value: money(view.metric.teamIpCents), rank: rank(view.metric.teamRank) }]} />
-        ) : (
-          <div className="mt-10 max-w-2xl border-l-2 border-accent pl-5">
-            <p className="text-2xl font-semibold text-ink">Team Ranking unavailable</p>
-            <p className="mt-3 text-sm leading-6 text-subtle">You were not represented by a matched Gateway row in this period. Your Scorecard remains valid.</p>
-          </div>
-        )}
+      <StorySection number={null} title="Team Production" collapsible sectionId="builder-scorecard-section-01" exportName="Team Production" exportMetadata={exportMetadata}>
+        <TeamProductionGrid performance={view.metric.performance} ratings={ratings} />
       </StorySection>
 
-      <StorySection number="02" title="Team Productivity" centerContent sectionId="builder-scorecard-section-02" exportName="02 Team Productivity" exportMetadata={exportMetadata}>
-        <ProductivityGrid metric={view.metric} />
+      <StorySection number={null} title="Recruiting" collapsible centerContent sectionId="builder-scorecard-section-02" exportName="Recruiting" exportMetadata={exportMetadata}>
+        <RecruitingMetric performance={view.metric.performance} rating={ratings.recruits} />
       </StorySection>
 
-      <StorySection number="03" title="Previous Period Growth" condensed sectionId="builder-scorecard-section-03" exportName="03 Previous Period Growth" exportMetadata={exportMetadata}>
+      <StorySection number={null} title="Previous Period Growth" collapsible condensed sectionId="builder-scorecard-section-03" exportName="Previous Period Growth" exportMetadata={exportMetadata}>
         <GrowthTable view={view} />
       </StorySection>
 
-      <StorySection number="04" title="Recruiting" sectionId="builder-scorecard-section-04" exportName="04 Recruiting" exportMetadata={exportMetadata}>
-        <StoryValue
-          intro={`Across your full team in ${view.period.label}, this many recruits entered the pipeline:`}
-          introClass="font-normal italic text-white"
-          compact
-          value={view.metric.recruitsAdded.toLocaleString()}
+      <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="builder-scorecard-section-card" exportName="Your Scorecard" exportMetadata={exportMetadata}>
+        <ScorecardBaseballCard
+          memberName={view.member.fullName}
+          photoUrl={view.member.photoUrl}
+          periodLabel={view.period.label}
+          scorecardType="Builder"
+          averageRating={summary?.average ?? null}
+          totalRating={summary?.total ?? null}
+          maximumRatingTotal={50}
+          ratings={[
+            { label: "Total Active Writers", value: ratings.activeWriters },
+            { label: "Total Team Dials", value: ratings.teamDials },
+            { label: "Total Team Contacts", value: ratings.teamContacts },
+            { label: "Total Team Presentations", value: ratings.teamPresentations },
+            { label: "Total Team Sales", value: ratings.teamSales },
+            { label: "Total Team AP", value: ratings.teamAp },
+            { label: "Total Team IP", value: ratings.teamIp },
+            { label: "First Leg %", value: ratings.firstLegPercent },
+            { label: "Avg IP Per Writer", value: ratings.averageIpPerWriter },
+            { label: "Recruiting", value: ratings.recruits },
+          ]}
         />
-        <OrganizationComparison items={[{ label: "Recruits Added", value: view.metric.recruitsAdded.toLocaleString(), rank: rank(view.metric.recruitingRank) }]} />
       </StorySection>
     </article>
   );
