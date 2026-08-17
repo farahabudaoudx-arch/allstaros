@@ -1,5 +1,9 @@
 import type { BuilderPeriodMetric, ScorecardPeriodKind } from "@/lib/scorecards/run";
-import type { BuilderAgencyPerformance, BuilderPerformanceKey } from "@/lib/scorecards/builder-performance";
+import type {
+  BuilderAgencyPerformance,
+  BuilderAgencyValues,
+  BuilderPerformanceKey,
+} from "@/lib/scorecards/builder-performance";
 import {
   builderRankStars,
   createBuilderStarSummary,
@@ -37,7 +41,10 @@ export type BuilderScorecardMetric = Pick<BuilderPeriodMetric,
   | "recruitsAdded"
   | "recruitingRank"
   | "trend"
-> & { performance: BuilderAgencyPerformance };
+> & {
+  performance: BuilderAgencyPerformance;
+  previousPerformance: BuilderAgencyValues;
+};
 
 const BUILDER_SCORECARD_AREAS = [
   "Team Production",
@@ -52,6 +59,26 @@ const BUILDER_SCORECARD_LEVELS = [
   { stars: 4, description: "61st–80th percentile" },
   { stars: 5, description: "Top 20% of agencies" },
 ] as const;
+
+const BUILDER_PRODUCTION_METRICS = [
+  { key: "activeWriters", label: "Total Active Writers" },
+  { key: "teamDials", label: "Total Team Dials" },
+  { key: "teamContacts", label: "Total Team Contacts" },
+  { key: "teamPresentations", label: "Total Team Presentations" },
+  { key: "teamSales", label: "Total Team Sales" },
+  { key: "teamAp", label: "Total Team AP" },
+  { key: "teamIp", label: "Total Team IP" },
+  { key: "firstLegPercent", label: "First Leg %" },
+  { key: "averageIpPerWriter", label: "Avg IP Per Writer" },
+] as const satisfies ReadonlyArray<{
+  key: Exclude<BuilderPerformanceKey, "recruits">;
+  label: string;
+}>;
+
+const BUILDER_GROWTH_METRICS = [
+  ...BUILDER_PRODUCTION_METRICS,
+  { key: "recruits", label: "Recruiting" },
+] as const satisfies ReadonlyArray<{ key: BuilderPerformanceKey; label: string }>;
 
 type BuilderRatings = Record<BuilderPerformanceKey, StarRating | null>;
 
@@ -152,6 +179,24 @@ function percent(value: number | null) {
   return `${value > 0 ? "+" : ""}${value.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 }
 
+function metricValue(key: BuilderPerformanceKey, value: number | null) {
+  if (value == null) return "Unavailable";
+  if (key === "teamAp" || key === "teamIp" || key === "averageIpPerWriter") {
+    return money(value);
+  }
+  if (key === "firstLegPercent") {
+    return `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
+  }
+  return value.toLocaleString();
+}
+
+function metricGrowth(previous: number | null, current: number | null) {
+  if (previous == null || current == null) return null;
+  if (previous === 0) return current === 0 ? 0 : 100;
+  if (current === 0) return -100;
+  return Math.round(((current - previous) / previous) * 1_000) / 10;
+}
+
 function TeamProductionGrid({
   performance,
   ratings,
@@ -159,24 +204,12 @@ function TeamProductionGrid({
   performance: BuilderAgencyPerformance;
   ratings: BuilderRatings;
 }) {
-  const items: Array<{ key: Exclude<BuilderPerformanceKey, "recruits">; label: string; value: string }> = [
-    { key: "activeWriters", label: "Total Active Writers", value: performance.activeWriters.value?.toLocaleString() ?? "Unavailable" },
-    { key: "teamDials", label: "Total Team Dials", value: performance.teamDials.value?.toLocaleString() ?? "Unavailable" },
-    { key: "teamContacts", label: "Total Team Contacts", value: performance.teamContacts.value?.toLocaleString() ?? "Unavailable" },
-    { key: "teamPresentations", label: "Total Team Presentations", value: performance.teamPresentations.value?.toLocaleString() ?? "Unavailable" },
-    { key: "teamSales", label: "Total Team Sales", value: performance.teamSales.value?.toLocaleString() ?? "Unavailable" },
-    { key: "teamAp", label: "Total Team AP", value: performance.teamAp.value == null ? "Unavailable" : money(performance.teamAp.value) },
-    { key: "teamIp", label: "Total Team IP", value: performance.teamIp.value == null ? "Unavailable" : money(performance.teamIp.value) },
-    { key: "firstLegPercent", label: "First Leg %", value: performance.firstLegPercent.value == null ? "Unavailable" : `${performance.firstLegPercent.value.toLocaleString("en-US", { maximumFractionDigits: 2 })}%` },
-    { key: "averageIpPerWriter", label: "Avg IP Per Writer", value: performance.averageIpPerWriter.value == null ? "Unavailable" : money(performance.averageIpPerWriter.value) },
-  ];
-
   return (
     <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label="Builder Team Production metrics">
-      {items.map((item) => (
-        <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]" role="listitem">
+      {BUILDER_PRODUCTION_METRICS.map((item) => (
+        <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 md:w-[calc(33.333%-0.5rem)]" role="listitem">
           <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
-          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{item.value}</p>
+          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{metricValue(item.key, performance[item.key].value)}</p>
           {ratings[item.key] != null ? <p className="mt-4"><StarScale value={ratings[item.key]!} label={item.label} /></p> : null}
           <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{agencyPercentileLabel(ratings[item.key])}</p>
         </div>
@@ -207,17 +240,23 @@ function GrowthTable({ view }: { view: BuilderScorecardView }) {
         <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{period.label}</p>
         <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">{metric.growth.comparison.toUpperCase()}</p>
       </div>
-      <div className="growth-row grid grid-cols-[3fr_3fr_2fr]">
-        <p className="growth-cell px-3 py-5 sm:px-6">
-          <span className="growth-title block text-sm font-medium text-subtle sm:text-base">Team IP</span>
-          <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metric.growth.priorTeamIpCents == null ? "Unavailable" : money(metric.growth.priorTeamIpCents)}</span>
-        </p>
-        <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
-          <span className="growth-title block text-sm font-medium text-subtle sm:text-base">Team IP</span>
-          <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{money(metric.growth.currentTeamIpCents)}</span>
-        </p>
-        <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">{percent(metric.growth.percentage)}</p>
-      </div>
+      {BUILDER_GROWTH_METRICS.map((item) => {
+        const previous = metric.previousPerformance[item.key];
+        const current = metric.performance[item.key].value;
+        return (
+          <div key={item.key} className="growth-row grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
+            <p className="growth-cell px-3 py-5 sm:px-6">
+              <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
+              <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, previous)}</span>
+            </p>
+            <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
+              <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
+              <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, current)}</span>
+            </p>
+            <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">{percent(metricGrowth(previous, current))}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }

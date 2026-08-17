@@ -38,6 +38,18 @@ const view: BuilderScorecardView = {
       averageIpPerWriter: { value: 2_128_100, rank: { rank: 10, population: 40 } },
       recruits: { value: 12, rank: { rank: 2, population: 50 } },
     },
+    previousPerformance: {
+      activeWriters: 40,
+      teamDials: 7_500,
+      teamContacts: 700,
+      teamPresentations: 220,
+      teamSales: 100,
+      teamAp: 2_800_000,
+      teamIp: 80_000_000,
+      firstLegPercent: 40,
+      averageIpPerWriter: 2_000_000,
+      recruits: 10,
+    },
   },
 };
 
@@ -88,5 +100,17 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain('aria-label="Flip Ronny Bucica scorecard to the back"');
     expect(html).toContain("45 of 50 points");
     expect(html).toContain("Click To Flip");
+  });
+
+  it("renders Team Production as a three-by-three grid and compares all ten metrics with the previous period", () => {
+    const html = renderToStaticMarkup(
+      createElement(BuilderScorecardPreview, { view }),
+    );
+
+    expect(html).toContain("md:w-[calc(33.333%-0.5rem)]");
+    expect(html.match(/class="growth-row/g)).toHaveLength(10);
+    expect(html).toMatch(/Previous Period Growth[\s\S]*Total Active Writers[\s\S]*Total Team Dials[\s\S]*Total Team Contacts/);
+    expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team Presentations[\s\S]*Total Team Sales[\s\S]*Total Team AP/);
+    expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team IP[\s\S]*First Leg %[\s\S]*Avg IP Per Writer[\s\S]*Recruiting/);
   });
 });

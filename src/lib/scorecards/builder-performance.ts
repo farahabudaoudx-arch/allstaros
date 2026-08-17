@@ -21,6 +21,7 @@ export type BuilderMetricResult = {
 };
 
 export type BuilderAgencyPerformance = Record<BuilderPerformanceKey, BuilderMetricResult>;
+export type BuilderAgencyValues = Record<BuilderPerformanceKey, number | null>;
 
 type Person = { id: string; uplineId: string | null };
 type GatewayRow = {
@@ -37,7 +38,14 @@ type PersonProduction = {
   apCents: number;
 };
 
-type BuilderRawPerformance = Record<BuilderPerformanceKey, number | null>;
+export type BuilderPerformanceInput = {
+  people: Person[];
+  eligibleBuilderIds: string[];
+  gatewayRows: GatewayRow[];
+  activeWriterIds: string[];
+  personProduction: PersonProduction[];
+  recruitPersonIds: string[];
+};
 
 function descendantIds(rootId: string, people: Person[]): Set<string> {
   const descendants = new Set([rootId]);
@@ -72,14 +80,9 @@ function ranksForRecordedValues(
   ]));
 }
 
-export function createBuilderAgencyPerformance(input: {
-  people: Person[];
-  eligibleBuilderIds: string[];
-  gatewayRows: GatewayRow[];
-  activeWriterIds: string[];
-  personProduction: PersonProduction[];
-  recruitPersonIds: string[];
-}): Map<string, BuilderAgencyPerformance> {
+export function createBuilderAgencyValues(
+  input: BuilderPerformanceInput,
+): Map<string, BuilderAgencyValues> {
   const eligibleBuilderIds = [...new Set(input.eligibleBuilderIds)];
   const gatewayByBuilder = new Map(input.gatewayRows.map((row) => [row.builderId, row]));
   const activeWriterIds = new Set(input.activeWriterIds);
@@ -102,7 +105,7 @@ export function createBuilderAgencyPerformance(input: {
     });
   }
 
-  const rawByBuilder = new Map<string, BuilderRawPerformance>();
+  const rawByBuilder = new Map<string, BuilderAgencyValues>();
   for (const builderId of eligibleBuilderIds) {
     const agencyIds = descendantIds(builderId, input.people);
     const gateway = gatewayByBuilder.get(builderId);
@@ -143,6 +146,13 @@ export function createBuilderAgencyPerformance(input: {
     });
   }
 
+  return rawByBuilder;
+}
+
+export function createBuilderAgencyPerformance(
+  input: BuilderPerformanceInput,
+): Map<string, BuilderAgencyPerformance> {
+  const rawByBuilder = createBuilderAgencyValues(input);
   const ranks = Object.fromEntries(BUILDER_PERFORMANCE_KEYS.map((key) => [
     key,
     ranksForRecordedValues(new Map([...rawByBuilder].map(([builderId, values]) => [builderId, values[key]]))),
