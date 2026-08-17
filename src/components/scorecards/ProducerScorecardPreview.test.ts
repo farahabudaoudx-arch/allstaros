@@ -10,7 +10,7 @@ import { ProducerBaseballCard } from "./ProducerBaseballCard";
 import { ProducerScorecardPreview } from "./ProducerScorecardPreview";
 
 describe("Producer baseball card", () => {
-  it("renders a portrait front and the producer rankings on its back", () => {
+  it("renders a portrait front and the producer star ratings on its back", () => {
     const html = renderToStaticMarkup(
       createElement(ProducerBaseballCard, {
         memberName: "Jackson Rapaport",
@@ -18,20 +18,28 @@ describe("Producer baseball card", () => {
         periodLabel: "July 2026",
         averageRating: 2.1,
         totalRating: 17,
-        rankings: [
-          { label: "Issued Premium", rank: 10, population: 426 },
-          { label: "Submitted AP", rank: 16, population: 426 },
+        ratings: [
+          { label: "Issued Premium", value: 4 },
+          { label: "Submitted AP", value: 4 },
+          { label: "Lead Spend", value: 0 },
+          { label: "Dials", value: 1 },
+          { label: "Contacts", value: 1 },
+          { label: "Presentations", value: 2 },
+          { label: "Submitted Sales", value: 2 },
+          { label: "Tracking", value: 3 },
         ],
       }),
     );
 
     expect(html).toContain('aria-label="Flip Jackson Rapaport scorecard to the back"');
     expect(html).toContain("Jackson Rapaport");
-    expect(html).toContain("July 2026 Producer");
+    expect(html).toContain("July 2026 Producer Scorecard");
     expect(html).toContain("2.1 average");
     expect(html).toContain("17 of 40 points");
-    expect(html).toContain("Issued Premium");
-    expect(html).toContain("#10 of 426");
+    expect(html).toContain("Issued Premium: 4 out of 5 stars");
+    expect(html).toContain("Tracking: 3 out of 5 stars");
+    expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(8);
+    expect(html).not.toMatch(/#\d+ of \d+/);
   });
 });
 
@@ -81,7 +89,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("Lead Spend");
     expect(html).toContain("Tracking Consistency: 3 out of 5 stars");
     expect(html).not.toMatch(/appointments/i);
-    expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(15);
+    expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(23);
     expect(html.match(/data-export-exclude=""/g)).toHaveLength(15);
     expect(html).toContain(">Your Scorecard</h3>");
   });

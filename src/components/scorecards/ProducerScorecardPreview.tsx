@@ -98,14 +98,15 @@ export function ProducerScorecardPreview({
           periodLabel={preview.periodLabel}
           averageRating={starSummary?.average ?? null}
           totalRating={starSummary?.total ?? null}
-          rankings={[
-            { label: "Issued Premium", rank: overview.rank.rank, population: overview.rank.population },
-            { label: "Submitted AP", ...overview.organizationRanks.submittedAp },
-            { label: "Lead Spend", ...overview.organizationRanks.leadSpend },
-            { label: "Dials", ...overview.organizationRanks.dials },
-            { label: "Contacts", ...overview.organizationRanks.contacts },
-            { label: "Presentations", ...overview.organizationRanks.presentations },
-            { label: "Submitted Sales", ...overview.organizationRanks.sales },
+          ratings={[
+            { label: "Issued Premium", value: ratings.issuedIp },
+            { label: "Submitted AP", value: ratings.submittedAp },
+            { label: "Lead Spend", value: ratings.leadSpend },
+            { label: "Dials", value: ratings.dials },
+            { label: "Contacts", value: ratings.contacts },
+            { label: "Presentations", value: ratings.presentations },
+            { label: "Submitted Sales", value: ratings.sales },
+            { label: "Tracking", value: ratings.trackingConsistency },
           ]}
         />
       </StorySection>
