@@ -1,71 +1,58 @@
 export type StarRating = 0 | 1 | 2 | 3 | 4 | 5;
 
-export type ProducerStarMetric =
-  | "issuedIpCents"
-  | "submittedApCents"
-  | "leadSpendCents"
-  | "dials"
-  | "contacts"
-  | "presentations"
-  | "sales"
-  | "trackingConsistency";
+export type OrganizationRank = { rank: number; population: number };
 
-const MAXIMUMS_BY_STAR: Record<ProducerStarMetric, readonly [number, number, number, number]> = {
-  issuedIpCents: [1_000_000, 2_000_000, 3_000_000, 5_000_000],
-  submittedApCents: [1_000_000, 2_000_000, 3_000_000, 5_000_000],
-  leadSpendCents: [100_000, 300_000, 500_000, 1_000_000],
-  dials: [1_000, 2_000, 3_000, 4_000],
-  contacts: [50, 100, 150, 200],
-  presentations: [10, 20, 30, 40],
-  sales: [5, 15, 25, 35],
-  trackingConsistency: [20, 40, 60, 80],
-};
-
-export function producerMetricStars(metric: ProducerStarMetric, value: number): StarRating {
+function validatePerformanceValue(value: number): void {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error("Producer Scorecard rating values must be finite and non-negative.");
   }
-  if (value === 0) return 0;
-  const maximums = MAXIMUMS_BY_STAR[metric];
-  const band = maximums.findIndex((maximum) => value <= maximum);
-  return (band === -1 ? 5 : band + 1) as StarRating;
 }
 
+function starsForPercentile(percentile: number): StarRating {
+  if (!Number.isFinite(percentile) || percentile < 0 || percentile > 100) {
+    throw new Error("Producer Scorecard percentiles must be between 0 and 100.");
+  }
+  if (percentile === 0) return 0;
+  return Math.min(5, Math.ceil(percentile / 20)) as StarRating;
+}
+
+export function producerRankStars(value: number, organizationRank: OrganizationRank): StarRating {
+  validatePerformanceValue(value);
+  if (value === 0) return 0;
+  const { rank, population } = organizationRank;
+  if (!Number.isInteger(rank) || !Number.isInteger(population) || population < 1 || rank < 1 || rank > population) {
+    throw new Error("Producer Scorecard organization ranks must be valid positive positions.");
+  }
+  const percentile = ((population - rank + 1) / population) * 100;
+  return starsForPercentile(percentile);
+}
+
+export function producerTrackingConsistencyStars(percentage: number): StarRating {
+  validatePerformanceValue(percentage);
+  if (percentage > 100) {
+    throw new Error("Producer tracking consistency cannot exceed 100 percent.");
+  }
+  return starsForPercentile(percentage);
+}
+
+export type ProducerStarRatings = {
+  issuedIp: StarRating;
+  submittedAp: StarRating;
+  leadSpend: StarRating;
+  dials: StarRating;
+  contacts: StarRating;
+  presentations: StarRating;
+  sales: StarRating;
+  trackingConsistency: StarRating;
+};
+
 export type ProducerStarSummary = {
-  ratings: {
-    issuedIp: StarRating;
-    submittedAp: StarRating;
-    leadSpend: StarRating;
-    dials: StarRating;
-    contacts: StarRating;
-    presentations: StarRating;
-    sales: StarRating;
-    trackingConsistency: StarRating;
-  };
+  ratings: ProducerStarRatings;
   total: number;
   average: number;
 };
 
-export function createProducerStarSummary(input: {
-  issuedIpCents: number;
-  submittedApCents: number;
-  leadSpendCents: number;
-  dials: number;
-  contacts: number;
-  presentations: number;
-  sales: number;
-  trackingConsistency: number;
-}): ProducerStarSummary {
-  const ratings = {
-    issuedIp: producerMetricStars("issuedIpCents", input.issuedIpCents),
-    submittedAp: producerMetricStars("submittedApCents", input.submittedApCents),
-    leadSpend: producerMetricStars("leadSpendCents", input.leadSpendCents),
-    dials: producerMetricStars("dials", input.dials),
-    contacts: producerMetricStars("contacts", input.contacts),
-    presentations: producerMetricStars("presentations", input.presentations),
-    sales: producerMetricStars("sales", input.sales),
-    trackingConsistency: producerMetricStars("trackingConsistency", input.trackingConsistency),
-  } satisfies ProducerStarSummary["ratings"];
+export function createProducerStarSummary(ratings: ProducerStarRatings): ProducerStarSummary {
   const total = Object.values(ratings).reduce<number>((sum, rating) => sum + rating, 0);
   return { ratings, total, average: total / 8 };
 }

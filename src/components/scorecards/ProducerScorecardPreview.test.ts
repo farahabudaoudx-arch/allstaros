@@ -16,16 +16,16 @@ describe("Producer baseball card", () => {
         memberName: "Jackson Rapaport",
         photoUrl: null,
         periodLabel: "July 2026",
-        averageRating: 2.1,
-        totalRating: 17,
+        averageRating: 3.9,
+        totalRating: 31,
         ratings: [
-          { label: "Issued Premium", value: 4 },
-          { label: "Submitted AP", value: 4 },
+          { label: "Issued Premium", value: 5 },
+          { label: "Submitted AP", value: 5 },
           { label: "Lead Spend", value: 0 },
-          { label: "Dials", value: 1 },
-          { label: "Contacts", value: 1 },
-          { label: "Presentations", value: 2 },
-          { label: "Submitted Sales", value: 2 },
+          { label: "Dials", value: 4 },
+          { label: "Contacts", value: 4 },
+          { label: "Presentations", value: 5 },
+          { label: "Submitted Sales", value: 5 },
           { label: "Tracking", value: 3 },
         ],
       }),
@@ -34,9 +34,9 @@ describe("Producer baseball card", () => {
     expect(html).toContain('aria-label="Flip Jackson Rapaport scorecard to the back"');
     expect(html).toContain("Jackson Rapaport");
     expect(html).toContain("July 2026 Producer Scorecard");
-    expect(html).toContain("2.1 average");
-    expect(html).toContain("17 of 40 points");
-    expect(html).toContain("Issued Premium: 4 out of 5 stars");
+    expect(html).toContain("3.9 average");
+    expect(html).toContain("31 of 40 points");
+    expect(html).toContain("Issued Premium: 5 out of 5 stars");
     expect(html).toContain("Tracking: 3 out of 5 stars");
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(8);
     expect(html).not.toMatch(/#\d+ of \d+/);
@@ -83,9 +83,9 @@ describe("Producer Scorecard preview", () => {
       createElement(ProducerScorecardPreview, { preview, overview }),
     );
 
-    expect(html).toContain("Average rating: 2.1 out of 5 stars");
-    expect(html).toContain("Issued Premium: 4 out of 5 stars");
-    expect(html).toContain("Submitted AP: 4 out of 5 stars");
+    expect(html).toContain("Average rating: 3.9 out of 5 stars");
+    expect(html).toContain("Issued Premium: 5 out of 5 stars");
+    expect(html).toContain("Submitted AP: 5 out of 5 stars");
     expect(html).toContain("Lead Spend");
     expect(html).toContain("Tracking Consistency: 3 out of 5 stars");
     expect(html).not.toMatch(/appointments/i);
@@ -95,6 +95,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toContain("Download How Scorecards Work");
     expect(html).toMatch(/<details open=""/);
     expect(html).toContain('aria-label="Toggle How Scorecards Work"');
+    expect(html).toContain('class="scorecard-guide__chevron');
     expect(html).toMatch(/aria-label="Eight Producer scorecard areas"[\s\S]*?>IP<[\s\S]*?>Dials<[\s\S]*?>Presentations<[\s\S]*?>Lead Spend<[\s\S]*?>AP<[\s\S]*?>Contacts<[\s\S]*?>Sales<[\s\S]*?>Tracking</);
     expect(html).toContain("We then rank your performance in all 8 areas against the entire organization and average out your rankings to give you an overall score:");
     expect(html).toContain('aria-label="0 out of 5 stars"');

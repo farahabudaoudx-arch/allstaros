@@ -9,7 +9,8 @@ import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import {
   createProducerStarSummary,
-  producerMetricStars,
+  producerRankStars,
+  producerTrackingConsistencyStars,
   type ProducerStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
@@ -38,8 +39,8 @@ export function ProducerScorecardPreview({
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 }) {
-  const starSummary = producerStarSummary(preview, overview);
   const ratings = producerRatings(preview, overview);
+  const starSummary = producerStarSummary(ratings);
   const exportMetadata = {
     cardType: "producer" as const,
     memberName: overview.producer.fullName,
@@ -144,19 +145,23 @@ function ScorecardHowItWorks() {
       aria-labelledby="scorecard-how-it-works-title"
       className="relative border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20"
     >
-      <details open className="group">
+      <details open className="scorecard-guide">
         <summary
           aria-label="Toggle How Scorecards Work"
           aria-controls="scorecard-how-it-works-content"
-          className="flex cursor-pointer list-none items-center justify-between gap-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden"
+          className="scorecard-guide__summary flex cursor-pointer list-none items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background sm:gap-5 [&::-webkit-details-marker]:hidden"
         >
+          <span aria-hidden="true" className="scorecard-guide__chevron grid size-10 shrink-0 place-items-center text-accent sm:size-12">
+            <svg viewBox="0 0 24 24" className="size-6 sm:size-7" fill="none">
+              <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <h3
             id="scorecard-how-it-works-title"
             className="max-w-4xl text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink"
           >
             How Scorecards Work
           </h3>
-          <span aria-hidden="true" className="shrink-0 text-[clamp(2.5rem,5vw,4rem)] font-light leading-none text-accent group-open:rotate-90">&gt;</span>
         </summary>
 
         <div id="scorecard-how-it-works-content" className="w-full">
@@ -221,37 +226,41 @@ function producerRatings(
 ): ProducerRatings {
   const totals = overview.activity.totals;
   return {
-    issuedIp: producerMetricStars("issuedIpCents", preview.totalIssuedIpCents),
+    issuedIp: producerRankStars(preview.totalIssuedIpCents, overview.rank),
     submittedAp: overview.submittedApCents == null
       ? null
-      : producerMetricStars("submittedApCents", overview.submittedApCents),
-    leadSpend: producerMetricStars("leadSpendCents", overview.activity.leadSpendCents),
-    dials: totals ? producerMetricStars("dials", totals.dials) : null,
-    contacts: totals ? producerMetricStars("contacts", totals.contacts) : null,
-    presentations: totals ? producerMetricStars("presentations", totals.presentations) : null,
-    sales: totals ? producerMetricStars("sales", totals.sales) : null,
+      : producerRankStars(overview.submittedApCents, overview.organizationRanks.submittedAp),
+    leadSpend: producerRankStars(overview.activity.leadSpendCents, overview.organizationRanks.leadSpend),
+    dials: totals ? producerRankStars(totals.dials, overview.organizationRanks.dials) : null,
+    contacts: totals ? producerRankStars(totals.contacts, overview.organizationRanks.contacts) : null,
+    presentations: totals ? producerRankStars(totals.presentations, overview.organizationRanks.presentations) : null,
+    sales: totals ? producerRankStars(totals.sales, overview.organizationRanks.sales) : null,
     trackingConsistency: overview.activity.consistency
-      ? producerMetricStars("trackingConsistency", overview.activity.consistency.percentage)
+      ? producerTrackingConsistencyStars(overview.activity.consistency.percentage)
       : null,
   };
 }
 
 function producerStarSummary(
-  preview: MonthlyProducerPreview,
-  overview: ProducerOverview,
+  ratings: ProducerRatings,
 ): ProducerStarSummary | null {
-  const totals = overview.activity.totals;
-  const consistency = overview.activity.consistency;
-  if (overview.submittedApCents == null || !totals || !consistency) return null;
+  if (
+    ratings.submittedAp == null ||
+    ratings.dials == null ||
+    ratings.contacts == null ||
+    ratings.presentations == null ||
+    ratings.sales == null ||
+    ratings.trackingConsistency == null
+  ) return null;
   return createProducerStarSummary({
-    issuedIpCents: preview.totalIssuedIpCents,
-    submittedApCents: overview.submittedApCents,
-    leadSpendCents: overview.activity.leadSpendCents,
-    dials: totals.dials,
-    contacts: totals.contacts,
-    presentations: totals.presentations,
-    sales: totals.sales,
-    trackingConsistency: consistency.percentage,
+    issuedIp: ratings.issuedIp,
+    submittedAp: ratings.submittedAp,
+    leadSpend: ratings.leadSpend,
+    dials: ratings.dials,
+    contacts: ratings.contacts,
+    presentations: ratings.presentations,
+    sales: ratings.sales,
+    trackingConsistency: ratings.trackingConsistency,
   });
 }
 
