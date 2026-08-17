@@ -93,8 +93,16 @@ describe("Producer Scorecard preview", () => {
     expect(html.match(/data-export-exclude=""/g)).toHaveLength(15);
     expect(html).toContain(">How Scorecards Work</h3>");
     expect(html).not.toContain("Download How Scorecards Work");
-    expect(html).toMatch(/aria-label="Eight Producer scorecard areas"[\s\S]*?>IP<[\s\S]*?>Dials<[\s\S]*?>Prezis<[\s\S]*?>Lead Spend<[\s\S]*?>AP<[\s\S]*?>Contacts<[\s\S]*?>Sales<[\s\S]*?>Tracking</);
-    expect(html).toContain("We then take your average 0 to 5 performance level and create a scorecard for you.");
+    expect(html).toMatch(/<details open=""/);
+    expect(html).toContain('aria-label="Toggle How Scorecards Work"');
+    expect(html).toMatch(/aria-label="Eight Producer scorecard areas"[\s\S]*?>IP<[\s\S]*?>Dials<[\s\S]*?>Presentations<[\s\S]*?>Lead Spend<[\s\S]*?>AP<[\s\S]*?>Contacts<[\s\S]*?>Sales<[\s\S]*?>Tracking</);
+    expect(html).toContain("We then rank your performance in all 8 areas against the entire organization and average out your rankings to give you an overall score:");
+    expect(html).toContain("0 stars</dt><dd");
+    expect(html).toContain("No recorded performance");
+    expect(html).toContain("1 star</dt><dd");
+    expect(html).toContain("Bottom 20% of producers");
+    expect(html).toContain("5 stars</dt><dd");
+    expect(html).toContain("Top 20% of producers");
     expect(html).toContain("Numbers don&#x27;t lie. If you don&#x27;t like your ranking, do something about it.");
     expect(html.indexOf(">How Scorecards Work</h3>")).toBeLessThan(html.indexOf(">Issued Premium</h3>"));
     expect(html).toContain(">Your Scorecard</h3>");

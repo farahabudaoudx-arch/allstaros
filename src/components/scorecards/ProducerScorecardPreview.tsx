@@ -120,7 +120,7 @@ export function ProducerScorecardPreview({
 const PRODUCER_SCORECARD_AREAS = [
   "IP",
   "Dials",
-  "Prezis",
+  "Presentations",
   "Lead Spend",
   "AP",
   "Contacts",
@@ -128,43 +128,72 @@ const PRODUCER_SCORECARD_AREAS = [
   "Tracking",
 ] as const;
 
+const PRODUCER_SCORECARD_LEVELS = [
+  { stars: "0 stars", description: "No recorded performance" },
+  { stars: "1 star", description: "Bottom 20% of producers" },
+  { stars: "2 stars", description: "21st–40th percentile" },
+  { stars: "3 stars", description: "41st–60th percentile" },
+  { stars: "4 stars", description: "61st–80th percentile" },
+  { stars: "5 stars", description: "Top 20% of producers" },
+] as const;
+
 function ScorecardHowItWorks() {
   return (
     <section
       id="scorecard-how-it-works"
       aria-labelledby="scorecard-how-it-works-title"
-      className="relative min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20"
+      className="relative border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20"
     >
-      <div className="w-full">
-        <h3
-          id="scorecard-how-it-works-title"
-          className="max-w-4xl pr-24 text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink"
+      <details open className="group">
+        <summary
+          aria-label="Toggle How Scorecards Work"
+          aria-controls="scorecard-how-it-works-content"
+          className="flex cursor-pointer list-none items-center justify-between gap-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden"
         >
-          How Scorecards Work
-        </h3>
-        <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-          As a producer, we rank your performance inside of eight areas based on the performance across the entire organization.
-        </p>
+          <h3
+            id="scorecard-how-it-works-title"
+            className="max-w-4xl text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink"
+          >
+            How Scorecards Work
+          </h3>
+          <span aria-hidden="true" className="shrink-0 text-[clamp(2.5rem,5vw,4rem)] font-light leading-none text-accent group-open:rotate-90">&gt;</span>
+        </summary>
 
-        <ul aria-label="Eight Producer scorecard areas" className="mt-7 grid grid-cols-4 gap-2 sm:gap-3">
-          {PRODUCER_SCORECARD_AREAS.map((area) => (
-            <li
-              key={area}
-              className="flex min-h-20 items-center justify-center rounded-xl border border-hairline bg-card px-2 py-5 text-center text-[clamp(0.75rem,2vw,1.25rem)] font-semibold leading-tight text-ink sm:min-h-24 sm:px-4"
-            >
-              {area}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-9 max-w-4xl space-y-5 text-base leading-7 text-subtle sm:text-lg sm:leading-8">
-          <p>We then take your average 0 to 5 performance level and create a scorecard for you.</p>
-          <p>You can download 9 by 16 or 16 by 9 screenshots of each section to post online along with your scorecard.</p>
-          <p className="font-medium text-white">
-            If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it.
+        <div id="scorecard-how-it-works-content" className="w-full">
+          <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
+            As a producer, we create a scorecard for you based on eight areas the OS helps you track:
           </p>
+
+          <ul aria-label="Eight Producer scorecard areas" className="mt-7 grid grid-cols-4 gap-2 sm:gap-3">
+            {PRODUCER_SCORECARD_AREAS.map((area) => (
+              <li
+                key={area}
+                className="flex min-h-20 items-center justify-center rounded-xl border border-hairline bg-card px-2 py-5 text-center text-[clamp(0.7rem,2vw,1.25rem)] font-semibold leading-tight text-ink sm:min-h-24 sm:px-4"
+              >
+                {area}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-9 max-w-4xl text-base leading-7 text-subtle sm:text-lg sm:leading-8">
+            <p>We then rank your performance in all 8 areas against the entire organization and average out your rankings to give you an overall score:</p>
+
+            <dl className="mt-6 border-y border-hairline">
+              {PRODUCER_SCORECARD_LEVELS.map((level) => (
+                <div key={level.stars} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 border-b border-hairline py-3.5 last:border-b-0 sm:grid-cols-[7rem_minmax(0,1fr)]">
+                  <dt className="font-semibold text-accent">{level.stars}</dt>
+                  <dd>{level.description}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <p className="mt-6">You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard.</p>
+            <p className="mt-6 font-semibold text-white">
+              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it.
+            </p>
+          </div>
         </div>
-      </div>
+      </details>
     </section>
   );
 }
