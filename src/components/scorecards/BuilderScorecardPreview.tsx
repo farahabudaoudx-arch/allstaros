@@ -31,6 +31,72 @@ export type BuilderScorecardMetric = Pick<BuilderPeriodMetric,
   | "trend"
 >;
 
+const BUILDER_SCORECARD_AREAS = [
+  "Team IP",
+  "Team Productivity",
+  "Previous Period Growth",
+  "Recruiting",
+] as const;
+
+function BuilderScorecardHowItWorks() {
+  return (
+    <section
+      id="builder-scorecard-how-it-works"
+      aria-labelledby="builder-scorecard-how-it-works-title"
+      className="relative border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20"
+    >
+      <details open className="scorecard-guide">
+        <summary
+          aria-label="Toggle How Scorecards Work"
+          aria-controls="builder-scorecard-how-it-works-content"
+          className="scorecard-guide__summary flex cursor-pointer list-none items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background sm:gap-5 [&::-webkit-details-marker]:hidden"
+        >
+          <span aria-hidden="true" className="scorecard-guide__chevron grid size-10 shrink-0 place-items-center text-accent sm:size-12">
+            <svg viewBox="0 0 24 24" className="size-6 sm:size-7" fill="none">
+              <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h3
+            id="builder-scorecard-how-it-works-title"
+            className="max-w-4xl text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink"
+          >
+            How Scorecards Work
+          </h3>
+        </summary>
+
+        <div id="builder-scorecard-how-it-works-content" className="w-full">
+          <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
+            As a builder, we create a scorecard for you based on four areas the OS helps you track:
+          </p>
+
+          <ul aria-label="Four Builder scorecard areas" className="mt-7 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            {BUILDER_SCORECARD_AREAS.map((area) => (
+              <li
+                key={area}
+                className="flex min-h-20 items-center justify-center rounded-xl border border-hairline bg-card px-2 py-5 text-center text-[clamp(0.8rem,2vw,1.25rem)] font-semibold leading-tight text-ink sm:min-h-24 sm:px-4"
+              >
+                {area}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
+            <p>
+              Team IP and recruiting are ranked against other active builders in the organization—not against producers. Team Productivity shows the health of your team through active writers, weighted first-leg percentage, and average monthly IP per writer. Previous Period Growth shows how Team IP changed from the prior period.
+            </p>
+            <p className="mt-6">
+              You can download 9:16 or 16:9 screenshots of each section to post online.
+            </p>
+            <p className="mt-6 font-semibold text-white">
+              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it.
+            </p>
+          </div>
+        </div>
+      </details>
+    </section>
+  );
+}
+
 function rank(rank: { rank: number; population: number } | null) {
   return rank ? `#${rank.rank} of ${rank.population}` : "Unavailable";
 }
@@ -138,6 +204,8 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
         photoUrl={view.member.photoUrl}
         title={`${view.period.label}${view.period.kind === "annual" ? " Annual" : ""} Builder Scorecard`}
       />
+
+      <BuilderScorecardHowItWorks />
 
       <StorySection number="01" title="Team Issued Premium" compact sectionId="builder-scorecard-section-01" exportName="01 Team Issued Premium" exportMetadata={exportMetadata}>
         <StoryValue

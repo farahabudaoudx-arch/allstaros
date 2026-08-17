@@ -129,7 +129,7 @@ button:not(:disabled):not([data-no-press]):active,
   transform: scale(0.96);
 }
 
-/* Producer Scorecard guide disclosure. The chevron gives immediate state
+/* Scorecard guide disclosure. The chevron gives immediate state
    feedback while the content eases in and out without adding client-side JS. */
 .scorecard-guide {
   interpolate-size: allow-keywords;
