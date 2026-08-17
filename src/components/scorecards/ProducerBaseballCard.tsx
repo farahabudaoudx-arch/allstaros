@@ -101,7 +101,7 @@ export function ProducerBaseballCard({
           </span>
         </span>
       </button>
-      <p className="producer-baseball-card__hint mt-4 text-center text-sm text-subtle">Click the card to see the {flipped ? "front" : "star ratings"}.</p>
+      <p className="producer-baseball-card__hint mt-4 text-center text-sm text-subtle">Click To Flip</p>
     </div>
   );
 }

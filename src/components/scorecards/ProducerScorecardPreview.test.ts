@@ -41,6 +41,8 @@ describe("Producer baseball card", () => {
     expect(html).toContain("27 of 40 points");
     expect(html).toContain("Issued Premium: 5 out of 5 stars");
     expect(html).toContain("Tracking: 4 out of 5 stars");
+    expect(html).toContain("Click To Flip");
+    expect(html).not.toContain("Click the card to see");
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(8);
     expect(html).not.toMatch(/#\d+ of \d+/);
   });
