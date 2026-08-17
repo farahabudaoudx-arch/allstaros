@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   createProducerStarSummary,
   producerRankStars,
-  producerTrackingConsistencyStars,
 } from "./ratings";
 
 describe("Producer Scorecard star ratings", () => {
@@ -18,44 +17,29 @@ describe("Producer Scorecard star ratings", () => {
     expect(producerRankStars(value, { rank, population })).toBe(stars);
   });
 
-  it.each([
-    [0, 0],
-    [20, 1],
-    [21, 2],
-    [40, 2],
-    [41, 3],
-    [60, 3],
-    [61, 4],
-    [80, 4],
-    [81, 5],
-    [100, 5],
-  ] as const)("scores %s%% tracking consistency as %s stars", (percentage, stars) => {
-    expect(producerTrackingConsistencyStars(percentage)).toBe(stars);
-  });
-
   it("averages the eight percentile-based July ratings", () => {
     expect(createProducerStarSummary({
       issuedIp: 5,
       submittedAp: 5,
       leadSpend: 0,
-      dials: 4,
-      contacts: 4,
-      presentations: 5,
-      sales: 5,
-      trackingConsistency: 3,
+      dials: 2,
+      contacts: 3,
+      presentations: 4,
+      sales: 4,
+      trackingConsistency: 4,
     })).toEqual({
       ratings: {
         issuedIp: 5,
         submittedAp: 5,
         leadSpend: 0,
-        dials: 4,
-        contacts: 4,
-        presentations: 5,
-        sales: 5,
-        trackingConsistency: 3,
+        dials: 2,
+        contacts: 3,
+        presentations: 4,
+        sales: 4,
+        trackingConsistency: 4,
       },
-      total: 31,
-      average: 3.875,
+      total: 27,
+      average: 3.375,
     });
   });
 });

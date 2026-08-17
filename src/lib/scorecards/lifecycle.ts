@@ -98,14 +98,15 @@ export type ProducerOverview = {
   growth:
     | { kind: "new_baseline"; percentage: null }
     | { kind: "percentage"; percentage: number };
-  rank: { rank: number; population: number; percentile: number; movement: number | null };
+  rank: { rank: number | null; population: number; percentile: number; movement: number | null };
   organizationRanks: {
-    submittedAp: { rank: number; population: number };
-    leadSpend: { rank: number; population: number };
-    dials: { rank: number; population: number };
-    contacts: { rank: number; population: number };
-    presentations: { rank: number; population: number };
-    sales: { rank: number; population: number };
+    submittedAp: { rank: number | null; population: number };
+    leadSpend: { rank: number | null; population: number };
+    dials: { rank: number | null; population: number };
+    contacts: { rank: number | null; population: number };
+    presentations: { rank: number | null; population: number };
+    sales: { rank: number | null; population: number };
+    trackingConsistency: { rank: number | null; population: number };
   };
   activity: {
     availability: "tracked" | "partial" | "missing";

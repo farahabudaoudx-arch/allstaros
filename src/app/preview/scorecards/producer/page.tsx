@@ -32,12 +32,7 @@ export default function ProducerScorecardVisualPreviewPage() {
       percentile: protectedFixture.expected.percentile,
       movement: null,
     },
-    organizationRanks: Object.fromEntries(
-      Object.entries(protectedFixture.expected.organizationRanks).map(([metric, rank]) => [
-        metric,
-        { rank, population: protectedFixture.expected.population },
-      ]),
-    ) as Parameters<typeof createProducerOverview>[0]["organizationRanks"],
+    organizationRanks: protectedFixture.expected.organizationRanks,
     activityRows: protectedFixture.expected.activityRows,
     priorActivityRows: protectedFixture.expected.priorActivityRows,
     expectedWorkingDates: protectedFixture.expected.expectedWorkingDates,

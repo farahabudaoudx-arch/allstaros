@@ -1,6 +1,6 @@
 export type StarRating = 0 | 1 | 2 | 3 | 4 | 5;
 
-export type OrganizationRank = { rank: number; population: number };
+export type OrganizationRank = { rank: number | null; population: number };
 
 function validatePerformanceValue(value: number): void {
   if (!Number.isFinite(value) || value < 0) {
@@ -20,19 +20,11 @@ export function producerRankStars(value: number, organizationRank: OrganizationR
   validatePerformanceValue(value);
   if (value === 0) return 0;
   const { rank, population } = organizationRank;
-  if (!Number.isInteger(rank) || !Number.isInteger(population) || population < 1 || rank < 1 || rank > population) {
+  if (typeof rank !== "number" || !Number.isInteger(rank) || !Number.isInteger(population) || population < 1 || rank < 1 || rank > population) {
     throw new Error("Producer Scorecard organization ranks must be valid positive positions.");
   }
   const percentile = ((population - rank + 1) / population) * 100;
   return starsForPercentile(percentile);
-}
-
-export function producerTrackingConsistencyStars(percentage: number): StarRating {
-  validatePerformanceValue(percentage);
-  if (percentage > 100) {
-    throw new Error("Producer tracking consistency cannot exceed 100 percent.");
-  }
-  return starsForPercentile(percentage);
 }
 
 export type ProducerStarRatings = {

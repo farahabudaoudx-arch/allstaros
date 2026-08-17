@@ -181,6 +181,14 @@ export function rankForTotal(value: number, totals: Iterable<number>): { rank: n
   return { rank: rankIndex + 1, population: sorted.length };
 }
 
+export function rankForPositiveTotal(value: number, totals: Iterable<number>): { rank: number | null; population: number } {
+  const sorted = [...totals].filter((total) => total > 0).sort((a, b) => b - a);
+  if (value <= 0) return { rank: null, population: sorted.length };
+  const rankIndex = sorted.findIndex((total) => total === value);
+  if (rankIndex < 0) throw new Error("Unable to establish organization metric rank.");
+  return { rank: rankIndex + 1, population: sorted.length };
+}
+
 type LeadSpendRow = {
   person_id: string;
   amount: number | string | null;
@@ -392,25 +400,34 @@ export async function loadCurrentMonthlyProducerOverview(
       );
     }
   }
-  const submittedApRank = rankForTotal(organizationApTotals.get(producer.id) ?? 0, organizationApTotals.values());
+  const organizationTrackedDates = new Map([...activeIds].map((id) => [id, new Set<string>()]));
+  for (const row of organizationTrackerRows) {
+    if (!activeIds.has(row.person_id)) continue;
+    organizationTrackedDates.get(row.person_id)?.add(String(row.entry_date));
+  }
+  const submittedApRank = rankForPositiveTotal(organizationApTotals.get(producer.id) ?? 0, organizationApTotals.values());
   const organizationLeadSpendTotals = monthlyLeadSpendTotals({
     activeIds,
     period,
     rows: organizationLeadSpendRows,
   });
-  const leadSpendRank = rankForTotal(
+  const leadSpendRank = rankForPositiveTotal(
     organizationLeadSpendTotals.get(producer.id) ?? 0,
     organizationLeadSpendTotals.values(),
   );
   const organizationRanks = Object.fromEntries(
     activityMetricKeys.map((metric) => [
       metric,
-      rankForTotal(
+      rankForPositiveTotal(
         organizationActivityTotals[metric].get(producer.id) ?? 0,
         organizationActivityTotals[metric].values(),
       ),
     ]),
-  ) as Omit<ProducerOverview["organizationRanks"], "submittedAp" | "leadSpend">;
+  ) as Omit<ProducerOverview["organizationRanks"], "submittedAp" | "leadSpend" | "trackingConsistency">;
+  const trackingConsistencyRank = rankForPositiveTotal(
+    organizationTrackedDates.get(producer.id)?.size ?? 0,
+    [...organizationTrackedDates.values()].map((dates) => dates.size),
+  );
   const totalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
   const currentImportedDates = new Set((currentImportsResult.data ?? []).map((row) => String(row.report_date)));
   for (const row of currentPremiumRows) {
@@ -424,14 +441,14 @@ export async function loadCurrentMonthlyProducerOverview(
   if (rankingIssuedIpCents == null || rankingIssuedIpCents !== currentIssuedIpCents) {
     throw new Error("Producer rank source does not match the Scorecard issued-IP total.");
   }
-  const sortedTotals = [...totalsByPerson.values()].sort((a, b) => b - a);
+  const sortedTotals = [...totalsByPerson.values()].filter((value) => value > 0).sort((a, b) => b - a);
   const rankIndex = sortedTotals.findIndex((value) => value === rankingIssuedIpCents);
-  if (rankIndex < 0) throw new Error("Unable to establish Producer rank.");
-  const rank = rankIndex + 1;
+  if (rankingIssuedIpCents > 0 && rankIndex < 0) throw new Error("Unable to establish Producer rank.");
+  const rank = rankingIssuedIpCents > 0 ? rankIndex + 1 : null;
   const population = sortedTotals.length;
-  const percentile = population
+  const percentile = population && rank != null
     ? Math.max(1, Math.round(((population - rank + 1) / population) * 100))
-    : 100;
+    : 0;
   const priorImportedDates = new Set((priorImportsResult.data ?? []).map((row) => String(row.report_date)));
   const priorTotalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
   for (const row of priorPremiumRows) {
@@ -441,7 +458,7 @@ export async function loadCurrentMonthlyProducerOverview(
   const priorIssuedIpCents = priorPremiumRows
     .filter((row) => row.person_id === producer.id && priorImportedDates.has(row.report_date))
     .reduce((total, row) => total + row.personal_ip_cents, 0);
-  const priorSortedTotals = [...priorTotalsByPerson.values()].sort((a, b) => b - a);
+  const priorSortedTotals = [...priorTotalsByPerson.values()].filter((value) => value > 0).sort((a, b) => b - a);
   const priorRankIndex = priorSortedTotals.findIndex((value) => value === priorIssuedIpCents);
 
   let expectedWorkingDates: string[] | null = null;
@@ -490,12 +507,13 @@ export async function loadCurrentMonthlyProducerOverview(
       population,
       percentile,
       movement:
-        priorImportedDates.size === 0 || priorRankIndex < 0 ? null : priorRankIndex + 1 - rank,
+        priorImportedDates.size === 0 || priorRankIndex < 0 || rank == null ? null : priorRankIndex + 1 - rank,
     },
     organizationRanks: {
       submittedAp: submittedApRank,
       leadSpend: leadSpendRank,
       ...organizationRanks,
+      trackingConsistency: trackingConsistencyRank,
     },
     activityRows,
     priorActivityRows,

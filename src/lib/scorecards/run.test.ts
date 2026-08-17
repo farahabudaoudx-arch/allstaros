@@ -39,6 +39,7 @@ function producerPayload(personId: string) {
           submittedAp: { rank: 1, population: 4 }, leadSpend: { rank: 1, population: 4 },
           dials: { rank: 1, population: 4 }, contacts: { rank: 1, population: 4 },
           presentations: { rank: 1, population: 4 }, sales: { rank: 1, population: 4 },
+          trackingConsistency: { rank: null, population: 0 },
         },
         activity: {
           availability: "missing" as const, trackedDays: 0, loggedDates: [], expectedDates: null,

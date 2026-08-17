@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 import {
   createProducerStarSummary,
   producerRankStars,
-  producerTrackingConsistencyStars,
+  type OrganizationRank,
   type ProducerStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
@@ -79,7 +79,7 @@ export function ProducerScorecardPreview({
           items={[{
             label: "Issued Premium",
             value: money(preview.totalIssuedIpCents),
-            rank: `#${overview.rank.rank} of ${overview.rank.population}`,
+            rank: organizationRankLabel(overview.rank),
           }]}
         />
       </StorySection>
@@ -91,7 +91,7 @@ export function ProducerScorecardPreview({
       </StorySection>
 
       <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency" exportMetadata={exportMetadata}>
-        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} />
+        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} organizationRank={overview.organizationRanks.trackingConsistency} />
       </StorySection>
 
       <StorySection number="05" title="Your Scorecard" centerContent sectionId="scorecard-section-05" exportName="05 Your Scorecard" exportMetadata={exportMetadata}>
@@ -236,7 +236,7 @@ function producerRatings(
     presentations: totals ? producerRankStars(totals.presentations, overview.organizationRanks.presentations) : null,
     sales: totals ? producerRankStars(totals.sales, overview.organizationRanks.sales) : null,
     trackingConsistency: overview.activity.consistency
-      ? producerTrackingConsistencyStars(overview.activity.consistency.percentage)
+      ? producerRankStars(overview.activity.consistency.loggedDays, overview.organizationRanks.trackingConsistency)
       : null,
   };
 }
@@ -441,10 +441,12 @@ function TrackingConsistencyCalendar({
   preview,
   activity,
   rating,
+  organizationRank,
 }: {
   preview: MonthlyProducerPreview;
   activity: ProducerOverview["activity"];
   rating: StarRating | null;
+  organizationRank: OrganizationRank;
 }) {
   const consistency = activity.consistency;
   if (!consistency || !activity.expectedDates) {
@@ -500,6 +502,12 @@ function TrackingConsistencyCalendar({
           })}
         </div>
       </div>
+      <OrganizationComparison items={[{
+        label: "Tracking Consistency",
+        value: `${consistency.percentage}%`,
+        rank: organizationRankLabel(organizationRank),
+        stars: rating ?? undefined,
+      }]} />
     </div>
   );
 }
@@ -589,6 +597,10 @@ export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   );
 }
 
+function organizationRankLabel(rank: OrganizationRank): string {
+  return rank.rank == null ? "No recorded performance" : `#${rank.rank} of ${rank.population}`;
+}
+
 function ActivityStory({ activity, submittedApCents, organizationRanks, ratings, exportMetadata }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"]; ratings: ProducerRatings; exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string } }) {
   return (
     <section id="scorecard-section-02" className="relative min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
@@ -623,12 +635,12 @@ function ActivityStory({ activity, submittedApCents, organizationRanks, ratings,
             </div>
             <OrganizationComparison
               items={[
-                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: `#${organizationRanks.submittedAp.rank} of ${organizationRanks.submittedAp.population}`, stars: ratings.submittedAp ?? undefined },
-                { label: "Lead Spend", value: money(activity.leadSpendCents), rank: `#${organizationRanks.leadSpend.rank} of ${organizationRanks.leadSpend.population}`, stars: ratings.leadSpend ?? undefined },
-                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: `#${organizationRanks.dials.rank} of ${organizationRanks.dials.population}`, stars: ratings.dials ?? undefined },
-                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: `#${organizationRanks.contacts.rank} of ${organizationRanks.contacts.population}`, stars: ratings.contacts ?? undefined },
-                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: `#${organizationRanks.presentations.rank} of ${organizationRanks.presentations.population}`, stars: ratings.presentations ?? undefined },
-                { label: "Submitted Sales", value: activity.totals.sales.toLocaleString(), rank: `#${organizationRanks.sales.rank} of ${organizationRanks.sales.population}`, stars: ratings.sales ?? undefined },
+                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: organizationRankLabel(organizationRanks.submittedAp), stars: ratings.submittedAp ?? undefined },
+                { label: "Lead Spend", value: money(activity.leadSpendCents), rank: organizationRankLabel(organizationRanks.leadSpend), stars: ratings.leadSpend ?? undefined },
+                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: organizationRankLabel(organizationRanks.dials), stars: ratings.dials ?? undefined },
+                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: organizationRankLabel(organizationRanks.contacts), stars: ratings.contacts ?? undefined },
+                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: organizationRankLabel(organizationRanks.presentations), stars: ratings.presentations ?? undefined },
+                { label: "Submitted Sales", value: activity.totals.sales.toLocaleString(), rank: organizationRankLabel(organizationRanks.sales), stars: ratings.sales ?? undefined },
               ]}
             />
           </>

@@ -6,6 +6,8 @@
     "source": "Gateway weekly issued-premium reports",
     "verifiedBy": "weekly-wtd-sum-matches-month-end-mtd",
     "verifiedAt": "2026-08-10",
+    "rankingVerifiedAt": "2026-08-17",
+    "rankingPopulation": "Active producers with positive recorded performance in each July metric; tracking uses distinct submitted tracker dates.",
     "monthEndMtdCents": 3376680,
     "notes": "Client-level data, email, NPN, and contact details are intentionally excluded. Aggregate July 2026 Gateway issued premium, submitted AP, tracker activity, and organization ranks belong to Jackson Rapaport and are retained for local visual verification. Week 2 and Week 4 All Life WTD values were verified by the user in Gateway and reconcile exactly to the stored July month-end MTD total. Expected tracking dates use the requested Monday-through-Saturday preview schedule because schedule-history tables are not present in this environment."
   },
@@ -49,12 +51,13 @@
     "population": 426,
     "percentile": 98,
     "organizationRanks": {
-      "submittedAp": 27,
-      "leadSpend": 43,
-      "dials": 144,
-      "contacts": 109,
-      "presentations": 65,
-      "sales": 59
+      "submittedAp": { "rank": 27, "population": 170 },
+      "leadSpend": { "rank": null, "population": 42 },
+      "dials": { "rank": 143, "population": 199 },
+      "contacts": { "rank": 108, "population": 184 },
+      "presentations": { "rank": 64, "population": 173 },
+      "sales": { "rank": 60, "population": 171 },
+      "trackingConsistency": { "rank": 57, "population": 234 }
     },
     "trackedDays": 16,
     "expectedWorkingDates": [

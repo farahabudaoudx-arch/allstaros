@@ -16,6 +16,7 @@ const organizationRanks = {
   contacts: { rank: 18, population: 424 },
   presentations: { rank: 10, population: 424 },
   sales: { rank: 6, population: 424 },
+  trackingConsistency: { rank: 12, population: 424 },
 };
 
 function source(overrides: Partial<MonthlyProducerSource> = {}): MonthlyProducerSource {

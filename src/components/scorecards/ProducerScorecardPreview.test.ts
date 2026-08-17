@@ -16,17 +16,17 @@ describe("Producer baseball card", () => {
         memberName: "Jackson Rapaport",
         photoUrl: null,
         periodLabel: "July 2026",
-        averageRating: 3.9,
-        totalRating: 31,
+        averageRating: 3.4,
+        totalRating: 27,
         ratings: [
           { label: "Issued Premium", value: 5 },
           { label: "Submitted AP", value: 5 },
           { label: "Lead Spend", value: 0 },
-          { label: "Dials", value: 4 },
-          { label: "Contacts", value: 4 },
-          { label: "Presentations", value: 5 },
-          { label: "Submitted Sales", value: 5 },
-          { label: "Tracking", value: 3 },
+          { label: "Dials", value: 2 },
+          { label: "Contacts", value: 3 },
+          { label: "Presentations", value: 4 },
+          { label: "Submitted Sales", value: 4 },
+          { label: "Tracking", value: 4 },
         ],
       }),
     );
@@ -34,10 +34,10 @@ describe("Producer baseball card", () => {
     expect(html).toContain('aria-label="Flip Jackson Rapaport scorecard to the back"');
     expect(html).toContain("Jackson Rapaport");
     expect(html).toContain("July 2026 Producer Scorecard");
-    expect(html).toContain("3.9 average");
-    expect(html).toContain("31 of 40 points");
+    expect(html).toContain("3.4 average");
+    expect(html).toContain("27 of 40 points");
     expect(html).toContain("Issued Premium: 5 out of 5 stars");
-    expect(html).toContain("Tracking: 3 out of 5 stars");
+    expect(html).toContain("Tracking: 4 out of 5 stars");
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(8);
     expect(html).not.toMatch(/#\d+ of \d+/);
   });
@@ -68,12 +68,7 @@ describe("Producer Scorecard preview", () => {
         percentile: protectedFixture.expected.percentile,
         movement: null,
       },
-      organizationRanks: Object.fromEntries(
-        Object.entries(protectedFixture.expected.organizationRanks).map(([metric, rank]) => [
-          metric,
-          { rank, population: protectedFixture.expected.population },
-        ]),
-      ) as Parameters<typeof createProducerOverview>[0]["organizationRanks"],
+      organizationRanks: protectedFixture.expected.organizationRanks,
       activityRows: protectedFixture.expected.activityRows,
       priorActivityRows: protectedFixture.expected.priorActivityRows,
       expectedWorkingDates: protectedFixture.expected.expectedWorkingDates,
@@ -83,11 +78,22 @@ describe("Producer Scorecard preview", () => {
       createElement(ProducerScorecardPreview, { preview, overview }),
     );
 
-    expect(html).toContain("Average rating: 3.9 out of 5 stars");
+    expect(html).toContain("Average rating: 3.4 out of 5 stars");
     expect(html).toContain("Issued Premium: 5 out of 5 stars");
     expect(html).toContain("Submitted AP: 5 out of 5 stars");
     expect(html).toContain("Lead Spend");
-    expect(html).toContain("Tracking Consistency: 3 out of 5 stars");
+    expect(html).toContain("Dials: 2 out of 5 stars");
+    expect(html).toContain("Contacts: 3 out of 5 stars");
+    expect(html).toContain("Presentations: 4 out of 5 stars");
+    expect(html).toContain("Submitted Sales: 4 out of 5 stars");
+    expect(html).toContain("Tracking Consistency: 4 out of 5 stars");
+    expect(html).toContain("#27 of 170");
+    expect(html).toContain("#143 of 199");
+    expect(html).toContain("#108 of 184");
+    expect(html).toContain("#64 of 173");
+    expect(html).toContain("#60 of 171");
+    expect(html).toContain("#57 of 234");
+    expect(html).toContain("No recorded performance");
     expect(html).not.toMatch(/appointments/i);
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(29);
     expect(html.match(/data-export-exclude=""/g)).toHaveLength(15);
