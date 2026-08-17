@@ -56,6 +56,8 @@ export function ProducerScorecardPreview({
         totalStars={starSummary?.total ?? null}
       />
 
+      <ScorecardHowItWorks exportMetadata={exportMetadata} />
+
       <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium" exportMetadata={exportMetadata}>
         <StoryValue
           intro={`Across all IP reports from Gateway in ${preview.periodLabel.split(" ")[0]}, you submitted:`}
@@ -112,6 +114,67 @@ export function ProducerScorecardPreview({
       </StorySection>
 
     </article>
+  );
+}
+
+const PRODUCER_SCORECARD_AREAS = [
+  "IP",
+  "Dials",
+  "Prezis",
+  "Lead Spend",
+  "AP",
+  "Contacts",
+  "Sales",
+  "Tracking",
+] as const;
+
+function ScorecardHowItWorks({
+  exportMetadata,
+}: {
+  exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string };
+}) {
+  return (
+    <section
+      id="scorecard-how-it-works"
+      aria-labelledby="scorecard-how-it-works-title"
+      className="relative min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20"
+    >
+      <ScorecardExportControls
+        sectionId="scorecard-how-it-works"
+        sectionName="How Scorecards Work"
+        {...exportMetadata}
+      />
+      <div className="w-full">
+        <h3
+          id="scorecard-how-it-works-title"
+          className="max-w-4xl pr-24 text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink"
+        >
+          How Scorecards Work
+        </h3>
+        <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
+          As a producer, we rank your performance inside of eight areas based on the performance across the entire organization.
+        </p>
+
+        <ul aria-label="Eight Producer scorecard areas" className="mt-7 grid grid-cols-4 gap-2 sm:gap-3">
+          {PRODUCER_SCORECARD_AREAS.map((area) => (
+            <li
+              key={area}
+              className="flex min-h-20 items-center justify-center rounded-xl border border-hairline bg-card px-2 py-5 text-center text-[clamp(0.75rem,2vw,1.25rem)] font-semibold leading-tight text-ink sm:min-h-24 sm:px-4"
+            >
+              {area}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-9 max-w-4xl space-y-5 text-base leading-7 text-subtle sm:text-lg sm:leading-8">
+          <p>We then take your average 0 to 5 performance level and create a scorecard for you.</p>
+          <p>You can download 9 by 16 or 16 by 9 screenshots of each section to post online along with your scorecard.</p>
+          <p className="font-medium text-white">
+            If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
