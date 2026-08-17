@@ -56,7 +56,7 @@ export function ProducerScorecardPreview({
         totalStars={starSummary?.total ?? null}
       />
 
-      <ScorecardHowItWorks exportMetadata={exportMetadata} />
+      <ScorecardHowItWorks />
 
       <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium" exportMetadata={exportMetadata}>
         <StoryValue
@@ -128,22 +128,13 @@ const PRODUCER_SCORECARD_AREAS = [
   "Tracking",
 ] as const;
 
-function ScorecardHowItWorks({
-  exportMetadata,
-}: {
-  exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string };
-}) {
+function ScorecardHowItWorks() {
   return (
     <section
       id="scorecard-how-it-works"
       aria-labelledby="scorecard-how-it-works-title"
       className="relative min-h-[46svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:min-h-[51svh] sm:px-12 sm:py-[3.2rem] lg:px-20"
     >
-      <ScorecardExportControls
-        sectionId="scorecard-how-it-works"
-        sectionName="How Scorecards Work"
-        {...exportMetadata}
-      />
       <div className="w-full">
         <h3
           id="scorecard-how-it-works-title"

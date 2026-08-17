@@ -92,6 +92,7 @@ describe("Producer Scorecard preview", () => {
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(23);
     expect(html.match(/data-export-exclude=""/g)).toHaveLength(15);
     expect(html).toContain(">How Scorecards Work</h3>");
+    expect(html).not.toContain("Download How Scorecards Work");
     expect(html).toMatch(/aria-label="Eight Producer scorecard areas"[\s\S]*?>IP<[\s\S]*?>Dials<[\s\S]*?>Prezis<[\s\S]*?>Lead Spend<[\s\S]*?>AP<[\s\S]*?>Contacts<[\s\S]*?>Sales<[\s\S]*?>Tracking</);
     expect(html).toContain("We then take your average 0 to 5 performance level and create a scorecard for you.");
     expect(html).toContain("Numbers don&#x27;t lie. If you don&#x27;t like your ranking, do something about it.");
