@@ -1,28 +1,19 @@
 import type {
-  IssuanceStatus,
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
-import { weeklyShares } from "@/lib/scorecards/weekly-trend";
 import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import {
   createProducerStarSummary,
   producerRankStars,
-  type OrganizationRank,
   type ProducerStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
 import { VelarisBackground } from "./VelarisBackground";
 import { ScorecardExportControls } from "./ScorecardExportControls";
 import { ProducerBaseballCard } from "./ProducerBaseballCard";
-
-const ISSUANCE_VALUE_CLASS: Record<IssuanceStatus, string> = {
-  green: "text-pos",
-  blue: "text-[#78a7ff] light:text-[#2859ad]",
-  red: "text-neg",
-};
 
 export function money(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -59,42 +50,19 @@ export function ProducerScorecardPreview({
 
       <ScorecardHowItWorks />
 
-      <StorySection number="01" title="Issued Premium" compact sectionId="scorecard-section-01" exportName="01 Issued Premium" exportMetadata={exportMetadata}>
-        <StoryValue
-          intro={`Across all IP reports from Gateway in ${preview.periodLabel.split(" ")[0]}, you submitted:`}
-          introClass="font-normal italic text-white"
-          compact
-          value={money(preview.totalIssuedIpCents)}
-          valueClass={ISSUANCE_VALUE_CLASS[preview.issuanceStatus]}
-          rating={{ value: ratings.issuedIp, label: "Issued Premium" }}
-        />
-        <WeeklyTrend reports={preview.weeklyReports} />
-        <div className="mt-10 max-w-3xl">
-          <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">This means your average weekly IP was:</p>
-          <p className="mt-4 text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
-            {money(preview.averageWeeklyIpCents)}
-          </p>
-        </div>
-        <OrganizationComparison
-          items={[{
-            label: "Issued Premium",
-            value: money(preview.totalIssuedIpCents),
-            rank: organizationRankLabel(overview.rank),
-          }]}
-        />
+      <StorySection number="01" title="Your Numbers" sectionId="scorecard-section-01" exportName="01 Your Numbers" exportMetadata={exportMetadata}>
+        <ProducerNumbersGrid preview={preview} overview={overview} ratings={ratings} />
       </StorySection>
 
-      <ActivityStory activity={overview.activity} submittedApCents={overview.submittedApCents} organizationRanks={overview.organizationRanks} ratings={ratings} exportMetadata={exportMetadata} />
+      <StorySection number="02" title="Your Tracking" sectionId="scorecard-section-02" exportName="02 Your Tracking" exportMetadata={exportMetadata}>
+        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} />
+      </StorySection>
 
       <StorySection number="03" title="Previous Month Growth" sectionId="scorecard-section-03" exportName="03 Previous Month Growth" exportMetadata={exportMetadata}>
         <MonthOverMonthStory preview={preview} overview={overview} />
       </StorySection>
 
-      <StorySection number="04" title="Tracking Consistency" sectionId="scorecard-section-04" exportName="04 Tracking Consistency" exportMetadata={exportMetadata}>
-        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} organizationRank={overview.organizationRanks.trackingConsistency} />
-      </StorySection>
-
-      <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="scorecard-section-05" exportName="Your Scorecard" exportMetadata={exportMetadata}>
+      <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="scorecard-section-card" exportName="Your Scorecard" exportMetadata={exportMetadata}>
         <ProducerBaseballCard
           memberName={overview.producer.fullName}
           photoUrl={overview.producer.photoUrl}
@@ -137,6 +105,45 @@ const PRODUCER_SCORECARD_LEVELS = [
   { stars: 4, description: "61st–80th percentile" },
   { stars: 5, description: "Top 20% of producers" },
 ] as const;
+
+function percentileTierLabel(rating: StarRating | null): string {
+  if (rating == null) return "Unavailable";
+  return PRODUCER_SCORECARD_LEVELS.find((level) => level.stars === rating)?.description ?? "Unavailable";
+}
+
+function ProducerNumbersGrid({
+  preview,
+  overview,
+  ratings,
+}: {
+  preview: MonthlyProducerPreview;
+  overview: ProducerOverview;
+  ratings: ProducerRatings;
+}) {
+  const totals = overview.activity.totals;
+  const items: Array<{ label: string; starLabel?: string; value: string; rating: StarRating | null }> = [
+    { label: "IP", starLabel: "Issued Premium", value: money(preview.totalIssuedIpCents), rating: ratings.issuedIp },
+    { label: "AP", starLabel: "Submitted AP", value: overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents), rating: ratings.submittedAp },
+    { label: "Lead Spend", value: money(overview.activity.leadSpendCents), rating: ratings.leadSpend },
+    { label: "Dials", value: totals?.dials.toLocaleString() ?? "Unavailable", rating: ratings.dials },
+    { label: "Contacts", value: totals?.contacts.toLocaleString() ?? "Unavailable", rating: ratings.contacts },
+    { label: "Presentations", value: totals?.presentations.toLocaleString() ?? "Unavailable", rating: ratings.presentations },
+    { label: "Submitted Sales", value: totals?.sales.toLocaleString() ?? "Unavailable", rating: ratings.sales },
+  ];
+
+  return (
+    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label={`${preview.periodLabel} producer numbers`}>
+      {items.map((item) => (
+        <div key={item.label} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]" role="listitem">
+          <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
+          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{item.value}</p>
+          {item.rating != null ? <p className="mt-4"><StarScale value={item.rating} label={item.starLabel ?? item.label} /></p> : null}
+          <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{percentileTierLabel(item.rating)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function ScorecardHowItWorks() {
   return (
@@ -394,33 +401,6 @@ export function StoryValue({ value, valueClass = "text-ink", intro, introClass =
   );
 }
 
-function WeeklyTrend({ reports }: { reports: MonthlyProducerPreview["weeklyReports"] }) {
-  if (!reports.length) return <p className="mt-12 text-sm text-mute">Waiting for the first Gateway report.</p>;
-  const shares = weeklyShares(reports.map((report) => report.personalIpCents));
-
-  return (
-    <div className="weekly-trend mt-8 max-w-4xl">
-      <p className="scorecard-copy mb-6 text-base font-normal italic text-white sm:text-lg">Here&apos;s what you submitted week by week:</p>
-      <div className="weekly-trend__bars space-y-4 md:space-y-5" role="img" aria-label="Weekly issued premium by week">
-        {reports.map((report, index) => {
-          return (
-            <div key={report.reportDate} className="weekly-trend__bar-row grid grid-cols-[5.25rem_minmax(0,1fr)_4.5rem] items-center gap-3 md:grid-cols-[8rem_minmax(0,1fr)_6.5rem] md:gap-5">
-              <span className="weekly-trend__bar-label text-xs font-medium text-subtle md:text-sm lg:text-base">{report.label}</span>
-              <span className="weekly-trend__bar-track relative h-3 overflow-hidden rounded-sm bg-card md:h-4">
-                <span
-                  className="weekly-trend__bar-fill block h-full origin-left rounded-sm bg-accent"
-                  style={{ width: `${shares[index]}%` }}
-                />
-              </span>
-              <span className="weekly-trend__bar-value text-left text-sm font-semibold text-ink tabular-nums md:text-base lg:text-lg">{money(report.personalIpCents)}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function previousMonthLabel(periodStart: string): string {
   const [year, month] = periodStart.split("-").map(Number);
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
@@ -443,12 +423,10 @@ function TrackingConsistencyCalendar({
   preview,
   activity,
   rating,
-  organizationRank,
 }: {
   preview: MonthlyProducerPreview;
   activity: ProducerOverview["activity"];
   rating: StarRating | null;
-  organizationRank: OrganizationRank;
 }) {
   const consistency = activity.consistency;
   if (!consistency || !activity.expectedDates) {
@@ -469,11 +447,13 @@ function TrackingConsistencyCalendar({
     <div className="tracking-story max-w-4xl">
       <div className="tracking-head flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <p className="text-sm font-medium text-subtle sm:text-base">Tracking Consistency</p>
           <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
             <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{consistency.percentage}%</p>
             {rating != null ? <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span> : null}
           </div>
           <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">{consistency.loggedDays} of {consistency.expectedDays} expected workdays logged</p>
+          <p className="tracking-percentile mt-3 text-sm font-medium text-accent sm:text-base">{percentileTierLabel(rating)}</p>
         </div>
         <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>
@@ -504,12 +484,6 @@ function TrackingConsistencyCalendar({
           })}
         </div>
       </div>
-      <OrganizationComparison items={[{
-        label: "Tracking Consistency",
-        value: `${consistency.percentage}%`,
-        rank: organizationRankLabel(organizationRank),
-        stars: rating ?? undefined,
-      }]} />
     </div>
   );
 }
@@ -596,68 +570,6 @@ export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function organizationRankLabel(rank: OrganizationRank): string {
-  return rank.rank == null ? "No recorded performance" : `#${rank.rank} of ${rank.population}`;
-}
-
-function ActivityStory({ activity, submittedApCents, organizationRanks, ratings, exportMetadata }: { activity: ProducerOverview["activity"]; submittedApCents: number | null; organizationRanks: ProducerOverview["organizationRanks"]; ratings: ProducerRatings; exportMetadata: { cardType: "producer"; memberName: string; periodLabel: string } }) {
-  return (
-    <section id="scorecard-section-02" className="relative min-h-[58svh] border-t border-hairline bg-background px-6 py-12 [letter-spacing:0.2px] sm:px-12 sm:py-[3.2rem] lg:px-20" aria-labelledby="activity-title">
-      <ScorecardExportControls sectionId="scorecard-section-02" sectionName="02 Your Activity" {...exportMetadata} />
-      <div className="w-full">
-        <div className="flex items-baseline gap-5 sm:gap-7">
-          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">02</p>
-          <h3 id="activity-title" className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">Your Activity</h3>
-        </div>
-        <div className="mt-10 max-w-4xl">
-          <p className="scorecard-copy text-base font-normal italic text-white sm:text-lg">In July you submitted:</p>
-          <div className="mt-5 flex flex-wrap items-end gap-x-5 gap-y-3">
-            <p className="text-[clamp(3.5rem,10vw,7.5rem)] font-semibold leading-[0.88] tabular-nums text-ink">
-              {submittedApCents == null ? "Unavailable" : money(submittedApCents)}
-            </p>
-            {ratings.submittedAp != null ? <span className="pb-1 sm:pb-2"><StarScale value={ratings.submittedAp} label="Submitted AP" /></span> : null}
-          </div>
-        </div>
-        {activity.availability !== "tracked" || !activity.totals ? (
-          <div className="mt-10 max-w-2xl">
-            <p className="text-3xl font-semibold text-ink sm:text-5xl">{activity.availability === "partial" ? "Activity is incomplete" : "No activity submitted yet"}</p>
-            <p className="mt-5 text-base leading-7 text-subtle">Missing activity is not counted as zero. Submit complete tracker days to establish an accurate pace.</p>
-          </div>
-        ) : (
-          <>
-            <div className="activity-story-lines mt-10 max-w-5xl space-y-1 text-lg italic leading-8 text-white sm:text-xl sm:leading-9">
-              <ActivityRatingLine label="Dials" rating={ratings.dials}><span>You logged <strong className="font-semibold text-accent">{activity.totals.dials.toLocaleString()} dials</strong>.</span></ActivityRatingLine>
-              <ActivityRatingLine label="Contacts" rating={ratings.contacts}><span>You spoke with <strong className="font-semibold text-accent">{activity.totals.contacts.toLocaleString()} people</strong>.</span></ActivityRatingLine>
-              <ActivityRatingLine label="Presentations" rating={ratings.presentations}><span>You ran <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>.</span></ActivityRatingLine>
-              <ActivityRatingLine label="Submitted Sales" rating={ratings.sales}><span>You submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.</span></ActivityRatingLine>
-              <ActivityRatingLine label="Lead Spend" rating={ratings.leadSpend}><span>You spent <strong className="font-semibold text-accent">{money(activity.leadSpendCents)} on leads</strong>.</span></ActivityRatingLine>
-            </div>
-            <OrganizationComparison
-              items={[
-                { label: "Submitted AP", value: submittedApCents == null ? "Unavailable" : money(submittedApCents), rank: organizationRankLabel(organizationRanks.submittedAp), stars: ratings.submittedAp ?? undefined },
-                { label: "Lead Spend", value: money(activity.leadSpendCents), rank: organizationRankLabel(organizationRanks.leadSpend), stars: ratings.leadSpend ?? undefined },
-                { label: "Dials", value: activity.totals.dials.toLocaleString(), rank: organizationRankLabel(organizationRanks.dials), stars: ratings.dials ?? undefined },
-                { label: "Contacts", value: activity.totals.contacts.toLocaleString(), rank: organizationRankLabel(organizationRanks.contacts), stars: ratings.contacts ?? undefined },
-                { label: "Presentations", value: activity.totals.presentations.toLocaleString(), rank: organizationRankLabel(organizationRanks.presentations), stars: ratings.presentations ?? undefined },
-                { label: "Submitted Sales", value: activity.totals.sales.toLocaleString(), rank: organizationRankLabel(organizationRanks.sales), stars: ratings.sales ?? undefined },
-              ]}
-            />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function ActivityRatingLine({ label, rating, children }: { label: string; rating: StarRating | null; children: ReactNode }) {
-  return (
-    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      {children}
-      {rating != null ? <StarScale value={rating} label={label} /> : null}
-    </p>
   );
 }
 

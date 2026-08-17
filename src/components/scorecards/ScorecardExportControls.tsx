@@ -122,7 +122,7 @@ async function renderSectionPng(
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
 
   const { width, height } = SCORECARD_EXPORTS[format];
-  const isProducerCardExport = metadata.cardType === "producer" && sectionId === "scorecard-section-05";
+  const isProducerCardExport = metadata.cardType === "producer" && sectionId === "scorecard-section-card";
   const stage = document.createElement("div");
   stage.className = "scorecard-export-stage";
   stage.style.cssText = [
@@ -260,6 +260,19 @@ async function renderSectionPng(
     .scorecard-export-stage .organization-card-label { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
     .scorecard-export-stage .organization-card-value { font-size: ${format === "portrait" ? "34px" : "32px"} !important; }
     .scorecard-export-stage .organization-card-rank { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
+    .scorecard-export-stage .producer-numbers-grid {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      justify-content: center !important;
+    }
+    .scorecard-export-stage .producer-number-card {
+      width: ${format === "portrait" ? "calc(50% - 6px)" : "calc(25% - 9px)"} !important;
+      text-align: left !important;
+    }
+    .scorecard-export-stage .producer-number-card__label { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
+    .scorecard-export-stage .producer-number-card__value { font-size: ${format === "portrait" ? "40px" : "36px"} !important; }
+    .scorecard-export-stage .producer-number-card__percentile,
+    .scorecard-export-stage .tracking-percentile { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
     .scorecard-export-stage .activity-story-lines {
       font-size: ${format === "portrait" ? "28px" : "26px"} !important;
       line-height: 1.5 !important;
