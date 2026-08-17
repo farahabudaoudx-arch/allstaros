@@ -3,6 +3,7 @@
 import { toBlob } from "html-to-image";
 import { useState } from "react";
 import {
+  PRODUCER_CARD_EXPORT_LAYOUT,
   SCORECARD_EXPORTS,
   scorecardExportFilename,
   type ScorecardExportFormat,
@@ -13,6 +14,82 @@ type ScorecardExportMetadata = {
   memberName: string;
   periodLabel: string;
 };
+
+function applyProducerCardExportLayout(
+  clone: HTMLElement,
+  content: HTMLElement,
+  format: ScorecardExportFormat,
+) {
+  const layout = PRODUCER_CARD_EXPORT_LAYOUT[format];
+  const heading = content.firstElementChild as HTMLElement | null;
+  const cardSlot = content.children.item(1) as HTMLElement | null;
+  const card = content.querySelector<HTMLElement>(".producer-baseball-card");
+  const flip = content.querySelector<HTMLElement>(".producer-baseball-card__flip");
+  const inner = content.querySelector<HTMLElement>(".producer-baseball-card__inner");
+  const front = content.querySelector<HTMLElement>(".producer-baseball-card__front");
+  const back = content.querySelector<HTMLElement>(".producer-baseball-card__back");
+  const hint = content.querySelector<HTMLElement>(".producer-baseball-card__hint");
+
+  clone.style.padding = "0";
+  clone.style.alignItems = "stretch";
+  content.style.width = "100%";
+  content.style.height = "100%";
+  content.style.maxWidth = "none";
+  content.style.margin = "0";
+  content.style.position = "relative";
+  content.style.textAlign = "initial";
+  content.style.transform = "none";
+
+  if (heading) heading.style.display = "none";
+  if (cardSlot) {
+    cardSlot.style.position = "absolute";
+    cardSlot.style.inset = "0";
+    cardSlot.style.width = "100%";
+    cardSlot.style.height = "100%";
+    cardSlot.style.maxWidth = "none";
+    cardSlot.style.margin = "0";
+  }
+  if (card) {
+    card.style.position = "absolute";
+    card.style.inset = "0";
+    card.style.width = "100%";
+    card.style.height = "100%";
+    card.style.maxWidth = "none";
+    card.style.margin = "0";
+  }
+  if (flip) {
+    flip.style.position = "static";
+    flip.style.width = "100%";
+    flip.style.height = "100%";
+    flip.style.aspectRatio = "auto";
+    flip.style.perspective = "none";
+  }
+  if (inner) {
+    inner.style.position = "static";
+    inner.style.width = "100%";
+    inner.style.height = "100%";
+    inner.style.transform = "none";
+    inner.style.transformStyle = "flat";
+  }
+  if (hint) hint.style.display = "none";
+
+  for (const [face, faceLayout, zIndex] of [
+    [front, layout.front, "1"],
+    [back, layout.back, "2"],
+  ] as const) {
+    if (!face) continue;
+    face.style.position = "absolute";
+    face.style.left = `${faceLayout.left}px`;
+    face.style.top = `${faceLayout.top}px`;
+    face.style.right = "auto";
+    face.style.bottom = "auto";
+    face.style.width = `${faceLayout.width}px`;
+    face.style.height = `${faceLayout.height}px`;
+    face.style.transform = "none";
+    face.style.backfaceVisibility = "visible";
+    face.style.zIndex = zIndex;
+  }
+}
 
 function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
   const portrait = format === "portrait";
@@ -45,6 +122,7 @@ async function renderSectionPng(
   if (!source) throw new Error(`Scorecard section not found: ${sectionId}`);
 
   const { width, height } = SCORECARD_EXPORTS[format];
+  const isProducerCardExport = metadata.cardType === "producer" && sectionId === "scorecard-section-05";
   const stage = document.createElement("div");
   stage.className = "scorecard-export-stage";
   stage.style.cssText = [
@@ -106,6 +184,7 @@ async function renderSectionPng(
       element.style.marginLeft = "auto";
       element.style.marginRight = "auto";
     });
+    if (isProducerCardExport) applyProducerCardExportLayout(clone, content, format);
   }
   if (format === "landscape") {
     clone.querySelectorAll<HTMLElement>(".max-w-3xl, .max-w-4xl, .max-w-5xl").forEach((element) => {
@@ -138,7 +217,7 @@ async function renderSectionPng(
     "z-index:3",
   ].join(";");
 
-  const brandLogo = format === "portrait" ? document.createElement("img") : null;
+  const brandLogo = format === "portrait" && !isProducerCardExport ? document.createElement("img") : null;
   if (brandLogo) {
     brandLogo.src = "/logo.png";
     brandLogo.alt = "";
@@ -212,8 +291,31 @@ async function renderSectionPng(
     ${sectionId === "scorecard-section-02" ? `
       .scorecard-export-stage .organization-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
     ` : ""}
+    ${isProducerCardExport ? `
+      .scorecard-export-stage .producer-baseball-card__front > span,
+      .scorecard-export-stage .producer-baseball-card__back > span {
+        margin: ${format === "portrait" ? "12px" : "9px"} !important;
+      }
+      .scorecard-export-stage .producer-baseball-card__front span.absolute.inset-x-0.bottom-0 > img {
+        height: ${format === "portrait" ? "48px" : "38px"} !important;
+      }
+      .scorecard-export-stage .producer-baseball-card__front span.absolute.inset-x-0.bottom-0 > span:nth-of-type(1) {
+        font-size: ${format === "portrait" ? "36px" : "28px"} !important;
+      }
+      .scorecard-export-stage .producer-baseball-card__front span.absolute.inset-x-0.bottom-0 > span:nth-of-type(2) {
+        font-size: ${format === "portrait" ? "18px" : "15px"} !important;
+      }
+      .scorecard-export-stage .producer-baseball-card__back > span > span:nth-child(2) > span:first-child {
+        font-size: ${format === "portrait" ? "82px" : "64px"} !important;
+      }
+      .scorecard-export-stage .producer-baseball-card__back > span > span:nth-child(3) > span {
+        padding-top: ${format === "portrait" ? "14px" : "11px"} !important;
+        padding-bottom: ${format === "portrait" ? "14px" : "11px"} !important;
+      }
+    ` : ""}
   `;
-  artboard.append(clone, attribution);
+  artboard.append(clone);
+  if (!isProducerCardExport) artboard.append(attribution);
   if (brandLogo) artboard.append(brandLogo);
   stage.append(motionReset, artboard);
   document.body.append(stage);

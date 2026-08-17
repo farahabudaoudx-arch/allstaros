@@ -27,20 +27,20 @@ export function ProducerBaseballCard({
   const [flipped, setFlipped] = useState(false);
 
   return (
-    <div className="mx-auto w-full max-w-[25rem]">
+    <div className="producer-baseball-card mx-auto w-full max-w-[25rem]">
       <button
         type="button"
         aria-label={`Flip ${memberName} scorecard to the ${flipped ? "front" : "back"}`}
         aria-pressed={flipped}
         onClick={() => setFlipped((current) => !current)}
-        className="group block aspect-[5/7] w-full rounded-[1.35rem] text-left transition-transform duration-150 [perspective:1400px] active:scale-[0.99] motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+        className="producer-baseball-card__flip group block aspect-[5/7] w-full rounded-[1.35rem] text-left transition-transform duration-150 [perspective:1400px] active:scale-[0.99] motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background"
       >
         <span
-          className={`relative block h-full w-full transition-transform [transform-style:preserve-3d] [transition-duration:250ms] [transition-timing-function:cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none ${flipped ? "[transform:rotateY(180deg)]" : ""}`}
+          className={`producer-baseball-card__inner relative block h-full w-full transition-transform [transform-style:preserve-3d] [transition-duration:250ms] [transition-timing-function:cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none ${flipped ? "[transform:rotateY(180deg)]" : ""}`}
         >
           <span
             aria-hidden={flipped}
-            className="absolute inset-0 flex overflow-hidden rounded-[1.35rem] border border-accent/60 bg-[#090909] [backface-visibility:hidden]"
+            className="producer-baseball-card__front absolute inset-0 flex overflow-hidden rounded-[1.35rem] border border-accent/60 bg-[#090909] [backface-visibility:hidden]"
           >
             <span className="relative m-2 min-w-0 flex-1 overflow-hidden rounded-[0.95rem] border border-white/15 bg-card-hi">
               <span className="absolute inset-0">
@@ -69,7 +69,7 @@ export function ProducerBaseballCard({
 
           <span
             aria-hidden={!flipped}
-            className="absolute inset-0 flex overflow-hidden rounded-[1.35rem] border border-accent/60 bg-[#090909] [backface-visibility:hidden] [transform:rotateY(180deg)]"
+            className="producer-baseball-card__back absolute inset-0 flex overflow-hidden rounded-[1.35rem] border border-accent/60 bg-[#090909] [backface-visibility:hidden] [transform:rotateY(180deg)]"
           >
             <span className="m-2 flex min-w-0 flex-1 flex-col rounded-[0.95rem] border border-white/15 px-5 py-5 sm:px-6">
               <span className="flex items-center justify-between border-b border-white/15 pb-4">
@@ -101,7 +101,7 @@ export function ProducerBaseballCard({
           </span>
         </span>
       </button>
-      <p className="mt-4 text-center text-sm text-subtle">Click the card to see the {flipped ? "front" : "star ratings"}.</p>
+      <p className="producer-baseball-card__hint mt-4 text-center text-sm text-subtle">Click the card to see the {flipped ? "front" : "star ratings"}.</p>
     </div>
   );
 }

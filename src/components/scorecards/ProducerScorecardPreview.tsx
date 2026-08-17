@@ -94,7 +94,7 @@ export function ProducerScorecardPreview({
         <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} organizationRank={overview.organizationRanks.trackingConsistency} />
       </StorySection>
 
-      <StorySection number="05" title="Your Scorecard" centerContent sectionId="scorecard-section-05" exportName="05 Your Scorecard" exportMetadata={exportMetadata}>
+      <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="scorecard-section-05" exportName="Your Scorecard" exportMetadata={exportMetadata}>
         <ProducerBaseballCard
           memberName={overview.producer.fullName}
           photoUrl={overview.producer.photoUrl}
@@ -347,16 +347,18 @@ export function StorySection({
   compact = false,
   condensed = false,
   centerContent = false,
+  centerHeading = false,
   sectionId,
   exportName,
   exportMetadata,
   children,
 }: {
-  number: string;
+  number: string | null;
   title: string;
   compact?: boolean;
   condensed?: boolean;
   centerContent?: boolean;
+  centerHeading?: boolean;
   sectionId: string;
   exportName: string;
   exportMetadata: { cardType: "producer" | "builder"; memberName: string; periodLabel: string };
@@ -369,8 +371,8 @@ export function StorySection({
     >
       <ScorecardExportControls sectionId={sectionId} sectionName={exportName} {...exportMetadata} />
       <div className="w-full">
-        <div className="flex items-baseline gap-5 sm:gap-7">
-          <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p>
+        <div className={`flex items-baseline gap-5 sm:gap-7 ${centerHeading ? "justify-center text-center" : ""}`}>
+          {number ? <p className="text-[clamp(2rem,4vw,3rem)] font-semibold leading-none tabular-nums text-accent">{number}</p> : null}
           <h3 className="text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink">{title}</h3>
         </div>
         <div className={`${compact ? "mt-8 sm:mt-10" : "mt-10 sm:mt-12"} max-w-4xl ${centerContent ? "mx-auto" : ""}`}>{children}</div>

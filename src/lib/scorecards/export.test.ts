@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { SCORECARD_EXPORTS, scorecardExportFilename } from "./export";
+import {
+  PRODUCER_CARD_EXPORT_LAYOUT,
+  SCORECARD_EXPORTS,
+  scorecardExportFilename,
+} from "./export";
 
 describe("scorecard PNG exports", () => {
   it("uses exact 9:16 and 16:9 canvas dimensions", () => {
     expect(SCORECARD_EXPORTS.portrait).toMatchObject({ width: 1080, height: 1920 });
     expect(SCORECARD_EXPORTS.landscape).toMatchObject({ width: 1920, height: 1080 });
+  });
+
+  it("uses the approved staggered two-face layout for producer scorecard downloads", () => {
+    expect(PRODUCER_CARD_EXPORT_LAYOUT.portrait).toEqual({
+      front: { left: 128, top: 195, width: 563, height: 788 },
+      back: { left: 400, top: 968, width: 544, height: 762 },
+    });
+    expect(PRODUCER_CARD_EXPORT_LAYOUT.landscape).toEqual({
+      front: { left: 518, top: 54, width: 438, height: 613 },
+      back: { left: 905, top: 400, width: 450, height: 630 },
+    });
   });
 
   it("builds a safe filename that identifies the section and ratio", () => {

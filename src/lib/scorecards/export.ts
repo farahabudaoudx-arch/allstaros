@@ -8,6 +8,27 @@ export const SCORECARD_EXPORTS = {
   { width: number; height: number; label: string }
 >;
 
+type ProducerCardFaceLayout = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+export const PRODUCER_CARD_EXPORT_LAYOUT = {
+  portrait: {
+    front: { left: 128, top: 195, width: 563, height: 788 },
+    back: { left: 400, top: 968, width: 544, height: 762 },
+  },
+  landscape: {
+    front: { left: 518, top: 54, width: 438, height: 613 },
+    back: { left: 905, top: 400, width: 450, height: 630 },
+  },
+} as const satisfies Record<
+  ScorecardExportFormat,
+  { front: ProducerCardFaceLayout; back: ProducerCardFaceLayout }
+>;
+
 export function scorecardExportFilename(
   metadata: {
     cardType: "producer" | "builder";

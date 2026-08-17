@@ -32,6 +32,9 @@ describe("Producer baseball card", () => {
     );
 
     expect(html).toContain('aria-label="Flip Jackson Rapaport scorecard to the back"');
+    expect(html).toContain('class="producer-baseball-card');
+    expect(html).toContain('producer-baseball-card__front');
+    expect(html).toContain('producer-baseball-card__back');
     expect(html).toContain("Jackson Rapaport");
     expect(html).toContain("July 2026 Producer Scorecard");
     expect(html).toContain("3.4 average");
@@ -113,5 +116,9 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("Numbers don&#x27;t lie. If you don&#x27;t like your ranking, do something about it.");
     expect(html.indexOf(">How Scorecards Work</h3>")).toBeLessThan(html.indexOf(">Issued Premium</h3>"));
     expect(html).toContain(">Your Scorecard</h3>");
+    expect(html).toContain("justify-center text-center");
+    expect(html).not.toMatch(/>05<\/p><h3[^>]*>Your Scorecard/);
+    expect(html).toContain('aria-label="Download Your Scorecard as a 9:16 PNG"');
+    expect(html).not.toContain("Download 05 Your Scorecard");
   });
 });
