@@ -40,8 +40,11 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain('aria-label="Toggle How Scorecards Work"');
     expect(html).toContain('class="scorecard-guide__chevron');
     expect(html).not.toContain("Download How Scorecards Work");
-    expect(html).toMatch(/aria-label="Four Builder scorecard areas"[\s\S]*?>Team IP<[\s\S]*?>Team Productivity<[\s\S]*?>Previous Period Growth<[\s\S]*?>Recruiting</);
-    expect(html).toContain("ranked against other active builders in the organization—not against producers");
+    expect(html).toContain("based on two areas the OS helps you track:");
+    expect(html).toMatch(/aria-label="Two Builder scorecard areas"[\s\S]*?>Team Production<[\s\S]*?>Recruiting</);
+    expect(html).not.toContain('aria-label="Three Builder scorecard areas"');
+    expect(html).toContain("We rank your agency against other active agencies in the organization, not against producers.");
+    expect(html).toContain("If you don&#x27;t like your ranking, do something about it!");
     expect(html.indexOf(">How Scorecards Work</h3>")).toBeLessThan(html.indexOf(">Team Issued Premium</h3>"));
   });
 });

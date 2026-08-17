@@ -32,9 +32,7 @@ export type BuilderScorecardMetric = Pick<BuilderPeriodMetric,
 >;
 
 const BUILDER_SCORECARD_AREAS = [
-  "Team IP",
-  "Team Productivity",
-  "Previous Period Growth",
+  "Team Production",
   "Recruiting",
 ] as const;
 
@@ -66,10 +64,10 @@ function BuilderScorecardHowItWorks() {
 
         <div id="builder-scorecard-how-it-works-content" className="w-full">
           <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            As a builder, we create a scorecard for you based on four areas the OS helps you track:
+            As a builder, we create a scorecard for you based on two areas the OS helps you track:
           </p>
 
-          <ul aria-label="Four Builder scorecard areas" className="mt-7 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <ul aria-label="Two Builder scorecard areas" className="mt-7 grid grid-cols-2 gap-2 sm:gap-3">
             {BUILDER_SCORECARD_AREAS.map((area) => (
               <li
                 key={area}
@@ -82,13 +80,13 @@ function BuilderScorecardHowItWorks() {
 
           <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
             <p>
-              Team IP and recruiting are ranked against other active builders in the organization—not against producers. Team Productivity shows the health of your team through active writers, weighted first-leg percentage, and average monthly IP per writer. Previous Period Growth shows how Team IP changed from the prior period.
+              We rank your agency against other active agencies in the organization, not against producers.
             </p>
             <p className="mt-6">
               You can download 9:16 or 16:9 screenshots of each section to post online.
             </p>
             <p className="mt-6 font-semibold text-white">
-              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it.
+              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it!
             </p>
           </div>
         </div>
