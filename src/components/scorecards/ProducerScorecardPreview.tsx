@@ -386,6 +386,7 @@ function ActivityStory({ activity, submittedApCents, organizationRanks, exportMe
               <p>You booked <strong className="font-semibold text-accent">{activity.totals.appointments.toLocaleString()} appointments</strong>.</p>
               <p>You ran <strong className="font-semibold text-accent">{activity.totals.presentations.toLocaleString()} presentations</strong>.</p>
               <p>You submitted <strong className="font-semibold text-accent">{activity.totals.sales.toLocaleString()} sales</strong>.</p>
+              <p>You spent <strong className="font-semibold text-accent">{money(activity.leadSpendCents)} on leads</strong>.</p>
             </div>
             <OrganizationComparison
               items={[

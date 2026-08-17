@@ -110,6 +110,7 @@ export type ProducerOverview = {
   activity: {
     availability: "tracked" | "partial" | "missing";
     trackedDays: number;
+    leadSpendCents: number;
     loggedDates: string[];
     expectedDates: string[] | null;
     consistency: { loggedDays: number; expectedDays: number; percentage: number } | null;
@@ -122,6 +123,7 @@ export function createProducerOverview(input: {
   fullName: string;
   photoUrl: string | null;
   submittedApCents: number | null;
+  leadSpendCents: number;
   priorSubmittedApCents?: number | null;
   currentIssuedIpCents: number;
   priorIssuedIpCents: number | null;
@@ -216,6 +218,7 @@ export function createProducerOverview(input: {
     activity: {
       availability,
       trackedDays,
+      leadSpendCents: input.leadSpendCents,
       loggedDates: [...new Set(input.activityRows.map((row) => row.entryDate))].sort(),
       expectedDates: input.expectedWorkingDates ? [...new Set(input.expectedWorkingDates)].sort() : null,
       consistency,

@@ -22,6 +22,7 @@ export default function ProducerScorecardVisualPreviewPage() {
     fullName: "Jackson Rapaport",
     photoUrl: "https://api.allstarlifegroup.com/storage/v1/object/public/headshots/aa7642c5-7b10-473e-ac8f-b9c21f958354.jpg?v=1784920841727",
     submittedApCents: protectedFixture.expected.submittedApCents,
+    leadSpendCents: protectedFixture.expected.leadSpendCents,
     priorSubmittedApCents: protectedFixture.expected.priorSubmittedApCents,
     currentIssuedIpCents: protectedFixture.expected.totalIssuedIpCents,
     priorIssuedIpCents: protectedFixture.expected.priorMonthIpCents,

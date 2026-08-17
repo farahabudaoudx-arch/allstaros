@@ -43,6 +43,26 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
+function dayOfDateColumn(value: string | null | undefined): string | null {
+  const day = value?.slice(0, 10) ?? "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+}
+
+function dayOfInstantInChicago(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 export function currentMonthlyPeriod(now = new Date()): {
   start: string;
   end: string;
@@ -172,7 +192,7 @@ export async function loadCurrentMonthlyProducerOverview(
 ): Promise<ProducerOverview> {
   const period = currentMonthlyPeriod(now);
   const prior = previousMonth(period.start);
-  const [clientRows, trackerResult, priorTrackerResult, organizationClientRows, organizationTrackerRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
+  const [clientRows, trackerResult, priorTrackerResult, leadSpendResult, organizationClientRows, organizationTrackerRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
     await Promise.all([
       fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
         supabase
@@ -194,6 +214,10 @@ export async function loadCurrentMonthlyProducerOverview(
         .eq("person_id", producer.id)
         .gte("entry_date", prior.start)
         .lte("entry_date", prior.end),
+      supabase
+        .from("lead_purchases")
+        .select("amount, purchase_date, created_at")
+        .eq("person_id", producer.id),
       fetchAllRows<ClientSaleFields & { id: string; person_id: string }>((lo, hi) =>
         supabase
           .from("clients")
@@ -256,11 +280,13 @@ export async function loadCurrentMonthlyProducerOverview(
       supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", prior.start).lte("report_date", prior.end),
     ]);
   if (trackerResult.error || priorTrackerResult.error) throw new Error(`Unable to load activity: ${trackerResult.error?.message ?? priorTrackerResult.error?.message}`);
+  if (leadSpendResult.error) throw new Error(`Unable to load Lead Spend: ${leadSpendResult.error.message}`);
   if (peopleResult.error) throw new Error(`Unable to load rank population: ${peopleResult.error.message}`);
   if (currentImportsResult.error || priorImportsResult.error) throw new Error("Unable to load imported Gateway coverage for ranking.");
 
   let submittedApCents = 0;
   let priorSubmittedApCents = 0;
+  let leadSpendCents = 0;
   let submittedApAvailable = true;
   let priorSubmittedApAvailable = true;
   for (const client of clientRows) {
@@ -279,6 +305,16 @@ export async function loadCurrentMonthlyProducerOverview(
         priorSubmittedApCents += dollarsToCents(client.annual_premium);
       }
     }
+  }
+
+  for (const purchase of (leadSpendResult.data ?? []) as Array<{
+    amount: number | string | null;
+    purchase_date: string | null;
+    created_at: string | null;
+  }>) {
+    const day = dayOfDateColumn(purchase.purchase_date) ?? dayOfInstantInChicago(purchase.created_at);
+    if (!day || day < period.start || day > period.end) continue;
+    leadSpendCents += dollarsToCents(purchase.amount);
   }
 
   const mapActivityRows = (rows: Array<Record<string, number | string | null>>) => rows.map<ProducerActivityRow>(
@@ -407,6 +443,7 @@ export async function loadCurrentMonthlyProducerOverview(
     fullName: producer.full_name,
     photoUrl: approvedPhotoUrl(producer),
     submittedApCents: submittedApAvailable ? submittedApCents : null,
+    leadSpendCents,
     priorSubmittedApCents: priorSubmittedApAvailable ? priorSubmittedApCents : null,
     currentIssuedIpCents,
     priorIssuedIpCents,

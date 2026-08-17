@@ -42,7 +42,7 @@ function producerPayload(personId: string) {
         },
         activity: {
           availability: "missing" as const, trackedDays: 0, loggedDates: [], expectedDates: null,
-          consistency: null, totals: null, perTrackedDay: null,
+          leadSpendCents: 0, consistency: null, totals: null, perTrackedDay: null,
         },
       },
     },

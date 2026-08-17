@@ -28,6 +28,7 @@
     "averageWeeklyIpCents": 675336,
     "issuanceStatus": "green",
     "submittedApCents": 3094788,
+    "leadSpendCents": 0,
     "priorMonthIpCents": 2647666,
     "priorSubmittedApCents": 2404044,
     "priorActivityRows": [
