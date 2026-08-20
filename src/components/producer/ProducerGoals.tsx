@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import { money, pctValue } from "@/lib/producer/format";
 
 export function ProducerGoals() {
@@ -21,14 +22,14 @@ export function ProducerGoals() {
           cache: "no-store",
         }),
       ]);
+      if (!goalRes.ok || !mtdRes.ok) throw new Error("load failed");
       const goalJson = await goalRes.json();
       const mtdJson = await mtdRes.json();
-      if (!goalJson.ok) throw new Error(goalJson.error ?? "Failed to load goal");
-      if (!mtdJson.ok) throw new Error(mtdJson.error ?? "Failed to load activity");
+      if (!goalJson.ok || !mtdJson.ok) throw new Error("load failed");
       setGoalAp(goalJson.goal?.ap_cents ?? null);
       setMtdAp(mtdJson.totals.ap_cents);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+    } catch {
+      setError(PRODUCER_LOAD_ERROR_COPY);
     } finally {
       setLoading(false);
     }

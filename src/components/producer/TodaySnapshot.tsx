@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import { money, num } from "@/lib/producer/format";
 import { localIsoDate } from "@/lib/producer/time";
 
@@ -57,9 +58,10 @@ export function TodaySnapshot() {
           cache: "no-store",
         }),
       ]);
+      if (!projRes.ok || !actRes.ok) throw new Error("load failed");
       const projJson = await projRes.json();
       const actJson = await actRes.json();
-      if (!actJson.ok) throw new Error(actJson.error ?? "Failed to load activity");
+      if (!actJson.ok) throw new Error("load failed");
       setTarget(projJson.ok ? (projJson.projection ?? null) : null);
       setActual({
         dials: actJson.totals.dials,
@@ -69,8 +71,8 @@ export function TodaySnapshot() {
         sales: actJson.totals.sales,
         ap_cents: actJson.totals.ap_cents,
       });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+    } catch {
+      setError(PRODUCER_LOAD_ERROR_COPY);
     } finally {
       setLoading(false);
     }

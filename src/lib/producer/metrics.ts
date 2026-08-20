@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ProducerQueryError } from "@/lib/producer/query-error";
 import { zonedParts, zonedIsoDay } from "@/lib/producer/time";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 
@@ -222,8 +223,8 @@ export async function computeDashboard(
     supabase.from("tracker_entry").select("entry_date, dials, contacts, appointments, presentations, sales, leads").eq("person_id", personId).gte("entry_date", from).lte("entry_date", to),
     supabase.from("clients").select(CLIENT_COLS).eq("person_id", personId),
   ]);
-  if (trackerRes.error) throw new Error(trackerRes.error.message);
-  if (clientsRes.error) throw new Error(clientsRes.error.message);
+  if (trackerRes.error) throw new ProducerQueryError(trackerRes.error.message, "tracker");
+  if (clientsRes.error) throw new ProducerQueryError(clientsRes.error.message, "clients");
 
   type TrackerAgg = { leads: number; dials: number; contacts: number; appointments: number; presentations: number; sales: number };
   const trackerByBucket = new Map<string, TrackerAgg>();
@@ -335,10 +336,10 @@ export async function computeAnalytics(
     supabase.from("client_deposits").select("actual_amount, status, updated_at, created_at").eq("person_id", personId).gte("updated_at", fromTs).lte("updated_at", toTs),
     supabase.from("lead_purchases").select("amount, purchase_date, created_at").eq("person_id", personId),
   ]);
-  if (trackerRes.error) throw new Error(trackerRes.error.message);
-  if (clientsRes.error) throw new Error(clientsRes.error.message);
-  if (depositRes.error) throw new Error(depositRes.error.message);
-  if (spendRes.error) throw new Error(spendRes.error.message);
+  if (trackerRes.error) throw new ProducerQueryError(trackerRes.error.message, "tracker");
+  if (clientsRes.error) throw new ProducerQueryError(clientsRes.error.message, "clients");
+  if (depositRes.error) throw new ProducerQueryError(depositRes.error.message, "deposits");
+  if (spendRes.error) throw new ProducerQueryError(spendRes.error.message, "lead_purchases");
 
   const clients = (clientsRes.data ?? []) as ClientRow[];
   const saleRows = clients.filter((c) => isSale(c) && inRange(saleDay(c, tz)));
@@ -591,7 +592,7 @@ export async function computeLeaderboard(
   const nameById = new Map<string, string>();
   if (ids.length) {
     const peopleRes = await supabase.from("person").select("id, full_name").in("id", ids);
-    if (peopleRes.error) throw new Error(peopleRes.error.message);
+    if (peopleRes.error) throw new ProducerQueryError(peopleRes.error.message, "people");
     for (const p of (peopleRes.data ?? []) as Array<{ id: string; full_name: string | null }>) {
       nameById.set(p.id, p.full_name ?? "Unknown");
     }
@@ -640,8 +641,8 @@ export async function computeCalendar(
     supabase.from("clients").select(CLIENT_COLS).eq("person_id", personId),
     supabase.from("tracker_entry").select("entry_date").eq("person_id", personId).gte("entry_date", fromIso).lte("entry_date", toIso),
   ]);
-  if (clientsRes.error) throw new Error(clientsRes.error.message);
-  if (trackerRes.error) throw new Error(trackerRes.error.message);
+  if (clientsRes.error) throw new ProducerQueryError(clientsRes.error.message, "clients");
+  if (trackerRes.error) throw new ProducerQueryError(trackerRes.error.message, "tracker");
 
   const days: Record<string, CalendarDay> = {};
   const bumpDay = (iso: string): CalendarDay => {

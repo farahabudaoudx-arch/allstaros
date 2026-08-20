@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeLeaderboard, fetchAllRows, type RangeKey } from "@/lib/producer/metrics";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 import { safeTz } from "@/lib/producer/time";
@@ -123,7 +124,10 @@ export async function GET(req: Request) {
       rows,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/team",
+      rangeKey,
+      roleType: "builder",
+    });
   }
 }

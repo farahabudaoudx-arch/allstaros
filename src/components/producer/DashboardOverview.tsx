@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AreaChart, type ChartPoint } from "@/components/producer/charts/AreaChart";
 import { TimeframePills, type Timeframe } from "@/components/producer/charts/TimeframePills";
+import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import type { DashboardResult, DashboardSeriesPoint } from "@/lib/producer/metrics";
 import { money, num, pct } from "@/lib/producer/format";
 
@@ -54,11 +55,12 @@ export function DashboardOverview() {
     }
     try {
       const res = await fetch(`/api/producer/dashboard/metrics?${params}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("load failed");
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error ?? "Failed to load");
+      if (!json.ok) throw new Error("load failed");
       setData(json as DashboardResult);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+    } catch {
+      setError(PRODUCER_LOAD_ERROR_COPY);
     } finally {
       setLoading(false);
     }
