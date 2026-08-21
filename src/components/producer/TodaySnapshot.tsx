@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchDashboardMetrics } from "@/lib/producer/dashboard-metrics-client";
 import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import { money, num } from "@/lib/producer/format";
 import { localIsoDate } from "@/lib/producer/time";
@@ -47,21 +48,17 @@ export function TodaySnapshot() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { bypassCache?: boolean }) => {
     setLoading(true);
     setError(null);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     try {
-      const [projRes, actRes] = await Promise.all([
+      const [projRes, actJson] = await Promise.all([
         fetch(`/api/producer/projection?date=${today}`, { cache: "no-store" }),
-        fetch(`/api/producer/dashboard/metrics?range=today&tz=${encodeURIComponent(tz)}`, {
-          cache: "no-store",
-        }),
+        fetchDashboardMetrics({ range: "today", tz, bypassCache: opts?.bypassCache }),
       ]);
-      if (!projRes.ok || !actRes.ok) throw new Error("load failed");
+      if (!projRes.ok) throw new Error("load failed");
       const projJson = await projRes.json();
-      const actJson = await actRes.json();
-      if (!actJson.ok) throw new Error("load failed");
       setTarget(projJson.ok ? (projJson.projection ?? null) : null);
       setActual({
         dials: actJson.totals.dials,
@@ -85,7 +82,7 @@ export function TodaySnapshot() {
   // Refresh when returning from the tracker (often opened in another tab).
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState === "visible") void load({ bypassCache: true });
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);

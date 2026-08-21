@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { fetchDashboardMetrics } from "@/lib/producer/dashboard-metrics-client";
 import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import { money, pctValue } from "@/lib/producer/format";
 
@@ -11,21 +12,18 @@ export function ProducerGoals() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { bypassCache?: boolean }) => {
     setLoading(true);
     setError(null);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     try {
-      const [goalRes, mtdRes] = await Promise.all([
+      const [goalRes, mtdJson] = await Promise.all([
         fetch("/api/producer/goal", { cache: "no-store" }),
-        fetch(`/api/producer/dashboard/metrics?range=mtd&tz=${encodeURIComponent(tz)}`, {
-          cache: "no-store",
-        }),
+        fetchDashboardMetrics({ range: "mtd", tz, bypassCache: opts?.bypassCache }),
       ]);
-      if (!goalRes.ok || !mtdRes.ok) throw new Error("load failed");
+      if (!goalRes.ok) throw new Error("load failed");
       const goalJson = await goalRes.json();
-      const mtdJson = await mtdRes.json();
-      if (!goalJson.ok || !mtdJson.ok) throw new Error("load failed");
+      if (!goalJson.ok) throw new Error("load failed");
       setGoalAp(goalJson.goal?.ap_cents ?? null);
       setMtdAp(mtdJson.totals.ap_cents);
     } catch {
@@ -36,12 +34,12 @@ export function ProducerGoals() {
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void load({ bypassCache: true });
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AreaChart, type ChartPoint } from "@/components/producer/charts/AreaChart";
 import { TimeframePills, type Timeframe } from "@/components/producer/charts/TimeframePills";
+import { fetchDashboardMetrics } from "@/lib/producer/dashboard-metrics-client";
 import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import type { DashboardResult, DashboardSeriesPoint } from "@/lib/producer/metrics";
 import { money, num, pct } from "@/lib/producer/format";
@@ -44,20 +45,18 @@ export function DashboardOverview() {
   const [active, setActive] = useState<MetricKey>("ap_cents");
   const [hover, setHover] = useState<{ index: number } | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { bypassCache?: boolean }) => {
     setLoading(true);
     setError(null);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const params = new URLSearchParams({ range: tf.key, tz });
-    if (tf.key === "custom" && tf.from && tf.to) {
-      params.set("from", tf.from);
-      params.set("to", tf.to);
-    }
     try {
-      const res = await fetch(`/api/producer/dashboard/metrics?${params}`, { cache: "no-store" });
-      if (!res.ok) throw new Error("load failed");
-      const json = await res.json();
-      if (!json.ok) throw new Error("load failed");
+      const json = await fetchDashboardMetrics({
+        range: tf.key,
+        tz,
+        from: tf.key === "custom" ? tf.from : undefined,
+        to: tf.key === "custom" ? tf.to : undefined,
+        bypassCache: opts?.bypassCache,
+      });
       setData(json as DashboardResult);
     } catch {
       setError(PRODUCER_LOAD_ERROR_COPY);
@@ -67,12 +66,12 @@ export function DashboardOverview() {
   }, [tf]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void load({ bypassCache: true });
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
