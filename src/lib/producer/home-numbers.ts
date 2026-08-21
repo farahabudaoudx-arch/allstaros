@@ -38,6 +38,17 @@ import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
  *  matters within a few hours of New Year's. */
 const TZ = "America/Chicago";
 
+/** PostgREST .in() lists go on the query string; ~100 UUIDs stays under typical
+ *  URL limits. Larger downlines (scale seed / big builders) must be chunked or
+ *  the request returns HTTP 400 Bad Request. */
+const IN_FILTER_CHUNK = 100;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 export type ProducerNumbers = {
   dials: number;
   presentations: number;
@@ -99,6 +110,7 @@ async function activeWriters(
 
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - WRITER_LOOKBACK_DAYS);
+  const sinceDay = since.toISOString().slice(0, 10);
 
   // Both reads go out together and are intersected here. Asking for the week
   // list first and the rows second would be two round trips to a remote
@@ -106,29 +118,31 @@ async function activeWriters(
   //
   // The row read is scoped to the team by id: with the service role there's no
   // RLS to clip it, and scanning every producer in the org is what made this
-  // screen crawl.
-  const [weeks, rows] = await Promise.all([
+  // screen crawl. Chunk .in() so large downlines don't blow the URL limit.
+  const [weeks, ...rowChunks] = await Promise.all([
     // The six weeks are the org's six most recent uploads, NOT the six most
     // recent this team happens to appear in. A small team that skipped a
     // couple of reports would otherwise reach further back and count stale
     // production as current.
     recentReportDates(supabase),
-    fetchAllRows<{ person_id: string; report_date: string }>((lo, hi) =>
-      supabase
-        .from("producer_issued_premium")
-        .select("person_id, report_date")
-        .eq("period_type", "wtd")
-        .in("person_id", ids)
-        .gte("report_date", since.toISOString().slice(0, 10))
-        .gt("personal_ip_cents", 0)
-        .order("id")
-        .range(lo, hi),
+    ...chunk(ids, IN_FILTER_CHUNK).map((part) =>
+      fetchAllRows<{ person_id: string; report_date: string }>((lo, hi) =>
+        supabase
+          .from("producer_issued_premium")
+          .select("person_id, report_date")
+          .eq("period_type", "wtd")
+          .in("person_id", part)
+          .gte("report_date", sinceDay)
+          .gt("personal_ip_cents", 0)
+          .order("id")
+          .range(lo, hi),
+      ),
     ),
   ]);
 
   const inWindow = new Set(weeks);
   const writers = new Set<string>();
-  for (const r of rows) {
+  for (const r of rowChunks.flat()) {
     if (inWindow.has(r.report_date)) writers.add(r.person_id);
   }
   return writers.size;
@@ -208,17 +222,21 @@ async function teamSubmittedApCents(
   if (!ids.length) return 0;
   const { from, to } = resolveRange("ytd", TZ);
 
-  const rows = await fetchAllRows<ClientSaleFields>((lo, hi) =>
-    supabase
-      .from("clients")
-      .select("annual_premium, sale_status, submit_date, date, created_at")
-      .in("person_id", ids)
-      .order("id")
-      .range(lo, hi),
+  const rowChunks = await Promise.all(
+    chunk(ids, IN_FILTER_CHUNK).map((part) =>
+      fetchAllRows<ClientSaleFields>((lo, hi) =>
+        supabase
+          .from("clients")
+          .select("annual_premium, sale_status, submit_date, date, created_at")
+          .in("person_id", part)
+          .order("id")
+          .range(lo, hi),
+      ),
+    ),
   );
 
   let cents = 0;
-  for (const c of rows) {
+  for (const c of rowChunks.flat()) {
     if (!isSale(c)) continue;
     const day = saleDay(c, TZ);
     if (!day || day < from || day > to) continue;
@@ -361,15 +379,18 @@ export async function builderYtd(
       ).length
     : (pipeline.count ?? 0);
 
-  const [writers, teamApCents] = await Promise.all([
+  const [writers, teamApCents, bookIp] = await Promise.all([
     activeWriters(supabase, personId, teamIds),
     // Submitted AP has no Gateway equivalent — Gateway only reports what
     // issued — so it stays a sum over the team's own submissions.
     teamSubmittedApCents(supabase, teamIds),
+    // When there's no Gateway row, fall back to the in-app book — run alongside
+    // the other stage-B reads instead of blocking the response afterward.
+    gateway ? Promise.resolve(null) : bookIpCents(supabase, personId),
   ]);
 
   return {
-    ipCents: gateway?.personalCents ?? (await bookIpCents(supabase, personId)),
+    ipCents: gateway?.personalCents ?? bookIp ?? 0,
     writers,
     recruitsInPipeline,
     teamApCents,

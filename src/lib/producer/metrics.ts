@@ -474,11 +474,15 @@ export type LeaderboardRow = {
   photo_url?: string | null;
   ap_cents: number;
   ip_cents: number;
+  /** Ranked sales metric: max(tracker_sales, client sale_count). */
   sales: number;
+  /** Raw sum of tracker_entry.sales — Team "Policies Sold" uses this. */
+  tracker_sales: number;
   policies: number;
   deposits_cents: number;
   dials: number;
   contacts: number;
+  appointments: number;
   presentations: number;
 };
 
@@ -487,6 +491,25 @@ export type LeaderboardResult = {
   metric: LeaderboardMetric;
   rows: LeaderboardRow[];
 };
+
+type LeaderboardAggregateRpcRow = {
+  person_id: string;
+  full_name: string | null;
+  ap_cents: number | string | null;
+  ip_cents: number | string | null;
+  sale_count: number | string | null;
+  policies: number | string | null;
+  deposits_cents: number | string | null;
+  tracker_sales: number | string | null;
+  dials: number | string | null;
+  contacts: number | string | null;
+  appointments: number | string | null;
+  presentations: number | string | null;
+};
+
+function n(v: number | string | null | undefined): number {
+  return Number(v ?? 0);
+}
 
 async function findEarliestActivityDateAll(supabase: SupabaseClient): Promise<string | null> {
   const [tracker, clients] = await Promise.all([
@@ -522,6 +545,17 @@ export async function fetchAllRows<T>(
   return out;
 }
 
+/**
+ * Org-wide / team leaderboard aggregates via `leaderboard_aggregates` SQL.
+ *
+ * One round trip: the database groups every visible client / tracker / deposit
+ * row per person (RLS scope of the given client applies — SECURITY INVOKER).
+ * Replaces three org-wide row fetches that were paged 1000 rows per round trip
+ * and aggregated in Node — payload now scales with team size, not book size.
+ *
+ * Failures throw ProducerQueryError so routes can tag Sentry without leaking
+ * Postgres text to the client (Ticket #001).
+ */
 export async function computeLeaderboard(
   supabase: SupabaseClient,
   opts: { rangeKey: RangeKey; tz: string; from?: string | null; to?: string | null; metric?: LeaderboardMetric },
@@ -530,91 +564,43 @@ export async function computeLeaderboard(
   const metric: LeaderboardMetric = opts.metric ?? "ap_cents";
   const earliestAll = rangeKey === "all" ? await findEarliestActivityDateAll(supabase) : null;
   const { from, to } = resolveRange(rangeKey, tz, opts.from, opts.to, earliestAll);
-  const { fromTs, toTs } = sqlWindow(from, to);
-  const inRange = (day: string | null) => !!day && day >= from && day <= to;
 
-  // All paged through fetchAllRows so nothing is dropped at the 1000-row cap.
-  const [clientRows, trackerRows, depositRows] = await Promise.all([
-    // All clients org-wide; we attribute each to a day in JS (sale vs issue
-    // dates can diverge from created_at, so we don't bound by created_at here).
-    fetchAllRows<ClientRow & { person_id: string }>((lo, hi) =>
-      supabase.from("clients").select(`person_id, ${CLIENT_COLS}`).order("id").range(lo, hi),
-    ),
-    fetchAllRows<{ person_id: string; sales: number | null; dials: number | null; contacts: number | null; presentations: number | null }>((lo, hi) =>
-      supabase.from("tracker_entry").select("person_id, sales, dials, contacts, presentations, entry_date").gte("entry_date", from).lte("entry_date", to).order("id").range(lo, hi),
-    ),
-    fetchAllRows<{ person_id: string; actual_amount: number | null; status: string | null; updated_at: string | null; created_at: string | null }>((lo, hi) =>
-      supabase.from("client_deposits").select("person_id, actual_amount, status, updated_at, created_at").gte("updated_at", fromTs).lte("updated_at", toTs).order("id").range(lo, hi),
-    ),
-  ]);
-
-  type Agg = { ap_cents: number; ip_cents: number; saleCount: number; trackerSales: number; policies: number; deposits_cents: number; dials: number; contacts: number; presentations: number };
-  const byPerson = new Map<string, Agg>();
-  const bump = (pid: string): Agg => {
-    let a = byPerson.get(pid);
-    if (!a) {
-      a = { ap_cents: 0, ip_cents: 0, saleCount: 0, trackerSales: 0, policies: 0, deposits_cents: 0, dials: 0, contacts: 0, presentations: 0 };
-      byPerson.set(pid, a);
-    }
-    return a;
-  };
-
-  for (const c of clientRows) {
-    if (isSale(c) && inRange(saleDay(c, tz))) {
-      const a = bump(c.person_id);
-      a.ap_cents += dollarsToCents(c.annual_premium);
-      a.saleCount += 1;
-    }
-    if (inRange(dayOfDateCol(c.issue_date))) {
-      const a = bump(c.person_id);
-      a.ip_cents += dollarsToCents(c.annual_premium);
-      a.policies += 1;
-    }
-  }
-
-  for (const t of trackerRows) {
-    const a = bump(t.person_id);
-    a.trackerSales += Number(t.sales ?? 0);
-    a.dials += Number(t.dials ?? 0);
-    a.contacts += Number(t.contacts ?? 0);
-    a.presentations += Number(t.presentations ?? 0);
-  }
-
-  for (const d of depositRows) {
-    if (d.status !== "successful") continue;
-    if (!inRange(dayOfTs(d.updated_at, tz) ?? dayOfTs(d.created_at, tz))) continue;
-    bump(d.person_id).deposits_cents += dollarsToCents(d.actual_amount);
-  }
+  const { data, error } = await supabase.rpc("leaderboard_aggregates", {
+    p_from: from,
+    p_to: to,
+    p_tz: tz,
+  });
+  if (error) throw new ProducerQueryError(error.message, "leaderboard_aggregates");
 
   // Internal/test/owner rows never appear on any board; keep accounts alive,
   // just exclude them from the ranked output. See leaderboardExclusions.ts.
-  const ids = Array.from(byPerson.keys()).filter((id) => !isLeaderboardExcluded(id));
-  const nameById = new Map<string, string>();
-  if (ids.length) {
-    const peopleRes = await supabase.from("person").select("id, full_name").in("id", ids);
-    if (peopleRes.error) throw new ProducerQueryError(peopleRes.error.message, "people");
-    for (const p of (peopleRes.data ?? []) as Array<{ id: string; full_name: string | null }>) {
-      nameById.set(p.id, p.full_name ?? "Unknown");
-    }
-  }
+  const rows: LeaderboardRow[] = ((data ?? []) as LeaderboardAggregateRpcRow[])
+    .filter((r) => r.person_id && !isLeaderboardExcluded(r.person_id))
+    .map((r) => {
+      const saleCount = n(r.sale_count);
+      const trackerSales = n(r.tracker_sales);
+      return {
+        person_id: r.person_id,
+        full_name: r.full_name ?? "Unknown",
+        ap_cents: n(r.ap_cents),
+        ip_cents: n(r.ip_cents),
+        sales: Math.max(trackerSales, saleCount),
+        tracker_sales: trackerSales,
+        policies: n(r.policies),
+        deposits_cents: n(r.deposits_cents),
+        dials: n(r.dials),
+        contacts: n(r.contacts),
+        appointments: n(r.appointments),
+        presentations: n(r.presentations),
+      };
+    });
 
-  const rows: LeaderboardRow[] = ids.map((pid) => {
-    const a = byPerson.get(pid)!;
-    return {
-      person_id: pid,
-      full_name: nameById.get(pid) ?? "Unknown",
-      ap_cents: a.ap_cents,
-      ip_cents: a.ip_cents,
-      sales: Math.max(a.trackerSales, a.saleCount),
-      policies: a.policies,
-      deposits_cents: a.deposits_cents,
-      dials: a.dials,
-      contacts: a.contacts,
-      presentations: a.presentations,
-    };
-  });
-
-  rows.sort((x, y) => (y[metric] as number) - (x[metric] as number) || y.ap_cents - x.ap_cents || x.full_name.localeCompare(y.full_name));
+  rows.sort(
+    (x, y) =>
+      (y[metric] as number) - (x[metric] as number) ||
+      y.ap_cents - x.ap_cents ||
+      x.full_name.localeCompare(y.full_name),
+  );
 
   return { range: { key: rangeKey, from, to }, metric, rows };
 }
