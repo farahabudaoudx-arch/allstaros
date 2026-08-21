@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ProducerQueryError } from "@/lib/producer/query-error";
 
 export type ProducerUnread = {
   /** The person's own thread with their upline (the "Messages" nav item). */
@@ -8,44 +9,28 @@ export type ProducerUnread = {
 };
 
 /**
- * Computes whether the producer has unread messages in their own upline thread
- * and/or any of their downline threads. "Unread" = a builder-channel message
- * from someone other than them (and not the AI) that is newer than their last
- * read receipt for that thread. RLS scopes the message read to self + downline,
- * exactly like the Messages pages.
+ * Whether the producer has unread messages in their upline thread and/or any
+ * downline (team) thread. Delegates to `producer_unread_flags()` so we do not
+ * transfer the full visible message list — EXISTS stops at the first match.
+ *
+ * Failures throw (never silently report all-read). Callers that need a soft
+ * badge must catch explicitly; menu chrome lets the error surface so Ticket
+ * #003's boundary / logs see it.
  */
-export async function getProducerUnread(personId: string): Promise<ProducerUnread> {
+export async function getProducerUnread(_personId: string): Promise<ProducerUnread> {
   const supabase = await createClient();
+  const { data, error } = await supabase.rpc("producer_unread_flags");
+  if (error) throw new ProducerQueryError(error.message, "unread");
 
-  const [ownRecruitRes, readsRes, incomingRes] = await Promise.all([
-    supabase.from("recruit").select("id").eq("person_id", personId).maybeSingle(),
-    supabase.from("message_read").select("recruit_id, last_read_at").eq("person_id", personId),
-    supabase
-      .from("message")
-      .select("recruit_id, created_at")
-      .eq("channel", "builder")
-      .eq("is_ai", false)
-      .neq("sender_person_id", personId)
-      .order("created_at", { ascending: false }),
-  ]);
-
-  const ownRecruitId = (ownRecruitRes.data as { id: string } | null)?.id ?? null;
-
-  const lastRead = new Map<string, string>();
-  for (const r of (readsRes.data ?? []) as Array<{ recruit_id: string; last_read_at: string }>) {
-    lastRead.set(r.recruit_id, r.last_read_at);
+  // rpc() may return a one-row array or a single object depending on client version.
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") {
+    throw new ProducerQueryError("producer_unread_flags returned no row", "unread");
   }
 
-  let upline = false;
-  let team = false;
-  for (const m of (incomingRes.data ?? []) as Array<{ recruit_id: string; created_at: string }>) {
-    const read = lastRead.get(m.recruit_id);
-    const isUnread = !read || m.created_at > read;
-    if (!isUnread) continue;
-    if (m.recruit_id === ownRecruitId) upline = true;
-    else team = true;
-    if (upline && team) break;
-  }
-
-  return { upline, team };
+  const r = row as { upline?: boolean | null; team?: boolean | null };
+  return {
+    upline: !!r.upline,
+    team: !!r.team,
+  };
 }
