@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import type { Person } from "@/lib/db/types";
@@ -33,8 +34,13 @@ export async function resolveLandingPath(
  * Get the person row for the currently signed-in user, or null.
  * Uses the RLS-scoped client, so it only returns rows the user can see —
  * which for their own row is always allowed via can_view.
+ *
+ * Wrapped in React cache() so a layout, nested shell and page that each ask
+ * for the current person share ONE lookup per request instead of repeating
+ * an auth round trip + person select at every level. Still uses getUser() so
+ * the JWT is validated with Auth (not cookie-only getSession).
  */
-export async function getCurrentPerson(): Promise<Person | null> {
+export const getCurrentPerson = cache(async (): Promise<Person | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -47,7 +53,7 @@ export async function getCurrentPerson(): Promise<Person | null> {
     .eq("auth_user_id", user.id)
     .maybeSingle();
   return (data as Person | null) ?? null;
-}
+});
 
 /**
  * Link a Supabase auth user to their pre-existing person row by email.

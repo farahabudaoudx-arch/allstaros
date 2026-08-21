@@ -1,5 +1,7 @@
 # All Star OS — v1
 
+<!-- ci-pipeline-test -->
+
 A standalone recruiting pipeline for life-insurance organizations. Carries a
 recruit from passed interview → licensing → onboarding → 28-day bootcamp →
 graduated. Builders watch their downline; the system flags stalls; humans

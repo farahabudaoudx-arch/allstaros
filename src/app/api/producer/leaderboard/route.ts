@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeLeaderboard, type LeaderboardMetric, type RangeKey } from "@/lib/producer/metrics";
 import { safeTz } from "@/lib/producer/time";
 
@@ -41,7 +42,10 @@ export async function GET(req: Request) {
     });
     return NextResponse.json({ ok: true, meId: person.id, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/leaderboard",
+      rangeKey,
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }

@@ -1,23 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 
 function clampInt(v: unknown): number {
   const n = Math.floor(Number(v));
   return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-// Supabase throws PostgrestError objects (not Error instances); surface their
-// real message + code instead of a generic "unknown error".
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object") {
-    const e = err as { message?: unknown; code?: unknown };
-    if (typeof e.message === "string") {
-      return e.code ? `${e.message} (${String(e.code)})` : e.message;
-    }
-  }
-  return "unknown error";
 }
 
 // GET /api/producer/goal — the producer's standing goal, or null.
@@ -35,7 +23,10 @@ export async function GET() {
     if (error) throw error;
     return NextResponse.json({ ok: true, goal: data });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/goal",
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }
 
@@ -67,6 +58,9 @@ export async function POST(req: Request) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/goal",
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }

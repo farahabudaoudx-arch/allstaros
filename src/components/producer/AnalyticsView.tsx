@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { UsStateMap, type StateDatum } from "@/components/producer/charts/UsStateMap";
 import { HallOfFameTracker } from "@/components/producer/issued-premium/HallOfFameTracker";
+import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
 import { localIsoDate } from "@/lib/producer/time";
 import { PageHeader } from "@/components/producer/PageHeader";
 
@@ -208,13 +209,16 @@ export function AnalyticsView({
       if (tz) params.set("tz", tz);
       if (personId) params.set("personId", personId);
       return fetch(`/api/producer/analytics/metrics?${params.toString()}`, { cache: "no-store" })
-        .then((r) => r.json())
+        .then(async (r) => {
+          if (!r.ok) throw new Error("load failed");
+          return r.json();
+        })
         .then((j) => {
           if (aborted) return;
-          if (!j.ok) throw new Error(j.error ?? "Failed to load");
+          if (!j.ok) throw new Error("load failed");
           setServer(j as ServerMetrics);
         })
-        .catch((e) => { if (!aborted) setError(e.message ?? "Failed to load"); })
+        .catch(() => { if (!aborted) setError(PRODUCER_LOAD_ERROR_COPY); })
         .finally(() => { if (!aborted) setLoading(false); });
     }
     load();
@@ -1144,13 +1148,16 @@ function AnalyticsCalendar({ reloadKey, personId }: { reloadKey: number; personI
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     const personParam = personId ? `&personId=${encodeURIComponent(personId)}` : "";
     fetch(`/api/producer/analytics/calendar?month=${ym}&tz=${encodeURIComponent(tz)}${personParam}`, { cache: "no-store" })
-      .then((r) => r.json() as Promise<CalendarResp>)
+      .then(async (r) => {
+        if (!r.ok) throw new Error("load failed");
+        return r.json() as Promise<CalendarResp>;
+      })
       .then((j) => {
         if (aborted) return;
-        if (!j.ok) throw new Error(j.error ?? "Failed to load");
+        if (!j.ok) throw new Error("load failed");
         setDays(j.days ?? {});
       })
-      .catch((e) => { if (!aborted) { setError(e.message ?? "Failed to load"); setDays({}); } })
+      .catch(() => { if (!aborted) { setError(PRODUCER_LOAD_ERROR_COPY); setDays({}); } })
       .finally(() => { if (!aborted) setLoading(false); });
     return () => { aborted = true; };
   }, [viewYear, viewMonth, reloadKey, personId]);
