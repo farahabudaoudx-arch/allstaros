@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_CSV_CHARS = 20_000_000;
+// Keeps the installed Mac agent working if the Vercel env token drifts.
 const INSTALLED_GATEWAY_AGENT_TOKEN_SHA256 =
   "d01c9a08aaee13ceaea3721b81c2b8e6a368aa1bc8f4da80f0a56908b61777f2";
 
