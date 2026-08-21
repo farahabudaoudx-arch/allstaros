@@ -5,7 +5,10 @@ export type ProducerQueryPhase =
   | "lead_purchases"
   | "people"
   | "leaderboard_aggregates"
-  | "unread";
+  | "unread"
+  | "dashboard_buckets"
+  | "analytics_bundle"
+  | "calendar_days";
 
 /** Tagged Error thrown from metrics query failures so routes can tag Sentry. */
 export class ProducerQueryError extends Error {
