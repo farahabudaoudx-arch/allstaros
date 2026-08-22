@@ -8,7 +8,8 @@ export type ProducerQueryPhase =
   | "unread"
   | "dashboard_buckets"
   | "analytics_bundle"
-  | "calendar_days";
+  | "calendar_days"
+  | "discord";
 
 /** Tagged Error thrown from metrics query failures so routes can tag Sentry. */
 export class ProducerQueryError extends Error {

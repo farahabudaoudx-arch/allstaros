@@ -11,6 +11,8 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint",
     "seed:dev-users": "node --env-file=.env.local scripts/seed-dev-users.mjs",
+    "seed:perf-load": "node --env-file=.env.local scripts/seed-perf-load.mjs",
+    "seed:full-schema": "node --env-file=.env.local scripts/seed-full-schema.mjs",
     "set:passwords": "node --env-file=.env.local scripts/set-passwords.mjs",
     "email:test": "node --env-file=.env.local scripts/send-test-email.mjs"
   },

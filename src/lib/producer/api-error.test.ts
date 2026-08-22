@@ -10,7 +10,7 @@ import {
   producerLoadErrorResponse,
   ProducerQueryError,
 } from "./api-error";
-import { PRODUCER_LOAD_ERROR_COPY } from "./error-copy";
+import { PRODUCER_API_ERROR_COPY, PRODUCER_LOAD_ERROR_COPY } from "./error-copy";
 
 describe("producerLoadErrorResponse", () => {
   beforeEach(() => {
@@ -65,6 +65,17 @@ describe("producerLoadErrorResponse", () => {
       rangeKey: "ytd",
       queryPhase: "tracker",
     });
+  });
+
+  it("can return a generic API message for non-metrics routes", async () => {
+    const res = producerLoadErrorResponse(new Error("relation does not exist"), {
+      route: "/api/producer/tracker",
+      queryPhase: "tracker",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
+    const body = await res.json();
+    expect(body.error).toBe(PRODUCER_API_ERROR_COPY);
+    expect(JSON.stringify(body)).not.toContain("relation does not exist");
   });
 
   it("falls back to a UUID correlationId when Sentry returns empty", async () => {

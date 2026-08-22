@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
+
+const sentryEnvironment = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
+const sentryRelease = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.SENTRY_RELEASE ?? "";
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const uploadSourceMaps = Boolean(sentryAuthToken);
 
 const nextConfig: NextConfig = {
   // Hide the on-screen dev route indicator (bottom-left "N"). Build/runtime
@@ -8,6 +14,30 @@ const nextConfig: NextConfig = {
   // side-by-side role previews on another port) sets NEXT_DIST_DIR to get its
   // own build folder. Unset (all normal use and prod builds) means ".next".
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // Client + server Sentry.init must share preview/production labels. VERCEL_ENV
+  // is not a NEXT_PUBLIC_ var, so stamp it at build time.
+  env: {
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: sentryEnvironment,
+    ...(sentryRelease ? { NEXT_PUBLIC_SENTRY_RELEASE: sentryRelease } : {}),
+  },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: "systamazing",
+  project: "javascript-nextjs",
+  authToken: sentryAuthToken,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  sourcemaps: uploadSourceMaps
+    ? {
+        // Cover Next 16 / Vercel `static/immutable` chunks as well as `static/chunks`.
+        assets: [".next/server", ".next/static"],
+        deleteSourcemapsAfterUpload: true,
+      }
+    : { disable: true },
+  release: {
+    name: sentryRelease || undefined,
+    create: uploadSourceMaps,
+    finalize: uploadSourceMaps,
+  },
+});

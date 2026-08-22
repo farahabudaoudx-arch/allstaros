@@ -3,18 +3,21 @@
 // and wires router-navigation breadcrumbs. Each is dormant unless its key is set.
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
+import { sentryBeforeSend, sentryEnvironment, sentryRelease } from "@/lib/sentry-runtime";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: process.env.NODE_ENV,
+    environment: sentryEnvironment(),
+    release: sentryRelease(),
     // Error tracking only — see server config for the rationale.
     tracesSampleRate: 0,
     // Insurance app: no Session Replay. It would record the screen, which can
     // show client SSN / banking / card data. Deliberately omitted.
     sendDefaultPii: false,
+    beforeSend: sentryBeforeSend,
     // Drop benign browser/network noise — none of it is actionable on our end.
     // These fire from aborted requests (a page navigating away while a fetch is
     // still in flight — e.g. the post-signup redirect on /welcome surfaces as
