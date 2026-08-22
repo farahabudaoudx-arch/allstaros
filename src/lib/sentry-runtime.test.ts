@@ -51,4 +51,47 @@ describe("sentryBeforeSend", () => {
     expect(cleaned?.extra?.route).toBe("/api/producer/dashboard/metrics");
     expect(JSON.stringify(cleaned)).not.toMatch(/ada@example|Ada Lovelace|Bearer abc|sb=session/i);
   });
+
+  it("drops the read-only array push noise only when the stack traces to a browser extension", () => {
+    const extensionNoise = sentryBeforeSend(
+      event({
+        exception: {
+          values: [
+            {
+              type: "TypeError",
+              value: "Cannot assign to read only property 'push' of object '[object Array]'",
+              stacktrace: {
+                frames: [
+                  { filename: "chrome-extension://abc/content.js" },
+                  { filename: "https://app.example/_next/static/chunks/app/page.js" },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(extensionNoise).toBeNull();
+
+    const appError = sentryBeforeSend(
+      event({
+        exception: {
+          values: [
+            {
+              type: "TypeError",
+              value: "Cannot assign to read only property 'push' of object '[object Array]'",
+              stacktrace: {
+                frames: [
+                  { filename: "https://app.example/_next/static/chunks/app/producer/page.js" },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(appError).not.toBeNull();
+  });
 });

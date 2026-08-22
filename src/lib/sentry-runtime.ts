@@ -22,12 +22,51 @@ export function sentryRelease(): string | undefined {
 
 const SENSITIVE_HEADER = /^(cookie|set-cookie|authorization|x-supabase|x-auth|x-api-key)/i;
 const SENSITIVE_KEY = /email|full_name|first_name|last_name|phone|ssn|token|cookie|password|authorization|auth_user/i;
+const EXTENSION_PROTOCOLS = /^(chrome|moz|safari|edge|brave|vivaldi|opera)-extension:\/?\/\//i;
+const READ_ONLY_ARRAY_PUSH = /read only property ['"]push['"] of object '\[object Array\]'|read only property ['"]push['"] of object \[object Array\]/i;
+
+function hasExtensionFrame(event: ErrorEvent): boolean {
+  const stacks = [
+    event.exception?.values,
+    event.exception?.values?.flatMap((value) => value.stacktrace?.frames ?? []),
+  ].flat();
+
+  for (const entry of stacks) {
+    if (!entry) continue;
+    const filename =
+      typeof entry === "string"
+        ? entry
+        : "filename" in entry && typeof entry.filename === "string"
+          ? entry.filename
+          : "";
+    if (filename && EXTENSION_PROTOCOLS.test(filename)) return true;
+  }
+
+  return false;
+}
+
+function isBrowserExtensionReadOnlyArrayNoise(event: ErrorEvent): boolean {
+  if (!event.exception?.values?.length) return false;
+
+  const hasNoiseMessage = event.exception.values.some((value) => {
+    if (value.type && value.type !== "TypeError") return false;
+    if (!value.value) return false;
+    return READ_ONLY_ARRAY_PUSH.test(value.value);
+  });
+
+  if (!hasNoiseMessage) return false;
+  return hasExtensionFrame(event);
+}
 
 /**
  * Strip cookies, tokens, and obvious PII before an event leaves the app.
  * Does not drop the event — remaining first-party bugs stay visible.
  */
 export function sentryBeforeSend(event: ErrorEvent, _hint?: EventHint): ErrorEvent | null {
+  if (isBrowserExtensionReadOnlyArrayNoise(event)) {
+    return null;
+  }
+
   if (event.user) {
     delete event.user;
   }
