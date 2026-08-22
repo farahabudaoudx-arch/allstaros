@@ -4,9 +4,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { UsStateMap, type StateDatum } from "@/components/producer/charts/UsStateMap";
 import { HallOfFameTracker } from "@/components/producer/issued-premium/HallOfFameTracker";
-import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
-import { localIsoDate } from "@/lib/producer/time";
 import { PageHeader } from "@/components/producer/PageHeader";
+import { PRODUCER_API_ERROR_COPY, PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
+import { parseJsonResponse } from "@/lib/producer/fetch-json";
+import { localIsoDate } from "@/lib/producer/time";
 
 type Timeframe = "today" | "wtd" | "mtd" | "ytd" | "all" | "custom";
 
