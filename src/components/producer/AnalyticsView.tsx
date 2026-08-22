@@ -1397,7 +1397,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   useEffect(() => {
     let aborted = false;
     fetch(`/api/producer/tracker?date=${date}`, { cache: "no-store" })
-      .then((r) => r.json())
+      .then((r) => parseJsonResponse<{ ok: boolean; entry?: { dials?: number; leads?: number; contacts?: number; appointments?: number; presentations?: number } }>(r, PRODUCER_API_ERROR_COPY))
       .then((j) => {
         if (aborted) return;
         if (!j.ok || !j.entry) return;
@@ -1420,7 +1420,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ date, dials, leads, contacts, appointments, presentations }),
       });
-      const j = await res.json();
+      const j = await parseJsonResponse<{ ok: boolean; error?: string }>(res, PRODUCER_API_ERROR_COPY);
       if (!j.ok) throw new Error(j.error ?? "Save failed");
       onSaved();
       onClose();

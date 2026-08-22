@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { localIsoDate } from "@/lib/producer/time";
+import { parseJsonResponse } from "@/lib/producer/fetch-json";
+import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
 import { PageHeader } from "@/components/producer/PageHeader";
 import { DailyGoalModal, EMPTY_GOAL, type GoalValues } from "@/components/producer/DailyGoalModal";
 
@@ -54,7 +56,10 @@ export function DialTracker({ backHref }: { backHref: string }) {
     setError(null);
     try {
       const trackRes = await fetch(`/api/producer/tracker?date=${d}`, { cache: "no-store" });
-      const trackJson = await trackRes.json();
+      const trackJson = await parseJsonResponse<{ ok: boolean; entry?: Partial<Counts> | null; error?: string }>(
+        trackRes,
+        PRODUCER_API_ERROR_COPY,
+      );
       if (!trackJson.ok) throw new Error(trackJson.error ?? "Failed to load activity");
       const e = trackJson.entry;
       setCounts(
@@ -77,7 +82,10 @@ export function DialTracker({ backHref }: { backHref: string }) {
 
     try {
       const projRes = await fetch(`/api/producer/projection?date=${d}`, { cache: "no-store" });
-      const projJson = await projRes.json();
+      const projJson = await parseJsonResponse<{ ok: boolean; projection?: Projection | null }>(
+        projRes,
+        PRODUCER_API_ERROR_COPY,
+      );
       const projection: Projection | null = projJson.ok ? (projJson.projection ?? null) : null;
       setTarget(projection);
       // First visit of the day with nothing to aim at: ask for goals up front.
@@ -103,7 +111,7 @@ export function DialTracker({ backHref }: { backHref: string }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ date: d, ...next }),
         });
-        const json = await res.json();
+        const json = await parseJsonResponse<{ ok: boolean; error?: string }>(res, PRODUCER_API_ERROR_COPY);
         if (!json.ok) throw new Error(json.error ?? "Save failed");
         dirty.current = false;
       } catch (err) {
