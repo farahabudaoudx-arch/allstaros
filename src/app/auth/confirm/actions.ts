@@ -39,7 +39,22 @@ const VALID_TYPES = new Set<EmailOtpType>([
  * /welcome). Recording the login inline keeps the monitoring parity that the
  * after-login hop gave us, without the stale-URL trap.
  */
+export type ConfirmOtpState = { ok: true };
+
+export async function confirmOtpAction(
+  _prevState: ConfirmOtpState,
+  formData: FormData,
+): Promise<ConfirmOtpState> {
+  await runConfirmOtp(formData);
+  return { ok: true };
+}
+
+/** @deprecated Use confirmOtpAction — kept for any external imports. */
 export async function confirmOtp(formData: FormData) {
+  await runConfirmOtp(formData);
+}
+
+async function runConfirmOtp(formData: FormData) {
   const tokenHash = String(formData.get("token_hash") ?? "");
   const type = String(formData.get("type") ?? "") as EmailOtpType;
   const nextRaw = String(formData.get("next") ?? "/");

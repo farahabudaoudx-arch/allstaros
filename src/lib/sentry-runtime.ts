@@ -28,6 +28,8 @@ const READ_ONLY_ARRAY_PUSH =
   /read only property ['"]push['"] of object '\[object Array\]'|read only property ['"]push['"] of object \[object Array\]/i;
 const APP_FRAME =
   /_next\/static|webpack:|\/src\/|localhost|allstarlifegroup\.com/i;
+const INJECTED_SCRIPT_FRAME = /executors\/200\.js|inpage\.js|posthog-recorder\.js/i;
+const APP_SCHEME_FRAME = /^app:\/\//i;
 
 /** Collect stack frame paths from a Sentry exception event. */
 function stackFramePaths(event: ErrorEvent): string[] {
@@ -109,8 +111,8 @@ function isObfuscatedInjectedScriptNoise(event: ErrorEvent): boolean {
   const hasExternal = paths.some(
     (path) =>
       EXTENSION_PROTOCOLS.test(path) ||
-      /executors\/200\.js|inpage\.js|posthog-recorder\.js/i.test(path) ||
-      (!/_next\/static|webpack:|\/src\//i.test(path) && /app:\/\/\//i.test(path)),
+      INJECTED_SCRIPT_FRAME.test(path) ||
+      (APP_SCHEME_FRAME.test(path) && !APP_FRAME.test(path)),
   );
   const allAppFrames = paths.every((path) => APP_FRAME.test(path));
 
