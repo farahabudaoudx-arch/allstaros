@@ -22,8 +22,12 @@ export function sentryRelease(): string | undefined {
 
 const SENSITIVE_HEADER = /^(cookie|set-cookie|authorization|x-supabase|x-auth|x-api-key)/i;
 const SENSITIVE_KEY = /email|full_name|first_name|last_name|phone|ssn|token|cookie|password|authorization|auth_user/i;
-const EXTENSION_PROTOCOLS = /^(chrome|moz|safari|edge|brave|vivaldi|opera)-extension:\/?\/\//i;
-const READ_ONLY_ARRAY_PUSH = /read only property ['"]push['"] of object '\[object Array\]'|read only property ['"]push['"] of object \[object Array\]/i;
+const EXTENSION_PROTOCOLS =
+  /^(chrome|moz|safari-web|safari|edge|brave|vivaldi|opera)-extension:\/?\/\//i;
+const READ_ONLY_ARRAY_PUSH =
+  /read only property ['"]push['"] of object '\[object Array\]'|read only property ['"]push['"] of object \[object Array\]/i;
+const APP_FRAME =
+  /_next\/static|webpack:|\/src\/|localhost|allstarlifegroup\.com/i;
 
 /** Collect stack frame paths from a Sentry exception event. */
 function stackFramePaths(event: ErrorEvent): string[] {
@@ -49,7 +53,11 @@ function hasExtensionFrame(event: ErrorEvent): boolean {
   return stackFramePaths(event).some((path) => EXTENSION_PROTOCOLS.test(path));
 }
 
-function isBrowserExtensionReadOnlyArrayNoise(event: ErrorEvent): boolean {
+/**
+ * Sentry JAVASCRIPT-NEXTJS-C: read-only array `.push` when a browser extension
+ * frame is present (#008). First-party stacks on `/` still reach Sentry.
+ */
+export function isReadOnlyArrayPushExtensionNoise(event: ErrorEvent): boolean {
   const hasNoiseMessage = exceptionEntries(event).some((value) => {
     if (value.type && value.type !== "TypeError") return false;
     if (!value.value) return false;
@@ -104,9 +112,7 @@ function isObfuscatedInjectedScriptNoise(event: ErrorEvent): boolean {
       /executors\/200\.js|inpage\.js|posthog-recorder\.js/i.test(path) ||
       (!/_next\/static|webpack:|\/src\//i.test(path) && /app:\/\/\//i.test(path)),
   );
-  const allAppFrames = paths.every((path) =>
-    /_next\/static|webpack:|\/src\/|localhost/i.test(path),
-  );
+  const allAppFrames = paths.every((path) => APP_FRAME.test(path));
 
   return hasExternal && !allAppFrames;
 }
@@ -126,7 +132,7 @@ export function isKnownThirdPartySentryNoise(event: ErrorEvent): boolean {
  * Does not drop the event — remaining first-party bugs stay visible.
  */
 export function sentryBeforeSend(event: ErrorEvent, _hint?: EventHint): ErrorEvent | null {
-  if (isBrowserExtensionReadOnlyArrayNoise(event)) {
+  if (isReadOnlyArrayPushExtensionNoise(event)) {
     return null;
   }
 

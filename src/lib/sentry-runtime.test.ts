@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ErrorEvent } from "@sentry/core";
-import { isKnownThirdPartySentryNoise, sentryBeforeSend, sentryEnvironment } from "./sentry-runtime";
+import { isKnownThirdPartySentryNoise, isReadOnlyArrayPushExtensionNoise, sentryBeforeSend, sentryEnvironment } from "./sentry-runtime";
 
 function event(partial: Partial<ErrorEvent>): ErrorEvent {
   return { timestamp: 0, ...partial } as ErrorEvent;
@@ -71,46 +71,66 @@ describe("sentryBeforeSend", () => {
   });
 
   it("drops the read-only array push noise only when the stack traces to a browser extension", () => {
-    const extensionNoise = sentryBeforeSend(
-      event({
-        exception: {
-          values: [
-            {
-              type: "TypeError",
-              value: "Cannot assign to read only property 'push' of object '[object Array]'",
-              stacktrace: {
-                frames: [
-                  { filename: "chrome-extension://abc/content.js" },
-                  { filename: "https://app.example/_next/static/chunks/app/page.js" },
-                ],
-              },
-            },
+    const extensionPayload = event({
+      exception: ex(
+        "TypeError",
+        "Cannot assign to read only property 'push' of object '[object Array]'",
+        [
+          "chrome-extension://abc/content.js",
+          "https://app.example/_next/static/chunks/app/page.js",
+        ],
+      ),
+    });
+
+    expect(isReadOnlyArrayPushExtensionNoise(extensionPayload)).toBe(true);
+    expect(sentryBeforeSend(extensionPayload)).toBeNull();
+
+    const appPayload = event({
+      exception: ex(
+        "TypeError",
+        "Cannot assign to read only property 'push' of object '[object Array]'",
+        ["https://app.example/_next/static/chunks/app/page.js"],
+      ),
+    });
+
+    expect(isReadOnlyArrayPushExtensionNoise(appPayload)).toBe(false);
+    expect(sentryBeforeSend(appPayload)).not.toBeNull();
+  });
+
+  describe("read-only push ownership (#008)", () => {
+    it("drops extension noise on the home route stack shape", () => {
+      const payload = event({
+        exception: ex(
+          "TypeError",
+          "Cannot assign to read only property 'push' of object '[object Array]'",
+          [
+            "moz-extension://uuid/content.js",
+            "https://app.allstarlifegroup.com/_next/static/chunks/app/page.js",
           ],
-        },
-      }),
-    );
+        ),
+      });
+      expect(isReadOnlyArrayPushExtensionNoise(payload)).toBe(true);
+      expect(sentryBeforeSend(payload)).toBeNull();
+    });
 
-    expect(extensionNoise).toBeNull();
+    it("keeps unrelated first-party TypeError on / even when an extension frame exists elsewhere in the bundle", () => {
+      const payload = event({
+        exception: ex("TypeError", "Cannot read properties of null (reading 'foo')", [
+          "https://app.allstarlifegroup.com/_next/static/chunks/app/page.js",
+        ]),
+      });
+      expect(sentryBeforeSend(payload)).not.toBeNull();
+    });
 
-    const appError = sentryBeforeSend(
-      event({
-        exception: {
-          values: [
-            {
-              type: "TypeError",
-              value: "Cannot assign to read only property 'push' of object '[object Array]'",
-              stacktrace: {
-                frames: [
-                  { filename: "https://app.example/_next/static/chunks/app/producer/page.js" },
-                ],
-              },
-            },
-          ],
-        },
-      }),
-    );
-
-    expect(appError).not.toBeNull();
+    it("does not globally ignore TypeError — only the read-only push message with extension frames", () => {
+      const payload = event({
+        exception: ex("TypeError", "foo is not a function", [
+          "chrome-extension://abc/content.js",
+        ]),
+      });
+      expect(isReadOnlyArrayPushExtensionNoise(payload)).toBe(false);
+      expect(sentryBeforeSend(payload)).not.toBeNull();
+    });
   });
 
   describe("third-party noise filters (#010)", () => {
