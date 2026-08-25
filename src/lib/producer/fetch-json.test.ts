@@ -30,4 +30,13 @@ describe("parseJsonResponse", () => {
 
     await expect(parseJsonResponse(res, "Please try again.")).resolves.toEqual({ ok: true, entry: { dials: 3 } });
   });
+
+  it("rejects 200 responses with invalid JSON bodies", async () => {
+    const res = new Response("not-json", {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+
+    await expect(parseJsonResponse(res, "Please try again.")).rejects.toThrow("Please try again.");
+  });
 });

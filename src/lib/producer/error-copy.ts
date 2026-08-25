@@ -8,3 +8,6 @@ export const PRODUCER_PAGE_ERROR_COPY =
 
 /** Generic producer API 500 copy (tracker, profile, settings). Safe for clients. */
 export const PRODUCER_API_ERROR_COPY = "Something went wrong. Please try again.";
+
+/** Tracker counter save failures — used by DialTracker debounced POST. */
+export const TRACKER_SAVE_ERROR_COPY = "We couldn't save your tracker update. Please try again.";

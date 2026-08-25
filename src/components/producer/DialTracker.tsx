@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { localIsoDate } from "@/lib/producer/time";
 import { parseJsonResponse } from "@/lib/producer/fetch-json";
-import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
+import {
+  PRODUCER_API_ERROR_COPY,
+  PRODUCER_LOAD_ERROR_COPY,
+  TRACKER_SAVE_ERROR_COPY,
+} from "@/lib/producer/error-copy";
 import { PageHeader } from "@/components/producer/PageHeader";
 import { DailyGoalModal, EMPTY_GOAL, type GoalValues } from "@/components/producer/DailyGoalModal";
 
@@ -19,11 +23,15 @@ type Counts = {
 
 type Projection = GoalValues;
 
+type TrackerErrorKind = "load" | "save";
+
 /** Remembers a "Skip for today" so the goal popup doesn't reappear on every
  *  visit to the tracker that same day. Cleared naturally by the date changing. */
 const skipKey = (date: string) => `asos:goal-skip:${date}`;
 
 const EMPTY: Counts = { dials: 0, leads: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0 };
+
+const SAVE_DEBOUNCE_MS = 600;
 
 const METRICS: Array<{ key: keyof Counts; label: string; hint: string; steps: number[] }> = [
   { key: "dials", label: "Dials", hint: "How many dials you've made", steps: [1, 5, 10] },
@@ -42,6 +50,7 @@ export function DialTracker({ backHref }: { backHref: string }) {
   const [loading, setLoading] = useState(true);
   const [projectionLoading, setProjectionLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<TrackerErrorKind | null>(null);
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalSaving, setGoalSaving] = useState(false);
   const [goalError, setGoalError] = useState<string | null>(null);
@@ -49,18 +58,29 @@ export function DialTracker({ backHref }: { backHref: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
   const todayRef = useRef(today);
+  const countsRef = useRef(counts);
+  const dateRef = useRef(date);
+
+  useEffect(() => {
+    countsRef.current = counts;
+  }, [counts]);
+
+  useEffect(() => {
+    dateRef.current = date;
+  }, [date]);
 
   const load = useCallback(async (d: string) => {
     setLoading(true);
     setProjectionLoading(true);
     setError(null);
+    setErrorKind(null);
     try {
       const trackRes = await fetch(`/api/producer/tracker?date=${d}`, { cache: "no-store" });
-      const trackJson = await parseJsonResponse<{ ok: boolean; entry?: Partial<Counts> | null; error?: string }>(
+      const trackJson = await parseJsonResponse<{ ok: boolean; entry?: Partial<Counts> | null }>(
         trackRes,
-        PRODUCER_API_ERROR_COPY,
+        PRODUCER_LOAD_ERROR_COPY,
       );
-      if (!trackJson.ok) throw new Error(trackJson.error ?? "Failed to load activity");
+      if (!trackJson.ok) throw new Error(PRODUCER_LOAD_ERROR_COPY);
       const e = trackJson.entry;
       setCounts(
         e
@@ -75,7 +95,8 @@ export function DialTracker({ backHref }: { backHref: string }) {
           : EMPTY,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      setError(err instanceof Error ? err.message : PRODUCER_LOAD_ERROR_COPY);
+      setErrorKind("load");
     } finally {
       setLoading(false);
     }
@@ -88,8 +109,6 @@ export function DialTracker({ backHref }: { backHref: string }) {
       );
       const projection: Projection | null = projJson.ok ? (projJson.projection ?? null) : null;
       setTarget(projection);
-      // First visit of the day with nothing to aim at: ask for goals up front.
-      // Past days are never prompted, and a skip is remembered until tomorrow.
       const skipped = window.localStorage.getItem(skipKey(d)) === "1";
       if (!projection && d === todayRef.current && !skipped) setGoalOpen(true);
     } catch {
@@ -103,37 +122,65 @@ export function DialTracker({ backHref }: { backHref: string }) {
     void load(date);
   }, [date, load]);
 
-  const persist = useCallback(
-    async (next: Counts, d: string) => {
-      try {
-        const res = await fetch("/api/producer/tracker", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ date: d, ...next }),
-        });
-        const json = await parseJsonResponse<{ ok: boolean; error?: string }>(res, PRODUCER_API_ERROR_COPY);
-        if (!json.ok) throw new Error(json.error ?? "Save failed");
-        dirty.current = false;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Save failed");
-      }
-    },
-    [],
-  );
+  const persist = useCallback(async (next: Counts, d: string, opts?: { keepalive?: boolean }) => {
+    try {
+      const res = await fetch("/api/producer/tracker", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ date: d, ...next }),
+        keepalive: opts?.keepalive ?? false,
+      });
+      const json = await parseJsonResponse<{ ok: boolean }>(res, TRACKER_SAVE_ERROR_COPY);
+      if (!json.ok) throw new Error(TRACKER_SAVE_ERROR_COPY);
+      dirty.current = false;
+      setError(null);
+      setErrorKind(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : TRACKER_SAVE_ERROR_COPY);
+      setErrorKind("save");
+    }
+  }, []);
+
+  const flushPendingSave = useCallback(async (opts?: { keepalive?: boolean }) => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    if (!dirty.current) return;
+    await persist(countsRef.current, dateRef.current, opts);
+  }, [persist]);
 
   const bump = (key: keyof Counts, delta: number) => {
     setError(null);
+    setErrorKind(null);
     setCounts((prev) => {
       const next = { ...prev, [key]: Math.max(0, prev[key] + delta) };
       dirty.current = true;
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => void persist(next, date), 600);
+      saveTimer.current = setTimeout(() => void persist(next, dateRef.current), SAVE_DEBOUNCE_MS);
       return next;
     });
   };
 
-  // Goals write the same daily_projection row the dashboard reads, so the new
-  // numbers become the targets every bar below counts up against right away.
+  const changeDate = useCallback(
+    async (next: string) => {
+      if (next === dateRef.current) return;
+      await flushPendingSave();
+      setDate(next);
+    },
+    [flushPendingSave],
+  );
+
+  const retryAfterError = useCallback(async () => {
+    setError(null);
+    setErrorKind(null);
+    if (dirty.current || errorKind === "save") {
+      await flushPendingSave();
+      return;
+    }
+    await load(dateRef.current);
+  }, [errorKind, flushPendingSave, load]);
+
   const saveGoal = useCallback(
     async (next: Projection) => {
       setGoalSaving(true);
@@ -144,13 +191,13 @@ export function DialTracker({ backHref }: { backHref: string }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ date, ...next }),
         });
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error ?? "Failed to save goals");
+        const json = await parseJsonResponse<{ ok: boolean }>(res, PRODUCER_API_ERROR_COPY);
+        if (!json.ok) throw new Error(PRODUCER_API_ERROR_COPY);
         setTarget(next);
         window.localStorage.removeItem(skipKey(date));
         setGoalOpen(false);
       } catch (err) {
-        setGoalError(err instanceof Error ? err.message : "Failed to save goals");
+        setGoalError(err instanceof Error ? err.message : PRODUCER_API_ERROR_COPY);
       } finally {
         setGoalSaving(false);
       }
@@ -159,32 +206,34 @@ export function DialTracker({ backHref }: { backHref: string }) {
   );
 
   const closeGoal = useCallback(() => {
-    // Dismissing without saving counts as a skip for that day.
     if (!target) window.localStorage.setItem(skipKey(date), "1");
     setGoalError(null);
     setGoalOpen(false);
   }, [date, target]);
 
-  // Flush a pending save when leaving the page so nothing is lost.
   useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+    const onPageHide = () => {
+      void flushPendingSave({ keepalive: true });
     };
-  }, []);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") void flushPendingSave({ keepalive: true });
+    };
+
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+      void flushPendingSave();
+    };
+  }, [flushPendingSave]);
 
   const totalDials = counts.dials;
 
   return (
-    // A plain stack at every size. This used to stretch to fill the viewport,
-    // but md: is a width breakpoint, so a wide-but-short laptop window took the
-    // fill-the-screen path with nowhere near the height the cards need: they
-    // were squeezed below their own content and the rows spilled over each
-    // other into an unreadable pile. Natural heights, and the page scrolls
-    // when there isn't room.
     <div className="flex flex-col gap-3">
       <PageHeader title="Daily Tracker" backHref={backHref} compact>
-        {/* Both controls are the same height and shape so the row reads level.
-            Saving happens quietly in the background — no status chip. */}
         <div className="flex items-center justify-center gap-3">
           <button
             type="button"
@@ -202,19 +251,25 @@ export function DialTracker({ backHref }: { backHref: string }) {
             aria-label="Day"
             max={today}
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => void changeDate(e.target.value)}
             className="h-10 rounded-full border border-hairline bg-card px-4 text-sm text-ink outline-none [color-scheme:dark] focus:border-accent"
           />
         </div>
       </PageHeader>
 
       {error && (
-        <div className="rounded-xl border border-neg/40 bg-neg/[0.06] px-4 py-3 text-sm text-neg">
-          {error}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neg/40 bg-neg/[0.06] px-4 py-3 text-sm text-neg">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => void retryAfterError()}
+            className="shrink-0 rounded-full border border-neg/50 px-3 py-1 text-xs font-semibold text-neg transition hover:bg-neg/10"
+          >
+            Try again
+          </button>
         </div>
       )}
 
-      {/* Hero dial counter */}
       <HeroDial
         value={totalDials}
         hint={METRICS[0].hint}
@@ -223,7 +278,6 @@ export function DialTracker({ backHref }: { backHref: string }) {
         disabled={loading}
       />
 
-      {/* Remaining metrics — sales is excluded here; it's driven by Clients. */}
       <div className="grid gap-3 sm:grid-cols-2">
         {METRICS.filter((m) => m.key !== "dials" && m.key !== "sales").map((m) => (
           <CounterCard
@@ -270,8 +324,6 @@ function PoliciesSoldCard({
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
   const hit = target > 0 && value >= target;
   return (
-    // Spans both columns — the one card you can't tap, so it reads as its own
-    // full-width row under the counters rather than a lonely half.
     <div className="rounded-2xl border border-hairline bg-card p-4 sm:col-span-2">
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
@@ -394,7 +446,6 @@ function CounterCard({
     <div className="flex flex-col justify-center rounded-2xl border border-hairline bg-card p-4">
       <p className="text-center text-xs uppercase tracking-[0.12em] text-mute">{label}</p>
       <p className="mt-1 text-center text-xs leading-snug text-subtle">{hint}</p>
-      {/* Centered −/value/+ controls — bigger tap targets, value front-and-center. */}
       <div className="mt-2.5 flex items-center justify-center gap-5">
         <SmallTap onClick={() => onBump(-1)} disabled={disabled || value <= 0} label={`Remove ${label}`}>
           −
@@ -414,7 +465,6 @@ function CounterCard({
               style={{ width: `${pct}%` }}
             />
           </div>
-          {/* Progress count sits under the bar so it reads as the bar's label. */}
           <p className={`mt-1.5 text-center text-xs font-medium tabular-nums ${hit ? "text-pos" : "text-accent"}`}>
             {value} / {target}
           </p>
