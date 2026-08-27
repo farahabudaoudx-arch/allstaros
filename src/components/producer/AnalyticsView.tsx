@@ -4,9 +4,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { UsStateMap, type StateDatum } from "@/components/producer/charts/UsStateMap";
 import { HallOfFameTracker } from "@/components/producer/issued-premium/HallOfFameTracker";
-import { PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
-import { localIsoDate } from "@/lib/producer/time";
 import { PageHeader } from "@/components/producer/PageHeader";
+import { PRODUCER_API_ERROR_COPY, PRODUCER_LOAD_ERROR_COPY } from "@/lib/producer/error-copy";
+import { parseJsonResponse } from "@/lib/producer/fetch-json";
+import { localIsoDate } from "@/lib/producer/time";
 
 type Timeframe = "today" | "wtd" | "mtd" | "ytd" | "all" | "custom";
 
@@ -1397,7 +1398,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   useEffect(() => {
     let aborted = false;
     fetch(`/api/producer/tracker?date=${date}`, { cache: "no-store" })
-      .then((r) => r.json())
+      .then((r) => parseJsonResponse<{ ok: boolean; entry?: { dials?: number; leads?: number; contacts?: number; appointments?: number; presentations?: number } }>(r, PRODUCER_API_ERROR_COPY))
       .then((j) => {
         if (aborted) return;
         if (!j.ok || !j.entry) return;
@@ -1420,7 +1421,7 @@ function AddDataModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ date, dials, leads, contacts, appointments, presentations }),
       });
-      const j = await res.json();
+      const j = await parseJsonResponse<{ ok: boolean; error?: string }>(res, PRODUCER_API_ERROR_COPY);
       if (!j.ok) throw new Error(j.error ?? "Save failed");
       onSaved();
       onClose();

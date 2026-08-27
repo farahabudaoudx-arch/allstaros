@@ -9,19 +9,8 @@ import {
 } from "@/lib/actions/discord";
 import type { Person } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-// Supabase throws PostgrestError objects (not Error instances); surface their
-// real message + code instead of a generic "unknown error".
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object") {
-    const e = err as { message?: unknown; code?: unknown };
-    if (typeof e.message === "string") {
-      return e.code ? `${e.message} (${String(e.code)})` : e.message;
-    }
-  }
-  return "unknown error";
-}
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
+import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
 
 type DestinationRow = {
   id: string;
@@ -123,7 +112,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     return NextResponse.json({ ok: true, destination: maskedDestination(data as DestinationRow) });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/destinations/[id]",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }
 
@@ -146,6 +139,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/destinations/[id]",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }

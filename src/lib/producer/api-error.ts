@@ -12,6 +12,8 @@ export type ProducerLoadErrorContext = {
   rangeKey?: string;
   queryPhase?: string;
   roleType?: "builder" | "producer";
+  /** Defaults to PRODUCER_LOAD_ERROR_COPY. */
+  clientMessage?: string;
 };
 
 function normalizeError(err: unknown): Error {
@@ -51,7 +53,7 @@ export function producerLoadErrorResponse(
   return NextResponse.json(
     {
       ok: false,
-      error: PRODUCER_LOAD_ERROR_COPY,
+      error: ctx.clientMessage ?? PRODUCER_LOAD_ERROR_COPY,
       correlationId,
     },
     { status: 500 },

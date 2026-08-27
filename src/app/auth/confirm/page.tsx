@@ -1,6 +1,6 @@
 import Image from "next/image";
-import { Button, LinkButton } from "@/components/ui";
-import { confirmOtp } from "./actions";
+import { LinkButton } from "@/components/ui";
+import { ConfirmContinueForm } from "./confirm-continue-form";
 
 type SearchParams = Promise<{
   token_hash?: string;
@@ -62,18 +62,7 @@ export default async function ConfirmPage({
             Go to sign in
           </LinkButton>
         ) : (
-          <form action={confirmOtp}>
-            <input type="hidden" name="token_hash" value={token_hash} />
-            <input type="hidden" name="type" value={type} />
-            <input type="hidden" name="next" value={next} />
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full py-2.5"
-            >
-              Continue
-            </Button>
-          </form>
+          <ConfirmContinueForm tokenHash={token_hash} type={type} next={next} />
         )}
       </div>
     </div>

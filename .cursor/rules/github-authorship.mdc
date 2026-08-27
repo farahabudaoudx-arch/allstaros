@@ -1,0 +1,14 @@
+---
+description: GitHub authorship for this repo only
+alwaysApply: true
+---
+
+# Authorship for allstaros
+
+For this codebase only:
+
+- Use GitHub account **farahabudaoudx-arch** for `gh`, git push, and commits.
+- Never commit, push, or authenticate as `omar-salhab` or `OmarSalhab`.
+- Author and Commited: `Farah Abudaoud <242206458+farahabudaoudx-arch@users.noreply.github.com>`
+- Do not add a Cursor co-author trailer.
+- Prefer this repo's local git `user.name` / `user.email` (already set). If a commit tool overrides them, pass the Farah identity explicitly.

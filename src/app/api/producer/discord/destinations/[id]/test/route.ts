@@ -2,19 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentPerson } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isDiscordWebhook } from "@/lib/actions/discord";
-
-// Supabase throws PostgrestError objects (not Error instances); surface their
-// real message + code instead of a generic "unknown error".
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object") {
-    const e = err as { message?: unknown; code?: unknown };
-    if (typeof e.message === "string") {
-      return e.code ? `${e.message} (${String(e.code)})` : e.message;
-    }
-  }
-  return "unknown error";
-}
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
+import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
 
 // POST /api/producer/discord/destinations/[id]/test
 // Send a test message to an owned destination's webhook. The stored URL never
@@ -65,6 +54,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/destinations/[id]/test",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }

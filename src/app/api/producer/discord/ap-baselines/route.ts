@@ -4,19 +4,8 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { DISCORD_LEADERBOARD_TZ } from "@/lib/producer/submitted-ap-leaderboard";
 import { zonedParts } from "@/lib/producer/time";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
-
-// Supabase throws PostgrestError objects (not Error instances); surface their
-// real message + code instead of a generic "unknown error".
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object") {
-    const e = err as { message?: unknown; code?: unknown };
-    if (typeof e.message === "string") {
-      return e.code ? `${e.message} (${String(e.code)})` : e.message;
-    }
-  }
-  return "unknown error";
-}
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
+import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
 
 // All Discord leaderboards run on Chicago time, so baselines key off the
 // current Chicago year.
@@ -97,7 +86,11 @@ export async function GET() {
 
     return NextResponse.json({ ok: true, year, rows });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/ap-baselines",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }
 
@@ -175,6 +168,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, baseline: data });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/ap-baselines",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }
