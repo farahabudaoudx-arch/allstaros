@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import {
   computeIpLeaderboard,
   IP_BOARDS,
@@ -43,7 +44,10 @@ export async function GET(req: Request) {
     });
     return NextResponse.json({ ok: true, meId: person.id, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/ip-leaderboard",
+      rangeKey: period,
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }

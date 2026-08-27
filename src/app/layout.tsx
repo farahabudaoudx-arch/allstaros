@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { themeInitScript } from "@/components/ThemeToggle";
+import { ThemeInit } from "@/components/ThemeInit";
 import { PostHogPageView } from "@/components/PostHogPageView";
 import { VersionWatcher } from "@/components/VersionWatcher";
 
@@ -32,7 +32,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-ink">
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <ThemeInit />
         <PostHogPageView />
         <VersionWatcher />
         {children}

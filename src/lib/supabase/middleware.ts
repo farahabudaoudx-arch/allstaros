@@ -36,6 +36,7 @@ export async function updateSession(request: NextRequest) {
   // in. The demo replay at /join runs only for an already-signed-in seed user.
   const isPublic =
     pathname === "/" ||
+    pathname.startsWith("/marketing-site") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/preview") ||
     pathname.startsWith("/UIrevisionsdemo-wylie-nick") ||

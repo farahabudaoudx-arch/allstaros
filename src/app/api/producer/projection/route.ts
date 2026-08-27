@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -30,8 +31,10 @@ export async function GET(req: Request) {
     if (error) throw error;
     return NextResponse.json({ ok: true, projection: data });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/projection",
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }
 
@@ -73,7 +76,9 @@ export async function POST(req: Request) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/projection",
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }

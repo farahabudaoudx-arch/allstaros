@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeDashboard, type RangeKey } from "@/lib/producer/metrics";
 import { safeTz } from "@/lib/producer/time";
 
@@ -15,6 +16,11 @@ export async function GET(req: Request) {
   const tz = safeTz(url.searchParams.get("tz"));
 
   try {
+    // Dev-only QA: force the generic load-error path without breaking Postgres.
+    if (process.env.NODE_ENV === "development" && url.searchParams.get("fail") === "1") {
+      throw new Error("dev forced failure");
+    }
+
     const supabase = await createClient();
     const result = await computeDashboard(supabase, person.id, {
       rangeKey,
@@ -24,7 +30,10 @@ export async function GET(req: Request) {
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/dashboard/metrics",
+      rangeKey,
+      roleType: person.is_builder ? "builder" : "producer",
+    });
   }
 }

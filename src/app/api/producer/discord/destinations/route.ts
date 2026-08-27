@@ -7,19 +7,8 @@ import {
   maskWebhookUrl,
   type DestinationPurpose,
 } from "@/lib/actions/discord";
-
-// Supabase throws PostgrestError objects (not Error instances); surface their
-// real message + code instead of a generic "unknown error".
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object") {
-    const e = err as { message?: unknown; code?: unknown };
-    if (typeof e.message === "string") {
-      return e.code ? `${e.message} (${String(e.code)})` : e.message;
-    }
-  }
-  return "unknown error";
-}
+import { producerLoadErrorResponse } from "@/lib/producer/api-error";
+import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
 
 type DestinationRow = {
   id: string;
@@ -65,7 +54,11 @@ export async function GET() {
     const destinations = ((data ?? []) as DestinationRow[]).map(maskedDestination);
     return NextResponse.json({ ok: true, destinations });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/destinations",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }
 
@@ -117,6 +110,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, destination: maskedDestination(data as DestinationRow) });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errMessage(err) }, { status: 500 });
+    return producerLoadErrorResponse(err, {
+      route: "/api/producer/discord/destinations",
+      queryPhase: "discord",
+      clientMessage: PRODUCER_API_ERROR_COPY,
+    });
   }
 }
