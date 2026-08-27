@@ -25,6 +25,11 @@ const SECTIONS: Section[] = [
     href: "/admin/leaderboard",
   },
   {
+    name: "Scorecard rollout",
+    description: "Validate and publish complete Producer and Builder reporting periods.",
+    href: "/admin/scorecards",
+  },
+  {
     name: "Flags",
     description: "Flagged recruits across the organization.",
     href: "/admin/flags",
