@@ -24,6 +24,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
       label: "Performance",
       children: [
         { label: "Leaderboard", href: "/admin/leaderboard" },
+        { label: "Scorecard rollout", href: "/admin/scorecards" },
         { label: "Flags", href: "/admin/flags" },
       ],
     },
