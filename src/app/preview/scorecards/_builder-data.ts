@@ -8,6 +8,7 @@ import {
   createBuilderAgencyPerformance,
   createBuilderAgencyValues,
 } from "@/lib/scorecards/builder-performance";
+import { isInSixWeekWindow } from "@/lib/scorecards/active-directs";
 import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-july-2026.json";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -41,7 +42,7 @@ type PersonRow = {
 };
 
 type RecruitRow = { person_id: string };
-type WriterRow = { id: string; person_id: string };
+type WriterRow = { id: string; person_id: string; report_date: string };
 
 function growthPercentage(current: number, prior: number | null) {
   if (prior == null) return null;
@@ -168,22 +169,28 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
     throw new Error("Builder month-end Team IP does not match the organization leaderboard source.");
   }
 
-  const recentReportDates = [...new Set(
+  const currentWriterReportDates = [...new Set(
     (writerReportDatesResult.data ?? [])
       .map(({ report_date }) => report_date)
       .filter((reportDate): reportDate is string => Boolean(reportDate)),
-  )].slice(0, 6);
-  const priorRecentReportDates = [...new Set(
+  )];
+  const priorWriterReportDates = [...new Set(
     (priorWriterReportDatesResult.data ?? [])
       .map(({ report_date }) => report_date)
       .filter((reportDate): reportDate is string => Boolean(reportDate)),
-  )].slice(0, 6);
+  )];
+  const recentReportDates = currentWriterReportDates.slice(0, 6);
+  const priorRecentReportDates = priorWriterReportDates.slice(0, 6);
+  const activeDirectReportDates = currentWriterReportDates
+    .filter((reportDate) => isInSixWeekWindow(reportDate, protectedFixture.period.end));
+  const priorActiveDirectReportDates = priorWriterReportDates
+    .filter((reportDate) => isInSixWeekWindow(reportDate, "2026-06-30"));
   const fetchWriterRows = (reportDates: string[]) => reportDates.length === 0
     ? Promise.resolve([] as WriterRow[])
     : fetchAllRows<WriterRow>((from, to) =>
         service
           .from("producer_issued_premium")
-          .select("id, person_id")
+          .select("id, person_id, report_date")
           .eq("period_type", "wtd")
           .gt("personal_ip_cents", 0)
           .in("report_date", reportDates)
@@ -191,9 +198,13 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
           .range(from, to),
       );
   const [writerRows, priorWriterRows] = await Promise.all([
-    fetchWriterRows(recentReportDates),
-    fetchWriterRows(priorRecentReportDates),
+    fetchWriterRows([...new Set([...recentReportDates, ...activeDirectReportDates])]),
+    fetchWriterRows([...new Set([...priorRecentReportDates, ...priorActiveDirectReportDates])]),
   ]);
+  const recentReportDateSet = new Set(recentReportDates);
+  const activeDirectReportDateSet = new Set(activeDirectReportDates);
+  const priorRecentReportDateSet = new Set(priorRecentReportDates);
+  const priorActiveDirectReportDateSet = new Set(priorActiveDirectReportDates);
   const agencyPerformance = createBuilderAgencyPerformance({
     people: people.map((person) => ({ id: person.id, uplineId: person.upline_id })),
     eligibleBuilderIds: activeBuilders.map((person) => person.id),
@@ -202,7 +213,13 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       teamIpCents: Number(row.team_ip_cents),
       firstLegPercent: row.first_leg_percent == null ? null : Number(row.first_leg_percent),
     })),
-    activeWriterIds: writerRows.map((row) => row.person_id),
+    activeWriterIds: writerRows
+      .filter((row) => recentReportDateSet.has(row.report_date))
+      .map((row) => row.person_id),
+    activeDirectWriterIds: writerRows
+      .filter((row) => activeDirectReportDateSet.has(row.report_date))
+      .map((row) => row.person_id),
+    activePersonIds: people.filter((person) => person.status === "active").map((person) => person.id),
     personProduction: productionLeaderboard.rows.map((row) => ({
       personId: row.person_id,
       dials: row.dials,
@@ -225,7 +242,13 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
         ? null
         : Number(priorGateway.first_leg_percent),
     }],
-    activeWriterIds: priorWriterRows.map((row) => row.person_id),
+    activeWriterIds: priorWriterRows
+      .filter((row) => priorRecentReportDateSet.has(row.report_date))
+      .map((row) => row.person_id),
+    activeDirectWriterIds: priorWriterRows
+      .filter((row) => priorActiveDirectReportDateSet.has(row.report_date))
+      .map((row) => row.person_id),
+    activePersonIds: people.filter((person) => person.status === "active").map((person) => person.id),
     personProduction: priorProductionLeaderboard.rows.map((row) => ({
       personId: row.person_id,
       dials: row.dials,

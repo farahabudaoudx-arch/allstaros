@@ -195,7 +195,7 @@ describe("Scorecard run", () => {
     expect(alex).toMatchObject({
       teamIpCents: 4_000_000,
       teamRank: { rank: 1, population: 2 },
-      activeWriters: 2,
+      activeWriters: 1,
       firstLegPercent: 31.25,
       averageMonthlyIpPerWriterCents: 2_000_000,
       growth: { comparison: "mom", percentage: 100 },
@@ -291,7 +291,7 @@ describe("Scorecard run", () => {
     expect(alex?.growth.comparison).toBe(comparison);
   });
 
-  it("uses exactly the six latest organization reports for Active Writers", () => {
+  it("keeps Avg IP/Writer on the six latest organization reports while stale direct business does not count", () => {
     const input = completeRun();
     input.people.push({
       id: "writer-old",
@@ -318,7 +318,87 @@ describe("Scorecard run", () => {
 
     const result = prepareScorecardRun(input);
 
-    expect(result.builderMetrics.find((row) => row.personId === "builder-a")?.activeWriters).toBe(2);
+    const alex = result.builderMetrics.find((row) => row.personId === "builder-a");
+    expect(alex?.activeWriters).toBe(1);
+    expect(alex?.averageMonthlyIpPerWriterCents).toBe(2_000_000);
+  });
+
+  it("counts a direct writer exactly on the inclusive six-week boundary", () => {
+    const input = completeRun();
+    input.people.push({
+      id: "boundary-direct",
+      fullName: "Boundary Direct",
+      email: "boundary@example.com",
+      photoUrl: null,
+      uplineId: "builder-a",
+      activeAtPeriodEnd: true,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    input.gatewayReports.unshift({
+      id: "report-jul-21-boundary",
+      periodType: "wtd",
+      reportDate: "2026-07-21",
+      status: "published",
+      sourceChecksum: "jul-21-boundary",
+      unmatchedCount: 0,
+      ambiguousCount: 0,
+      rows: [{ personId: "boundary-direct", personalIpCents: 100_000, teamIpCents: 100_000, firstLegPercent: 10 }],
+    });
+
+    const alex = prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a");
+    expect(alex?.activeWriters).toBe(2);
+    expect(alex?.averageMonthlyIpPerWriterCents).toBe(2_000_000);
+  });
+
+  it("excludes direct business immediately outside the six-week boundary", () => {
+    const input = completeRun();
+    input.people.push({
+      id: "outside-direct",
+      fullName: "Outside Direct",
+      email: "outside@example.com",
+      photoUrl: null,
+      uplineId: "builder-a",
+      activeAtPeriodEnd: true,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    input.gatewayReports.unshift({
+      id: "report-jul-20-outside",
+      periodType: "wtd",
+      reportDate: "2026-07-20",
+      status: "published",
+      sourceChecksum: "jul-20-outside",
+      unmatchedCount: 0,
+      ambiguousCount: 0,
+      rows: [{ personId: "outside-direct", personalIpCents: 100_000, teamIpCents: 100_000, firstLegPercent: 10 }],
+    });
+
+    expect(prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a")?.activeWriters).toBe(1);
+  });
+
+  it("excludes inactive directs and active producing grandchildren", () => {
+    const input = completeRun();
+    input.people.push({
+      id: "inactive-direct",
+      fullName: "Inactive Direct",
+      email: "inactive@example.com",
+      photoUrl: null,
+      uplineId: "builder-a",
+      activeAtPeriodEnd: false,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    input.people = input.people.map((person) => person.id === "recruit-c"
+      ? { ...person, activeAtPeriodEnd: true }
+      : person);
+    const aug21 = input.gatewayReports.find((report) => report.id === "report-aug-21")!;
+    aug21.rows.push(
+      { personId: "inactive-direct", personalIpCents: 100_000, teamIpCents: 100_000, firstLegPercent: 10 },
+      { personId: "recruit-c", personalIpCents: 100_000, teamIpCents: 100_000, firstLegPercent: 10 },
+    );
+
+    expect(prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a")?.activeWriters).toBe(1);
   });
 
   it("publishes separate idempotent Producer and Builder artifacts and delivery intents", () => {

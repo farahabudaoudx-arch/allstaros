@@ -1,3 +1,4 @@
+import { countActiveDirects, isInSixWeekWindow } from "./active-directs";
 import { verifyPreparedScorecardRun } from "./verifier";
 import type { MonthlyProducerPreview, ProducerOverview } from "./lifecycle";
 
@@ -449,21 +450,37 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
   });
   const recruitingRanks = competitionRanks(recruitCounts);
   const months: 1 | 3 | 12 = input.period.kind === "annual" ? 12 : input.period.kind === "quarterly" ? 3 : 1;
+  const activePersonIds = input.people.filter((person) => person.activeAtPeriodEnd).map((person) => person.id);
+  const agencyWriterIds = new Set(
+    activeWriterReports.flatMap((report) =>
+      report.rows
+        .filter((row) => row.personalIpCents > 0)
+        .map((row) => row.personId),
+    ),
+  );
+  const activeDirectWriterIds = new Set(
+    input.gatewayReports
+      .filter((report) =>
+        report.status === "published" &&
+        report.periodType === "wtd" &&
+        isInSixWeekWindow(report.reportDate, input.period.end),
+      )
+      .flatMap((report) => report.rows
+        .filter((row) => row.personalIpCents > 0)
+        .map((row) => row.personId)),
+  );
 
   const builderMetrics = eligibleBuilders.map<BuilderPeriodMetric>((builder) => {
     const team = descendantIds(builder.id, input.people);
     const periodRows = periodRowsByBuilder.get(builder.id) ?? [];
     const teamIpCents = periodRows.reduce((sum, row) => sum + row.teamIpCents, 0);
-    // #014 keeps `person` hierarchy + Gateway personal-IP activity as the source path.
-    // #015 owns narrowing this provisional full-agency writer count to direct-upline,
-    // active writers only; do not pull that filtering behavior into this ticket.
-    const activeWriters = new Set(
-      activeWriterReports.flatMap((report) =>
-        report.rows
-          .filter((row) => team.has(row.personId) && row.personalIpCents > 0)
-          .map((row) => row.personId),
-      ),
-    ).size;
+    const agencyActiveWriters = [...team].filter((personId) => agencyWriterIds.has(personId)).length;
+    const activeWriters = countActiveDirects({
+      builderId: builder.id,
+      people: input.people,
+      activePersonIds,
+      recentWriterIds: activeDirectWriterIds,
+    });
     const weightedFirstLegTotal = periodRows.reduce(
       (sum, row) => sum + row.teamIpCents * (row.firstLegPercent ?? 0),
       0,
@@ -500,7 +517,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
       activeWriters,
       firstLegPercent: teamIpCents > 0 ? weightedFirstLegTotal / teamIpCents : null,
       averageMonthlyIpPerWriterCents:
-        activeWriters > 0 ? Math.round(teamIpCents / months / activeWriters) : null,
+        agencyActiveWriters > 0 ? Math.round(teamIpCents / months / agencyActiveWriters) : null,
       monthCount: months,
       growth: {
         comparison: comparisonFor(input.period.kind),

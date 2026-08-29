@@ -1,3 +1,4 @@
+import { countActiveDirects } from "./active-directs";
 import type { OrganizationRank } from "./ratings";
 
 export const BUILDER_PERFORMANCE_KEYS = [
@@ -43,6 +44,8 @@ export type BuilderPerformanceInput = {
   eligibleBuilderIds: string[];
   gatewayRows: GatewayRow[];
   activeWriterIds: string[];
+  activeDirectWriterIds: string[];
+  activePersonIds: string[];
   personProduction: PersonProduction[];
   recruitPersonIds: string[];
 };
@@ -125,7 +128,13 @@ export function createBuilderAgencyValues(
       teamAp += production.apCents;
     }
 
-    const activeWriters = [...agencyIds].filter((personId) => activeWriterIds.has(personId)).length;
+    const agencyActiveWriters = [...agencyIds].filter((personId) => activeWriterIds.has(personId)).length;
+    const activeWriters = countActiveDirects({
+      builderId,
+      people: input.people,
+      activePersonIds: input.activePersonIds,
+      recentWriterIds: input.activeDirectWriterIds,
+    });
     const teamIp = gateway?.teamIpCents ?? null;
     const recruitAgencyIds = new Set(agencyIds);
     recruitAgencyIds.delete(builderId);
@@ -139,8 +148,8 @@ export function createBuilderAgencyValues(
       teamAp,
       teamIp,
       firstLegPercent: gateway?.firstLegPercent ?? null,
-      averageIpPerWriter: teamIp != null && activeWriters > 0
-        ? Math.round(teamIp / activeWriters)
+      averageIpPerWriter: teamIp != null && agencyActiveWriters > 0
+        ? Math.round(teamIp / agencyActiveWriters)
         : null,
       recruits: input.recruitPersonIds.filter((personId) => recruitAgencyIds.has(personId)).length,
     });

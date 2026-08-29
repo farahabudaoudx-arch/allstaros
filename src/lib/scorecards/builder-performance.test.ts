@@ -19,6 +19,8 @@ describe("Builder agency performance", () => {
         { builderId: "e", teamIpCents: 40_000, firstLegPercent: 20 },
       ],
       activeWriterIds: ["b", "d", "f"],
+      activeDirectWriterIds: ["b", "d", "f"],
+      activePersonIds: ["a", "b", "c", "d", "e", "f"],
       personProduction: [
         { personId: "b", dials: 100, contacts: 10, presentations: 5, sales: 2, apCents: 10_000 },
         { personId: "d", dials: 50, contacts: 5, presentations: 3, sales: 1, apCents: 5_000 },
@@ -28,7 +30,7 @@ describe("Builder agency performance", () => {
     });
 
     expect(performance.get("a")).toEqual({
-      activeWriters: { value: 2, rank: { rank: 1, population: 3 } },
+      activeWriters: { value: 1, rank: { rank: 1, population: 3 } },
       teamDials: { value: 150, rank: { rank: 1, population: 3 } },
       teamContacts: { value: 15, rank: { rank: 1, population: 3 } },
       teamPresentations: { value: 8, rank: { rank: 1, population: 3 } },

@@ -63,7 +63,7 @@ const BUILDER_PRODUCTION_METRICS: ReadonlyArray<{
   ratingKey?: keyof BuilderStarRatings;
   ratingLabel?: string;
 }> = [
-  { key: "activeWriters", label: "Total Active Writers", ratingKey: "activeDirects", ratingLabel: "Active Directs" },
+  { key: "activeWriters", label: "Active Directs", ratingKey: "activeDirects", ratingLabel: "Active Directs" },
   { key: "teamDials", label: "Total Team Dials" },
   { key: "teamContacts", label: "Total Team Contacts" },
   { key: "teamPresentations", label: "Total Team Presentations" },
@@ -242,9 +242,9 @@ function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: Sta
 }
 
 export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
-  // #014 deliberately scores the authoritative values currently supplied to this view.
-  // #015 still owns final Active Directs filtering, #016 owns actual licensed-recruit
-  // semantics, and #017 owns equivalent-period/scaled-threshold behavior.
+  // #015 defines the legacy `activeWriters` payload field as Active Directs:
+  // direct upline + active + recent written business. #016 still owns actual
+  // licensed-recruit semantics and #017 owns equivalent-period/scaled thresholds.
   const summary = createBuilderStarSummary({
     growthPercent: view.metric.growth.percentage,
     priorPeriodBaseline: view.metric.growth.priorTeamIpCents,

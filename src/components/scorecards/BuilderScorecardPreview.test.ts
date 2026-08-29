@@ -101,6 +101,31 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("Click To Flip");
   });
 
+  it("changes only the Active Directs contribution when the corrected direct count changes", () => {
+    const correctedDirectsView: BuilderScorecardView = {
+      ...view,
+      metric: {
+        ...view.metric,
+        activeWriters: 1,
+        performance: {
+          ...view.metric.performance,
+          activeWriters: { ...view.metric.performance.activeWriters, value: 1 },
+        },
+      },
+    };
+    const html = renderToStaticMarkup(
+      createElement(BuilderScorecardPreview, { view: correctedDirectsView }),
+    );
+
+    expect(html).toContain("Active Directs: 1 out of 5 stars");
+    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("First Leg %: 1 out of 5 stars");
+    expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
+    expect(html).toContain("Recruits Licensed: 5 out of 5 stars");
+    expect(html).toContain("Average rating: 2.6 out of 5 stars");
+    expect(html).toContain("13 of 25 total stars");
+  });
+
   it("does not turn a zero prior-period baseline into a 5-star Growth rating", () => {
     const zeroBaselineView: BuilderScorecardView = {
       ...view,
@@ -168,7 +193,7 @@ describe("Builder Scorecard preview", () => {
 
     expect(html).toContain("md:w-[calc(33.333%-0.5rem)]");
     expect(html.match(/class="growth-row/g)).toHaveLength(10);
-    expect(html).toMatch(/Previous Period Growth[\s\S]*Total Active Writers[\s\S]*Total Team Dials[\s\S]*Total Team Contacts/);
+    expect(html).toMatch(/Previous Period Growth[\s\S]*Active Directs[\s\S]*Total Team Dials[\s\S]*Total Team Contacts/);
     expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team Presentations[\s\S]*Total Team Sales[\s\S]*Total Team AP/);
     expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team IP[\s\S]*First Leg %[\s\S]*Avg IP Per Writer[\s\S]*Recruiting/);
     expect(html).toContain("Recruits Entered the Pipeline");

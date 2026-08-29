@@ -38,6 +38,12 @@ function localDate(value: string) {
   return `${valueOf("year")}-${valueOf("month")}-${valueOf("day")}`;
 }
 
+function sixWeekStart(periodEnd: string) {
+  const end = new Date(`${periodEnd}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() - 41);
+  return end.toISOString().slice(0, 10);
+}
+
 function expectedGrowth(current: number, prior: number | null) {
   if (prior == null) return null;
   if (prior === 0) return current > 0 ? 100 : 0;
@@ -98,6 +104,19 @@ export function verifyPreparedScorecardRun(
     .filter((report) => report.status === "published" && report.periodType === "wtd" && report.reportDate <= input.period.end)
     .sort((left, right) => right.reportDate.localeCompare(left.reportDate))
     .slice(0, 6);
+  const directWindowStart = sixWeekStart(input.period.end);
+  const activeDirectWriterIds = new Set<string>();
+  for (const report of input.gatewayReports) {
+    if (
+      report.status !== "published" ||
+      report.periodType !== "wtd" ||
+      report.reportDate < directWindowStart ||
+      report.reportDate > input.period.end
+    ) continue;
+    for (const row of report.rows) {
+      if (row.personalIpCents > 0) activeDirectWriterIds.add(row.personId);
+    }
+  }
   const totals = new Map<string, number>();
   const represented = new Set<string>();
   for (const builder of builders) {
@@ -132,15 +151,25 @@ export function verifyPreparedScorecardRun(
       .filter((row) => row.personId === builder.id)
       .map((row) => ({ reportDate: report.reportDate, ...row })));
     const total = totals.get(builder.id)!;
-    const positiveWriterIds = new Set<string>();
+    const agencyWriterIds = new Set<string>();
     for (const report of sixReportWindow) {
       for (const row of report.rows) {
-        if (team.has(row.personId) && row.personalIpCents > 0) positiveWriterIds.add(row.personId);
+        if (row.personalIpCents > 0 && team.has(row.personId)) agencyWriterIds.add(row.personId);
       }
     }
+    const activeDirectIds = new Set(
+      input.people
+        .filter((person) =>
+          person.id !== builder.id &&
+          person.uplineId === builder.id &&
+          person.activeAtPeriodEnd &&
+          activeDirectWriterIds.has(person.id),
+        )
+        .map((person) => person.id),
+    );
     let weighted = 0;
     for (const row of reportRows) weighted += row.teamIpCents * (row.firstLegPercent ?? 0);
-    const activeWriters = positiveWriterIds.size;
+    const activeWriters = activeDirectIds.size;
     const monthCount: 1 | 3 | 12 = input.period.kind === "annual" ? 12 : input.period.kind === "quarterly" ? 3 : 1;
     const prior = input.priorBuilderTeamIpCents[builder.id] ?? null;
     const expected = {
@@ -151,7 +180,7 @@ export function verifyPreparedScorecardRun(
       teamRankUnavailableReason: represented.has(builder.id) ? null : "not_represented_in_gateway",
       activeWriters,
       firstLegPercent: total === 0 ? null : weighted / total,
-      averageMonthlyIpPerWriterCents: activeWriters === 0 ? null : Math.round(total / monthCount / activeWriters),
+      averageMonthlyIpPerWriterCents: agencyWriterIds.size === 0 ? null : Math.round(total / monthCount / agencyWriterIds.size),
       monthCount,
       growth: {
         comparison: input.period.kind === "annual" ? "yoy" : input.period.kind === "quarterly" ? "qoq" : "mom",
