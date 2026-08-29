@@ -1,13 +1,121 @@
 import { describe, expect, it } from "vitest";
+import { createMonthlyProducerPreview } from "./lifecycle";
 import {
   currentMonthlyPeriod,
   expectedDatesForSchedule,
   expectedDatesForScheduleHistory,
+  loadCurrentMonthlyProducerSource,
+  loadProducerLeadSpendCents,
+  loadProducerTrackingRows,
   monthlyLeadSpendTotals,
   monthlyProducerSourceFromRows,
   rankForPositiveTotal,
   rankForTotal,
 } from "./source";
+
+function fakeTrackingSource(args: {
+  rows?: unknown[];
+  error?: { message: string } | null;
+  reject?: Error;
+}) {
+  const calls: Array<[string, ...unknown[]]> = [];
+  const query = {
+    select(columns: string) {
+      calls.push(["select", columns]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push(["eq", column, value]);
+      return this;
+    },
+    gte(column: string, value: unknown) {
+      calls.push(["gte", column, value]);
+      return this;
+    },
+    lte(column: string, value: unknown) {
+      calls.push(["lte", column, value]);
+      if (args.reject) return Promise.reject(args.reject);
+      return Promise.resolve({ data: args.rows ?? [], error: args.error ?? null });
+    },
+  };
+  return {
+    client: {
+      from(table: string) {
+        calls.push(["from", table]);
+        return query;
+      },
+    },
+    calls,
+  };
+}
+
+function fakeAnalyticsSource(args: {
+  data?: unknown;
+  error?: { message: string } | null;
+  reject?: Error;
+}) {
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  return {
+    client: {
+      from() {
+        throw new Error("Lead Spend source must use the canonical analytics RPC");
+      },
+      rpc(name: string, rpcArgs: Record<string, unknown>) {
+        calls.push({ name, args: rpcArgs });
+        if (args.reject) return Promise.reject(args.reject);
+        return Promise.resolve({ data: args.data ?? null, error: args.error ?? null });
+      },
+    },
+    calls,
+  };
+}
+
+function fakeMonthlyProducerSource(args: {
+  imports?: unknown[];
+  premiumRows?: unknown[];
+  importError?: { message: string } | null;
+  premiumError?: { message: string } | null;
+  rejectTable?: string;
+}) {
+  const calls: Array<[string, ...unknown[]]> = [];
+  const resultFor = (table: string) => table === "gateway_issued_premium_import"
+    ? { data: args.imports ?? [], error: args.importError ?? null }
+    : { data: args.premiumRows ?? [], error: args.premiumError ?? null };
+
+  const queryFor = (table: string) => ({
+    select(columns: string) {
+      calls.push(["select", table, columns]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push(["eq", table, column, value]);
+      return this;
+    },
+    gte(column: string, value: unknown) {
+      calls.push(["gte", table, column, value]);
+      return this;
+    },
+    lte(column: string, value: unknown) {
+      calls.push(["lte", table, column, value]);
+      return this;
+    },
+    order(column: string) {
+      calls.push(["order", table, column]);
+      if (args.rejectTable === table) return Promise.reject(new Error(`${table} unavailable`));
+      return Promise.resolve(resultFor(table));
+    },
+  });
+
+  return {
+    client: {
+      from(table: string) {
+        calls.push(["from", table]);
+        return queryFor(table);
+      },
+    },
+    calls,
+  };
+}
 
 describe("monthly Producer source adapter", () => {
   it("ranks Lead Spend across the active population for the requested month", () => {
@@ -16,12 +124,13 @@ describe("monthly Producer source adapter", () => {
       period: { start: "2026-07-01", end: "2026-07-31" },
       rows: [
         { person_id: "producer-a", amount: 1_250, purchase_date: "2026-07-10", created_at: "2026-08-01T00:00:00Z" },
+        { person_id: "producer-a", amount: 250, purchase_date: "2026-07-20", created_at: "2026-07-20T12:00:00Z" },
         { person_id: "producer-b", amount: 500, purchase_date: null, created_at: "2026-08-01T04:30:00Z" },
         { person_id: "producer-b", amount: 900, purchase_date: "2026-08-01", created_at: "2026-07-15T00:00:00Z" },
         { person_id: "not-active", amount: 5_000, purchase_date: "2026-07-10", created_at: "2026-07-10T00:00:00Z" },
       ],
     }).entries()]).toEqual([
-      ["producer-a", 125_000],
+      ["producer-a", 150_000],
       ["producer-b", 50_000],
       ["producer-c", 0],
     ]);
@@ -115,5 +224,194 @@ describe("monthly Producer source adapter", () => {
       { reportDate: "2026-08-07", label: "August Week 1" },
     ]);
     expect(source.producerRows).toEqual([]);
+  });
+});
+
+
+describe("Producer scored metric source wiring", () => {
+  it("locks Issued Paid to personal_ip_cents even when team_ip_cents is much larger", () => {
+    const source = monthlyProducerSourceFromRows({
+      producerId: "producer-1",
+      period: { start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+      generatedAt: "2026-09-01T12:00:00.000Z",
+      reportImports: [{ report_date: "2026-08-07", gateway_label: "August Week 1" }],
+      rows: [{
+        person_id: "producer-1",
+        report_date: "2026-08-07",
+        gateway_label: "August Week 1",
+        personal_ip_cents: 1_200_000,
+        team_ip_cents: 9_900_000,
+      } as never],
+    });
+
+    expect(createMonthlyProducerPreview(source).totalIssuedIpCents).toBe(1_200_000);
+  });
+
+  it("never falls back to team IP when personal IP is missing", () => {
+    const source = monthlyProducerSourceFromRows({
+      producerId: "producer-1",
+      period: { start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+      generatedAt: "2026-09-01T12:00:00.000Z",
+      reportImports: [{ report_date: "2026-08-07", gateway_label: "August Week 1" }],
+      rows: [{
+        person_id: "producer-1",
+        report_date: "2026-08-07",
+        gateway_label: "August Week 1",
+        personal_ip_cents: null,
+        team_ip_cents: 9_900_000,
+      } as never],
+    });
+
+    expect(source.producerRows).toEqual([]);
+    expect(createMonthlyProducerPreview(source).totalIssuedIpCents).toBe(0);
+  });
+
+
+  it("queries producer_issued_premium for personal IP only and scopes it to the requested producer/month", async () => {
+    const fake = fakeMonthlyProducerSource({
+      imports: [{ report_date: "2026-08-07", gateway_label: "August Week 1" }],
+      premiumRows: [{
+        person_id: "producer-1",
+        report_date: "2026-08-07",
+        gateway_label: "August Week 1",
+        personal_ip_cents: 1_200_000,
+        team_ip_cents: 9_900_000,
+      }],
+    });
+
+    const source = await loadCurrentMonthlyProducerSource(
+      fake.client as never,
+      "producer-1",
+      new Date("2026-08-20T12:00:00.000Z"),
+    );
+
+    expect(createMonthlyProducerPreview(source).totalIssuedIpCents).toBe(1_200_000);
+    expect(fake.calls).toContainEqual([
+      "select",
+      "producer_issued_premium",
+      "person_id, report_date, gateway_label, personal_ip_cents",
+    ]);
+    expect(fake.calls).not.toContainEqual([
+      "select",
+      "producer_issued_premium",
+      expect.stringContaining("team_ip_cents"),
+    ]);
+    expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "person_id", "producer-1"]);
+    expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "period_type", "wtd"]);
+    expect(fake.calls).toContainEqual(["gte", "producer_issued_premium", "report_date", "2026-08-01"]);
+    expect(fake.calls).toContainEqual(["lte", "producer_issued_premium", "report_date", "2026-08-31"]);
+  });
+
+  it("turns Producer IP source error objects and rejected queries into controlled errors", async () => {
+    const sourceError = fakeMonthlyProducerSource({ premiumError: { message: "permission denied" } });
+    await expect(loadCurrentMonthlyProducerSource(
+      sourceError.client as never,
+      "producer-1",
+      new Date("2026-08-20T12:00:00.000Z"),
+    )).rejects.toThrow("Unable to load Scorecard Producer personal IP: permission denied");
+
+    const rejected = fakeMonthlyProducerSource({ rejectTable: "producer_issued_premium" });
+    await expect(loadCurrentMonthlyProducerSource(
+      rejected.client as never,
+      "producer-1",
+      new Date("2026-08-20T12:00:00.000Z"),
+    )).rejects.toThrow("Unable to load Scorecard Gateway issued premium: producer_issued_premium unavailable");
+  });
+
+  it("loads Tracking from tracker_entry for only the scored person and requested period", async () => {
+    const fake = fakeTrackingSource({
+      rows: [
+        { person_id: "producer-1", entry_date: "2026-08-10", leads: 1, dials: 2, contacts: 3, appointments: 4, presentations: 5, sales: 6 },
+        { person_id: "other", entry_date: "2026-08-11", leads: 9, dials: 9, contacts: 9, appointments: 9, presentations: 9, sales: 9 },
+        { person_id: "producer-1", entry_date: "2026-09-01", leads: 7, dials: 7, contacts: 7, appointments: 7, presentations: 7, sales: 7 },
+      ],
+    });
+
+    const rows = await loadProducerTrackingRows(fake.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    });
+
+    expect(rows).toEqual([{ entryDate: "2026-08-10", leads: 1, dials: 2, contacts: 3, appointments: 4, presentations: 5, sales: 6 }]);
+    expect(fake.calls).toContainEqual(["from", "tracker_entry"]);
+    expect(fake.calls).toContainEqual(["eq", "person_id", "producer-1"]);
+    expect(fake.calls).toContainEqual(["gte", "entry_date", "2026-08-01"]);
+    expect(fake.calls).toContainEqual(["lte", "entry_date", "2026-08-31"]);
+  });
+
+  it("treats missing and partial Tracking rows safely", async () => {
+    const missing = fakeTrackingSource({ rows: [] });
+    await expect(loadProducerTrackingRows(missing.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).resolves.toEqual([]);
+
+    const partial = fakeTrackingSource({
+      rows: [{ person_id: "producer-1", entry_date: "2026-08-10", leads: null, dials: "bad", contacts: 3, appointments: null, presentations: 5, sales: 6 }],
+    });
+    await expect(loadProducerTrackingRows(partial.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).resolves.toEqual([{ entryDate: "2026-08-10", leads: null, dials: null, contacts: 3, appointments: null, presentations: 5, sales: 6 }]);
+  });
+
+  it("turns Tracking error objects and rejected queries into controlled source errors", async () => {
+    const relationError = fakeTrackingSource({ error: { message: 'relation "tracker_entry" does not exist' } });
+    await expect(loadProducerTrackingRows(relationError.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).rejects.toThrow('Unable to load Scorecard Tracking: relation "tracker_entry" does not exist');
+
+    const rejected = fakeTrackingSource({ reject: new Error("network unavailable") });
+    await expect(loadProducerTrackingRows(rejected.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).rejects.toThrow("Unable to load Scorecard Tracking: network unavailable");
+  });
+
+  it("loads Lead Spend through producer_analytics_bundle with the exact person and period", async () => {
+    const fake = fakeAnalyticsSource({
+      data: {
+        totals: { leadSpend_cents: 350_000 },
+      },
+    });
+
+    await expect(loadProducerLeadSpendCents(fake.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).resolves.toBe(350_000);
+    expect(fake.calls).toEqual([{
+      name: "producer_analytics_bundle",
+      args: {
+        p_person_id: "producer-1",
+        p_from: "2026-08-01",
+        p_to: "2026-08-31",
+        p_tz: "America/Chicago",
+      },
+    }]);
+  });
+
+  it("treats zero, missing, and malformed Lead Spend aggregates safely", async () => {
+    for (const data of [null, {}, { totals: { leadSpend_cents: null } }, { totals: { leadSpend_cents: Number.NaN } }, { totals: { leadSpend_cents: -1 } }]) {
+      const fake = fakeAnalyticsSource({ data });
+      await expect(loadProducerLeadSpendCents(fake.client as never, "producer-1", {
+        start: "2026-08-01",
+        end: "2026-08-31",
+      })).resolves.toBe(0);
+    }
+  });
+
+  it("turns Lead Spend RPC errors and rejected requests into controlled source errors", async () => {
+    const rpcError = fakeAnalyticsSource({ error: { message: "function producer_analytics_bundle does not exist" } });
+    await expect(loadProducerLeadSpendCents(rpcError.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).rejects.toThrow("Unable to load Scorecard Lead Spend: function producer_analytics_bundle does not exist");
+
+    const rejected = fakeAnalyticsSource({ reject: new Error("connection reset") });
+    await expect(loadProducerLeadSpendCents(rejected.client as never, "producer-1", {
+      start: "2026-08-01",
+      end: "2026-08-31",
+    })).rejects.toThrow("Unable to load Scorecard Lead Spend: connection reset");
   });
 });

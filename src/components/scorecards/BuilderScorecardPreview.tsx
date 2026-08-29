@@ -242,9 +242,9 @@ function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: Sta
 }
 
 export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
-  // Ticket #013 intentionally rates the values already supplied to this view.
-  // Follow-up tickets #014–#017 own the data-source semantics for Active Directs,
-  // Avg IP / Active Writer, and Recruits Licensed; do not pull those changes forward here.
+  // #014 deliberately scores the authoritative values currently supplied to this view.
+  // #015 still owns final Active Directs filtering, #016 owns actual licensed-recruit
+  // semantics, and #017 owns equivalent-period/scaled-threshold behavior.
   const summary = createBuilderStarSummary({
     growthPercent: view.metric.growth.percentage,
     priorPeriodBaseline: view.metric.growth.priorTeamIpCents,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { approvedPhotoUrl, type PhotoFields } from "@/lib/headshots/photo";
 import {
+  computeAnalytics,
   dollarsToCents,
   fetchAllRows,
   isSale,
@@ -18,7 +19,7 @@ type GatewayWeekRow = {
   person_id: string;
   report_date: string;
   gateway_label: string | null;
-  personal_ip_cents: number;
+  personal_ip_cents: number | null;
 };
 
 type GatewayWeekImport = {
@@ -100,12 +101,12 @@ export function monthlyProducerSourceFromRows(args: {
     }
   }
   for (const row of args.rows) {
-    if (row.person_id === args.producerId) {
-      producerRows.push({
-        reportDate: row.report_date,
-        personalIpCents: row.personal_ip_cents,
-      });
-    }
+    if (row.person_id !== args.producerId) continue;
+    if (!Number.isInteger(row.personal_ip_cents) || (row.personal_ip_cents ?? -1) < 0) continue;
+    producerRows.push({
+      reportDate: row.report_date,
+      personalIpCents: row.personal_ip_cents!,
+    });
   }
 
   return {
@@ -128,30 +129,32 @@ export async function loadCurrentMonthlyProducerSource(
   now = new Date(),
 ): Promise<MonthlyProducerSource> {
   const period = currentMonthlyPeriod(now);
-  const [importsResult, rowsResult] = await Promise.all([
-    supabase
-      .from("gateway_issued_premium_import")
-      .select("report_date, gateway_label")
-      .eq("period_type", "wtd")
-      .eq("status", "imported")
-      .gte("report_date", period.start)
-      .lte("report_date", period.end)
-      .order("report_date", { ascending: true }),
-    supabase
-      .from("producer_issued_premium")
-      .select("person_id, report_date, gateway_label, personal_ip_cents")
-      .eq("person_id", producerId)
-      .eq("period_type", "wtd")
-      .gte("report_date", period.start)
-      .lte("report_date", period.end)
-      .order("report_date", { ascending: true }),
-  ]);
-  if (importsResult.error) {
-    throw new Error(`Unable to load Gateway report coverage: ${importsResult.error.message}`);
+  let importsResult;
+  let rowsResult;
+  try {
+    [importsResult, rowsResult] = await Promise.all([
+      supabase
+        .from("gateway_issued_premium_import")
+        .select("report_date, gateway_label")
+        .eq("period_type", "wtd")
+        .eq("status", "imported")
+        .gte("report_date", period.start)
+        .lte("report_date", period.end)
+        .order("report_date", { ascending: true }),
+      supabase
+        .from("producer_issued_premium")
+        .select("person_id, report_date, gateway_label, personal_ip_cents")
+        .eq("person_id", producerId)
+        .eq("period_type", "wtd")
+        .gte("report_date", period.start)
+        .lte("report_date", period.end)
+        .order("report_date", { ascending: true }),
+    ]);
+  } catch (error) {
+    throw scorecardSourceError("Gateway issued premium", error);
   }
-  if (rowsResult.error) {
-    throw new Error(`Unable to load producer Gateway values: ${rowsResult.error.message}`);
-  }
+  if (importsResult.error) throw scorecardSourceError("Gateway report coverage", importsResult.error);
+  if (rowsResult.error) throw scorecardSourceError("Producer personal IP", rowsResult.error);
 
   return monthlyProducerSourceFromRows({
     producerId,
@@ -211,6 +214,89 @@ export function monthlyLeadSpendTotals(args: {
   return totals;
 }
 
+type ProducerSourcePeriod = { start: string; end: string };
+
+type TrackerSourceRow = {
+  person_id: string;
+  entry_date: string;
+  leads: number | string | null;
+  dials: number | string | null;
+  contacts: number | string | null;
+  appointments: number | string | null;
+  presentations: number | string | null;
+  sales: number | string | null;
+};
+
+function scorecardSourceError(source: string, error: unknown): Error {
+  const detail = error instanceof Error
+    ? error.message
+    : typeof error === "object" && error != null && "message" in error
+      ? String((error as { message?: unknown }).message ?? "unknown source error")
+      : String(error ?? "unknown source error");
+  return new Error(`Unable to load Scorecard ${source}: ${detail}`);
+}
+
+function nullableFiniteNumber(value: number | string | null): number | null {
+  if (value == null) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+export async function loadProducerTrackingRows(
+  supabase: SupabaseClient,
+  producerId: string,
+  period: ProducerSourcePeriod,
+): Promise<ProducerActivityRow[]> {
+  let result;
+  try {
+    result = await supabase
+      .from("tracker_entry")
+      .select("person_id, entry_date, leads, dials, contacts, appointments, presentations, sales")
+      .eq("person_id", producerId)
+      .gte("entry_date", period.start)
+      .lte("entry_date", period.end);
+  } catch (error) {
+    throw scorecardSourceError("Tracking", error);
+  }
+  if (result.error) throw scorecardSourceError("Tracking", result.error);
+
+  const rows = (result.data ?? []) as TrackerSourceRow[];
+  return rows.flatMap<ProducerActivityRow>((row) => {
+    const entryDate = dayOfDateColumn(row.entry_date);
+    if (row.person_id !== producerId || !entryDate || entryDate < period.start || entryDate > period.end) {
+      return [];
+    }
+    return [{
+      entryDate,
+      leads: nullableFiniteNumber(row.leads),
+      dials: nullableFiniteNumber(row.dials),
+      contacts: nullableFiniteNumber(row.contacts),
+      appointments: nullableFiniteNumber(row.appointments),
+      presentations: nullableFiniteNumber(row.presentations),
+      sales: nullableFiniteNumber(row.sales),
+    }];
+  });
+}
+
+export async function loadProducerLeadSpendCents(
+  supabase: SupabaseClient,
+  producerId: string,
+  period: ProducerSourcePeriod,
+): Promise<number> {
+  try {
+    const analytics = await computeAnalytics(supabase, producerId, {
+      rangeKey: "custom",
+      tz: "America/Chicago",
+      from: period.start,
+      to: period.end,
+    });
+    const cents = analytics.totals.leadSpend_cents;
+    return Number.isFinite(cents) && cents >= 0 ? Math.round(cents) : 0;
+  } catch (error) {
+    throw scorecardSourceError("Lead Spend", error);
+  }
+}
+
 export async function loadCurrentMonthlyProducerOverview(
   supabase: SupabaseClient,
   producer: {
@@ -222,33 +308,35 @@ export async function loadCurrentMonthlyProducerOverview(
 ): Promise<ProducerOverview> {
   const period = currentMonthlyPeriod(now);
   const prior = previousMonth(period.start);
-  const [clientRows, trackerResult, priorTrackerResult, leadSpendResult, organizationClientRows, organizationTrackerRows, organizationLeadSpendRows, currentPremiumRows, priorPremiumRows, peopleResult, scheduleResult, currentImportsResult, priorImportsResult] =
-    await Promise.all([
-      fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
-        supabase
-          .from("clients")
-          .select("id, annual_premium, sale_status, submit_date, date, created_at")
-          .eq("person_id", producer.id)
-          .order("id")
-          .range(lo, hi),
-      ),
+  const [
+    clientRows,
+    activityRows,
+    priorActivityRows,
+    leadSpendCents,
+    priorLeadSpendCents,
+    organizationClientRows,
+    organizationTrackerRows,
+    organizationLeadSpendRows,
+    currentPremiumRows,
+    priorPremiumRows,
+    peopleResult,
+    scheduleResult,
+    currentImportsResult,
+    priorImportsResult,
+  ] = await Promise.all([
+    fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
       supabase
-        .from("tracker_entry")
-        .select("entry_date, leads, dials, contacts, appointments, presentations, sales")
+        .from("clients")
+        .select("id, annual_premium, sale_status, submit_date, date, created_at")
         .eq("person_id", producer.id)
-        .gte("entry_date", period.start)
-        .lte("entry_date", period.end),
-      supabase
-        .from("tracker_entry")
-        .select("entry_date, leads, dials, contacts, appointments, presentations, sales")
-        .eq("person_id", producer.id)
-        .gte("entry_date", prior.start)
-        .lte("entry_date", prior.end),
-      supabase
-        .from("lead_purchases")
-        .select("amount, purchase_date, created_at")
-        .eq("person_id", producer.id),
-      fetchAllRows<ClientSaleFields & { id: string; person_id: string }>((lo, hi) =>
+        .order("id")
+        .range(lo, hi),
+    ),
+    loadProducerTrackingRows(supabase, producer.id, period),
+    loadProducerTrackingRows(supabase, producer.id, prior),
+    loadProducerLeadSpendCents(supabase, producer.id, period),
+    loadProducerLeadSpendCents(supabase, producer.id, prior),
+    fetchAllRows<ClientSaleFields & { id: string; person_id: string }>((lo, hi) =>
         supabase
           .from("clients")
           .select("id, person_id, annual_premium, sale_status, submit_date, date, created_at")
@@ -316,15 +404,11 @@ export async function loadCurrentMonthlyProducerOverview(
       supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", period.start).lte("report_date", period.end),
       supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", prior.start).lte("report_date", prior.end),
     ]);
-  if (trackerResult.error || priorTrackerResult.error) throw new Error(`Unable to load activity: ${trackerResult.error?.message ?? priorTrackerResult.error?.message}`);
-  if (leadSpendResult.error) throw new Error(`Unable to load Lead Spend: ${leadSpendResult.error.message}`);
   if (peopleResult.error) throw new Error(`Unable to load rank population: ${peopleResult.error.message}`);
   if (currentImportsResult.error || priorImportsResult.error) throw new Error("Unable to load imported Gateway coverage for ranking.");
 
   let submittedApCents = 0;
   let priorSubmittedApCents = 0;
-  let leadSpendCents = 0;
-  let priorLeadSpendCents = 0;
   let submittedApAvailable = true;
   let priorSubmittedApAvailable = true;
   for (const client of clientRows) {
@@ -345,34 +429,6 @@ export async function loadCurrentMonthlyProducerOverview(
     }
   }
 
-  for (const purchase of (leadSpendResult.data ?? []) as Array<{
-    amount: number | string | null;
-    purchase_date: string | null;
-    created_at: string | null;
-  }>) {
-    const day = dayOfDateColumn(purchase.purchase_date) ?? dayOfInstantInChicago(purchase.created_at);
-    if (!day) continue;
-    if (day >= period.start && day <= period.end) {
-      leadSpendCents += dollarsToCents(purchase.amount);
-    }
-    if (day >= prior.start && day <= prior.end) {
-      priorLeadSpendCents += dollarsToCents(purchase.amount);
-    }
-  }
-
-  const mapActivityRows = (rows: Array<Record<string, number | string | null>>) => rows.map<ProducerActivityRow>(
-    (row) => ({
-      entryDate: String(row.entry_date),
-      leads: row.leads == null ? null : Number(row.leads),
-      dials: row.dials == null ? null : Number(row.dials),
-      contacts: row.contacts == null ? null : Number(row.contacts),
-      appointments: row.appointments == null ? null : Number(row.appointments),
-      presentations: row.presentations == null ? null : Number(row.presentations),
-      sales: row.sales == null ? null : Number(row.sales),
-    }),
-  );
-  const activityRows = mapActivityRows((trackerResult.data ?? []) as Array<Record<string, number | string | null>>);
-  const priorActivityRows = mapActivityRows((priorTrackerResult.data ?? []) as Array<Record<string, number | string | null>>);
 
   const activeIds = new Set(
     ((peopleResult.data ?? []) as Array<{ id: string }>).map((person) => person.id),
@@ -412,6 +468,9 @@ export async function loadCurrentMonthlyProducerOverview(
     organizationTrackedDates.get(row.person_id)?.add(String(row.entry_date));
   }
   const submittedApRank = rankForPositiveTotal(organizationApTotals.get(producer.id) ?? 0, organizationApTotals.values());
+  // Legacy organization-rank context still uses one bulk read here. #012 fixed scoring
+  // does not consume these ranks; scored Lead Spend above uses the canonical SQL RPC.
+  // Avoid replacing this with per-person RPC calls (N+1) as part of #014.
   const organizationLeadSpendTotals = monthlyLeadSpendTotals({
     activeIds,
     period,

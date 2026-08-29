@@ -431,6 +431,9 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         : [];
     }),
   );
+  // #014 keeps the authoritative recruitment source (`recruit`) wired into the run.
+  // #016 owns the later definition of "Recruits Licensed"; until then this remains
+  // the existing in-period recruit-created count and must not invent licensing-state rules.
   const recruitCounts = eligibleBuilders.map((builder) => {
     const team = descendantIds(builder.id, input.people);
     team.delete(builder.id);
@@ -451,6 +454,9 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
     const team = descendantIds(builder.id, input.people);
     const periodRows = periodRowsByBuilder.get(builder.id) ?? [];
     const teamIpCents = periodRows.reduce((sum, row) => sum + row.teamIpCents, 0);
+    // #014 keeps `person` hierarchy + Gateway personal-IP activity as the source path.
+    // #015 owns narrowing this provisional full-agency writer count to direct-upline,
+    // active writers only; do not pull that filtering behavior into this ticket.
     const activeWriters = new Set(
       activeWriterReports.flatMap((report) =>
         report.rows

@@ -219,6 +219,20 @@ describe("Scorecard run", () => {
     });
   });
 
+
+  it("keeps Builder team IP on Gateway team_ip_cents even when personal IP differs", () => {
+    const input = completeRun();
+    const firstAlexRow = input.gatewayReports
+      .find((report) => report.id === "report-aug-07")!
+      .rows.find((row) => row.personId === "builder-a")!;
+
+    expect(firstAlexRow.personalIpCents).toBe(50_000);
+    expect(firstAlexRow.teamIpCents).toBe(1_000_000);
+
+    const result = prepareScorecardRun(input);
+    expect(result.builderMetrics.find((row) => row.personId === "builder-a")?.teamIpCents).toBe(4_000_000);
+  });
+
   it("blocks the whole run when period-wide Gateway coverage is incomplete", () => {
     const input = completeRun();
     input.gatewayReports = input.gatewayReports

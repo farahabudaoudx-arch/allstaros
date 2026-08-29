@@ -6,6 +6,7 @@ import {
   createMonthlyProducerPreview,
   createProducerOverview,
 } from "@/lib/scorecards/lifecycle";
+import { monthlyProducerSourceFromRows } from "@/lib/scorecards/source";
 import { ProducerBaseballCard } from "./ProducerBaseballCard";
 import { ProducerScorecardPreview } from "./ProducerScorecardPreview";
 
@@ -140,6 +141,45 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toMatch(/>05<\/p><h3[^>]*>Your Scorecard/);
     expect(html).toContain('aria-label="Download Your Scorecard as a 9:16 PNG"');
     expect(html).not.toContain("Download 05 Your Scorecard");
+  });
+
+
+  it("renders and scores Producer Issued Paid from personal IP when Gateway team IP differs", () => {
+    const source = monthlyProducerSourceFromRows({
+      producerId: "producer-field-lock",
+      period: { start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+      generatedAt: "2026-09-01T12:00:00.000Z",
+      reportImports: [{ report_date: "2026-08-07", gateway_label: "August Week 1" }],
+      rows: [{
+        person_id: "producer-field-lock",
+        report_date: "2026-08-07",
+        gateway_label: "August Week 1",
+        personal_ip_cents: 1_200_000,
+        team_ip_cents: 9_900_000,
+      } as never],
+    });
+    const preview = createMonthlyProducerPreview(source);
+    const overview = createProducerOverview({
+      fullName: "Field Lock Producer",
+      photoUrl: null,
+      submittedApCents: null,
+      leadSpendCents: 0,
+      currentIssuedIpCents: preview.totalIssuedIpCents,
+      priorIssuedIpCents: null,
+      rank: { rank: null, population: 0, percentile: 0, movement: null },
+      organizationRanks: protectedFixture.expected.organizationRanks,
+      activityRows: [],
+      expectedWorkingDates: null,
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(ProducerScorecardPreview, { preview, overview }),
+    );
+
+    expect(preview.totalIssuedIpCents).toBe(1_200_000);
+    expect(html).toContain("Issued Premium: 2 out of 5 stars");
+    expect(html).toContain("$12,000");
+    expect(html).not.toContain("$99,000");
   });
 
 
