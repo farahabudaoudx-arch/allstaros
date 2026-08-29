@@ -177,7 +177,7 @@ describe("Producer Scorecard preview", () => {
     );
 
     expect(preview.totalIssuedIpCents).toBe(1_200_000);
-    expect(html).toContain("Issued Premium: 2 out of 5 stars");
+    expect(html).toContain("Issued Premium: 1 out of 5 stars");
     expect(html).toContain("$12,000");
     expect(html).not.toContain("$99,000");
   });

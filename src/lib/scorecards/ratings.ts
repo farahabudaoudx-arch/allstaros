@@ -9,7 +9,7 @@ function validProducerMetric(value: unknown): number | null {
 export function producerIssuedIpStars(value: unknown): StarRating {
   const cents = validProducerMetric(value);
   if (cents == null || cents < 500_000) return 0;
-  if (cents < 1_000_000) return 1;
+  if (cents < 1_500_000) return 1;
   if (cents < 2_000_000) return 2;
   if (cents < 3_000_000) return 3;
   if (cents < 4_000_000) return 4;

@@ -94,7 +94,7 @@ export function ProducerScorecardPreview({
 }
 
 const PRODUCER_SCORECARD_AREAS = [
-  { label: "Personal IP", weight: "50%", bands: "0★ < $5k · 1★ $5k–<$10k · 2★ $10k–<$20k · 3★ $20k–<$30k · 4★ $30k–<$40k · 5★ $40k+" },
+  { label: "Personal IP", weight: "50%", bands: "0★ < $5k · 1★ $5k–<$15k · 2★ $15k–<$20k · 3★ $20k–<$30k · 4★ $30k–<$40k · 5★ $40k+" },
   { label: "Tracking", weight: "25%", bands: "Mon–Sat logs only · 0★ 0–7 · 1★ 8–11 · 2★ 12–15 · 3★ 16–19 · 4★ 20–23 · 5★ 24+" },
   { label: "Lead Spend", weight: "25%", bands: "0★ < $2k · 1★ $2k–<$4k · 2★ $4k–<$6k · 3★ $6k–<$8k · 4★ $8k–<$10k · 5★ $10k+" },
 ] as const;
