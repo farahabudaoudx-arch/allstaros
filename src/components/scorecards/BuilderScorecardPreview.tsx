@@ -76,7 +76,7 @@ const BUILDER_PRODUCTION_METRICS: ReadonlyArray<{
 
 const BUILDER_GROWTH_METRICS = [
   ...BUILDER_PRODUCTION_METRICS.map(({ key, label }) => ({ key, label })),
-  { key: "recruits", label: "Recruiting" },
+  { key: "recruits", label: "Recruits Licensed" },
 ] as const satisfies ReadonlyArray<{ key: BuilderPerformanceKey; label: string }>;
 
 function BuilderScorecardHowItWorks() {
@@ -196,7 +196,7 @@ function RecruitingMetric({ value, rating }: { value: number; rating: StarRating
   return (
     <div className="producer-numbers-grid flex justify-center" role="list" aria-label="Builder Recruiting metric">
       <div className="producer-number-card w-full max-w-sm rounded-xl border border-hairline bg-card px-5 py-5" role="listitem">
-        <p className="producer-number-card__label text-sm text-subtle">Recruits Entered the Pipeline</p>
+        <p className="producer-number-card__label text-sm text-subtle">Recruits Licensed</p>
         <p className="producer-number-card__value mt-3 text-[clamp(2.5rem,7vw,5rem)] font-semibold leading-none tabular-nums text-ink">{Number.isFinite(value) ? value.toLocaleString() : "Unavailable"}</p>
         <p className="mt-4"><StarScale value={rating} label="Recruits Licensed" /></p>
       </div>
@@ -242,9 +242,9 @@ function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: Sta
 }
 
 export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
-  // #015 defines the legacy `activeWriters` payload field as Active Directs:
-  // direct upline + active + recent written business. #016 still owns actual
-  // licensed-recruit semantics and #017 owns equivalent-period/scaled thresholds.
+  // #015 defines the legacy `activeWriters` payload field as Active Directs.
+  // #016 defines the legacy `recruitsAdded` payload field as Recruits Licensed,
+  // using verified NPN outcome/date semantics. #017 still owns period scaling.
   const summary = createBuilderStarSummary({
     growthPercent: view.metric.growth.percentage,
     priorPeriodBaseline: view.metric.growth.priorTeamIpCents,

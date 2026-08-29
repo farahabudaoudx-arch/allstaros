@@ -1,4 +1,5 @@
 import { countActiveDirects, isInSixWeekWindow } from "./active-directs";
+import { licensedRecruitPersonIds } from "./licensed-recruits";
 import { verifyPreparedScorecardRun } from "./verifier";
 import type { MonthlyProducerPreview, ProducerOverview } from "./lifecycle";
 
@@ -49,6 +50,9 @@ export type ScorecardRunInput = {
     personId: string;
     createdAt: string;
     removedAt: string | null;
+    npn: string | null;
+    npnStatus: string | null;
+    npnVerifiedAt: string | null;
   }>;
   priorBuilderTeamIpCents: Record<string, number | null>;
   priorBuilderCoverage: Record<string, "complete" | "outside_retention" | "incomplete">;
@@ -128,15 +132,6 @@ export type PreparedScorecardRun = {
     held: number;
   };
 };
-
-function chicagoDate(instant: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(instant));
-}
 
 function comparisonFor(kind: ScorecardPeriodKind) {
   if (kind === "quarterly") return "qoq" as const;
@@ -432,20 +427,21 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         : [];
     }),
   );
-  // #014 keeps the authoritative recruitment source (`recruit`) wired into the run.
-  // #016 owns the later definition of "Recruits Licensed"; until then this remains
-  // the existing in-period recruit-created count and must not invent licensing-state rules.
+  const licensedRecruitIds = licensedRecruitPersonIds(
+    input.recruits.map((recruit) => ({
+      personId: recruit.personId,
+      npn: recruit.npn,
+      npnStatus: recruit.npnStatus,
+      npnVerifiedAt: recruit.npnVerifiedAt,
+    })),
+    input.period,
+  );
   const recruitCounts = eligibleBuilders.map((builder) => {
     const team = descendantIds(builder.id, input.people);
     team.delete(builder.id);
     return {
       personId: builder.id,
-      value: input.recruits.filter(
-        (recruit) =>
-          team.has(recruit.personId) &&
-          chicagoDate(recruit.createdAt) >= input.period.start &&
-          chicagoDate(recruit.createdAt) <= input.period.end,
-      ).length,
+      value: [...licensedRecruitIds].filter((personId) => team.has(personId)).length,
     };
   });
   const recruitingRanks = competitionRanks(recruitCounts);

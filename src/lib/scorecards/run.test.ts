@@ -147,8 +147,24 @@ function completeRun(): ScorecardRunInput {
       },
     ],
     recruits: [
-      { id: "recruit-1", personId: "recruit-c", createdAt: "2026-08-05T14:00:00.000Z", removedAt: "2026-09-10T14:00:00.000Z" },
-      { id: "recruit-2", personId: "producer-b", createdAt: "2026-08-20T14:00:00.000Z", removedAt: null },
+      {
+        id: "recruit-1",
+        personId: "recruit-c",
+        createdAt: "2026-08-05T14:00:00.000Z",
+        removedAt: "2026-09-10T14:00:00.000Z",
+        npn: null,
+        npnStatus: "missing",
+        npnVerifiedAt: null,
+      },
+      {
+        id: "recruit-2",
+        personId: "producer-b",
+        createdAt: "2026-08-20T14:00:00.000Z",
+        removedAt: null,
+        npn: "12345678",
+        npnStatus: "verified",
+        npnVerifiedAt: "2026-08-20T14:00:00.000Z",
+      },
     ],
     priorBuilderTeamIpCents: {
       "builder-a": 0,
@@ -199,7 +215,7 @@ describe("Scorecard run", () => {
       firstLegPercent: 31.25,
       averageMonthlyIpPerWriterCents: 2_000_000,
       growth: { comparison: "mom", percentage: 100 },
-      recruitsAdded: 2,
+      recruitsAdded: 1,
       recruitingRank: { rank: 1, population: 3 },
     });
 
@@ -399,6 +415,87 @@ describe("Scorecard run", () => {
     );
 
     expect(prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a")?.activeWriters).toBe(1);
+  });
+
+  it("counts only the actually licensed recruit in the signup + licensing + licensed fixture", () => {
+    const input = completeRun();
+    input.recruits = input.recruits.map((recruit) => recruit.personId === "producer-b"
+      ? { ...recruit, npn: null, npnStatus: "pending_license", npnVerifiedAt: null }
+      : recruit);
+    input.people.push({
+      id: "licensed-c",
+      fullName: "Licensed Recruit",
+      email: "licensed@example.com",
+      photoUrl: null,
+      uplineId: "producer-b",
+      activeAtPeriodEnd: false,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    input.recruits.push({
+      id: "recruit-licensed",
+      personId: "licensed-c",
+      createdAt: "2026-07-12T12:00:00.000Z",
+      removedAt: null,
+      npn: "22223333",
+      npnStatus: "verified",
+      npnVerifiedAt: "2026-08-18T18:00:00.000Z",
+    });
+
+    const alex = prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a");
+    expect(alex?.recruitsAdded).toBe(1);
+  });
+
+  it("attributes Recruits Licensed to NPN verification time rather than recruit signup time", () => {
+    const input = completeRun();
+    input.recruits = input.recruits.map((recruit) => recruit.personId === "producer-b"
+      ? { ...recruit, createdAt: "2026-08-15T18:00:00.000Z", npnVerifiedAt: "2026-07-31T20:00:00.000Z" }
+      : recruit);
+    expect(prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a")?.recruitsAdded).toBe(0);
+
+    input.recruits = input.recruits.map((recruit) => recruit.personId === "producer-b"
+      ? { ...recruit, createdAt: "2026-07-01T18:00:00.000Z", npnVerifiedAt: "2026-08-01T05:00:00.000Z" }
+      : recruit);
+    expect(prepareScorecardRun(input).builderMetrics.find((row) => row.personId === "builder-a")?.recruitsAdded).toBe(1);
+  });
+
+  it("deduplicates licensed recruit records and excludes unrelated or missing hierarchy identities", () => {
+    const input = completeRun();
+    input.recruits.push(
+      { ...input.recruits[1], id: "recruit-duplicate" },
+      {
+        id: "recruit-missing-person",
+        personId: "missing-person",
+        createdAt: "2026-08-10T12:00:00.000Z",
+        removedAt: null,
+        npn: "44445555",
+        npnStatus: "verified",
+        npnVerifiedAt: "2026-08-10T12:00:00.000Z",
+      },
+    );
+    input.people.push({
+      id: "devon-recruit",
+      fullName: "Devon Recruit",
+      email: "devon-recruit@example.com",
+      photoUrl: null,
+      uplineId: "builder-d",
+      activeAtPeriodEnd: false,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    input.recruits.push({
+      id: "devon-recruit-row",
+      personId: "devon-recruit",
+      createdAt: "2026-08-10T12:00:00.000Z",
+      removedAt: null,
+      npn: "55556666",
+      npnStatus: "verified",
+      npnVerifiedAt: "2026-08-10T12:00:00.000Z",
+    });
+
+    const result = prepareScorecardRun(input);
+    expect(result.builderMetrics.find((row) => row.personId === "builder-a")?.recruitsAdded).toBe(1);
+    expect(result.builderMetrics.find((row) => row.personId === "builder-d")?.recruitsAdded).toBe(1);
   });
 
   it("publishes separate idempotent Producer and Builder artifacts and delivery intents", () => {

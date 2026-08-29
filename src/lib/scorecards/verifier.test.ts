@@ -21,7 +21,15 @@ function fixture(): ScorecardRunInput {
       { id: "one", periodType: "wtd", reportDate: "2026-08-07", status: "published", sourceChecksum: "one", unmatchedCount: 0, ambiguousCount: 0, rows: [{ personId: "builder", personalIpCents: 10, teamIpCents: 100, firstLegPercent: 25 }] },
       { id: "two", periodType: "wtd", reportDate: "2026-08-14", status: "published", sourceChecksum: "two", unmatchedCount: 0, ambiguousCount: 0, rows: [{ personId: "builder", personalIpCents: 0, teamIpCents: 300, firstLegPercent: 50 }, { personId: "writer", personalIpCents: 50, teamIpCents: 50, firstLegPercent: 10 }] },
     ],
-    recruits: [{ id: "recruit", personId: "writer", createdAt: "2026-08-31T23:00:00-05:00", removedAt: "2026-09-03T12:00:00Z" }],
+    recruits: [{
+      id: "recruit",
+      personId: "writer",
+      createdAt: "2026-08-31T23:00:00-05:00",
+      removedAt: "2026-09-03T12:00:00Z",
+      npn: "98765432",
+      npnStatus: "verified",
+      npnVerifiedAt: "2026-08-31T23:00:00-05:00",
+    }],
     priorBuilderTeamIpCents: { builder: 200 },
     priorBuilderCoverage: { builder: "complete" },
     producerMetrics: [
@@ -36,6 +44,20 @@ function fixture(): ScorecardRunInput {
 }
 
 describe("independent Scorecard verification", () => {
+  it("independently verifies licensed outcome and NPN verification date rather than signup date", () => {
+    const input = fixture();
+    input.recruits[0].createdAt = "2026-07-01T12:00:00Z";
+    input.recruits.push({ ...input.recruits[0], id: "duplicate-recruit" });
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.builderMetrics[0].recruitsAdded).toBe(1);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+
+    const changedTruth = structuredClone(input);
+    changedTruth.recruits = changedTruth.recruits.map((recruit) => ({ ...recruit, npnStatus: "submitted" }));
+    expect(verifyPreparedScorecardRun(changedTruth, prepared).valid).toBe(false);
+  });
+
   it("detects every corrupted displayed Builder field without calling the production calculator", () => {
     const input = fixture();
     const prepared = prepareScorecardRun(input);

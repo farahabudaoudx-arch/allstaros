@@ -27,15 +27,21 @@ function descendantsOf(rootId: string, input: ScorecardRunInput) {
   return result;
 }
 
-function localDate(value: string) {
+function localDate(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Chicago",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date(value));
-  const valueOf = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)!.value;
-  return `${valueOf("year")}-${valueOf("month")}-${valueOf("day")}`;
+  }).formatToParts(instant);
+  const valueOf = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? null;
+  const year = valueOf("year");
+  const month = valueOf("month");
+  const day = valueOf("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
 }
 
 function sixWeekStart(periodEnd: string) {
@@ -128,16 +134,19 @@ export function verifyPreparedScorecardRun(
     }
     totals.set(builder.id, total);
   }
+  const licensedRecruitIds = new Set<string>();
+  for (const recruit of input.recruits) {
+    if (recruit.npnStatus !== "verified") continue;
+    if (typeof recruit.npn !== "string" || !/^\d{1,10}$/.test(recruit.npn.trim())) continue;
+    const verifiedDate = localDate(recruit.npnVerifiedAt);
+    if (!verifiedDate || verifiedDate < input.period.start || verifiedDate > input.period.end) continue;
+    licensedRecruitIds.add(recruit.personId);
+  }
   const recruitTotals = new Map<string, number>();
   for (const builder of builders) {
     const team = descendantsOf(builder.id, input);
     team.delete(builder.id);
-    let count = 0;
-    for (const recruit of input.recruits) {
-      const date = localDate(recruit.createdAt);
-      if (team.has(recruit.personId) && date >= input.period.start && date <= input.period.end) count += 1;
-    }
-    recruitTotals.set(builder.id, count);
+    recruitTotals.set(builder.id, [...licensedRecruitIds].filter((personId) => team.has(personId)).length);
   }
 
   for (const builder of builders) {

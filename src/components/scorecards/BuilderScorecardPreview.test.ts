@@ -126,6 +126,32 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("13 of 25 total stars");
   });
 
+  it("changes only the Recruits Licensed contribution when the corrected licensed count changes", () => {
+    const correctedLicensedView: BuilderScorecardView = {
+      ...view,
+      metric: {
+        ...view.metric,
+        recruitsAdded: 1,
+        performance: {
+          ...view.metric.performance,
+          recruits: { ...view.metric.performance.recruits, value: 1 },
+        },
+      },
+    };
+    const html = renderToStaticMarkup(
+      createElement(BuilderScorecardPreview, { view: correctedLicensedView }),
+    );
+
+    expect(html).toContain("Recruits Licensed: 1 out of 5 stars");
+    expect(html).toMatch(/Recruits Licensed<\/p>[\s\S]*?>1<\/p>/);
+    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("First Leg %: 1 out of 5 stars");
+    expect(html).toContain("Active Directs: 5 out of 5 stars");
+    expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
+    expect(html).toContain("Average rating: 2.6 out of 5 stars");
+    expect(html).toContain("13 of 25 total stars");
+  });
+
   it("does not turn a zero prior-period baseline into a 5-star Growth rating", () => {
     const zeroBaselineView: BuilderScorecardView = {
       ...view,
@@ -195,7 +221,8 @@ describe("Builder Scorecard preview", () => {
     expect(html.match(/class="growth-row/g)).toHaveLength(10);
     expect(html).toMatch(/Previous Period Growth[\s\S]*Active Directs[\s\S]*Total Team Dials[\s\S]*Total Team Contacts/);
     expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team Presentations[\s\S]*Total Team Sales[\s\S]*Total Team AP/);
-    expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team IP[\s\S]*First Leg %[\s\S]*Avg IP Per Writer[\s\S]*Recruiting/);
-    expect(html).toContain("Recruits Entered the Pipeline");
+    expect(html).toMatch(/Previous Period Growth[\s\S]*Total Team IP[\s\S]*First Leg %[\s\S]*Avg IP Per Writer[\s\S]*Recruits Licensed/);
+    expect(html).toContain("Recruits Licensed");
+    expect(html).not.toContain("Recruits Entered the Pipeline");
   });
 });

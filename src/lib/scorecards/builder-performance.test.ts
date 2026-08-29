@@ -26,7 +26,7 @@ describe("Builder agency performance", () => {
         { personId: "d", dials: 50, contacts: 5, presentations: 3, sales: 1, apCents: 5_000 },
         { personId: "f", dials: 10, contacts: 1, presentations: 1, sales: 1, apCents: 2_000 },
       ],
-      recruitPersonIds: ["d"],
+      licensedRecruitPersonIds: ["d"],
     });
 
     expect(performance.get("a")).toEqual({

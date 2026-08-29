@@ -47,7 +47,7 @@ export type BuilderPerformanceInput = {
   activeDirectWriterIds: string[];
   activePersonIds: string[];
   personProduction: PersonProduction[];
-  recruitPersonIds: string[];
+  licensedRecruitPersonIds: string[];
 };
 
 function descendantIds(rootId: string, people: Person[]): Set<string> {
@@ -151,7 +151,7 @@ export function createBuilderAgencyValues(
       averageIpPerWriter: teamIp != null && agencyActiveWriters > 0
         ? Math.round(teamIp / agencyActiveWriters)
         : null,
-      recruits: input.recruitPersonIds.filter((personId) => recruitAgencyIds.has(personId)).length,
+      recruits: input.licensedRecruitPersonIds.filter((personId) => recruitAgencyIds.has(personId)).length,
     });
   }
 

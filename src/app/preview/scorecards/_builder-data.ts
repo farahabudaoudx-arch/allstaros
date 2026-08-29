@@ -9,6 +9,7 @@ import {
   createBuilderAgencyValues,
 } from "@/lib/scorecards/builder-performance";
 import { isInSixWeekWindow } from "@/lib/scorecards/active-directs";
+import { licensedRecruitPersonIds } from "@/lib/scorecards/licensed-recruits";
 import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-july-2026.json";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -39,6 +40,9 @@ type PersonRow = {
   upline_id: string | null;
   status: string;
   is_builder: boolean;
+  npn: string | null;
+  npn_status: string | null;
+  npn_verified_at: string | null;
 };
 
 type RecruitRow = { person_id: string };
@@ -51,6 +55,14 @@ function growthPercentage(current: number, prior: number | null) {
   return Math.round(((current - prior) / prior) * 1_000) / 10;
 }
 
+async function guardedSource<T>(label: string, request: PromiseLike<T>): Promise<T> {
+  try {
+    return await request;
+  } catch (error) {
+    throw new Error(`Unable to load ${label}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> {
   const service = createServiceRoleClient();
   const builderId = "ce7623c3-838e-4a3c-9750-583a05e6f7b2";
@@ -59,8 +71,6 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
     priorResult,
     leaderboardResult,
     peopleResult,
-    recruitsResult,
-    priorRecruitsResult,
     writerReportDatesResult,
     priorWriterReportDatesResult,
     productionLeaderboard,
@@ -89,17 +99,10 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       .select("person_id, team_ip_cents, first_leg_percent")
       .eq("period_type", "mtd")
       .eq("report_date", protectedFixture.period.end),
-    service.from("person").select("id, upline_id, status, is_builder"),
-    service
-      .from("recruit")
-      .select("person_id")
-      .gte("created_at", "2026-07-01T05:00:00.000Z")
-      .lt("created_at", "2026-08-01T05:00:00.000Z"),
-    service
-      .from("recruit")
-      .select("person_id")
-      .gte("created_at", "2026-06-01T05:00:00.000Z")
-      .lt("created_at", "2026-07-01T05:00:00.000Z"),
+    guardedSource(
+      "Builder population",
+      service.from("person").select("id, upline_id, status, is_builder, npn, npn_status, npn_verified_at"),
+    ),
     service
       .from("gateway_issued_premium_import")
       .select("report_date")
@@ -138,15 +141,49 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
   if (priorResult.error) throw new Error(`Unable to load June Builder Team IP: ${priorResult.error.message}`);
   if (leaderboardResult.error) throw new Error(`Unable to load the July Builder leaderboard: ${leaderboardResult.error.message}`);
   if (peopleResult.error) throw new Error(`Unable to load the Builder population: ${peopleResult.error.message}`);
-  if (recruitsResult.error) throw new Error(`Unable to load July recruits: ${recruitsResult.error.message}`);
-  if (priorRecruitsResult.error) throw new Error(`Unable to load June recruits: ${priorRecruitsResult.error.message}`);
   if (writerReportDatesResult.error) throw new Error(`Unable to load the active-writer window: ${writerReportDatesResult.error.message}`);
   if (priorWriterReportDatesResult.error) throw new Error(`Unable to load the previous active-writer window: ${priorWriterReportDatesResult.error.message}`);
 
   const currentRows = (currentResult.data ?? []) as TeamIpRow[];
   const people = (peopleResult.data ?? []) as PersonRow[];
-  const recruits = (recruitsResult.data ?? []) as RecruitRow[];
-  const priorRecruits = (priorRecruitsResult.data ?? []) as RecruitRow[];
+  const licenseCandidates = people.map((person) => ({
+    personId: person.id,
+    npn: person.npn,
+    npnStatus: person.npn_status,
+    npnVerifiedAt: person.npn_verified_at,
+  }));
+  const currentVerifiedCandidateIds = licensedRecruitPersonIds(licenseCandidates, {
+    start: protectedFixture.period.start,
+    end: protectedFixture.period.end,
+  });
+  const priorVerifiedCandidateIds = licensedRecruitPersonIds(licenseCandidates, {
+    start: "2026-06-01",
+    end: "2026-06-30",
+  });
+  const licensedCandidateIds = [...new Set([
+    ...currentVerifiedCandidateIds,
+    ...priorVerifiedCandidateIds,
+  ])];
+  let recruitMembershipResult: { data: unknown[] | null; error: { message: string } | null };
+  try {
+    recruitMembershipResult = licensedCandidateIds.length === 0
+      ? { data: [], error: null }
+      : await service.from("recruit").select("person_id").in("person_id", licensedCandidateIds);
+  } catch (error) {
+    throw new Error(`Unable to load licensed recruit membership: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (recruitMembershipResult.error) {
+    throw new Error(`Unable to load licensed recruit membership: ${recruitMembershipResult.error.message}`);
+  }
+  const recruitPersonIds = new Set(
+    (recruitMembershipResult.data ?? []).map((row) => (row as RecruitRow).person_id),
+  );
+  const currentLicensedRecruitIds = new Set(
+    [...currentVerifiedCandidateIds].filter((personId) => recruitPersonIds.has(personId)),
+  );
+  const priorLicensedRecruitIds = new Set(
+    [...priorVerifiedCandidateIds].filter((personId) => recruitPersonIds.has(personId)),
+  );
   const reconciledTeamIp = reconcileMonthlyBuilderTeamIp(currentRows.map((row) => ({
     reportDate: row.report_date,
     periodType: row.period_type,
@@ -228,7 +265,7 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       sales: row.sales,
       apCents: row.ap_cents,
     })),
-    recruitPersonIds: recruits.map((recruit) => recruit.person_id),
+    licensedRecruitPersonIds: [...currentLicensedRecruitIds],
   });
   const performance = agencyPerformance.get(builderId);
   if (!performance) throw new Error("Builder preview member is outside the active Builder population.");
@@ -257,7 +294,7 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       sales: row.sales,
       apCents: row.ap_cents,
     })),
-    recruitPersonIds: priorRecruits.map((recruit) => recruit.person_id),
+    licensedRecruitPersonIds: [...priorLicensedRecruitIds],
   }).get(builderId);
   if (!previousPerformance) throw new Error("Unable to calculate the previous Builder period.");
   const teamRank = performance.teamIp.rank.rank == null
