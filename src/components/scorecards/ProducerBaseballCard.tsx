@@ -18,6 +18,7 @@ export function ScorecardBaseballCard({
   totalRating,
   maximumRatingTotal,
   ratings,
+  ratingLabel = "average",
 }: {
   memberName: string;
   photoUrl: string | null;
@@ -27,6 +28,7 @@ export function ScorecardBaseballCard({
   totalRating: number | null;
   maximumRatingTotal: number;
   ratings: ScorecardCardRating[];
+  ratingLabel?: string;
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -86,7 +88,9 @@ export function ScorecardBaseballCard({
                   {averageRating == null ? "—" : averageRating.toFixed(1)}
                 </span>
                 <span className="mt-2 block text-sm font-medium text-white">
-                  {averageRating == null ? "Average unavailable" : `${averageRating.toFixed(1)} average`}
+                  {averageRating == null
+                    ? ratingLabel === "overall" ? "Overall unavailable" : "Average unavailable"
+                    : `${averageRating.toFixed(ratingLabel === "overall" ? 2 : 1)} ${ratingLabel}`}
                 </span>
                 {totalRating != null ? (
                   <span className="mt-1 block text-xs tabular-nums text-white/55">{totalRating} of {maximumRatingTotal} points</span>
@@ -114,13 +118,14 @@ export type ProducerCardRating = ScorecardCardRating;
 
 export function ProducerBaseballCard(props: Omit<
   Parameters<typeof ScorecardBaseballCard>[0],
-  "scorecardType" | "maximumRatingTotal"
+  "scorecardType" | "maximumRatingTotal" | "ratingLabel"
 >) {
   return (
     <ScorecardBaseballCard
       {...props}
       scorecardType="Producer"
-      maximumRatingTotal={40}
+      maximumRatingTotal={5}
+      ratingLabel="overall"
     />
   );
 }

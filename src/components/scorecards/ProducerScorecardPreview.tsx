@@ -6,8 +6,8 @@ import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import {
+  countProducerTrackingDays,
   createProducerStarSummary,
-  producerRankStars,
   type ProducerStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
@@ -30,8 +30,13 @@ export function ProducerScorecardPreview({
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 }) {
-  const ratings = producerRatings(preview, overview);
-  const starSummary = producerStarSummary(ratings);
+  const trackingLoggedDays = countProducerTrackingDays(overview.activity.loggedDates);
+  const starSummary = createProducerStarSummary({
+    issuedIpCents: preview.totalIssuedIpCents,
+    trackingLoggedDays,
+    leadSpendCents: overview.activity.leadSpendCents,
+  });
+  const ratings = starSummary.ratings;
   const exportMetadata = {
     cardType: "producer" as const,
     memberName: overview.producer.fullName,
@@ -44,8 +49,11 @@ export function ProducerScorecardPreview({
         memberName={overview.producer.fullName}
         photoUrl={overview.producer.photoUrl}
         title={preview.title}
-        averageStars={starSummary?.average ?? null}
-        totalStars={starSummary?.total ?? null}
+        averageStars={starSummary.overall}
+        totalStars={starSummary.overall}
+        maximumStars={5}
+        ratingLabel="Overall rating"
+        ratingSummary={`${starSummary.overall.toFixed(2)} weighted score`}
       />
 
       <ScorecardHowItWorks />
@@ -55,7 +63,12 @@ export function ProducerScorecardPreview({
       </StorySection>
 
       <StorySection number={null} title="Your Tracking" collapsible sectionId="scorecard-section-02" exportName="Your Tracking" exportMetadata={exportMetadata}>
-        <TrackingConsistencyCalendar preview={preview} activity={overview.activity} rating={ratings.trackingConsistency} />
+        <TrackingConsistencyCalendar
+          preview={preview}
+          activity={overview.activity}
+          rating={ratings.trackingConsistency}
+          scoredLoggedDays={trackingLoggedDays}
+        />
       </StorySection>
 
       <StorySection number={null} title="Previous Month Growth" collapsible sectionId="scorecard-section-03" exportName="Previous Month Growth" exportMetadata={exportMetadata}>
@@ -67,49 +80,24 @@ export function ProducerScorecardPreview({
           memberName={overview.producer.fullName}
           photoUrl={overview.producer.photoUrl}
           periodLabel={preview.periodLabel}
-          averageRating={starSummary?.average ?? null}
-          totalRating={starSummary?.total ?? null}
+          averageRating={starSummary.overall}
+          totalRating={null}
           ratings={[
-            { label: "Issued Premium", value: ratings.issuedIp },
-            { label: "Submitted AP", value: ratings.submittedAp },
-            { label: "Lead Spend", value: ratings.leadSpend },
-            { label: "Dials", value: ratings.dials },
-            { label: "Contacts", value: ratings.contacts },
-            { label: "Presentations", value: ratings.presentations },
-            { label: "Submitted Sales", value: ratings.sales },
+            { label: "Personal IP", value: ratings.issuedIp },
             { label: "Tracking", value: ratings.trackingConsistency },
+            { label: "Lead Spend", value: ratings.leadSpend },
           ]}
         />
       </StorySection>
-
     </article>
   );
 }
 
 const PRODUCER_SCORECARD_AREAS = [
-  "IP",
-  "Dials",
-  "Presentations",
-  "Lead Spend",
-  "AP",
-  "Contacts",
-  "Sales",
-  "Tracking",
+  { label: "Personal IP", weight: "50%", bands: "0★ < $5k · 1★ $5k–<$10k · 2★ $10k–<$20k · 3★ $20k–<$30k · 4★ $30k–<$40k · 5★ $40k+" },
+  { label: "Tracking", weight: "25%", bands: "Mon–Sat logs only · 0★ 0–7 · 1★ 8–11 · 2★ 12–15 · 3★ 16–19 · 4★ 20–23 · 5★ 24+" },
+  { label: "Lead Spend", weight: "25%", bands: "0★ < $2k · 1★ $2k–<$4k · 2★ $4k–<$6k · 3★ $6k–<$8k · 4★ $8k–<$10k · 5★ $10k+" },
 ] as const;
-
-const PRODUCER_SCORECARD_LEVELS = [
-  { stars: 0, description: "No recorded performance" },
-  { stars: 1, description: "Bottom 20% of producers" },
-  { stars: 2, description: "21st–40th percentile" },
-  { stars: 3, description: "41st–60th percentile" },
-  { stars: 4, description: "61st–80th percentile" },
-  { stars: 5, description: "Top 20% of producers" },
-] as const;
-
-function percentileTierLabel(rating: StarRating | null): string {
-  if (rating == null) return "Unavailable";
-  return PRODUCER_SCORECARD_LEVELS.find((level) => level.stars === rating)?.description ?? "Unavailable";
-}
 
 function ProducerNumbersGrid({
   preview,
@@ -123,12 +111,12 @@ function ProducerNumbersGrid({
   const totals = overview.activity.totals;
   const items: Array<{ label: string; starLabel?: string; value: string; rating: StarRating | null }> = [
     { label: "IP", starLabel: "Issued Premium", value: money(preview.totalIssuedIpCents), rating: ratings.issuedIp },
-    { label: "AP", starLabel: "Submitted AP", value: overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents), rating: ratings.submittedAp },
+    { label: "AP", starLabel: "Submitted AP", value: overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents), rating: null },
     { label: "Lead Spend", value: money(overview.activity.leadSpendCents), rating: ratings.leadSpend },
-    { label: "Dials", value: totals?.dials.toLocaleString() ?? "Unavailable", rating: ratings.dials },
-    { label: "Contacts", value: totals?.contacts.toLocaleString() ?? "Unavailable", rating: ratings.contacts },
-    { label: "Presentations", value: totals?.presentations.toLocaleString() ?? "Unavailable", rating: ratings.presentations },
-    { label: "Submitted Sales", value: totals?.sales.toLocaleString() ?? "Unavailable", rating: ratings.sales },
+    { label: "Dials", value: totals?.dials.toLocaleString() ?? "Unavailable", rating: null },
+    { label: "Contacts", value: totals?.contacts.toLocaleString() ?? "Unavailable", rating: null },
+    { label: "Presentations", value: totals?.presentations.toLocaleString() ?? "Unavailable", rating: null },
+    { label: "Submitted Sales", value: totals?.sales.toLocaleString() ?? "Unavailable", rating: null },
   ];
 
   return (
@@ -138,7 +126,6 @@ function ProducerNumbersGrid({
           <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
           <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{item.value}</p>
           {item.rating != null ? <p className="mt-4"><StarScale value={item.rating} label={item.starLabel ?? item.label} /></p> : null}
-          <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{percentileTierLabel(item.rating)}</p>
         </div>
       ))}
     </div>
@@ -173,42 +160,26 @@ function ScorecardHowItWorks() {
 
         <div id="scorecard-how-it-works-content" className="w-full">
           <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            As a producer, we create a scorecard for you based on eight areas the OS helps you track:
+            Producer ratings use three fixed monthly performance bands, not organization rank or percentile.
           </p>
 
-          <ul aria-label="Eight Producer scorecard areas" className="mt-7 grid grid-cols-4 gap-2 sm:gap-3">
+          <ul aria-label="Three Producer scorecard areas" className="mt-7 grid gap-3 lg:grid-cols-3">
             {PRODUCER_SCORECARD_AREAS.map((area) => (
-              <li
-                key={area}
-                className="flex min-h-20 items-center justify-center rounded-xl border border-hairline bg-card px-2 py-5 text-center text-[clamp(0.7rem,2vw,1.25rem)] font-semibold leading-tight text-ink sm:min-h-24 sm:px-4"
-              >
-                {area}
+              <li key={area.label} className="rounded-xl border border-hairline bg-card px-5 py-5 text-ink">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="font-semibold">{area.label}</span>
+                  <span className="text-sm font-medium text-accent">{area.weight}</span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-subtle">{area.bands}</p>
               </li>
             ))}
           </ul>
 
           <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            <p>We then rank your performance in all 8 areas against the entire organization and average out your rankings to give you an overall score:</p>
-
-            <dl className="mx-auto mt-6 max-w-2xl border-y border-hairline">
-              {PRODUCER_SCORECARD_LEVELS.map((level) => (
-                <div key={level.stars} className="grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-4 border-b border-hairline py-3.5 last:border-b-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
-                  <dt>
-                    <span className="inline-flex items-center gap-1 text-lg leading-none sm:text-xl" aria-label={`${level.stars} out of 5 stars`}>
-                      {Array.from({ length: 5 }, (_, index) => (
-                        <span key={index} className={index < level.stars ? "text-accent" : "text-white/20"} aria-hidden="true">★</span>
-                      ))}
-                    </span>
-                  </dt>
-                  <dd className="text-white">{level.description}</dd>
-                </div>
-              ))}
-            </dl>
-
+            <p>Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.</p>
+            <p className="mt-4">Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating.</p>
             <p className="mt-6">You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard.</p>
-            <p className="mt-6 font-semibold text-white">
-              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it.
-            </p>
+            <p className="mt-6 font-semibold text-white">Numbers don&apos;t lie. If you don&apos;t like your score, do something about it.</p>
           </div>
         </div>
       </details>
@@ -216,60 +187,7 @@ function ScorecardHowItWorks() {
   );
 }
 
-type ProducerRatings = {
-  issuedIp: StarRating;
-  submittedAp: StarRating | null;
-  leadSpend: StarRating;
-  dials: StarRating | null;
-  contacts: StarRating | null;
-  presentations: StarRating | null;
-  sales: StarRating | null;
-  trackingConsistency: StarRating | null;
-};
-
-function producerRatings(
-  preview: MonthlyProducerPreview,
-  overview: ProducerOverview,
-): ProducerRatings {
-  const totals = overview.activity.totals;
-  return {
-    issuedIp: producerRankStars(preview.totalIssuedIpCents, overview.rank),
-    submittedAp: overview.submittedApCents == null
-      ? null
-      : producerRankStars(overview.submittedApCents, overview.organizationRanks.submittedAp),
-    leadSpend: producerRankStars(overview.activity.leadSpendCents, overview.organizationRanks.leadSpend),
-    dials: totals ? producerRankStars(totals.dials, overview.organizationRanks.dials) : null,
-    contacts: totals ? producerRankStars(totals.contacts, overview.organizationRanks.contacts) : null,
-    presentations: totals ? producerRankStars(totals.presentations, overview.organizationRanks.presentations) : null,
-    sales: totals ? producerRankStars(totals.sales, overview.organizationRanks.sales) : null,
-    trackingConsistency: overview.activity.consistency
-      ? producerRankStars(overview.activity.consistency.loggedDays, overview.organizationRanks.trackingConsistency)
-      : null,
-  };
-}
-
-function producerStarSummary(
-  ratings: ProducerRatings,
-): ProducerStarSummary | null {
-  if (
-    ratings.submittedAp == null ||
-    ratings.dials == null ||
-    ratings.contacts == null ||
-    ratings.presentations == null ||
-    ratings.sales == null ||
-    ratings.trackingConsistency == null
-  ) return null;
-  return createProducerStarSummary({
-    issuedIp: ratings.issuedIp,
-    submittedAp: ratings.submittedAp,
-    leadSpend: ratings.leadSpend,
-    dials: ratings.dials,
-    contacts: ratings.contacts,
-    presentations: ratings.presentations,
-    sales: ratings.sales,
-    trackingConsistency: ratings.trackingConsistency,
-  });
-}
+type ProducerRatings = ProducerStarSummary["ratings"];
 
 export function StarScale({
   value,
@@ -308,6 +226,8 @@ export function ScorecardHeader({
   averageStars,
   totalStars,
   maximumStars = 40,
+  ratingLabel = "Average rating",
+  ratingSummary,
 }: {
   titleId: string;
   memberName: string;
@@ -316,6 +236,8 @@ export function ScorecardHeader({
   averageStars?: number | null;
   totalStars?: number | null;
   maximumStars?: number;
+  ratingLabel?: string;
+  ratingSummary?: string;
 }) {
   return (
     <VelarisBackground>
@@ -339,9 +261,9 @@ export function ScorecardHeader({
         <p className="mt-3 text-[1.5625rem] font-semibold tracking-[-0.025em] text-white/85 sm:text-3xl">{title}</p>
         {averageStars != null && totalStars != null ? (
           <div className="mt-5 flex flex-col items-center gap-2">
-            <StarScale value={averageStars} label="Average rating" prominent />
+            <StarScale value={averageStars} label={ratingLabel} prominent />
             <p className="text-sm font-medium tabular-nums text-white/65">
-              {averageStars.toFixed(1)} average · {totalStars} of {maximumStars} total stars
+              {ratingSummary ?? `${averageStars.toFixed(1)} average · ${totalStars} of ${maximumStars} total stars`}
             </p>
           </div>
         ) : null}
@@ -447,23 +369,15 @@ function TrackingConsistencyCalendar({
   preview,
   activity,
   rating,
+  scoredLoggedDays,
 }: {
   preview: MonthlyProducerPreview;
   activity: ProducerOverview["activity"];
-  rating: StarRating | null;
+  rating: StarRating;
+  scoredLoggedDays: number;
 }) {
-  const consistency = activity.consistency;
-  if (!consistency || !activity.expectedDates) {
-    return (
-      <StoryValue
-        value="Schedule Needed"
-        detail={`${activity.trackedDays} tracker submissions · set a schedule to measure consistency`}
-      />
-    );
-  }
-
   const loggedDates = new Set(activity.loggedDates);
-  const expectedDates = new Set(activity.expectedDates);
+  const expectedDates = new Set(activity.expectedDates ?? []);
   const dates = calendarDates(preview.periodStart, preview.periodEnd);
   const dayFormatter = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
 
@@ -473,15 +387,14 @@ function TrackingConsistencyCalendar({
         <div>
           <p className="text-sm font-medium text-subtle sm:text-base">Tracking Consistency</p>
           <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-            <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{consistency.percentage}%</p>
-            {rating != null ? <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span> : null}
+            <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{scoredLoggedDays}</p>
+            <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span>
           </div>
-          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">{consistency.loggedDays} of {consistency.expectedDays} expected workdays logged</p>
-          <p className="tracking-percentile mt-3 text-sm font-medium text-accent sm:text-base">{percentileTierLabel(rating)}</p>
+          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Mon–Sat logged days this month · Sundays are not scored</p>
         </div>
         <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-neg" aria-hidden="true" />Did Not Log</span>
+          {activity.expectedDates ? <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-neg" aria-hidden="true" />Did Not Log</span> : null}
         </div>
       </div>
 
@@ -493,8 +406,11 @@ function TrackingConsistencyCalendar({
           {dates.map((date, index) => {
             if (!date) return <div key={`empty-${index}`} className="min-h-16 border-b border-r border-hairline bg-card/30 sm:min-h-20" aria-hidden="true" />;
             const logged = loggedDates.has(date);
+            const sunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
             const missed = expectedDates.has(date) && !logged;
-            const status = logged ? "Logged" : missed ? "Did Not Log" : "Not Scheduled";
+            const status = logged
+              ? sunday ? "Logged — Sunday not scored" : "Logged"
+              : missed ? "Did Not Log" : "Not Scheduled";
             return (
               <div
                 key={date}
