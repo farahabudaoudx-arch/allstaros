@@ -5,10 +5,8 @@ import type {
   BuilderPerformanceKey,
 } from "@/lib/scorecards/builder-performance";
 import {
-  builderRankStars,
   createBuilderStarSummary,
   type BuilderStarRatings,
-  type BuilderStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
 import {
@@ -51,53 +49,35 @@ const BUILDER_SCORECARD_AREAS = [
   "Recruiting",
 ] as const;
 
-const BUILDER_SCORECARD_LEVELS = [
-  { stars: 0, description: "No recorded performance" },
-  { stars: 1, description: "Bottom 20% of agencies" },
-  { stars: 2, description: "21st–40th percentile" },
-  { stars: 3, description: "41st–60th percentile" },
-  { stars: 4, description: "61st–80th percentile" },
-  { stars: 5, description: "Top 20% of agencies" },
+const BUILDER_RATING_METRICS = [
+  "Growth %",
+  "First Leg %",
+  "Active Directs",
+  "Avg IP / Active Writer",
+  "Recruits Licensed",
 ] as const;
 
-const BUILDER_PRODUCTION_METRICS = [
-  { key: "activeWriters", label: "Total Active Writers" },
+const BUILDER_PRODUCTION_METRICS: ReadonlyArray<{
+  key: Exclude<BuilderPerformanceKey, "recruits">;
+  label: string;
+  ratingKey?: keyof BuilderStarRatings;
+  ratingLabel?: string;
+}> = [
+  { key: "activeWriters", label: "Total Active Writers", ratingKey: "activeDirects", ratingLabel: "Active Directs" },
   { key: "teamDials", label: "Total Team Dials" },
   { key: "teamContacts", label: "Total Team Contacts" },
   { key: "teamPresentations", label: "Total Team Presentations" },
   { key: "teamSales", label: "Total Team Sales" },
   { key: "teamAp", label: "Total Team AP" },
   { key: "teamIp", label: "Total Team IP" },
-  { key: "firstLegPercent", label: "First Leg %" },
-  { key: "averageIpPerWriter", label: "Avg IP Per Writer" },
-] as const satisfies ReadonlyArray<{
-  key: Exclude<BuilderPerformanceKey, "recruits">;
-  label: string;
-}>;
+  { key: "firstLegPercent", label: "First Leg %", ratingKey: "firstLegPercent", ratingLabel: "First Leg %" },
+  { key: "averageIpPerWriter", label: "Avg IP Per Writer", ratingKey: "averageIpPerActiveWriter", ratingLabel: "Avg IP / Active Writer" },
+];
 
 const BUILDER_GROWTH_METRICS = [
-  ...BUILDER_PRODUCTION_METRICS,
+  ...BUILDER_PRODUCTION_METRICS.map(({ key, label }) => ({ key, label })),
   { key: "recruits", label: "Recruiting" },
 ] as const satisfies ReadonlyArray<{ key: BuilderPerformanceKey; label: string }>;
-
-type BuilderRatings = Record<BuilderPerformanceKey, StarRating | null>;
-
-function builderRatings(performance: BuilderAgencyPerformance): BuilderRatings {
-  return Object.fromEntries(Object.entries(performance).map(([key, metric]) => [
-    key,
-    metric.value == null ? null : builderRankStars(metric.value, metric.rank),
-  ])) as BuilderRatings;
-}
-
-function builderStarSummary(ratings: BuilderRatings): BuilderStarSummary | null {
-  if (Object.values(ratings).some((rating) => rating == null)) return null;
-  return createBuilderStarSummary(ratings as BuilderStarRatings);
-}
-
-function agencyPercentileLabel(rating: StarRating | null): string {
-  if (rating == null) return "Unavailable";
-  return BUILDER_SCORECARD_LEVELS.find((level) => level.stars === rating)?.description ?? "Unavailable";
-}
 
 function BuilderScorecardHowItWorks() {
   return (
@@ -142,30 +122,22 @@ function BuilderScorecardHowItWorks() {
           </ul>
 
           <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            <p>
-              We rank your agency against other active agencies in the organization, not against producers.
-            </p>
-            <p className="mt-6">We then average all 10 ratings to give your agency an overall score:</p>
-
-            <dl className="mx-auto mt-6 max-w-2xl border-y border-hairline">
-              {BUILDER_SCORECARD_LEVELS.map((level) => (
-                <div key={level.stars} className="grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-4 border-b border-hairline py-3.5 last:border-b-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
-                  <dt>
-                    <span className="inline-flex items-center gap-1 text-lg leading-none sm:text-xl" aria-label={`${level.stars} out of 5 stars`}>
-                      {Array.from({ length: 5 }, (_, index) => (
-                        <span key={index} className={index < level.stars ? "text-accent" : "text-white/20"} aria-hidden="true">★</span>
-                      ))}
-                    </span>
-                  </dt>
-                  <dd className="text-white">{level.description}</dd>
-                </div>
+            <p>Builder ratings use five fixed performance bands, not organization rank or percentile.</p>
+            <p className="mt-6">Each of these five metrics contributes exactly 20% to your overall Builder rating:</p>
+            <ul aria-label="Five Builder rating metrics" className="mt-6 grid gap-3 sm:grid-cols-2">
+              {BUILDER_RATING_METRICS.map((metric) => (
+                <li key={metric} className="rounded-xl border border-hairline bg-card px-4 py-3 font-medium text-ink">
+                  {metric}
+                </li>
               ))}
-            </dl>
+            </ul>
+            <p className="mt-6">Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed.</p>
+            <p className="mt-6">Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.</p>
             <p className="mt-6">
               You can download 9:16 or 16:9 screenshots of each section to post online.
             </p>
             <p className="mt-6 font-semibold text-white">
-              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your ranking, do something about it!
+              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your score, do something about it!
             </p>
           </div>
         </div>
@@ -175,12 +147,12 @@ function BuilderScorecardHowItWorks() {
 }
 
 function percent(value: number | null) {
-  if (value == null) return "Unavailable";
+  if (value == null || !Number.isFinite(value)) return "Unavailable";
   return `${value > 0 ? "+" : ""}${value.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 }
 
 function metricValue(key: BuilderPerformanceKey, value: number | null) {
-  if (value == null) return "Unavailable";
+  if (value == null || !Number.isFinite(value)) return "Unavailable";
   if (key === "teamAp" || key === "teamIp" || key === "averageIpPerWriter") {
     return money(value);
   }
@@ -191,7 +163,7 @@ function metricValue(key: BuilderPerformanceKey, value: number | null) {
 }
 
 function metricGrowth(previous: number | null, current: number | null) {
-  if (previous == null || current == null) return null;
+  if (previous == null || current == null || !Number.isFinite(previous) || !Number.isFinite(current)) return null;
   if (previous === 0) return current === 0 ? 0 : 100;
   if (current === 0) return -100;
   return Math.round(((current - previous) / previous) * 1_000) / 10;
@@ -202,58 +174,17 @@ function TeamProductionGrid({
   ratings,
 }: {
   performance: BuilderAgencyPerformance;
-  ratings: BuilderRatings;
+  ratings: BuilderStarRatings;
 }) {
   return (
     <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label="Builder Team Production metrics">
-      {BUILDER_PRODUCTION_METRICS.map((item) => (
-        <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 md:w-[calc(33.333%-0.5rem)]" role="listitem">
-          <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
-          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{metricValue(item.key, performance[item.key].value)}</p>
-          {ratings[item.key] != null ? <p className="mt-4"><StarScale value={ratings[item.key]!} label={item.label} /></p> : null}
-          <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{agencyPercentileLabel(ratings[item.key])}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RecruitingMetric({ performance, rating }: { performance: BuilderAgencyPerformance; rating: StarRating | null }) {
-  return (
-    <div className="producer-numbers-grid flex justify-center" role="list" aria-label="Builder Recruiting metric">
-      <div className="producer-number-card w-full max-w-sm rounded-xl border border-hairline bg-card px-5 py-5" role="listitem">
-        <p className="producer-number-card__label text-sm text-subtle">Recruits Entered the Pipeline</p>
-        <p className="producer-number-card__value mt-3 text-[clamp(2.5rem,7vw,5rem)] font-semibold leading-none tabular-nums text-ink">{performance.recruits.value?.toLocaleString() ?? "Unavailable"}</p>
-        {rating != null ? <p className="mt-4"><StarScale value={rating} label="Recruiting" /></p> : null}
-        <p className="producer-number-card__percentile mt-4 text-sm font-medium leading-5 text-accent">{agencyPercentileLabel(rating)}</p>
-      </div>
-    </div>
-  );
-}
-
-function GrowthTable({ view }: { view: BuilderScorecardView }) {
-  const { metric, period } = view;
-  return (
-    <div className="growth-table max-w-5xl border border-hairline">
-      <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
-        <p className="growth-header-cell px-3 py-4 sm:px-6">{period.previousLabel}</p>
-        <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{period.label}</p>
-        <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">{metric.growth.comparison.toUpperCase()}</p>
-      </div>
-      {BUILDER_GROWTH_METRICS.map((item) => {
-        const previous = metric.previousPerformance[item.key];
-        const current = metric.performance[item.key].value;
+      {BUILDER_PRODUCTION_METRICS.map((item) => {
+        const rating = item.ratingKey ? ratings[item.ratingKey] : null;
         return (
-          <div key={item.key} className="growth-row grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
-            <p className="growth-cell px-3 py-5 sm:px-6">
-              <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
-              <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, previous)}</span>
-            </p>
-            <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
-              <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
-              <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, current)}</span>
-            </p>
-            <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">{percent(metricGrowth(previous, current))}</p>
+          <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 md:w-[calc(33.333%-0.5rem)]" role="listitem">
+            <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
+            <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{metricValue(item.key, performance[item.key].value)}</p>
+            {rating != null && item.ratingLabel ? <p className="mt-4"><StarScale value={rating} label={item.ratingLabel} /></p> : null}
           </div>
         );
       })}
@@ -261,9 +192,68 @@ function GrowthTable({ view }: { view: BuilderScorecardView }) {
   );
 }
 
+function RecruitingMetric({ value, rating }: { value: number; rating: StarRating }) {
+  return (
+    <div className="producer-numbers-grid flex justify-center" role="list" aria-label="Builder Recruiting metric">
+      <div className="producer-number-card w-full max-w-sm rounded-xl border border-hairline bg-card px-5 py-5" role="listitem">
+        <p className="producer-number-card__label text-sm text-subtle">Recruits Entered the Pipeline</p>
+        <p className="producer-number-card__value mt-3 text-[clamp(2.5rem,7vw,5rem)] font-semibold leading-none tabular-nums text-ink">{Number.isFinite(value) ? value.toLocaleString() : "Unavailable"}</p>
+        <p className="mt-4"><StarScale value={rating} label="Recruits Licensed" /></p>
+      </div>
+    </div>
+  );
+}
+
+function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: StarRating }) {
+  const { metric, period } = view;
+  return (
+    <div className="max-w-5xl">
+      <div className="mb-5 rounded-xl border border-hairline bg-card px-5 py-5">
+        <p className="text-sm text-subtle">Team IP Growth</p>
+        <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">{percent(metric.growth.percentage)}</p>
+        <p className="mt-4"><StarScale value={rating} label="Growth %" /></p>
+      </div>
+      <div className="growth-table border border-hairline">
+        <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
+          <p className="growth-header-cell px-3 py-4 sm:px-6">{period.previousLabel}</p>
+          <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{period.label}</p>
+          <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">{metric.growth.comparison.toUpperCase()}</p>
+        </div>
+        {BUILDER_GROWTH_METRICS.map((item) => {
+          const previous = metric.previousPerformance[item.key];
+          const current = metric.performance[item.key].value;
+          return (
+            <div key={item.key} className="growth-row grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
+              <p className="growth-cell px-3 py-5 sm:px-6">
+                <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
+                <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, previous)}</span>
+              </p>
+              <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
+                <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
+                <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, current)}</span>
+              </p>
+              <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">{percent(metricGrowth(previous, current))}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
-  const ratings = builderRatings(view.metric.performance);
-  const summary = builderStarSummary(ratings);
+  // Ticket #013 intentionally rates the values already supplied to this view.
+  // Follow-up tickets #014–#017 own the data-source semantics for Active Directs,
+  // Avg IP / Active Writer, and Recruits Licensed; do not pull those changes forward here.
+  const summary = createBuilderStarSummary({
+    growthPercent: view.metric.growth.percentage,
+    priorPeriodBaseline: view.metric.growth.priorTeamIpCents,
+    firstLegPercent: view.metric.firstLegPercent,
+    activeDirects: view.metric.activeWriters,
+    averageIpPerActiveWriterCents: view.metric.averageMonthlyIpPerWriterCents,
+    recruitsLicensed: view.metric.recruitsAdded,
+  });
+  const ratings = summary.ratings;
   const exportMetadata = {
     cardType: "builder" as const,
     memberName: view.member.fullName,
@@ -277,9 +267,9 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
         memberName={view.member.fullName}
         photoUrl={view.member.photoUrl}
         title={`${view.period.label}${view.period.kind === "annual" ? " Annual" : ""} Builder Scorecard`}
-        averageStars={summary?.average ?? null}
-        totalStars={summary?.total ?? null}
-        maximumStars={50}
+        averageStars={summary.average}
+        totalStars={summary.total}
+        maximumStars={25}
       />
 
       <BuilderScorecardHowItWorks />
@@ -289,11 +279,11 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
       </StorySection>
 
       <StorySection number={null} title="Recruiting" collapsible centerContent sectionId="builder-scorecard-section-02" exportName="Recruiting" exportMetadata={exportMetadata}>
-        <RecruitingMetric performance={view.metric.performance} rating={ratings.recruits} />
+        <RecruitingMetric value={view.metric.recruitsAdded} rating={ratings.recruitsLicensed} />
       </StorySection>
 
       <StorySection number={null} title="Previous Period Growth" collapsible condensed sectionId="builder-scorecard-section-03" exportName="Previous Period Growth" exportMetadata={exportMetadata}>
-        <GrowthTable view={view} />
+        <GrowthTable view={view} rating={ratings.growth} />
       </StorySection>
 
       <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="builder-scorecard-section-card" exportName="Your Scorecard" exportMetadata={exportMetadata}>
@@ -302,20 +292,15 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
           photoUrl={view.member.photoUrl}
           periodLabel={view.period.label}
           scorecardType="Builder"
-          averageRating={summary?.average ?? null}
-          totalRating={summary?.total ?? null}
-          maximumRatingTotal={50}
+          averageRating={summary.average}
+          totalRating={summary.total}
+          maximumRatingTotal={25}
           ratings={[
-            { label: "Total Active Writers", value: ratings.activeWriters },
-            { label: "Total Team Dials", value: ratings.teamDials },
-            { label: "Total Team Contacts", value: ratings.teamContacts },
-            { label: "Total Team Presentations", value: ratings.teamPresentations },
-            { label: "Total Team Sales", value: ratings.teamSales },
-            { label: "Total Team AP", value: ratings.teamAp },
-            { label: "Total Team IP", value: ratings.teamIp },
+            { label: "Growth %", value: ratings.growth },
             { label: "First Leg %", value: ratings.firstLegPercent },
-            { label: "Avg IP Per Writer", value: ratings.averageIpPerWriter },
-            { label: "Recruiting", value: ratings.recruits },
+            { label: "Active Directs", value: ratings.activeDirects },
+            { label: "Avg IP / Active Writer", value: ratings.averageIpPerActiveWriter },
+            { label: "Recruits Licensed", value: ratings.recruitsLicensed },
           ]}
         />
       </StorySection>

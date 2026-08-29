@@ -79,38 +79,62 @@ export function createProducerStarSummary(input: {
   };
 }
 
-function starsForPercentile(percentile: number): StarRating {
-  if (!Number.isFinite(percentile) || percentile < 0 || percentile > 100) {
-    throw new Error("Builder Scorecard percentiles must be between 0 and 100.");
-  }
-  if (percentile === 0) return 0;
-  return Math.min(5, Math.ceil(percentile / 20)) as StarRating;
+function validBuilderMetric(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-export function builderRankStars(value: number, organizationRank: OrganizationRank): StarRating {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error("Builder Scorecard rating values must be finite and non-negative.");
-  }
-  if (value === 0) return 0;
-  const { rank, population } = organizationRank;
-  if (typeof rank !== "number" || !Number.isInteger(rank) || !Number.isInteger(population) || population < 1 || rank < 1 || rank > population) {
-    throw new Error("Builder Scorecard organization ranks must be valid positive positions.");
-  }
-  const percentile = ((population - rank + 1) / population) * 100;
-  return starsForPercentile(percentile);
+export function builderGrowthStars(value: unknown, priorPeriodBaseline: unknown): StarRating {
+  const growth = typeof value === "number" && Number.isFinite(value) ? value : null;
+  const prior = validBuilderMetric(priorPeriodBaseline);
+  if (growth == null || prior == null || prior === 0 || growth <= 0) return 0;
+  if (growth < 5) return 1;
+  if (growth < 10) return 2;
+  if (growth < 15) return 3;
+  if (growth < 25) return 4;
+  return 5;
+}
+
+export function builderFirstLegStars(value: unknown): StarRating {
+  const percent = validBuilderMetric(value);
+  if (percent == null || percent > 100) return 0;
+  if (percent < 10) return 5;
+  if (percent < 20) return 4;
+  if (percent < 30) return 3;
+  if (percent < 40) return 2;
+  if (percent < 50) return 1;
+  return 0;
+}
+
+export function builderActiveDirectsStars(value: unknown): StarRating {
+  const directs = validBuilderMetric(value);
+  if (directs == null || !Number.isInteger(directs) || directs === 0) return 0;
+  if (directs === 1) return 1;
+  if (directs === 2) return 2;
+  if (directs <= 4) return 3;
+  if (directs <= 7) return 4;
+  return 5;
+}
+
+export function builderAverageIpPerActiveWriterStars(value: unknown): StarRating {
+  return producerIssuedIpStars(value);
+}
+
+export function builderRecruitsLicensedStars(value: unknown): StarRating {
+  const recruits = validBuilderMetric(value);
+  if (recruits == null || !Number.isInteger(recruits) || recruits === 0) return 0;
+  if (recruits === 1) return 1;
+  if (recruits === 2) return 2;
+  if (recruits === 3) return 3;
+  if (recruits <= 5) return 4;
+  return 5;
 }
 
 export type BuilderStarRatings = {
-  activeWriters: StarRating;
-  teamDials: StarRating;
-  teamContacts: StarRating;
-  teamPresentations: StarRating;
-  teamSales: StarRating;
-  teamAp: StarRating;
-  teamIp: StarRating;
+  growth: StarRating;
   firstLegPercent: StarRating;
-  averageIpPerWriter: StarRating;
-  recruits: StarRating;
+  activeDirects: StarRating;
+  averageIpPerActiveWriter: StarRating;
+  recruitsLicensed: StarRating;
 };
 
 export type BuilderStarSummary = {
@@ -119,7 +143,21 @@ export type BuilderStarSummary = {
   average: number;
 };
 
-export function createBuilderStarSummary(ratings: BuilderStarRatings): BuilderStarSummary {
+export function createBuilderStarSummary(input: {
+  growthPercent?: unknown;
+  priorPeriodBaseline?: unknown;
+  firstLegPercent?: unknown;
+  activeDirects?: unknown;
+  averageIpPerActiveWriterCents?: unknown;
+  recruitsLicensed?: unknown;
+}): BuilderStarSummary {
+  const ratings: BuilderStarRatings = {
+    growth: builderGrowthStars(input.growthPercent, input.priorPeriodBaseline),
+    firstLegPercent: builderFirstLegStars(input.firstLegPercent),
+    activeDirects: builderActiveDirectsStars(input.activeDirects),
+    averageIpPerActiveWriter: builderAverageIpPerActiveWriterStars(input.averageIpPerActiveWriterCents),
+    recruitsLicensed: builderRecruitsLicensedStars(input.recruitsLicensed),
+  };
   const total = Object.values(ratings).reduce<number>((sum, rating) => sum + rating, 0);
-  return { ratings, total, average: total / 10 };
+  return { ratings, total, average: total / 5 };
 }

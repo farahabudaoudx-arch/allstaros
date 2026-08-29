@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  builderRankStars,
+  builderActiveDirectsStars,
+  builderAverageIpPerActiveWriterStars,
+  builderFirstLegStars,
+  builderGrowthStars,
+  builderRecruitsLicensedStars,
   countProducerTrackingDays,
   createBuilderStarSummary,
   createProducerStarSummary,
@@ -127,40 +131,138 @@ describe("Producer Scorecard fixed star ratings", () => {
   });
 });
 
-describe("Builder Scorecard star ratings", () => {
-  it("preserves organization percentile tiers for active agencies", () => {
-    expect(builderRankStars(0, { rank: 99, population: 99 })).toBe(0);
-    expect(builderRankStars(43, { rank: 18, population: 99 })).toBe(5);
-    expect(builderRankStars(443, { rank: 59, population: 99 })).toBe(3);
+describe("Builder Scorecard fixed star ratings", () => {
+  it.each([
+    [-1, 0], [0, 0], [0.001, 1], [4.999, 1], [5, 2], [5.001, 2],
+    [9.999, 2], [10, 3], [10.001, 3], [14.999, 3], [15, 4], [15.001, 4],
+    [24.999, 4], [25, 5], [25.001, 5],
+  ] as const)("scores Growth %%=%s as %s stars with a usable prior baseline", (value, stars) => {
+    expect(builderGrowthStars(value, 100)).toBe(stars);
   });
 
-  it("averages the nine Team Production ratings and Recruiting", () => {
+  it.each([0, null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1] as const)(
+    "treats unusable prior Growth baseline %s as zero stars",
+    (prior) => expect(builderGrowthStars(100, prior)).toBe(0),
+  );
+
+  it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY] as const)(
+    "treats unusable Growth input %s as zero stars",
+    (value) => expect(builderGrowthStars(value, 100)).toBe(0),
+  );
+
+  it.each([
+    [0, 5], [9.999, 5], [10, 4], [10.001, 4], [19.999, 4], [20, 3], [20.001, 3],
+    [29.999, 3], [30, 2], [30.001, 2], [39.999, 2], [40, 1], [40.001, 1],
+    [49.999, 1], [50, 0], [50.001, 0], [100, 0],
+  ] as const)("scores lower-is-better First Leg %%=%s as %s stars", (value, stars) => {
+    expect(builderFirstLegStars(value)).toBe(stars);
+  });
+
+  it("keeps First Leg stars monotonically non-increasing as the percentage rises", () => {
+    const values = [0, 5, 9.999, 10, 15, 19.999, 20, 25, 29.999, 30, 35, 39.999, 40, 45, 49.999, 50, 75, 100];
+    const ratings = values.map(builderFirstLegStars);
+    for (let index = 1; index < ratings.length; index += 1) {
+      expect(ratings[index]).toBeLessThanOrEqual(ratings[index - 1]);
+    }
+  });
+
+  it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1, 100.001] as const)(
+    "treats unusable First Leg input %s as zero stars",
+    (value) => expect(builderFirstLegStars(value)).toBe(0),
+  );
+
+  it.each([
+    [0, 0], [1, 1], [2, 2], [3, 3], [4, 3], [5, 4], [6, 4], [7, 4], [8, 5], [9, 5],
+  ] as const)("scores Active Directs=%s as %s stars", (value, stars) => {
+    expect(builderActiveDirectsStars(value)).toBe(stars);
+  });
+
+  it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1, 1.5] as const)(
+    "treats unusable Active Directs input %s as zero stars",
+    (value) => expect(builderActiveDirectsStars(value)).toBe(0),
+  );
+
+  it.each([
+    [0, 0], [499_999, 0], [500_000, 1], [500_001, 1],
+    [999_999, 1], [1_000_000, 2], [1_000_001, 2],
+    [1_999_999, 2], [2_000_000, 3], [2_000_001, 3],
+    [2_999_999, 3], [3_000_000, 4], [3_000_001, 4],
+    [3_999_999, 4], [4_000_000, 5], [4_000_001, 5],
+  ] as const)("scores Avg IP per Active Writer cents=%s as %s stars", (value, stars) => {
+    expect(builderAverageIpPerActiveWriterStars(value)).toBe(stars);
+  });
+
+  it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1] as const)(
+    "treats unusable Avg IP per Active Writer input %s as zero stars",
+    (value) => expect(builderAverageIpPerActiveWriterStars(value)).toBe(0),
+  );
+
+  it.each([
+    [0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 4], [6, 5], [7, 5],
+  ] as const)("scores Recruits Licensed=%s as %s stars", (value, stars) => {
+    expect(builderRecruitsLicensedStars(value)).toBe(stars);
+  });
+
+  it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1, 2.5] as const)(
+    "treats unusable Recruits Licensed input %s as zero stars",
+    (value) => expect(builderRecruitsLicensedStars(value)).toBe(0),
+  );
+
+  it("scores missing and non-finite Builder summary inputs defensively as zero", () => {
+    expect(createBuilderStarSummary({})).toEqual({
+      ratings: {
+        growth: 0,
+        firstLegPercent: 0,
+        activeDirects: 0,
+        averageIpPerActiveWriter: 0,
+        recruitsLicensed: 0,
+      },
+      total: 0,
+      average: 0,
+    });
     expect(createBuilderStarSummary({
-      activeWriters: 5,
-      teamDials: 4,
-      teamContacts: 4,
-      teamPresentations: 3,
-      teamSales: 3,
-      teamAp: 5,
-      teamIp: 5,
-      firstLegPercent: 4,
-      averageIpPerWriter: 4,
-      recruits: 5,
+      growthPercent: Number.POSITIVE_INFINITY,
+      priorPeriodBaseline: Number.NaN,
+      firstLegPercent: Number.NEGATIVE_INFINITY,
+      activeDirects: 1.5,
+      averageIpPerActiveWriterCents: Number.NaN,
+      recruitsLicensed: -1,
+    }).average).toBe(0);
+  });
+
+  it("weights all five Builder metrics equally at 20% each", () => {
+    const base = {
+      growthPercent: 0,
+      priorPeriodBaseline: 100,
+      firstLegPercent: 50,
+      activeDirects: 0,
+      averageIpPerActiveWriterCents: 0,
+      recruitsLicensed: 0,
+    };
+
+    expect(createBuilderStarSummary({ ...base, growthPercent: 25 }).average).toBe(1);
+    expect(createBuilderStarSummary({ ...base, firstLegPercent: 0 }).average).toBe(1);
+    expect(createBuilderStarSummary({ ...base, activeDirects: 8 }).average).toBe(1);
+    expect(createBuilderStarSummary({ ...base, averageIpPerActiveWriterCents: 4_000_000 }).average).toBe(1);
+    expect(createBuilderStarSummary({ ...base, recruitsLicensed: 6 }).average).toBe(1);
+
+    expect(createBuilderStarSummary({
+      growthPercent: 25,
+      priorPeriodBaseline: 100,
+      firstLegPercent: 0,
+      activeDirects: 8,
+      averageIpPerActiveWriterCents: 4_000_000,
+      recruitsLicensed: 6,
     })).toEqual({
       ratings: {
-        activeWriters: 5,
-        teamDials: 4,
-        teamContacts: 4,
-        teamPresentations: 3,
-        teamSales: 3,
-        teamAp: 5,
-        teamIp: 5,
-        firstLegPercent: 4,
-        averageIpPerWriter: 4,
-        recruits: 5,
+        growth: 5,
+        firstLegPercent: 5,
+        activeDirects: 5,
+        averageIpPerActiveWriter: 5,
+        recruitsLicensed: 5,
       },
-      total: 42,
-      average: 4.2,
+      total: 25,
+      average: 5,
     });
   });
 });
