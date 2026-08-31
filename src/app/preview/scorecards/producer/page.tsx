@@ -6,9 +6,16 @@ import {
   createProducerOverview,
 } from "@/lib/scorecards/lifecycle";
 
-export default function ProducerScorecardVisualPreviewPage() {
+export default async function ProducerScorecardVisualPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (process.env.NODE_ENV !== "development") notFound();
 
+  const params = await searchParams;
+  const longName = params.name === "long";
+  const initials = params.photo === "initials";
   const preview = createMonthlyProducerPreview({
     producerId: protectedFixture.producerId,
     periodStart: protectedFixture.period.start,
@@ -19,8 +26,10 @@ export default function ProducerScorecardVisualPreviewPage() {
     generatedAt: "2026-08-10T12:00:00.000Z",
   });
   const overview = createProducerOverview({
-    fullName: "Jackson Rapaport",
-    photoUrl: "https://api.allstarlifegroup.com/storage/v1/object/public/headshots/aa7642c5-7b10-473e-ac8f-b9c21f958354.jpg?v=1784920841727",
+    fullName: longName ? "Alexandria Montgomery-Rapaport The Third" : "Jackson Rapaport",
+    photoUrl: initials
+      ? null
+      : "https://api.allstarlifegroup.com/storage/v1/object/public/headshots/aa7642c5-7b10-473e-ac8f-b9c21f958354.jpg?v=1784920841727",
     submittedApCents: protectedFixture.expected.submittedApCents,
     leadSpendCents: protectedFixture.expected.leadSpendCents,
     priorSubmittedApCents: protectedFixture.expected.priorSubmittedApCents,

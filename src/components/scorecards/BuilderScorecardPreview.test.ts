@@ -94,6 +94,15 @@ describe("Builder Scorecard preview", () => {
     expect(html).not.toMatch(/Total Team Sales: [0-5](?:\.\d)? out of 5 stars/);
     expect(html).not.toMatch(/Total Team AP: [0-5](?:\.\d)? out of 5 stars/);
     expect(html).not.toMatch(/Total Team IP: [0-5](?:\.\d)? out of 5 stars/);
+    expect(html).toContain('data-scorecard-stars=""');
+    expect(html).toContain('aria-label="Download Team Production as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Recruiting as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Previous Period Growth as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Your Scorecard as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Team Production as a 16:9 PNG"');
+    expect(html).toContain('aria-label="Download Recruiting as a 16:9 PNG"');
+    expect(html).toContain('aria-label="Download Previous Period Growth as a 16:9 PNG"');
+    expect(html).toContain('aria-label="Download Your Scorecard as a 16:9 PNG"');
     expect(html).toContain(">Your Scorecard</h3>");
     expect(html).toContain("July 2026 Builder Scorecard");
     expect(html).toMatch(/>RB<\/span>/);
@@ -108,6 +117,9 @@ describe("Builder Scorecard preview", () => {
     );
 
     expect(html).toContain("sm:grid");
+    expect(html).toContain("growth-export-mobile");
+    expect(html).toContain("growth-export-desktop-header");
+    expect(html).toContain("growth-export-desktop");
     expect(html).toContain("June 2026");
     expect(html).toContain("July 2026");
     expect(html).toContain("Team IP");

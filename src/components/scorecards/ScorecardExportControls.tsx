@@ -114,6 +114,17 @@ function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
   );
 }
 
+async function waitForExportImages(root: HTMLElement) {
+  const images = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
+  await Promise.all(images.map(async (image) => {
+    if (image.complete) return;
+    await Promise.race([
+      image.decode().catch(() => undefined),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 5_000)),
+    ]);
+  }));
+}
+
 async function renderSectionPng(
   sectionId: string,
   format: ScorecardExportFormat,
@@ -220,6 +231,7 @@ async function renderSectionPng(
     "font-weight:600",
     "color:rgba(247,247,247,.72)",
     "text-align:center",
+    "overflow-wrap:anywhere",
     "z-index:3",
   ].join(";");
 
@@ -245,6 +257,7 @@ async function renderSectionPng(
       animation: none !important;
       transition: none !important;
     }
+    .scorecard-export-stage [data-scorecard-stars] { display: inline-flex !important; }
     .scorecard-export-stage .weekly-trend__bars { row-gap: 22px !important; }
     .scorecard-export-stage .weekly-trend__bar-row {
       grid-template-columns: 150px minmax(0, 1fr) 125px !important;
@@ -283,6 +296,16 @@ async function renderSectionPng(
       font-size: ${format === "portrait" ? "28px" : "26px"} !important;
       line-height: 1.5 !important;
     }
+    .scorecard-export-stage .growth-export-mobile { display: none !important; }
+    .scorecard-export-stage .growth-export-desktop-header {
+      display: grid !important;
+      grid-template-columns: 3fr 3fr 2fr !important;
+    }
+    .scorecard-export-stage .growth-row {
+      display: grid !important;
+      grid-template-columns: 3fr 3fr 2fr !important;
+    }
+    .scorecard-export-stage .growth-export-desktop { display: block !important; }
     .scorecard-export-stage .growth-header-cell,
     .scorecard-export-stage .growth-title { font-size: 22px !important; }
     .scorecard-export-stage .growth-value { font-size: 32px !important; }
@@ -341,7 +364,7 @@ async function renderSectionPng(
 
   try {
     await document.fonts.ready;
-    if (brandLogo) await brandLogo.decode().catch(() => undefined);
+    await waitForExportImages(artboard);
     const blob = await toBlob(artboard, {
       width,
       height,

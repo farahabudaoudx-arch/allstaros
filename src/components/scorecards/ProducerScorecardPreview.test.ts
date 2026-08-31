@@ -137,6 +137,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toMatch(/#\d+ of \d+/);
     expect(html).not.toMatch(/appointments/i);
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(7);
+    expect(html).toContain('data-scorecard-stars=""');
 
     expect(html).toContain(">How Scorecards Work</h3>");
     expect(html).not.toContain("Download How Scorecards Work");
@@ -168,6 +169,12 @@ describe("Producer Scorecard preview", () => {
 
     expect(html).toContain('aria-label="Download Your Numbers as a 9:16 PNG"');
     expect(html).toContain('aria-label="Download Your Tracking as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Previous Period Growth as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Your Scorecard as a 9:16 PNG"');
+    expect(html).toContain('aria-label="Download Your Numbers as a 16:9 PNG"');
+    expect(html).toContain('aria-label="Download Your Tracking as a 16:9 PNG"');
+    expect(html).toContain('aria-label="Download Previous Period Growth as a 16:9 PNG"');
+    expect(html).toContain('aria-label="Download Your Scorecard as a 16:9 PNG"');
     expect(html).not.toContain("Download 04 Tracking Consistency");
     expect(html.match(/<details open=""/g)).toHaveLength(4);
     expect(html).toContain('aria-label="Toggle Your Numbers"');
@@ -182,7 +189,6 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain(">Your Scorecard</h3>");
     expect(html).toContain("justify-center text-center");
     expect(html).not.toMatch(/>05<\/p><h3[^>]*>Your Scorecard/);
-    expect(html).toContain('aria-label="Download Your Scorecard as a 9:16 PNG"');
     expect(html).not.toContain("Download 05 Your Scorecard");
   });
 

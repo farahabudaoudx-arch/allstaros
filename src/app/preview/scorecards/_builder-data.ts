@@ -21,6 +21,93 @@ const builderViewIdentity = {
   period: { kind: "monthly", label: "July 2026", previousLabel: "June 2026" },
 } satisfies Omit<BuilderScorecardView, "metric">;
 
+export const SCORECARD_QA_LONG_NAME = "Alexandria Montgomery-Rapaport The Third";
+
+const deterministicBuilderMetric: BuilderScorecardView["metric"] = {
+  teamIpCents: 91_506_500,
+  teamRank: { rank: 2, population: 76 },
+  teamRankUnavailableReason: null,
+  activeWriters: 43,
+  firstLegPercent: 45.17,
+  averageMonthlyIpPerWriterCents: 2_128_100,
+  monthCount: 1,
+  growth: {
+    comparison: "mom",
+    priorTeamIpCents: 80_000_000,
+    currentTeamIpCents: 91_506_500,
+    percentage: 14.4,
+  },
+  recruitsAdded: 12,
+  recruitingRank: { rank: 2, population: 98 },
+  trend: [],
+  performance: {
+    activeWriters: { value: 43, rank: { rank: 3, population: 40 } },
+    teamDials: { value: 8_500, rank: { rank: 4, population: 32 } },
+    teamContacts: { value: 760, rank: { rank: 8, population: 32 } },
+    teamPresentations: { value: 260, rank: { rank: 10, population: 32 } },
+    teamSales: { value: 114, rank: { rank: 8, population: 32 } },
+    teamAp: { value: 3_250_000, rank: { rank: 2, population: 35 } },
+    teamIp: { value: 91_506_500, rank: { rank: 2, population: 76 } },
+    firstLegPercent: { value: 45.17, rank: { rank: 12, population: 55 } },
+    averageIpPerWriter: { value: 2_128_100, rank: { rank: 10, population: 40 } },
+    recruits: { value: 12, rank: { rank: 2, population: 50 } },
+  },
+  previousPerformance: {
+    activeWriters: 40,
+    teamDials: 7_500,
+    teamContacts: 700,
+    teamPresentations: 220,
+    teamSales: 100,
+    teamAp: 2_800_000,
+    teamIp: 80_000_000,
+    firstLegPercent: 40,
+    averageIpPerWriter: 2_000_000,
+    recruits: 10,
+  },
+};
+
+export function deterministicBuilderScorecardView({
+  longName = false,
+  initials = false,
+  negativeGrowth = false,
+}: {
+  longName?: boolean;
+  initials?: boolean;
+  negativeGrowth?: boolean;
+} = {}): BuilderScorecardView {
+  const member = {
+    fullName: longName ? SCORECARD_QA_LONG_NAME : builderViewIdentity.member.fullName,
+    photoUrl: initials ? null : builderViewIdentity.member.photoUrl,
+  };
+  if (!negativeGrowth) {
+    return { ...builderViewIdentity, member, metric: deterministicBuilderMetric };
+  }
+
+  const priorTeamIpCents = 91_506_500;
+  const currentTeamIpCents = 80_000_000;
+  return {
+    ...builderViewIdentity,
+    member,
+    metric: {
+      ...deterministicBuilderMetric,
+      teamIpCents: currentTeamIpCents,
+      growth: {
+        comparison: "mom",
+        priorTeamIpCents,
+        currentTeamIpCents,
+        percentage: -12.6,
+      },
+      performance: {
+        ...deterministicBuilderMetric.performance,
+        teamIp: { ...deterministicBuilderMetric.performance.teamIp, value: currentTeamIpCents },
+      },
+      previousPerformance: {
+        ...deterministicBuilderMetric.previousPerformance,
+        teamIp: priorTeamIpCents,
+      },
+    },
+  };
+}
 type TeamIpRow = {
   report_date: string;
   period_type: "mtd" | "wtd";
