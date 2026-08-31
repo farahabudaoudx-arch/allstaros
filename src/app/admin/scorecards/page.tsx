@@ -131,6 +131,7 @@ export default async function AdminScorecardsPage({
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <h1 className="text-4xl font-semibold tracking-[-0.03em] text-ink md:text-5xl">Scorecard rollout</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-subtle">Start one closed-period run, then monitor source coverage, complete-population validation, generation, publication, and delivery from one place.</p>
+      <Link href="/admin/scorecards/coverage" className="mt-4 inline-block text-sm font-semibold text-accent underline underline-offset-4">Open Gateway Coverage</Link>
 
       {params.error ? <p role="alert" className="mt-6 border-l-2 border-neg pl-4 text-sm text-neg">{params.error}</p> : null}
       {params.started ? <p role="status" className="mt-6 border-l-2 border-pos pl-4 text-sm text-pos">Run started. Source capture is now pending.</p> : null}
