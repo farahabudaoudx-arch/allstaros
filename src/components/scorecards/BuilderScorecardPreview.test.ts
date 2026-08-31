@@ -96,9 +96,20 @@ describe("Builder Scorecard preview", () => {
     expect(html).not.toMatch(/Total Team IP: [0-5](?:\.\d)? out of 5 stars/);
     expect(html).toContain(">Your Scorecard</h3>");
     expect(html).toContain("July 2026 Builder Scorecard");
+    expect(html).toMatch(/>RB<\/span>/);
     expect(html).toContain('aria-label="Flip Ronny Bucica scorecard to the back"');
     expect(html).toContain("17 of 25 points");
     expect(html).toContain("Click To Flip");
+  });
+
+  it("renders an approved display photo URL when one is supplied", () => {
+    const approvedUrl = "https://example.com/approved-builder.jpg";
+    const html = renderToStaticMarkup(createElement(BuilderScorecardPreview, {
+      view: { ...view, member: { ...view.member, photoUrl: approvedUrl } },
+    }));
+
+    expect(html).toContain(`src="${approvedUrl}"`);
+    expect(html).not.toMatch(/>RB<\/span>/);
   });
 
   it("uses a frozen published score instead of recalculating the five Builder stars", () => {

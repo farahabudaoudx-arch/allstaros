@@ -627,6 +627,69 @@ describe("Scorecard run", () => {
     expect(new Set(published.deliveries.map((delivery) => delivery.idempotencyKey)).size).toBe(7);
   });
 
+  it("freezes only approved photos and strips non-approved URLs from scorecard artifacts", () => {
+    const input = completeRun();
+    const approvedUrl = "https://example.com/approved-builder-a.jpg";
+    const pendingUrl = "https://example.com/pending-producer-b.jpg";
+    const rejectedUrl = "https://example.com/rejected-builder-d.jpg";
+    const missingStatusUrl = "https://example.com/missing-status-builder-e.jpg";
+    const photoByPerson = new Map([
+      ["builder-a", approvedUrl],
+      ["producer-b", pendingUrl],
+      ["builder-d", rejectedUrl],
+      ["builder-e", missingStatusUrl],
+    ]);
+
+    input.people = input.people.map((person) => {
+      const photoUrl = photoByPerson.get(person.id);
+      if (!photoUrl) return person;
+      const photoReviewStatus = person.id === "builder-a"
+        ? "approved"
+        : person.id === "producer-b"
+          ? "pending"
+          : person.id === "builder-d"
+            ? "rejected"
+            : null;
+      return { ...person, photoUrl, photoReviewStatus };
+    });
+    for (const metrics of [input.producerMetrics, input.producerVerificationMetrics]) {
+      for (const metric of metrics) {
+        const photoUrl = photoByPerson.get(metric.personId);
+        if (photoUrl) metric.payload.overview.producer.photoUrl = photoUrl;
+      }
+    }
+
+    const prepared = prepareScorecardRun(input);
+    expect(prepared.status).toBe("ready");
+    if (prepared.status !== "ready") throw new Error("Expected a ready scorecard run.");
+
+    expect(prepared.producerMetrics.find((metric) => metric.personId === "builder-a")?.payload.overview.producer.photoUrl).toBe(approvedUrl);
+    expect(prepared.producerMetrics.find((metric) => metric.personId === "producer-b")?.payload.overview.producer.photoUrl).toBeNull();
+    expect(prepared.producerMetrics.find((metric) => metric.personId === "builder-d")?.payload.overview.producer.photoUrl).toBeNull();
+    expect(prepared.producerMetrics.find((metric) => metric.personId === "builder-e")?.payload.overview.producer.photoUrl).toBeNull();
+
+    const published = createScorecardArtifacts({ prepared, input });
+    const memberPhoto = (personId: string, cardType: "producer" | "builder") =>
+      parsePublishedScorecardSnapshotPayload(
+        published.snapshots.find((snapshot) => snapshot.personId === personId && snapshot.cardType === cardType)!.visiblePayload,
+      )?.member.photoUrl;
+
+    expect(memberPhoto("builder-a", "producer")).toBe(approvedUrl);
+    expect(memberPhoto("builder-a", "builder")).toBe(approvedUrl);
+    expect(memberPhoto("producer-b", "producer")).toBeNull();
+    expect(memberPhoto("builder-d", "producer")).toBeNull();
+    expect(memberPhoto("builder-d", "builder")).toBeNull();
+    expect(memberPhoto("builder-e", "producer")).toBeNull();
+    expect(memberPhoto("builder-e", "builder")).toBeNull();
+
+    const serialized = JSON.stringify(published.snapshots);
+    expect(serialized).toContain(approvedUrl);
+    expect(serialized).not.toContain(pendingUrl);
+    expect(serialized).not.toContain(rejectedUrl);
+    expect(serialized).not.toContain(missingStatusUrl);
+    expect(verifyPublishedScorecardArtifacts(input, prepared, published.snapshots)).toEqual({ valid: true, problems: [] });
+  });
+
   it("keeps a published snapshot frozen after representative upstream source changes while a new draft recalculates", () => {
     const input = completeRun();
     const setProducerSource = (issuedIpCents: number, leadSpendCents: number, dayCount: number) => {

@@ -115,6 +115,29 @@ function equals(left: unknown, right: unknown) {
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
 }
 
+function independentlyApprovedPhotoUrl(person: ScorecardRunInput["people"][number]): string | null {
+  if (!person.photoUrl || person.photoReviewStatus !== "approved") return null;
+  return person.photoUrl;
+}
+
+function producerPayloadForVerification(
+  input: ScorecardRunInput,
+  metric: ScorecardRunInput["producerVerificationMetrics"][number],
+) {
+  const person = input.people.find((candidate) => candidate.id === metric.personId);
+  if (!person) return metric.payload;
+  return {
+    ...metric.payload,
+    overview: {
+      ...metric.payload.overview,
+      producer: {
+        ...metric.payload.overview.producer,
+        photoUrl: independentlyApprovedPhotoUrl(person),
+      },
+    },
+  };
+}
+
 function trendFor(
   input: ScorecardRunInput,
   rows: Array<{ reportDate: string; teamIpCents: number }>,
@@ -274,8 +297,11 @@ export function verifyPreparedScorecardRun(
     const expectedRows = input.producerVerificationMetrics.filter((metric) => metric.personId === personId);
     if (actualRows.length !== 1 || expectedRows.length !== 1) {
       problems.push({ cardType: "producer", personId, field: "row", expected: expectedRows.length, actual: actualRows.length });
-    } else if (!equals(expectedRows[0].payload, actualRows[0].payload)) {
-      problems.push({ cardType: "producer", personId, field: "visiblePayload", expected: expectedRows[0].payload, actual: actualRows[0].payload });
+    } else {
+      const expectedPayload = producerPayloadForVerification(input, expectedRows[0]);
+      if (!equals(expectedPayload, actualRows[0].payload)) {
+        problems.push({ cardType: "producer", personId, field: "visiblePayload", expected: expectedPayload, actual: actualRows[0].payload });
+      }
     }
   }
 
@@ -388,7 +414,10 @@ export function verifyPublishedScorecardArtifacts(
     }
 
     const person = input.people.find((candidate) => candidate.id === artifact.personId);
-    const expectedMember = person ? { fullName: person.fullName, photoUrl: person.photoUrl } : null;
+    const expectedMember = person ? {
+      fullName: person.fullName,
+      photoUrl: independentlyApprovedPhotoUrl(person),
+    } : null;
     if (!expectedMember || !equals(expectedMember, published.member)) {
       problems.push({
         cardType: artifact.cardType,

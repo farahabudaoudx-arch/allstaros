@@ -1,3 +1,4 @@
+import { approvedPhotoUrl } from "@/lib/headshots/photo";
 import { countActiveDirects, isInSixWeekWindow } from "./active-directs";
 import {
   createBuilderAgencyPerformance,
@@ -29,6 +30,7 @@ export type ScorecardRunPerson = {
   fullName: string;
   email: string;
   photoUrl: string | null;
+  photoReviewStatus?: string | null;
   uplineId: string | null;
   activeAtPeriodEnd: boolean;
   producerAtPeriodEnd: boolean;
@@ -79,6 +81,38 @@ export type ProducerPeriodMetricPayload = {
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
 };
+
+function scorecardMember(person: ScorecardRunPerson) {
+  return {
+    fullName: person.fullName,
+    photoUrl: approvedPhotoUrl({
+      photo_url: person.photoUrl,
+      photo_review_status: person.photoReviewStatus ?? null,
+    }),
+  };
+}
+
+function sanitizeProducerMetricPhoto(
+  metric: ScorecardRunInput["producerMetrics"][number],
+  peopleById: Map<string, ScorecardRunPerson>,
+): ScorecardRunInput["producerMetrics"][number] {
+  const person = peopleById.get(metric.personId);
+  if (!person) return metric;
+  const member = scorecardMember(person);
+  return {
+    ...metric,
+    payload: {
+      ...metric.payload,
+      overview: {
+        ...metric.payload.overview,
+        producer: {
+          ...metric.payload.overview.producer,
+          photoUrl: member.photoUrl,
+        },
+      },
+    },
+  };
+}
 
 export type ScorecardRunProblem = {
   code:
@@ -456,6 +490,11 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
     };
   }
 
+  const peopleById = new Map(input.people.map((person) => [person.id, person]));
+  const producerMetrics = input.producerMetrics.map((metric) =>
+    sanitizeProducerMetricPhoto(metric, peopleById),
+  );
+
   const periodReports = input.gatewayReports.filter(
     (report) =>
       report.status === "published" && report.periodType === "wtd" &&
@@ -523,7 +562,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         .map((row) => row.personId)),
   );
   const performancePeople = input.people.map((person) => ({ id: person.id, uplineId: person.uplineId }));
-  const producerProduction = input.producerMetrics.map(({ personId, payload }) => {
+  const producerProduction = producerMetrics.map(({ personId, payload }) => {
     const totals = payload.overview.activity.totals;
     return {
       personId,
@@ -534,7 +573,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
       apCents: payload.overview.submittedApCents ?? 0,
     };
   });
-  const priorProducerProduction = input.producerMetrics.map(({ personId, payload }) => {
+  const priorProducerProduction = producerMetrics.map(({ personId, payload }) => {
     const totals = payload.overview.priorActivityTotals;
     return {
       personId,
@@ -682,15 +721,15 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
 
   const ready: PreparedScorecardRun = {
     status: "ready",
-    producerMetrics: input.producerMetrics,
+    producerMetrics,
     builderMetrics,
     problems: [],
     summary: {
       eligibleProducers: eligibleProducers.length,
       eligibleBuilders: eligibleBuilders.length,
-      producerRows: input.producerMetrics.length,
+      producerRows: producerMetrics.length,
       builderRows: builderMetrics.length,
-      passed: input.producerMetrics.length + builderMetrics.length,
+      passed: producerMetrics.length + builderMetrics.length,
       failed: 0,
       held: 0,
     },
@@ -776,13 +815,14 @@ export function createScorecardArtifacts({
     ...prepared.producerMetrics.map((metric) => {
       const person = peopleById.get(metric.personId);
       if (!person) throw new Error(`Producer ${metric.personId} is missing from the frozen run population.`);
+      const member = scorecardMember(person);
       return {
         personId: metric.personId,
         cardType: "producer" as const,
         metricPayload: metric.payload as unknown as Record<string, unknown>,
         visiblePayload: createPublishedProducerSnapshotPayload({
           metricPayload: metric.payload,
-          member: { fullName: person.fullName, photoUrl: person.photoUrl },
+          member,
           period: input.period,
         }) as unknown as Record<string, unknown>,
       };
@@ -790,13 +830,14 @@ export function createScorecardArtifacts({
     ...prepared.builderMetrics.map((metric) => {
       const person = peopleById.get(metric.personId);
       if (!person) throw new Error(`Builder ${metric.personId} is missing from the frozen run population.`);
+      const member = scorecardMember(person);
       return {
         personId: metric.personId,
         cardType: "builder" as const,
         metricPayload: builderPublishedMetric(metric) as unknown as Record<string, unknown>,
         visiblePayload: createPublishedBuilderSnapshotPayload({
           metric,
-          member: { fullName: person.fullName, photoUrl: person.photoUrl },
+          member,
           period: input.period,
         }) as unknown as Record<string, unknown>,
       };

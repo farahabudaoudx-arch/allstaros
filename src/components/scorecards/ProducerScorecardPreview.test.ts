@@ -32,6 +32,7 @@ describe("Producer baseball card", () => {
     expect(html).toContain('producer-baseball-card__front');
     expect(html).toContain('producer-baseball-card__back');
     expect(html).toContain("Jackson Rapaport");
+    expect(html).toMatch(/>JR<\/span>/);
     expect(html).toContain("July 2026 Producer Scorecard");
     expect(html).toContain("2.75 overall");
     expect(html).not.toMatch(/of 40 points/);
@@ -42,6 +43,26 @@ describe("Producer baseball card", () => {
     expect(html).not.toContain("Click the card to see");
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(3);
     expect(html).not.toMatch(/#\d+ of \d+/);
+  });
+  it("renders an approved display photo URL when one is supplied", () => {
+    const approvedUrl = "https://example.com/approved-producer.jpg";
+    const html = renderToStaticMarkup(
+      createElement(ProducerBaseballCard, {
+        memberName: "Jackson Rapaport",
+        photoUrl: approvedUrl,
+        periodLabel: "July 2026",
+        averageRating: 2.75,
+        totalRating: null,
+        ratings: [
+          { label: "Personal IP", value: 4 },
+          { label: "Tracking", value: 3 },
+          { label: "Lead Spend", value: 0 },
+        ],
+      }),
+    );
+
+    expect(html).toContain(`src="${approvedUrl}"`);
+    expect(html).not.toMatch(/>JR<\/span>/);
   });
 });
 
