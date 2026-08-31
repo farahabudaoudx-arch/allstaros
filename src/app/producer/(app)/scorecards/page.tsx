@@ -46,6 +46,9 @@ export default async function ScorecardsPage() {
       periodEnd: row.period_end,
       kpiResults: row.kpi_results,
     });
+    const overallResult = published.cardType === "producer"
+      ? `${published.score.overall.toFixed(2)} / 5`
+      : `${published.score.average.toFixed(1)} / 5`;
     latest.set(key, {
       id: row.id,
       personId: row.person_id,
@@ -55,6 +58,7 @@ export default async function ScorecardsPage() {
       periodStart: row.period_start,
       periodEnd: row.period_end,
       periodLabel: published.period.label,
+      overallResult,
       revision: row.revision,
       lifecycleStatus: row.lifecycle_status,
       finalizedAt: row.finalized_at,
@@ -65,12 +69,12 @@ export default async function ScorecardsPage() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
       <h1 className="text-4xl font-semibold tracking-[-0.035em] text-ink md:text-5xl">Scorecards</h1>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-subtle">Published Producer and Builder reports you are authorized to view, preserved exactly as they were validated.</p>
+      <p className="mt-3 max-w-2xl text-base leading-7 text-subtle">Published Producer and Builder reports you are authorized to view, preserved exactly as they were validated.</p>
 
       {groups.length === 0 ? (
         <div className="mt-10 border-l-2 border-accent pl-5">
           <h2 className="text-2xl font-semibold text-ink">No published Scorecards yet</h2>
-          <p className="mt-3 text-sm leading-6 text-subtle">Completed reports will appear here after the full organization dataset passes validation.</p>
+          <p className="mt-3 text-base leading-7 text-subtle">Completed reports will appear here after the full organization dataset passes validation.</p>
         </div>
       ) : (
         <div className="mt-12 space-y-12">
@@ -79,16 +83,20 @@ export default async function ScorecardsPage() {
               <h2 id={`period-${group.key.replaceAll(":", "-")}`} className="text-2xl font-semibold tracking-[-0.02em] text-ink">{group.label}</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {group.entries.map((entry) => (
-                  <Link key={entry.id} href={`/producer/scorecards/${entry.id}`} className="rounded-xl border border-hairline bg-card p-6 transition-colors hover:border-accent hover:bg-card-hi focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-xl font-semibold text-ink">{entry.cardType === "producer" ? "Producer Scorecard" : "Builder Scorecard"}</h3>
-                        <p className="mt-2 text-sm font-medium text-ink">{entry.memberName}</p>
-                        <p className="mt-1 text-sm text-subtle">{entry.periodKind === "annual" ? "Annual" : entry.periodKind === "quarterly" ? "Quarterly" : "Monthly"} report</p>
+                  <Link key={entry.id} href={`/producer/scorecards/${entry.id}`} className="rounded-xl border border-hairline bg-card p-5 transition-colors hover:border-accent hover:bg-card-hi focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:p-6">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="break-words text-xl font-semibold leading-tight text-ink">{entry.cardType === "producer" ? "Producer Scorecard" : "Builder Scorecard"}</h3>
+                        <p className="mt-2 break-words text-base font-medium leading-6 text-ink">{entry.memberName}</p>
+                        <p className="mt-1 text-sm leading-5 text-subtle">{entry.periodKind === "annual" ? "Annual" : entry.periodKind === "quarterly" ? "Quarterly" : "Monthly"} report</p>
                       </div>
-                      <span className="text-sm font-medium text-accent">Open report</span>
+                      <div className="shrink-0 sm:text-right">
+                        <p className="text-xs font-medium uppercase tracking-[0.08em] text-mute">Overall</p>
+                        <p className="mt-1 text-2xl font-semibold leading-none tabular-nums text-accent">{entry.overallResult}</p>
+                        <span className="mt-3 inline-block text-sm font-medium text-accent">Open report</span>
+                      </div>
                     </div>
-                    {entry.lifecycleStatus === "corrected" ? <p className="mt-6 border-t border-hairline pt-4 text-xs text-mute">Corrected revision {entry.revision}</p> : null}
+                    {entry.lifecycleStatus === "corrected" ? <p className="mt-6 border-t border-hairline pt-4 text-sm leading-5 text-mute">Corrected revision {entry.revision}</p> : null}
                   </Link>
                 ))}
               </div>

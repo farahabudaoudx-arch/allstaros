@@ -44,6 +44,28 @@ describe("Producer baseball card", () => {
     expect(html.match(/aria-label="[^"]+ out of 5 stars"/g)).toHaveLength(3);
     expect(html).not.toMatch(/#\d+ of \d+/);
   });
+  it("keeps long member identity readable on the baseball card", () => {
+    const longName = "Alexandria Montgomery-Rapaport The Third";
+    const html = renderToStaticMarkup(
+      createElement(ProducerBaseballCard, {
+        memberName: longName,
+        photoUrl: null,
+        periodLabel: "Q4 2026",
+        averageRating: 4.25,
+        totalRating: null,
+        ratings: [
+          { label: "Personal IP", value: 5 },
+          { label: "Tracking", value: 4 },
+          { label: "Lead Spend", value: 3 },
+        ],
+      }),
+    );
+
+    expect(html).toContain(longName);
+    expect(html).toContain("break-words");
+    expect(html).toContain("Q4 2026 Producer Scorecard");
+  });
+
   it("renders an approved display photo URL when one is supplied", () => {
     const approvedUrl = "https://example.com/approved-producer.jpg";
     const html = renderToStaticMarkup(

@@ -262,14 +262,14 @@ export function ScorecardHeader({
           photoUrl={photoUrl}
           className="mx-auto h-24 w-24 text-2xl ring-4 ring-black/70 outline outline-1 outline-offset-4 outline-white/25 sm:h-28 sm:w-28"
         />
-        <h2 id={titleId} className="mt-6 text-lg font-semibold tracking-[-0.035em] text-white sm:text-[1.40625rem]">
+        <h2 id={titleId} className="mx-auto mt-6 max-w-3xl break-words px-2 text-xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-2xl">
           {memberName}
         </h2>
-        <p className="mt-3 text-[1.5625rem] font-semibold tracking-[-0.025em] text-white/85 sm:text-3xl">{title}</p>
+        <p className="mx-auto mt-3 max-w-3xl break-words text-[1.35rem] font-semibold leading-snug tracking-[-0.025em] text-white/85 sm:text-3xl">{title}</p>
         {averageStars != null && totalStars != null ? (
           <div className="mt-5 flex flex-col items-center gap-2">
             <StarScale value={averageStars} label={ratingLabel} prominent />
-            <p className="text-sm font-medium tabular-nums text-white/65">
+            <p className="max-w-2xl text-center text-sm font-medium leading-5 tabular-nums text-white/65">
               {ratingSummary ?? `${averageStars.toFixed(1)} average · ${totalStars} of ${maximumStars} total stars`}
             </p>
           </div>

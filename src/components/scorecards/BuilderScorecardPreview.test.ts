@@ -102,6 +102,19 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("Click To Flip");
   });
 
+  it("provides a stacked mobile growth layout without changing the metric values", () => {
+    const html = renderToStaticMarkup(
+      createElement(BuilderScorecardPreview, { view }),
+    );
+
+    expect(html).toContain("sm:grid");
+    expect(html).toContain("June 2026");
+    expect(html).toContain("July 2026");
+    expect(html).toContain("Team IP");
+    expect(html).toContain("14.4%");
+    expect(html).toContain("$915,065");
+  });
+
   it("renders an approved display photo URL when one is supplied", () => {
     const approvedUrl = "https://example.com/approved-builder.jpg";
     const html = renderToStaticMarkup(createElement(BuilderScorecardPreview, {

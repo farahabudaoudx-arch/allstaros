@@ -65,10 +65,10 @@ export function ScorecardBaseballCard({
                   </span>
                 )}
               </span>
-              <span className="absolute inset-x-0 bottom-0 flex flex-col items-center bg-gradient-to-b from-transparent via-black/80 to-black px-6 pb-7 pt-28 text-center">
+              <span className="absolute inset-x-0 bottom-0 flex flex-col items-center bg-gradient-to-b from-transparent via-black/80 to-black px-5 pb-7 pt-28 text-center sm:px-6">
                 <Image src="/logo.png" alt="All Star" width={160} height={90} className="h-9 w-auto" />
-                <span className="mt-3 block text-2xl font-semibold tracking-[-0.035em] text-white">{memberName}</span>
-                <span className="mt-1 block text-sm text-white/65">{periodLabel} {scorecardType} Scorecard</span>
+                <span className="mt-3 block max-w-full break-words text-center text-xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-2xl">{memberName}</span>
+                <span className="mt-2 block max-w-full break-words text-center text-sm leading-5 text-white/65">{periodLabel} {scorecardType} Scorecard</span>
               </span>
             </span>
           </span>
@@ -77,30 +77,30 @@ export function ScorecardBaseballCard({
             aria-hidden={!flipped}
             className="producer-baseball-card__back absolute inset-0 flex overflow-hidden rounded-[1.35rem] border border-accent/60 bg-[#090909] [backface-visibility:hidden] [transform:rotateY(180deg)]"
           >
-            <span className="m-2 flex min-w-0 flex-1 flex-col rounded-[0.95rem] border border-white/15 px-5 py-5 sm:px-6">
-              <span className="flex items-center justify-between border-b border-white/15 pb-4">
-                <Image src="/logo.png" alt="All Star" width={130} height={74} className="h-7 w-auto" />
-                <span className="text-xs tabular-nums text-white/55">{periodLabel}</span>
+            <span className="m-2 flex min-w-0 flex-1 flex-col rounded-[0.95rem] border border-white/15 px-4 py-5 sm:px-6">
+              <span className="flex items-center justify-between gap-3 border-b border-white/15 pb-4">
+                <Image src="/logo.png" alt="All Star" width={130} height={74} className="h-7 w-auto shrink-0" />
+                <span className="min-w-0 break-words text-right text-sm leading-5 tabular-nums text-white/60">{periodLabel}</span>
               </span>
 
               <span className="border-b border-white/15 py-5 text-center">
-                <span className="block text-[3.75rem] font-semibold leading-none tabular-nums tracking-[-0.055em] text-accent">
+                <span className="block text-[3.5rem] font-semibold leading-none tabular-nums tracking-[-0.055em] text-accent sm:text-[3.75rem]">
                   {averageRating == null ? "—" : averageRating.toFixed(1)}
                 </span>
-                <span className="mt-2 block text-sm font-medium text-white">
+                <span className="mt-2 block text-sm font-medium leading-5 text-white">
                   {averageRating == null
                     ? ratingLabel === "overall" ? "Overall unavailable" : "Average unavailable"
                     : `${averageRating.toFixed(ratingLabel === "overall" ? 2 : 1)} ${ratingLabel}`}
                 </span>
                 {totalRating != null ? (
-                  <span className="mt-1 block text-xs tabular-nums text-white/55">{totalRating} of {maximumRatingTotal} points</span>
+                  <span className="mt-1 block text-sm leading-5 tabular-nums text-white/60">{totalRating} of {maximumRatingTotal} points</span>
                 ) : null}
               </span>
 
-              <span className="grid min-h-0 flex-1 grid-cols-2 content-center gap-x-5">
+              <span className="grid min-h-0 flex-1 grid-cols-2 content-center gap-x-4 sm:gap-x-5">
                 {ratings.map((rating) => (
-                  <span key={rating.label} className={`border-b border-white/10 ${ratings.length > 8 ? "py-2" : "py-3"}`}>
-                    <span className="block text-[0.68rem] leading-tight text-white/55 sm:text-xs">{rating.label}</span>
+                  <span key={rating.label} className={`min-w-0 border-b border-white/10 ${ratings.length > 8 ? "py-2" : "py-3"}`}>
+                    <span className="block break-words text-xs font-medium leading-snug text-white/60 sm:text-sm">{rating.label}</span>
                     <CardStarScale label={rating.label} value={rating.value} />
                   </span>
                 ))}
@@ -109,7 +109,7 @@ export function ScorecardBaseballCard({
           </span>
         </span>
       </button>
-      <p className="producer-baseball-card__hint mt-4 text-center text-sm text-subtle">Click To Flip</p>
+      <p className="producer-baseball-card__hint mt-4 text-center text-sm font-medium leading-5 text-subtle">Click To Flip</p>
     </div>
   );
 }

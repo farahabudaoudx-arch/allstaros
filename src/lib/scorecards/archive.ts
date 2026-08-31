@@ -9,6 +9,7 @@ export type ScorecardArchiveEntry = {
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
+  overallResult: string;
   revision: number;
   lifecycleStatus: "final" | "corrected";
   finalizedAt: string;

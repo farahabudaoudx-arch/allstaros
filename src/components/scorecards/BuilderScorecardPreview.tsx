@@ -209,31 +209,48 @@ function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: Sta
   const { metric, period } = view;
   return (
     <div className="max-w-5xl">
-      <div className="mb-5 rounded-xl border border-hairline bg-card px-5 py-5">
-        <p className="text-sm text-subtle">Team IP Growth</p>
-        <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">{percent(metric.growth.percentage)}</p>
+      <div className="mb-5 rounded-xl border border-hairline bg-card px-5 py-5 sm:px-6 sm:py-6">
+        <p className="text-sm font-medium text-subtle">Team IP Growth</p>
+        <p className="mt-2 break-words text-[clamp(2rem,8vw,3rem)] font-semibold leading-none tabular-nums text-ink">{percent(metric.growth.percentage)}</p>
         <p className="mt-4"><StarScale value={rating} label="Growth %" /></p>
       </div>
       <div className="growth-table border border-hairline">
-        <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
-          <p className="growth-header-cell px-3 py-4 sm:px-6">{period.previousLabel}</p>
-          <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{period.label}</p>
-          <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">{metric.growth.comparison.toUpperCase()}</p>
+        <div className="hidden grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:grid sm:text-base">
+          <p className="growth-header-cell px-6 py-4">{period.previousLabel}</p>
+          <p className="growth-header-cell border-l border-hairline px-6 py-4">{period.label}</p>
+          <p className="growth-header-cell border-l border-hairline px-6 py-4 text-right">{metric.growth.comparison.toUpperCase()}</p>
         </div>
         {BUILDER_GROWTH_METRICS.map((item) => {
           const previous = metric.previousPerformance[item.key];
           const current = metric.performance[item.key].value;
           return (
-            <div key={item.key} className="growth-row grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
-              <p className="growth-cell px-3 py-5 sm:px-6">
+            <div key={item.key} className="growth-row border-b border-hairline last:border-b-0 sm:grid sm:grid-cols-[3fr_3fr_2fr]">
+              <div className="border-b border-hairline px-4 py-4 sm:hidden">
+                <p className="growth-title text-sm font-semibold leading-5 text-ink">{item.label}</p>
+                <div className="mt-3 grid grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-[0.08em] text-mute">{period.previousLabel}</p>
+                    <p className="growth-value mt-1 break-words text-xl font-semibold leading-tight tabular-nums text-ink">{metricValue(item.key, previous)}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-[0.08em] text-mute">{period.label}</p>
+                    <p className="growth-value mt-1 break-words text-xl font-semibold leading-tight tabular-nums text-ink">{metricValue(item.key, current)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-hairline pt-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.08em] text-mute">{metric.growth.comparison.toUpperCase()}</p>
+                  <p className="growth-value break-words text-xl font-semibold leading-tight tabular-nums text-accent">{percent(metricGrowth(previous, current))}</p>
+                </div>
+              </div>
+              <p className="growth-cell hidden px-6 py-5 sm:block">
                 <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
-                <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, previous)}</span>
+                <span className="growth-value mt-2 block break-words text-xl font-semibold leading-tight tabular-nums text-ink sm:text-3xl">{metricValue(item.key, previous)}</span>
               </p>
-              <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
+              <p className="growth-cell hidden border-l border-hairline px-6 py-5 sm:block">
                 <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{item.label}</span>
-                <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{metricValue(item.key, current)}</span>
+                <span className="growth-value mt-2 block break-words text-xl font-semibold leading-tight tabular-nums text-ink sm:text-3xl">{metricValue(item.key, current)}</span>
               </p>
-              <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">{percent(metricGrowth(previous, current))}</p>
+              <p className="growth-cell growth-value hidden border-l border-hairline px-6 pb-5 pt-12 text-right text-xl font-semibold leading-tight tabular-nums text-accent sm:block sm:text-3xl">{percent(metricGrowth(previous, current))}</p>
             </div>
           );
         })}
