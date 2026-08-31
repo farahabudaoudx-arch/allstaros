@@ -74,6 +74,8 @@ export type SendEmailParams = {
   replyTo?: string;
   /** Files to attach (e.g. a bug-report screenshot). */
   attachments?: EmailAttachment[];
+  /** Stable provider idempotency key for retry-safe transactional sends. */
+  idempotencyKey?: string;
 };
 
 export type SendEmailResult =
@@ -90,7 +92,7 @@ export type SendEmailResult =
 export async function sendEmail(
   params: SendEmailParams,
 ): Promise<SendEmailResult> {
-  const { to, subject, html, text, replyTo, attachments } = params;
+  const { to, subject, html, text, replyTo, attachments, idempotencyKey } = params;
 
   if (!html && !text) {
     return { ok: false, error: "Email must include an html or text body." };
@@ -115,7 +117,7 @@ export async function sendEmail(
           }))
         : undefined,
       ...body,
-    });
+    }, idempotencyKey ? { idempotencyKey } : undefined);
 
     if (error) return { ok: false, error: error.message };
     return { ok: true, id: data?.id ?? "" };
