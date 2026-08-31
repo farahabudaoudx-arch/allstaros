@@ -243,8 +243,8 @@ function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: Sta
 
 export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
   // #015 defines the legacy `activeWriters` payload field as Active Directs.
-  // #016 defines the legacy `recruitsAdded` payload field as Recruits Licensed,
-  // using verified NPN outcome/date semantics. #017 still owns period scaling.
+  // #016 defines the legacy `recruitsAdded` payload field as Recruits Licensed.
+  // #017 scales only cumulative targets; snapshot/rate/monthly-normalized metrics stay fixed.
   const summary = createBuilderStarSummary({
     growthPercent: view.metric.growth.percentage,
     priorPeriodBaseline: view.metric.growth.priorTeamIpCents,
@@ -252,6 +252,7 @@ export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }
     activeDirects: view.metric.activeWriters,
     averageIpPerActiveWriterCents: view.metric.averageMonthlyIpPerWriterCents,
     recruitsLicensed: view.metric.recruitsAdded,
+    periodKind: view.period.kind,
   });
   const ratings = summary.ratings;
   const exportMetadata = {

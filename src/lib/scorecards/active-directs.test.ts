@@ -11,6 +11,15 @@ describe("six-week Active Directs window", () => {
     expect(isInSixWeekWindow("2026-09-01", "2026-08-31")).toBe(false);
   });
 
+  it.each([
+    ["monthly", "2026-08-31", "2026-07-21"],
+    ["quarterly", "2026-09-30", "2026-08-20"],
+    ["annual", "2026-12-31", "2026-11-20"],
+  ] as const)("moves the trailing window with a %s period end", (_kind, periodEnd, expectedStart) => {
+    expect(sixWeekWindowStart(periodEnd)).toBe(expectedStart);
+    expect(isInSixWeekWindow(expectedStart, periodEnd)).toBe(true);
+  });
+
   it("rejects malformed activity dates without crashing", () => {
     expect(isInSixWeekWindow("not-a-date", "2026-08-31")).toBe(false);
     expect(() => sixWeekWindowStart("2026-02-30")).toThrow("valid calendar date");

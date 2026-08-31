@@ -54,6 +54,14 @@ describe("licensed recruit qualification", () => {
     expect(isLicensedRecruitInPeriod(candidate({ npnVerifiedAt: "2026-09-15T18:00:00.000Z" }), august)).toBe(false);
   });
 
+  it("attributes verified licensing to the selected quarter using Chicago-local dates", () => {
+    const q3 = { start: "2026-07-01", end: "2026-09-30" };
+    expect(isLicensedRecruitInPeriod(candidate({ npnVerifiedAt: "2026-07-01T05:00:00.000Z" }), q3)).toBe(true);
+    expect(isLicensedRecruitInPeriod(candidate({ npnVerifiedAt: "2026-07-01T04:59:59.999Z" }), q3)).toBe(false);
+    expect(isLicensedRecruitInPeriod(candidate({ npnVerifiedAt: "2026-10-01T04:59:59.999Z" }), q3)).toBe(true);
+    expect(isLicensedRecruitInPeriod(candidate({ npnVerifiedAt: "2026-10-01T05:00:00.000Z" }), q3)).toBe(false);
+  });
+
   it("fails closed for malformed period boundaries", () => {
     expect(isLicensedRecruitInPeriod(candidate(), { start: "2026-08-32", end: "2026-08-31" })).toBe(false);
     expect(isLicensedRecruitInPeriod(candidate(), { start: "2026-09-01", end: "2026-08-31" })).toBe(false);

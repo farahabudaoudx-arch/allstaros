@@ -268,3 +268,133 @@ describe("Builder Scorecard fixed star ratings", () => {
     });
   });
 });
+
+describe("period-aware cumulative scorecard ratings", () => {
+  it.each([
+    ["monthly", 1],
+    ["quarterly", 3],
+    ["annual", 12],
+  ] as const)("scales Producer Personal IP transitions for %s", (kind, factor) => {
+    const transitions = [500_000, 1_500_000, 2_000_000, 3_000_000, 4_000_000] as const;
+    const stars = [1, 2, 3, 4, 5] as const;
+    transitions.forEach((base, index) => {
+      const threshold = base * factor;
+      expect(producerIssuedIpStars(threshold - 1, kind)).toBe(index === 0 ? 0 : stars[index - 1]);
+      expect(producerIssuedIpStars(threshold, kind)).toBe(stars[index]);
+      expect(producerIssuedIpStars(threshold + 1, kind)).toBe(stars[index]);
+    });
+  });
+
+  it.each([
+    ["monthly", 1],
+    ["quarterly", 3],
+    ["annual", 12],
+  ] as const)("scales Producer Tracking transitions for %s", (kind, factor) => {
+    const transitions = [8, 12, 16, 20, 24] as const;
+    const stars = [1, 2, 3, 4, 5] as const;
+    transitions.forEach((base, index) => {
+      const threshold = base * factor;
+      expect(producerTrackingStars(threshold - 1, kind)).toBe(index === 0 ? 0 : stars[index - 1]);
+      expect(producerTrackingStars(threshold, kind)).toBe(stars[index]);
+      expect(producerTrackingStars(threshold + 1, kind)).toBe(stars[index]);
+    });
+  });
+
+  it.each([
+    ["monthly", 1],
+    ["quarterly", 3],
+    ["annual", 12],
+  ] as const)("scales Producer Lead Spend transitions for %s", (kind, factor) => {
+    const transitions = [200_000, 400_000, 600_000, 800_000, 1_000_000] as const;
+    const stars = [1, 2, 3, 4, 5] as const;
+    transitions.forEach((base, index) => {
+      const threshold = base * factor;
+      expect(producerLeadSpendStars(threshold - 1, kind)).toBe(index === 0 ? 0 : stars[index - 1]);
+      expect(producerLeadSpendStars(threshold, kind)).toBe(stars[index]);
+      expect(producerLeadSpendStars(threshold + 1, kind)).toBe(stars[index]);
+    });
+  });
+
+  it.each([
+    ["monthly", 1],
+    ["quarterly", 3],
+    ["annual", 12],
+  ] as const)("scales Recruits Licensed transitions for %s", (kind, factor) => {
+    const transitions = [1, 2, 3, 4, 6] as const;
+    const stars = [1, 2, 3, 4, 5] as const;
+    transitions.forEach((base, index) => {
+      const threshold = base * factor;
+      const nextThreshold = index < transitions.length - 1 ? transitions[index + 1] * factor : null;
+      expect(builderRecruitsLicensedStars(threshold - 1, kind)).toBe(index === 0 ? 0 : stars[index - 1]);
+      expect(builderRecruitsLicensedStars(threshold, kind)).toBe(stars[index]);
+      expect(builderRecruitsLicensedStars(threshold + 1, kind)).toBe(
+        nextThreshold != null && threshold + 1 >= nextThreshold ? stars[index + 1] : stars[index],
+      );
+    });
+  });
+
+  it("scores the same cumulative raw value lower as the selected period grows", () => {
+    expect([
+      producerIssuedIpStars(4_000_000, "monthly"),
+      producerIssuedIpStars(4_000_000, "quarterly"),
+      producerIssuedIpStars(4_000_000, "annual"),
+    ]).toEqual([5, 1, 0]);
+    expect([
+      producerLeadSpendStars(1_000_000, "monthly"),
+      producerLeadSpendStars(1_000_000, "quarterly"),
+      producerLeadSpendStars(1_000_000, "annual"),
+    ]).toEqual([5, 1, 0]);
+    expect([
+      producerTrackingStars(24, "monthly"),
+      producerTrackingStars(24, "quarterly"),
+      producerTrackingStars(24, "annual"),
+    ]).toEqual([5, 1, 0]);
+    expect([
+      builderRecruitsLicensedStars(6, "monthly"),
+      builderRecruitsLicensedStars(6, "quarterly"),
+      builderRecruitsLicensedStars(6, "annual"),
+    ]).toEqual([5, 2, 0]);
+  });
+
+  it("does not scale Builder percentage, snapshot, or monthly-normalized metrics", () => {
+    for (const kind of ["monthly", "quarterly", "annual"] as const) {
+      expect(createBuilderStarSummary({
+        periodKind: kind,
+        growthPercent: 15,
+        priorPeriodBaseline: 100,
+        firstLegPercent: 20,
+        activeDirects: 5,
+        averageIpPerActiveWriterCents: 1_500_000,
+        recruitsLicensed: kind === "monthly" ? 1 : kind === "quarterly" ? 3 : 12,
+      }).ratings).toEqual({
+        growth: 4,
+        firstLegPercent: 3,
+        activeDirects: 4,
+        averageIpPerActiveWriter: 2,
+        recruitsLicensed: 1,
+      });
+    }
+  });
+
+  it("threads period kind through Producer and Builder summaries without changing weighting", () => {
+    expect(createProducerStarSummary({
+      periodKind: "quarterly",
+      issuedIpCents: 12_000_000,
+      trackingLoggedDays: 72,
+      leadSpendCents: 3_000_000,
+    })).toEqual({ ratings: { issuedIp: 5, trackingConsistency: 5, leadSpend: 5 }, overall: 5 });
+    expect(createBuilderStarSummary({
+      periodKind: "quarterly",
+      growthPercent: 25,
+      priorPeriodBaseline: 100,
+      firstLegPercent: 0,
+      activeDirects: 8,
+      averageIpPerActiveWriterCents: 4_000_000,
+      recruitsLicensed: 18,
+    })).toEqual({
+      ratings: { growth: 5, firstLegPercent: 5, activeDirects: 5, averageIpPerActiveWriter: 5, recruitsLicensed: 5 },
+      total: 25,
+      average: 5,
+    });
+  });
+});

@@ -2,11 +2,36 @@ import { describe, expect, it } from "vitest";
 import { prepareScorecardRun, type PreparedScorecardRun, type ProducerPeriodMetricPayload, type ScorecardRunInput } from "./run";
 import { verifyPreparedScorecardRun } from "./verifier";
 
+function producerPayload(personId: string): ProducerPeriodMetricPayload {
+  return {
+    preview: {
+      cardType: "producer",
+      periodKind: "monthly",
+      lifecycleStatus: "in_progress",
+      producerId: personId,
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      periodLabel: "August 2026",
+      title: "August 2026 Producer Scorecard",
+      weeklyReports: [],
+      totalIssuedIpCents: 0,
+      averageWeeklyIpCents: 0,
+      issuanceStatus: "red",
+      hasProduction: false,
+      emptyMessage: null,
+      generatedAt: "2026-09-02T12:00:00Z",
+      sourceCoverage: { source: "gateway", reportCount: 0, completeThrough: null },
+    },
+    overview: {} as ProducerPeriodMetricPayload["overview"],
+  };
+}
+
 function fixture(): ScorecardRunInput {
   return {
     runId: "verify-run",
     revision: 1,
     period: { kind: "monthly", start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+    priorPeriod: { kind: "monthly", start: "2026-07-01", end: "2026-07-31", label: "July 2026" },
     generatedAt: "2026-09-02T12:00:00Z",
     expectedReportDates: ["2026-08-07", "2026-08-14"],
     people: [
@@ -33,12 +58,12 @@ function fixture(): ScorecardRunInput {
     priorBuilderTeamIpCents: { builder: 200 },
     priorBuilderCoverage: { builder: "complete" },
     producerMetrics: [
-      { personId: "builder", payload: {} as ProducerPeriodMetricPayload },
-      { personId: "writer", payload: {} as ProducerPeriodMetricPayload },
+      { personId: "builder", payload: producerPayload("builder") },
+      { personId: "writer", payload: producerPayload("writer") },
     ],
     producerVerificationMetrics: [
-      { personId: "builder", payload: {} as ProducerPeriodMetricPayload },
-      { personId: "writer", payload: {} as ProducerPeriodMetricPayload },
+      { personId: "builder", payload: producerPayload("builder") },
+      { personId: "writer", payload: producerPayload("writer") },
     ],
   };
 }
@@ -56,6 +81,18 @@ describe("independent Scorecard verification", () => {
     const changedTruth = structuredClone(input);
     changedTruth.recruits = changedTruth.recruits.map((recruit) => ({ ...recruit, npnStatus: "submitted" }));
     expect(verifyPreparedScorecardRun(changedTruth, prepared).valid).toBe(false);
+  });
+
+  it("independently rejects a non-equivalent comparison period", () => {
+    const input = fixture();
+    const prepared = prepareScorecardRun(input);
+    const changedPeriod = structuredClone(input);
+    changedPeriod.priorPeriod = { kind: "monthly", start: "2026-06-01", end: "2026-06-30", label: "June 2026" };
+
+    const verification = verifyPreparedScorecardRun(changedPeriod, prepared);
+
+    expect(verification.valid).toBe(false);
+    expect(verification.problems).toContainEqual(expect.objectContaining({ field: "priorPeriod" }));
   });
 
   it("detects every corrupted displayed Builder field without calling the production calculator", () => {

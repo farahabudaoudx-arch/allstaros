@@ -4,6 +4,7 @@ import { BuilderScorecardPreview, type BuilderScorecardMetric } from "@/componen
 import { ProducerScorecardPreview } from "@/components/scorecards/ProducerScorecardPreview";
 import { getCurrentPerson } from "@/lib/auth";
 import type { MonthlyProducerPreview, ProducerOverview } from "@/lib/scorecards/lifecycle";
+import { previousEquivalentPeriod, scorecardPeriodFromStart } from "@/lib/scorecards/period";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -19,25 +20,6 @@ type Snapshot = {
   kpi_results: unknown;
   metric_run_id: string | null;
 };
-
-function periodLabel(kind: ScorecardPeriodKind, start: string) {
-  const date = new Date(`${start}T00:00:00Z`);
-  const year = date.getUTCFullYear();
-  if (kind === "annual") return String(year);
-  if (kind === "quarterly") return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${year}`;
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
-}
-
-function previousPeriodLabel(kind: ScorecardPeriodKind, start: string) {
-  const date = new Date(`${start}T00:00:00Z`);
-  if (kind === "annual") return String(date.getUTCFullYear() - 1);
-  if (kind === "quarterly") {
-    date.setUTCMonth(date.getUTCMonth() - 3);
-    return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
-  }
-  date.setUTCMonth(date.getUTCMonth() - 1);
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -86,7 +68,10 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
     }
   }
 
-  const label = periodLabel(snapshot.period_kind, snapshot.period_start);
+  const period = scorecardPeriodFromStart(snapshot.period_kind, snapshot.period_start);
+  if (period.end !== snapshot.period_end) throw new Error("Stored Scorecard period does not match its period kind.");
+  const previousPeriod = previousEquivalentPeriod(period);
+  const label = period.label;
   const card = snapshot.card_type === "producer"
     ? producerPayload(snapshot.kpi_results)
     : builderPayload(snapshot.kpi_results);
@@ -96,11 +81,15 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
       <Link href="/producer/scorecards" className="mb-6 inline-block text-sm font-medium text-accent hover:underline">Back to Scorecards</Link>
       {snapshot.card_type === "producer" ? (
-        <ProducerScorecardPreview preview={(card as { preview: MonthlyProducerPreview }).preview} overview={(card as { overview: ProducerOverview }).overview} />
+        <ProducerScorecardPreview
+          preview={(card as { preview: MonthlyProducerPreview }).preview}
+          overview={(card as { overview: ProducerOverview }).overview}
+          periodKind={snapshot.period_kind}
+        />
       ) : (
         <BuilderScorecardPreview view={{
           member: { fullName: frozenName, photoUrl: frozenPhoto },
-          period: { kind: snapshot.period_kind, label, previousLabel: previousPeriodLabel(snapshot.period_kind, snapshot.period_start) },
+          period: { kind: snapshot.period_kind, label, previousLabel: previousPeriod.label },
           metric: card as BuilderScorecardMetric,
         }} />
       )}

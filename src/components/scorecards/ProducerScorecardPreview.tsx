@@ -2,6 +2,8 @@ import type {
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
+import { previousEquivalentPeriod } from "@/lib/scorecards/period";
+import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
@@ -26,15 +28,18 @@ export function money(cents: number): string {
 export function ProducerScorecardPreview({
   preview,
   overview,
+  periodKind = "monthly",
 }: {
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
+  periodKind?: ScorecardPeriodKind;
 }) {
   const trackingLoggedDays = countProducerTrackingDays(overview.activity.loggedDates);
   const starSummary = createProducerStarSummary({
     issuedIpCents: preview.totalIssuedIpCents,
     trackingLoggedDays,
     leadSpendCents: overview.activity.leadSpendCents,
+    periodKind,
   });
   const ratings = starSummary.ratings;
   const exportMetadata = {
@@ -71,8 +76,8 @@ export function ProducerScorecardPreview({
         />
       </StorySection>
 
-      <StorySection number={null} title="Previous Month Growth" collapsible sectionId="scorecard-section-03" exportName="Previous Month Growth" exportMetadata={exportMetadata}>
-        <MonthOverMonthStory preview={preview} overview={overview} />
+      <StorySection number={null} title="Previous Period Growth" collapsible sectionId="scorecard-section-03" exportName="Previous Period Growth" exportMetadata={exportMetadata}>
+        <MonthOverMonthStory preview={preview} overview={overview} periodKind={periodKind} />
       </StorySection>
 
       <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="scorecard-section-card" exportName="Your Scorecard" exportMetadata={exportMetadata}>
@@ -160,7 +165,7 @@ function ScorecardHowItWorks() {
 
         <div id="scorecard-how-it-works-content" className="w-full">
           <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            Producer ratings use three fixed monthly performance bands, not organization rank or percentile.
+            Producer ratings use three fixed period-aware performance bands, not organization rank or percentile.
           </p>
 
           <ul aria-label="Three Producer scorecard areas" className="mt-7 grid gap-3 lg:grid-cols-3">
@@ -347,12 +352,6 @@ export function StoryValue({ value, valueClass = "text-ink", intro, introClass =
   );
 }
 
-function previousMonthLabel(periodStart: string): string {
-  const [year, month] = periodStart.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(year, month - 2, 1)));
-}
-
 function calendarDates(periodStart: string, periodEnd: string): Array<string | null> {
   const first = new Date(`${periodStart}T00:00:00Z`);
   const last = new Date(`${periodEnd}T00:00:00Z`);
@@ -390,7 +389,7 @@ function TrackingConsistencyCalendar({
             <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{scoredLoggedDays}</p>
             <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span>
           </div>
-          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Mon–Sat logged days this month · Sundays are not scored</p>
+          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Mon–Sat logged days in this period · Sundays are not scored</p>
         </div>
         <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>
@@ -431,9 +430,11 @@ function TrackingConsistencyCalendar({
 function MonthOverMonthStory({
   preview,
   overview,
+  periodKind,
 }: {
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
+  periodKind: ScorecardPeriodKind;
 }) {
   const percentageChange = (previous: number | null, current: number | null) => {
     if (previous == null || current == null) return "Unavailable";
@@ -453,7 +454,11 @@ function MonthOverMonthStory({
     { label: "Presentations", previous: previousActivity?.presentations ?? null, current: currentActivity?.presentations ?? null, format: formatCount },
     { label: "Sales", previous: previousActivity?.sales ?? null, current: currentActivity?.sales ?? null, format: formatCount },
   ];
-  const previousLabel = previousMonthLabel(preview.periodStart);
+  const previousLabel = previousEquivalentPeriod({
+    kind: periodKind,
+    start: preview.periodStart,
+    end: preview.periodEnd,
+  }).label;
 
   return (
     <div className="growth-table max-w-5xl border border-hairline">
@@ -514,10 +519,18 @@ export function OrganizationComparison({ items }: { items: ComparisonItem[] }) {
   );
 }
 
-export function ScorecardsPageShell({ preview, overview }: { preview: MonthlyProducerPreview; overview: ProducerOverview }) {
+export function ScorecardsPageShell({
+  preview,
+  overview,
+  periodKind = "monthly",
+}: {
+  preview: MonthlyProducerPreview;
+  overview: ProducerOverview;
+  periodKind?: ScorecardPeriodKind;
+}) {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
-      <ProducerScorecardPreview preview={preview} overview={overview} />
+      <ProducerScorecardPreview preview={preview} overview={overview} periodKind={periodKind} />
     </main>
   );
 }

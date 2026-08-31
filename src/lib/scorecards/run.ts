@@ -1,5 +1,12 @@
 import { countActiveDirects, isInSixWeekWindow } from "./active-directs";
 import { licensedRecruitPersonIds } from "./licensed-recruits";
+import {
+  comparisonForPeriod,
+  periodFactor,
+  previousEquivalentPeriod,
+  scorecardPeriodFromStart,
+  type ScorecardPeriod,
+} from "./period";
 import { verifyPreparedScorecardRun } from "./verifier";
 import type { MonthlyProducerPreview, ProducerOverview } from "./lifecycle";
 
@@ -35,12 +42,8 @@ export type GatewayReport = {
 export type ScorecardRunInput = {
   runId: string;
   revision: number;
-  period: {
-    kind: ScorecardPeriodKind;
-    start: string;
-    end: string;
-    label: string;
-  };
+  period: ScorecardPeriod;
+  priorPeriod: ScorecardPeriod;
   generatedAt: string;
   expectedReportDates: string[];
   people: ScorecardRunPerson[];
@@ -79,6 +82,9 @@ export type ScorecardRunProblem = {
     | "hierarchy_cycle"
     | "incomplete_active_writer_window"
     | "builder_without_producer_role"
+    | "invalid_reporting_period"
+    | "invalid_comparison_period"
+    | "invalid_producer_period"
     | "incomplete_comparison_period"
     | "unverified_comparison_baseline"
     | "independent_verification_failed"
@@ -133,12 +139,6 @@ export type PreparedScorecardRun = {
   };
 };
 
-function comparisonFor(kind: ScorecardPeriodKind) {
-  if (kind === "quarterly") return "qoq" as const;
-  if (kind === "annual") return "yoy" as const;
-  return "mom" as const;
-}
-
 function growthPercentage(current: number, prior: number | null) {
   if (prior == null) return null;
   if (prior === 0) return current === 0 ? 0 : 100;
@@ -175,6 +175,32 @@ function descendantIds(rootId: string, people: ScorecardRunPerson[]) {
 
 function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<string>) {
   const problems: ScorecardRunProblem[] = [];
+  try {
+    const canonicalPeriod = scorecardPeriodFromStart(input.period.kind, input.period.start);
+    if (canonicalPeriod.end !== input.period.end || canonicalPeriod.label !== input.period.label) {
+      problems.push({
+        code: "invalid_reporting_period",
+        message: "The Scorecard reporting period does not match its exact calendar period.",
+      });
+    }
+    const expectedPrior = previousEquivalentPeriod(canonicalPeriod);
+    if (
+      input.priorPeriod.kind !== expectedPrior.kind ||
+      input.priorPeriod.start !== expectedPrior.start ||
+      input.priorPeriod.end !== expectedPrior.end ||
+      input.priorPeriod.label !== expectedPrior.label
+    ) {
+      problems.push({
+        code: "invalid_comparison_period",
+        message: `The ${input.period.kind} Scorecard must compare against ${expectedPrior.label}.`,
+      });
+    }
+  } catch (error) {
+    problems.push({
+      code: "invalid_reporting_period",
+      message: error instanceof Error ? error.message : "The Scorecard reporting period is invalid.",
+    });
+  }
   const peopleIds = new Set(input.people.map((person) => person.id));
   const publishedByDate = new Map<string, GatewayReport[]>();
   for (const report of input.gatewayReports) {
@@ -343,7 +369,8 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
   }
 
   for (const personId of eligibleProducerIds) {
-    const count = input.producerMetrics.filter((metric) => metric.personId === personId).length;
+    const producerRows = input.producerMetrics.filter((metric) => metric.personId === personId);
+    const count = producerRows.length;
     if (count === 0) {
       problems.push({
         code: "missing_producer_metric",
@@ -356,6 +383,22 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
         personId,
         count,
         message: `Producer ${personId} has ${count} metric rows.`,
+      });
+    }
+
+    const verificationRows = input.producerVerificationMetrics.filter((metric) => metric.personId === personId);
+    const previewRows = [...producerRows, ...verificationRows].map((metric) => metric.payload.preview);
+    if (previewRows.some((preview) =>
+      !preview ||
+      preview.periodKind !== input.period.kind ||
+      preview.periodStart !== input.period.start ||
+      preview.periodEnd !== input.period.end ||
+      preview.periodLabel !== input.period.label
+    )) {
+      problems.push({
+        code: "invalid_producer_period",
+        personId,
+        message: `Producer ${personId} metrics do not match the frozen ${input.period.label} reporting period.`,
       });
     }
   }
@@ -445,7 +488,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
     };
   });
   const recruitingRanks = competitionRanks(recruitCounts);
-  const months: 1 | 3 | 12 = input.period.kind === "annual" ? 12 : input.period.kind === "quarterly" ? 3 : 1;
+  const months = periodFactor(input.period.kind);
   const activePersonIds = input.people.filter((person) => person.activeAtPeriodEnd).map((person) => person.id);
   const agencyWriterIds = new Set(
     activeWriterReports.flatMap((report) =>
@@ -516,7 +559,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         agencyActiveWriters > 0 ? Math.round(teamIpCents / months / agencyActiveWriters) : null,
       monthCount: months,
       growth: {
-        comparison: comparisonFor(input.period.kind),
+        comparison: comparisonForPeriod(input.period.kind),
         priorTeamIpCents,
         currentTeamIpCents: teamIpCents,
         percentage: growthPercentage(teamIpCents, priorTeamIpCents),

@@ -152,6 +152,31 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("13 of 25 total stars");
   });
 
+  it("scales only Recruits Licensed on a quarterly Builder scorecard", () => {
+    const quarterlyView: BuilderScorecardView = {
+      ...view,
+      period: { kind: "quarterly", label: "Q3 2026", previousLabel: "Q2 2026" },
+      metric: {
+        ...view.metric,
+        monthCount: 3,
+        growth: { ...view.metric.growth, comparison: "qoq" },
+      },
+    };
+    const html = renderToStaticMarkup(
+      createElement(BuilderScorecardPreview, { view: quarterlyView }),
+    );
+
+    expect(html).toContain("Q2 2026");
+    expect(html).toContain("Q3 2026");
+    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("First Leg %: 1 out of 5 stars");
+    expect(html).toContain("Active Directs: 5 out of 5 stars");
+    expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
+    expect(html).toContain("Recruits Licensed: 4 out of 5 stars");
+    expect(html).toContain("Average rating: 3.2 out of 5 stars");
+    expect(html).toContain("16 of 25 total stars");
+  });
+
   it("does not turn a zero prior-period baseline into a 5-star Growth rating", () => {
     const zeroBaselineView: BuilderScorecardView = {
       ...view,

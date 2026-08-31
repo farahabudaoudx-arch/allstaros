@@ -5,19 +5,27 @@ import {
   type ScorecardRunInput,
 } from "./run";
 
-function producerPayload(personId: string) {
+function producerPayload(
+  personId: string,
+  period: ScorecardRunInput["period"] = {
+    kind: "monthly",
+    start: "2026-08-01",
+    end: "2026-08-31",
+    label: "August 2026",
+  },
+) {
   return {
     personId,
     payload: {
       preview: {
         cardType: "producer" as const,
-        periodKind: "monthly" as const,
+        periodKind: period.kind,
         lifecycleStatus: "in_progress" as const,
         producerId: personId,
-        periodStart: "2026-08-01",
-        periodEnd: "2026-08-31",
-        periodLabel: "August 2026",
-        title: "August 2026 Producer Scorecard",
+        periodStart: period.start,
+        periodEnd: period.end,
+        periodLabel: period.label,
+        title: `${period.label} Producer Scorecard`,
         weeklyReports: [],
         totalIssuedIpCents: 0,
         averageWeeklyIpCents: 0,
@@ -60,6 +68,12 @@ function completeRun(): ScorecardRunInput {
       start: "2026-08-01",
       end: "2026-08-31",
       label: "August 2026",
+    },
+    priorPeriod: {
+      kind: "monthly",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      label: "July 2026",
     },
     generatedAt: "2026-09-02T15:00:00.000Z",
     expectedReportDates: [
@@ -293,18 +307,86 @@ describe("Scorecard run", () => {
   });
 
   it.each([
-    ["monthly", 1, 2_000_000, "mom"],
-    ["quarterly", 3, 666_667, "qoq"],
-    ["annual", 12, 166_667, "yoy"],
-  ] as const)("uses the fixed month divisor for %s periods", (kind, _months, expectedAverage, comparison) => {
+    [
+      { kind: "monthly", start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+      { kind: "monthly", start: "2026-07-01", end: "2026-07-31", label: "July 2026" },
+      2_000_000,
+      "mom",
+    ],
+    [
+      { kind: "quarterly", start: "2026-07-01", end: "2026-09-30", label: "Q3 2026" },
+      { kind: "quarterly", start: "2026-04-01", end: "2026-06-30", label: "Q2 2026" },
+      666_667,
+      "qoq",
+    ],
+    [
+      { kind: "annual", start: "2026-01-01", end: "2026-12-31", label: "2026" },
+      { kind: "annual", start: "2025-01-01", end: "2025-12-31", label: "2025" },
+      166_667,
+      "yoy",
+    ],
+  ] as const)("keeps Avg IP/Writer monthly-normalized for %s periods", (period, priorPeriod, expectedAverage, comparison) => {
     const input = completeRun();
-    input.period.kind = kind;
+    input.period = period;
+    input.priorPeriod = priorPeriod;
+    input.producerMetrics = input.producerMetrics.map((metric) => producerPayload(metric.personId, period));
+    input.producerVerificationMetrics = input.producerVerificationMetrics.map((metric) => producerPayload(metric.personId, period));
 
     const result = prepareScorecardRun(input);
     const alex = result.builderMetrics.find((row) => row.personId === "builder-a");
 
+    expect(result.status).toBe("ready");
     expect(alex?.averageMonthlyIpPerWriterCents).toBe(expectedAverage);
+    expect(alex?.monthCount).toBe(period.kind === "annual" ? 12 : period.kind === "quarterly" ? 3 : 1);
     expect(alex?.growth.comparison).toBe(comparison);
+  });
+
+  it("blocks a run when Producer frozen period metadata disagrees with the run period", () => {
+    const input = completeRun();
+    input.producerMetrics[0] = producerPayload(input.producerMetrics[0].personId, {
+      kind: "monthly",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      label: "July 2026",
+    });
+
+    const result = prepareScorecardRun(input);
+
+    expect(result.status).toBe("blocked");
+    expect(result.problems).toContainEqual(expect.objectContaining({
+      code: "invalid_producer_period",
+      personId: "builder-a",
+    }));
+  });
+
+  it("blocks quarterly Growth when the supplied prior period is only one month", () => {
+    const input = completeRun();
+    input.period = { kind: "quarterly", start: "2026-07-01", end: "2026-09-30", label: "Q3 2026" };
+    input.priorPeriod = { kind: "monthly", start: "2026-06-01", end: "2026-06-30", label: "June 2026" };
+    input.producerMetrics = input.producerMetrics.map((metric) => producerPayload(metric.personId, input.period));
+    input.producerVerificationMetrics = input.producerVerificationMetrics.map((metric) => producerPayload(metric.personId, input.period));
+
+    const result = prepareScorecardRun(input);
+
+    expect(result.status).toBe("blocked");
+    expect(result.problems).toContainEqual(expect.objectContaining({
+      code: "invalid_comparison_period",
+    }));
+  });
+
+  it("blocks annual Growth when the supplied prior period is not the previous year", () => {
+    const input = completeRun();
+    input.period = { kind: "annual", start: "2026-01-01", end: "2026-12-31", label: "2026" };
+    input.priorPeriod = { kind: "quarterly", start: "2025-10-01", end: "2025-12-31", label: "Q4 2025" };
+    input.producerMetrics = input.producerMetrics.map((metric) => producerPayload(metric.personId, input.period));
+    input.producerVerificationMetrics = input.producerVerificationMetrics.map((metric) => producerPayload(metric.personId, input.period));
+
+    const result = prepareScorecardRun(input);
+
+    expect(result.status).toBe("blocked");
+    expect(result.problems).toContainEqual(expect.objectContaining({
+      code: "invalid_comparison_period",
+    }));
   });
 
   it("keeps Avg IP/Writer on the six latest organization reports while stale direct business does not count", () => {

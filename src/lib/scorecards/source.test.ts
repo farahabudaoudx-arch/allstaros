@@ -6,6 +6,7 @@ import {
   expectedDatesForScheduleHistory,
   loadCurrentMonthlyProducerSource,
   loadProducerLeadSpendCents,
+  loadProducerSourceForPeriod,
   loadProducerTrackingRows,
   monthlyLeadSpendTotals,
   monthlyProducerSourceFromRows,
@@ -182,6 +183,35 @@ describe("monthly Producer source adapter", () => {
       end: "2026-08-31",
       label: "August 2026",
     });
+  });
+
+  it("loads Gateway WTD rows across an explicit quarterly Scorecard period", async () => {
+    const fake = fakeMonthlyProducerSource({
+      imports: [{ report_date: "2026-09-25", gateway_label: "Q3 Week" }],
+      premiumRows: [{
+        person_id: "producer-1",
+        report_date: "2026-09-25",
+        gateway_label: "Q3 Week",
+        personal_ip_cents: 1_000_000,
+      }],
+    });
+
+    const source = await loadProducerSourceForPeriod(
+      fake.client as never,
+      "producer-1",
+      { start: "2026-07-01", end: "2026-09-30", label: "Q3 2026" },
+      new Date("2026-10-01T12:00:00.000Z"),
+    );
+
+    expect(source).toMatchObject({
+      periodStart: "2026-07-01",
+      periodEnd: "2026-09-30",
+      periodLabel: "Q3 2026",
+    });
+    expect(fake.calls).toContainEqual(["gte", "gateway_issued_premium_import", "report_date", "2026-07-01"]);
+    expect(fake.calls).toContainEqual(["lte", "gateway_issued_premium_import", "report_date", "2026-09-30"]);
+    expect(fake.calls).toContainEqual(["gte", "producer_issued_premium", "report_date", "2026-07-01"]);
+    expect(fake.calls).toContainEqual(["lte", "producer_issued_premium", "report_date", "2026-09-30"]);
   });
 
   it("keeps organization report dates while exposing only the requested producer", () => {

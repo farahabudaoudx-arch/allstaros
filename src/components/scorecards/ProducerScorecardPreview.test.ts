@@ -101,7 +101,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain('aria-label="Toggle How Scorecards Work"');
     expect(html).toContain('class="scorecard-guide__chevron');
     expect(html).toContain('aria-label="Three Producer scorecard areas"');
-    expect(html).toContain("Producer ratings use three fixed monthly performance bands, not organization rank or percentile.");
+    expect(html).toContain("Producer ratings use three fixed period-aware performance bands, not organization rank or percentile.");
     expect(html).toContain("Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.");
     expect(html).toContain("Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating.");
     expect(html).toContain("Numbers don&#x27;t lie. If you don&#x27;t like your score, do something about it.");
@@ -113,12 +113,12 @@ describe("Producer Scorecard preview", () => {
 
     expect(html).toContain(">Your Numbers</h3>");
     expect(html).toContain(">Your Tracking</h3>");
-    expect(html).toContain(">Previous Month Growth</h3>");
+    expect(html).toContain(">Previous Period Growth</h3>");
     expect(html).not.toContain(">Your Activity</h3>");
     expect(html).not.toContain("what you submitted week by week");
     expect(html).not.toContain("average weekly IP");
     expect(html).toMatch(/aria-label="July 2026 producer numbers"[\s\S]*?>IP<[\s\S]*?>\$33,767<[\s\S]*?>AP<[\s\S]*?>\$30,948<[\s\S]*?>Lead Spend<[\s\S]*?>\$0<[\s\S]*?>Dials<[\s\S]*?>443<[\s\S]*?>Contacts<[\s\S]*?>38<[\s\S]*?>Presentations<[\s\S]*?>13<[\s\S]*?>Submitted Sales<[\s\S]*?>11/);
-    expect(html).toContain("Mon–Sat logged days this month · Sundays are not scored");
+    expect(html).toContain("Mon–Sat logged days in this period · Sundays are not scored");
     expect(html).toContain("Personal IP: 4 out of 5 stars");
     expect(html).toContain("Tracking: 3 out of 5 stars");
     expect(html).toContain("2.75 overall");
@@ -129,13 +129,13 @@ describe("Producer Scorecard preview", () => {
     expect(html.match(/<details open=""/g)).toHaveLength(4);
     expect(html).toContain('aria-label="Toggle Your Numbers"');
     expect(html).toContain('aria-label="Toggle Your Tracking"');
-    expect(html).toContain('aria-label="Toggle Previous Month Growth"');
+    expect(html).toContain('aria-label="Toggle Previous Period Growth"');
     expect(html).not.toMatch(/>0[123]<\/p>/);
     expect(html).toMatch(/>Lead Spend<\/span><span[^>]*>\$0<\/span><\/p><p[^>]*><span[^>]*>Lead Spend<\/span><span[^>]*>\$0<\/span><\/p><p[^>]*>0%<\/p>/);
     expect(html.indexOf(">How Scorecards Work</h3>")).toBeLessThan(html.indexOf(">Your Numbers</h3>"));
     expect(html.indexOf(">Your Numbers</h3>")).toBeLessThan(html.indexOf(">Your Tracking</h3>"));
-    expect(html.indexOf(">Your Tracking</h3>")).toBeLessThan(html.indexOf(">Previous Month Growth</h3>"));
-    expect(html.indexOf(">Previous Month Growth</h3>")).toBeLessThan(html.indexOf(">Your Scorecard</h3>"));
+    expect(html.indexOf(">Your Tracking</h3>")).toBeLessThan(html.indexOf(">Previous Period Growth</h3>"));
+    expect(html.indexOf(">Previous Period Growth</h3>")).toBeLessThan(html.indexOf(">Your Scorecard</h3>"));
     expect(html).toContain(">Your Scorecard</h3>");
     expect(html).toContain("justify-center text-center");
     expect(html).not.toMatch(/>05<\/p><h3[^>]*>Your Scorecard/);
@@ -213,7 +213,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("Overall rating: 2 out of 5 stars");
     expect(html).toContain("2.00 weighted score");
     expect(html).toContain("Tracking Consistency: 0 out of 5 stars");
-    expect(html).toContain("Mon–Sat logged days this month · Sundays are not scored");
+    expect(html).toContain("Mon–Sat logged days in this period · Sundays are not scored");
     expect(html).not.toContain("Schedule Needed");
     expect(html).not.toContain("set a schedule to measure consistency");
   });
@@ -252,5 +252,56 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("August 2: Logged — Sunday not scored");
     expect(html).toContain("August 9: Logged — Sunday not scored");
     expect(html).toContain("0.75 weighted score");
+  });
+
+  it("uses quarterly cumulative targets and an equivalent previous-quarter label", () => {
+    const preview = createMonthlyProducerPreview({
+      producerId: "producer-quarterly",
+      periodStart: "2026-07-01",
+      periodEnd: "2026-09-30",
+      periodLabel: "Q3 2026",
+      reportDates: [{ reportDate: "2026-09-30", label: "Q3 Close" }],
+      producerRows: [{ reportDate: "2026-09-30", personalIpCents: 4_000_000 }],
+      generatedAt: "2026-10-01T12:00:00.000Z",
+    });
+    const loggedDates: string[] = [];
+    for (let day = 1; day <= 31 && loggedDates.length < 24; day += 1) {
+      const date = `2026-07-${String(day).padStart(2, "0")}`;
+      if (new Date(`${date}T00:00:00Z`).getUTCDay() !== 0) loggedDates.push(date);
+    }
+    const overview = createProducerOverview({
+      fullName: "Quarterly Producer",
+      photoUrl: null,
+      submittedApCents: null,
+      leadSpendCents: 1_000_000,
+      priorLeadSpendCents: 0,
+      currentIssuedIpCents: 4_000_000,
+      priorIssuedIpCents: 2_000_000,
+      rank: { rank: null, population: 0, percentile: 0, movement: null },
+      organizationRanks: protectedFixture.expected.organizationRanks,
+      activityRows: loggedDates.map((entryDate) => ({
+        entryDate,
+        leads: 0,
+        dials: 0,
+        contacts: 0,
+        appointments: 0,
+        presentations: 0,
+        sales: 0,
+      })),
+      priorActivityRows: [],
+      expectedWorkingDates: null,
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(ProducerScorecardPreview, { preview, overview, periodKind: "quarterly" }),
+    );
+
+    expect(html).toContain("Q2 2026");
+    expect(html).toContain("Q3 2026");
+    expect(html).toContain("Issued Premium: 1 out of 5 stars");
+    expect(html).toContain("Tracking Consistency: 1 out of 5 stars");
+    expect(html).toContain("Lead Spend: 1 out of 5 stars");
+    expect(html).toContain("1.00 weighted score");
+    expect(html).not.toContain("June 2026");
   });
 });

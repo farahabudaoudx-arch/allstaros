@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import protectedFixture from "./fixtures/protected-producer-july-2026.json";
 import {
   createProducerOverview,
+  createProducerPeriodPreview,
   createScorecardScheduleFacts,
   createMonthlyProducerPreview,
   ISSUANCE_THRESHOLD_SUMMARY,
   issuanceStatusForMonthlyIp,
+  issuanceStatusForPeriodIp,
   type MonthlyProducerSource,
 } from "./lifecycle";
 
@@ -192,6 +194,20 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     expect(preview.totalIssuedIpCents).toBe(fixture.protection.monthEndMtdCents);
   });
 
+  it("freezes the selected Producer period kind instead of forcing monthly metadata", () => {
+    const preview = createProducerPeriodPreview(source({
+      periodStart: "2026-07-01",
+      periodEnd: "2026-09-30",
+      periodLabel: "Q3 2026",
+    }), "quarterly");
+
+    expect(preview.periodKind).toBe("quarterly");
+    expect(preview.periodStart).toBe("2026-07-01");
+    expect(preview.periodEnd).toBe("2026-09-30");
+    expect(preview.periodLabel).toBe("Q3 2026");
+    expect(preview.title).toBe("Q3 2026 Producer Scorecard");
+  });
+
   it("represents every organization report, including a missing producer row as zero", () => {
     const preview = createMonthlyProducerPreview(
       source({
@@ -223,6 +239,19 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
     [3000000, "green"],
   ] as const)("maps monthly IP of %i cents to %s", (monthlyIp, expected) => {
     expect(issuanceStatusForMonthlyIp(monthlyIp)).toBe(expected);
+  });
+
+  it.each([
+    ["quarterly", 4_499_999, "red"],
+    ["quarterly", 4_500_000, "blue"],
+    ["quarterly", 8_999_999, "blue"],
+    ["quarterly", 9_000_000, "green"],
+    ["annual", 17_999_999, "red"],
+    ["annual", 18_000_000, "blue"],
+    ["annual", 35_999_999, "blue"],
+    ["annual", 36_000_000, "green"],
+  ] as const)("uses exact scaled issuance-status thresholds for %s", (periodKind, issuedIpCents, expected) => {
+    expect(issuanceStatusForPeriodIp(issuedIpCents, periodKind)).toBe(expected);
   });
 
   it("classifies the exact monthly total rather than the weekly average", () => {

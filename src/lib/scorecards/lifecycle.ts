@@ -1,3 +1,5 @@
+import { scaleCumulativeThreshold } from "./period";
+
 export const SCORECARD_CARD_TYPES = ["producer", "builder"] as const;
 export const SCORECARD_PERIOD_KINDS = ["monthly", "quarterly", "annual"] as const;
 export const SCORECARD_LIFECYCLE_STATUSES = [
@@ -234,7 +236,7 @@ export function createProducerOverview(input: {
 
 export type MonthlyProducerPreview = {
   cardType: "producer";
-  periodKind: "monthly";
+  periodKind: ScorecardPeriodKind;
   lifecycleStatus: "in_progress";
   producerId: string;
   periodStart: string;
@@ -255,13 +257,20 @@ export type MonthlyProducerPreview = {
   };
 };
 
-export function issuanceStatusForMonthlyIp(monthlyIssuedIpCents: number): IssuanceStatus {
-  if (!Number.isInteger(monthlyIssuedIpCents) || monthlyIssuedIpCents < 0) {
-    throw new Error("Monthly issued premium must be non-negative integer cents.");
+export function issuanceStatusForPeriodIp(
+  issuedIpCents: number,
+  periodKind: ScorecardPeriodKind,
+): IssuanceStatus {
+  if (!Number.isInteger(issuedIpCents) || issuedIpCents < 0) {
+    throw new Error("Issued premium must be non-negative integer cents.");
   }
-  if (monthlyIssuedIpCents >= ISSUANCE_THRESHOLDS.greenMinimumCents) return "green";
-  if (monthlyIssuedIpCents >= ISSUANCE_THRESHOLDS.blueMinimumCents) return "blue";
+  if (issuedIpCents >= scaleCumulativeThreshold(ISSUANCE_THRESHOLDS.greenMinimumCents, periodKind)) return "green";
+  if (issuedIpCents >= scaleCumulativeThreshold(ISSUANCE_THRESHOLDS.blueMinimumCents, periodKind)) return "blue";
   return "red";
+}
+
+export function issuanceStatusForMonthlyIp(monthlyIssuedIpCents: number): IssuanceStatus {
+  return issuanceStatusForPeriodIp(monthlyIssuedIpCents, "monthly");
 }
 
 /**
@@ -269,8 +278,9 @@ export function issuanceStatusForMonthlyIp(monthlyIssuedIpCents: number): Issuan
  * pure: callers provide a captured source view, so finalized snapshots can use
  * the same contract without ever querying mutable production data in tests.
  */
-export function createMonthlyProducerPreview(
+export function createProducerPeriodPreview(
   source: MonthlyProducerSource,
+  periodKind: ScorecardPeriodKind,
 ): MonthlyProducerPreview {
   const reportDateSet = new Set<string>();
   for (const report of source.reportDates) {
@@ -310,7 +320,7 @@ export function createMonthlyProducerPreview(
 
   return {
     cardType: "producer",
-    periodKind: "monthly",
+    periodKind,
     lifecycleStatus: "in_progress",
     producerId: source.producerId,
     periodStart: source.periodStart,
@@ -320,11 +330,11 @@ export function createMonthlyProducerPreview(
     weeklyReports,
     totalIssuedIpCents,
     averageWeeklyIpCents,
-    issuanceStatus: issuanceStatusForMonthlyIp(totalIssuedIpCents),
+    issuanceStatus: issuanceStatusForPeriodIp(totalIssuedIpCents, periodKind),
     hasProduction,
     emptyMessage: hasProduction
       ? null
-      : "This month is your starting point. Your weekly Gateway reports will appear here as production issues.",
+      : "This period is your starting point. Your weekly Gateway reports will appear here as production issues.",
     generatedAt: source.generatedAt,
     sourceCoverage: {
       source: "gateway",
@@ -332,4 +342,10 @@ export function createMonthlyProducerPreview(
       completeThrough: weeklyReports.at(-1)?.reportDate ?? null,
     },
   };
+}
+
+export function createMonthlyProducerPreview(
+  source: MonthlyProducerSource,
+): MonthlyProducerPreview {
+  return createProducerPeriodPreview(source, "monthly");
 }

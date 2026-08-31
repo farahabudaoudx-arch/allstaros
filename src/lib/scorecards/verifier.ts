@@ -50,6 +50,47 @@ function sixWeekStart(periodEnd: string) {
   return end.toISOString().slice(0, 10);
 }
 
+function isoDate(year: number, monthIndex: number, day: number) {
+  return new Date(Date.UTC(year, monthIndex, day)).toISOString().slice(0, 10);
+}
+
+function expectedPriorPeriod(input: ScorecardRunInput): ScorecardRunInput["priorPeriod"] | null {
+  const current = new Date(`${input.period.start}T00:00:00.000Z`);
+  if (Number.isNaN(current.getTime()) || current.toISOString().slice(0, 10) !== input.period.start) return null;
+  const year = current.getUTCFullYear();
+  const month = current.getUTCMonth();
+  if (current.getUTCDate() !== 1) return null;
+
+  if (input.period.kind === "monthly") {
+    const priorStart = new Date(Date.UTC(year, month - 1, 1));
+    const priorYear = priorStart.getUTCFullYear();
+    const priorMonth = priorStart.getUTCMonth();
+    return {
+      kind: "monthly",
+      start: isoDate(priorYear, priorMonth, 1),
+      end: isoDate(priorYear, priorMonth + 1, 0),
+      label: new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(priorStart),
+    };
+  }
+  if (input.period.kind === "quarterly") {
+    if (month % 3 !== 0) return null;
+    const priorStart = new Date(Date.UTC(year, month - 3, 1));
+    const priorYear = priorStart.getUTCFullYear();
+    const priorMonth = priorStart.getUTCMonth();
+    return {
+      kind: "quarterly",
+      start: isoDate(priorYear, priorMonth, 1),
+      end: isoDate(priorYear, priorMonth + 3, 0),
+      label: `Q${priorMonth / 3 + 1} ${priorYear}`,
+    };
+  }
+  if (input.period.kind === "annual") {
+    if (month !== 0) return null;
+    return { kind: "annual", start: `${year - 1}-01-01`, end: `${year - 1}-12-31`, label: String(year - 1) };
+  }
+  return null;
+}
+
 function expectedGrowth(current: number, prior: number | null) {
   if (prior == null) return null;
   if (prior === 0) return current > 0 ? 100 : 0;
@@ -100,6 +141,16 @@ export function verifyPreparedScorecardRun(
   prepared: PreparedScorecardRun,
 ): { valid: boolean; problems: IndependentVerificationProblem[] } {
   const problems: IndependentVerificationProblem[] = [];
+  const expectedPrior = expectedPriorPeriod(input);
+  if (!expectedPrior || !equals(expectedPrior, input.priorPeriod)) {
+    problems.push({
+      cardType: "builder",
+      personId: "period",
+      field: "priorPeriod",
+      expected: expectedPrior,
+      actual: input.priorPeriod,
+    });
+  }
   const builders = input.people.filter((person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd);
   const periodReports = input.gatewayReports.filter((report) =>
     report.status === "published" && report.periodType === "wtd" &&

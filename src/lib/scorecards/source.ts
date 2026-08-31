@@ -14,6 +14,7 @@ import {
   type ProducerActivityRow,
   type ProducerOverview,
 } from "./lifecycle";
+import { previousEquivalentPeriod, type ScorecardPeriod } from "./period";
 
 type GatewayWeekRow = {
   person_id: string;
@@ -123,12 +124,12 @@ export function monthlyProducerSourceFromRows(args: {
 /** Server-only source adapter. The caller must pass an authorized service-role
  * client: organization report dates are needed even when this producer has no
  * row, while the returned source includes only the requested member's value. */
-export async function loadCurrentMonthlyProducerSource(
+export async function loadProducerSourceForPeriod(
   supabase: SupabaseClient,
   producerId: string,
-  now = new Date(),
+  period: Pick<ScorecardPeriod, "start" | "end" | "label">,
+  generatedAt = new Date(),
 ): Promise<MonthlyProducerSource> {
-  const period = currentMonthlyPeriod(now);
   let importsResult;
   let rowsResult;
   try {
@@ -161,20 +162,16 @@ export async function loadCurrentMonthlyProducerSource(
     period,
     reportImports: (importsResult.data ?? []) as GatewayWeekImport[],
     rows: (rowsResult.data ?? []) as GatewayWeekRow[],
-    generatedAt: now.toISOString(),
+    generatedAt: generatedAt.toISOString(),
   });
 }
 
-function previousMonth(periodStart: string): { start: string; end: string } {
-  const [year, month] = periodStart.split("-").map(Number);
-  const previous = new Date(Date.UTC(year, month - 2, 1));
-  const previousYear = previous.getUTCFullYear();
-  const previousMonthNumber = previous.getUTCMonth() + 1;
-  const lastDay = new Date(Date.UTC(previousYear, previousMonthNumber, 0)).getUTCDate();
-  return {
-    start: `${previousYear}-${pad2(previousMonthNumber)}-01`,
-    end: `${previousYear}-${pad2(previousMonthNumber)}-${pad2(lastDay)}`,
-  };
+export async function loadCurrentMonthlyProducerSource(
+  supabase: SupabaseClient,
+  producerId: string,
+  now = new Date(),
+): Promise<MonthlyProducerSource> {
+  return loadProducerSourceForPeriod(supabase, producerId, currentMonthlyPeriod(now), now);
 }
 
 export function rankForTotal(value: number, totals: Iterable<number>): { rank: number; population: number } {
@@ -297,17 +294,17 @@ export async function loadProducerLeadSpendCents(
   }
 }
 
-export async function loadCurrentMonthlyProducerOverview(
+export async function loadProducerOverviewForPeriod(
   supabase: SupabaseClient,
   producer: {
     id: string;
     full_name: string;
   } & PhotoFields,
   currentIssuedIpCents: number,
+  period: ScorecardPeriod,
   now = new Date(),
 ): Promise<ProducerOverview> {
-  const period = currentMonthlyPeriod(now);
-  const prior = previousMonth(period.start);
+  const prior = previousEquivalentPeriod(period);
   const [
     clientRows,
     activityRows,
@@ -585,6 +582,25 @@ export async function loadCurrentMonthlyProducerOverview(
     priorActivityRows,
     expectedWorkingDates,
   });
+}
+
+export async function loadCurrentMonthlyProducerOverview(
+  supabase: SupabaseClient,
+  producer: {
+    id: string;
+    full_name: string;
+  } & PhotoFields,
+  currentIssuedIpCents: number,
+  now = new Date(),
+): Promise<ProducerOverview> {
+  const period = currentMonthlyPeriod(now);
+  return loadProducerOverviewForPeriod(
+    supabase,
+    producer,
+    currentIssuedIpCents,
+    { kind: "monthly", ...period },
+    now,
+  );
 }
 
 function isMissingRelationError(error: { code?: string; message: string }): boolean {
