@@ -126,7 +126,7 @@ export function shell({
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${B.BG};">
       <tr>
         <td align="center" style="padding:40px 16px;">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:${B.CARD};border:1px solid ${B.HAIRLINE};border-radius:16px;overflow:hidden;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:${B.CARD};border:1px solid ${B.HAIRLINE};border-radius:16px;overflow:hidden;">
             <tr><td style="height:3px;background-color:${B.GOLD};line-height:3px;font-size:3px;">&nbsp;</td></tr>
             <tr>
               <td style="padding:36px 40px 0 40px;" align="left">

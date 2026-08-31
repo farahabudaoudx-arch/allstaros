@@ -29,6 +29,7 @@ describe("Scorecard Ready email", () => {
     expect(mail.ctaUrl).toBe("https://preview.example.com/producer/scorecards");
     expect(mail.html).toContain('href="https://preview.example.com/producer/scorecards"');
     expect(mail.html).toContain("View My Scorecards");
+    expect(mail.html).toContain('style="width:100%;max-width:600px;');
     expect(mail.html).toContain("August 2026");
     expect(mail.text).toContain("August 2026");
   });
