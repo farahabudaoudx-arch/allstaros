@@ -101,6 +101,32 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("Click To Flip");
   });
 
+  it("uses a frozen published score instead of recalculating the five Builder stars", () => {
+    const html = renderToStaticMarkup(createElement(BuilderScorecardPreview, {
+      view,
+      frozenScore: {
+        ratings: {
+          growth: 0,
+          firstLegPercent: 0,
+          activeDirects: 0,
+          averageIpPerActiveWriter: 0,
+          recruitsLicensed: 0,
+        },
+        total: 0,
+        average: 0,
+      },
+    }));
+
+    expect(html).toContain("Average rating: 0 out of 5 stars");
+    expect(html).toContain("0 of 25 total stars");
+    expect(html).toContain("Growth %: 0 out of 5 stars");
+    expect(html).toContain("First Leg %: 0 out of 5 stars");
+    expect(html).toContain("Active Directs: 0 out of 5 stars");
+    expect(html).toContain("Avg IP / Active Writer: 0 out of 5 stars");
+    expect(html).toContain("Recruits Licensed: 0 out of 5 stars");
+    expect(html).not.toContain("17 of 25 total stars");
+  });
+
   it("changes only the Active Directs contribution when the corrected direct count changes", () => {
     const correctedDirectsView: BuilderScorecardView = {
       ...view,

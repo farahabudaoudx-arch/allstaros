@@ -22,7 +22,35 @@ function producerPayload(personId: string): ProducerPeriodMetricPayload {
       generatedAt: "2026-09-02T12:00:00Z",
       sourceCoverage: { source: "gateway", reportCount: 0, completeThrough: null },
     },
-    overview: {} as ProducerPeriodMetricPayload["overview"],
+    overview: {
+      producer: { fullName: personId === "builder" ? "Builder" : "Writer", photoUrl: null, role: "Producer" },
+      submittedApCents: 0,
+      priorSubmittedApCents: 0,
+      priorLeadSpendCents: 0,
+      priorIssuedIpCents: 0,
+      priorActivityTotals: null,
+      growth: { kind: "new_baseline", percentage: null },
+      rank: { rank: 1, population: 2, percentile: 100, movement: null },
+      organizationRanks: {
+        submittedAp: { rank: 1, population: 2 },
+        leadSpend: { rank: 1, population: 2 },
+        dials: { rank: 1, population: 2 },
+        contacts: { rank: 1, population: 2 },
+        presentations: { rank: 1, population: 2 },
+        sales: { rank: 1, population: 2 },
+        trackingConsistency: { rank: null, population: 0 },
+      },
+      activity: {
+        availability: "missing",
+        trackedDays: 0,
+        leadSpendCents: 0,
+        loggedDates: [],
+        expectedDates: null,
+        consistency: null,
+        totals: null,
+        perTrackedDay: null,
+      },
+    },
   };
 }
 

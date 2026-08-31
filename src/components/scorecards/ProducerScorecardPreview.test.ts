@@ -254,6 +254,45 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("0.75 weighted score");
   });
 
+  it("uses a frozen published score instead of recalculating stars from the raw payload", () => {
+    const preview = createMonthlyProducerPreview({
+      producerId: "published-producer",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      periodLabel: "August 2026",
+      reportDates: [{ reportDate: "2026-08-28", label: "Close" }],
+      producerRows: [{ reportDate: "2026-08-28", personalIpCents: 0 }],
+      generatedAt: "2026-09-01T12:00:00.000Z",
+    });
+    const overview = createProducerOverview({
+      fullName: "Published Producer",
+      photoUrl: null,
+      submittedApCents: 0,
+      leadSpendCents: 0,
+      currentIssuedIpCents: 0,
+      priorIssuedIpCents: null,
+      rank: { rank: null, population: 0, percentile: 0, movement: null },
+      organizationRanks: protectedFixture.expected.organizationRanks,
+      activityRows: [],
+      expectedWorkingDates: null,
+    });
+
+    const html = renderToStaticMarkup(createElement(ProducerScorecardPreview, {
+      preview,
+      overview,
+      frozenScore: {
+        ratings: { issuedIp: 5, trackingConsistency: 4, leadSpend: 3 },
+        overall: 4.25,
+      },
+    }));
+
+    expect(html).toContain("Overall rating: 4.3 out of 5 stars");
+    expect(html).toContain("4.25 weighted score");
+    expect(html).toContain("Issued Premium: 5 out of 5 stars");
+    expect(html).toContain("Tracking Consistency: 4 out of 5 stars");
+    expect(html).toContain("Lead Spend: 3 out of 5 stars");
+  });
+
   it("uses quarterly cumulative targets and an equivalent previous-quarter label", () => {
     const preview = createMonthlyProducerPreview({
       producerId: "producer-quarterly",

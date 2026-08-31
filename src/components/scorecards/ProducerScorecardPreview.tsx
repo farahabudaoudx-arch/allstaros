@@ -29,13 +29,15 @@ export function ProducerScorecardPreview({
   preview,
   overview,
   periodKind = "monthly",
+  frozenScore,
 }: {
   preview: MonthlyProducerPreview;
   overview: ProducerOverview;
   periodKind?: ScorecardPeriodKind;
+  frozenScore?: ProducerStarSummary;
 }) {
   const trackingLoggedDays = countProducerTrackingDays(overview.activity.loggedDates);
-  const starSummary = createProducerStarSummary({
+  const starSummary = frozenScore ?? createProducerStarSummary({
     issuedIpCents: preview.totalIssuedIpCents,
     trackingLoggedDays,
     leadSpendCents: overview.activity.leadSpendCents,

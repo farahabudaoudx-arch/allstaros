@@ -4,6 +4,11 @@ import {
   prepareScorecardRun,
   type ScorecardRunInput,
 } from "./run";
+import {
+  parsePublishedScorecardSnapshotPayload,
+  requirePublishedScorecardSnapshotPayload,
+} from "./published-snapshot";
+import { verifyPublishedScorecardArtifacts } from "./verifier";
 
 function producerPayload(
   personId: string,
@@ -580,23 +585,142 @@ describe("Scorecard run", () => {
     expect(result.builderMetrics.find((row) => row.personId === "builder-d")?.recruitsAdded).toBe(1);
   });
 
-  it("publishes separate idempotent Producer and Builder artifacts and delivery intents", () => {
+  it("publishes separate idempotent Producer and Builder artifacts with complete frozen visible payloads", () => {
     const input = completeRun();
     const prepared = prepareScorecardRun(input);
 
     const published = createScorecardArtifacts({ prepared, input });
+    const repeated = createScorecardArtifacts({ prepared, input });
 
+    expect(repeated).toEqual(published);
     expect(published.snapshots).toHaveLength(7);
     expect(published.deliveries).toHaveLength(7);
     expect(published.snapshots.filter((snapshot) => snapshot.personId === "builder-a")).toEqual([
       expect.objectContaining({ cardType: "producer", lifecycleStatus: "final" }),
       expect.objectContaining({ cardType: "builder", lifecycleStatus: "final" }),
     ]);
+    const producer = parsePublishedScorecardSnapshotPayload(
+      published.snapshots.find((snapshot) => snapshot.personId === "builder-a" && snapshot.cardType === "producer")!.visiblePayload,
+    );
+    const builder = parsePublishedScorecardSnapshotPayload(
+      published.snapshots.find((snapshot) => snapshot.personId === "builder-a" && snapshot.cardType === "builder")!.visiblePayload,
+    );
+    expect(producer).toEqual(expect.objectContaining({
+      cardType: "producer",
+      period: expect.objectContaining({ label: "August 2026", previous: expect.objectContaining({ label: "July 2026" }) }),
+      score: expect.objectContaining({ ratings: expect.any(Object), overall: expect.any(Number) }),
+    }));
+    expect(builder).toEqual(expect.objectContaining({
+      cardType: "builder",
+      member: { fullName: "Alex Builder", photoUrl: null },
+      period: expect.objectContaining({ label: "August 2026", previous: expect.objectContaining({ label: "July 2026" }) }),
+      metricPayload: expect.objectContaining({
+        performance: expect.any(Object),
+        previousPerformance: expect.any(Object),
+      }),
+      score: expect.objectContaining({ ratings: expect.any(Object), total: expect.any(Number), average: expect.any(Number) }),
+    }));
     expect(published.deliveries.filter((delivery) => delivery.personId === "builder-a")).toEqual([
       expect.objectContaining({ deliveryType: "producer_email", status: "pending" }),
       expect.objectContaining({ deliveryType: "builder_email", status: "pending" }),
     ]);
     expect(new Set(published.deliveries.map((delivery) => delivery.idempotencyKey)).size).toBe(7);
+  });
+
+  it("keeps a published snapshot frozen after representative upstream source changes while a new draft recalculates", () => {
+    const input = completeRun();
+    const setProducerSource = (issuedIpCents: number, leadSpendCents: number, dayCount: number) => {
+      const dates: string[] = [];
+      for (let day = 1; day <= 31 && dates.length < dayCount; day += 1) {
+        const date = `2026-08-${String(day).padStart(2, "0")}`;
+        if (new Date(`${date}T00:00:00.000Z`).getUTCDay() !== 0) dates.push(date);
+      }
+      for (const collection of [input.producerMetrics, input.producerVerificationMetrics]) {
+        const row = collection.find((metric) => metric.personId === "builder-a")!;
+        row.payload.preview.totalIssuedIpCents = issuedIpCents;
+        row.payload.overview.activity.leadSpendCents = leadSpendCents;
+        row.payload.overview.activity.loggedDates = dates;
+      }
+    };
+    setProducerSource(3_000_000, 600_000, 20);
+
+    const preparedAtPublish = prepareScorecardRun(input);
+    const published = createScorecardArtifacts({ prepared: preparedAtPublish, input });
+    const producerSnapshot = published.snapshots.find(
+      (snapshot) => snapshot.personId === "builder-a" && snapshot.cardType === "producer",
+    )!;
+    const builderSnapshot = published.snapshots.find(
+      (snapshot) => snapshot.personId === "builder-a" && snapshot.cardType === "builder",
+    )!;
+    const persistedProducerJson = JSON.stringify(producerSnapshot.visiblePayload);
+    const persistedBuilderJson = JSON.stringify(builderSnapshot.visiblePayload);
+    const producerAtPublish = JSON.parse(persistedProducerJson) as Record<string, unknown>;
+    const builderAtPublish = JSON.parse(persistedBuilderJson) as Record<string, unknown>;
+
+    setProducerSource(40_000_000, 10_000_000, 24);
+    input.gatewayReports = input.gatewayReports.map((report) => ({
+      ...report,
+      rows: report.rows.map((row) => row.personId === "builder-a"
+        ? { ...row, teamIpCents: row.teamIpCents + 5_000_000 }
+        : row),
+    }));
+    input.recruits = input.recruits.map((recruit) => recruit.personId === "producer-b"
+      ? { ...recruit, npnStatus: "submitted" }
+      : recruit);
+
+    const recalculatedDraft = prepareScorecardRun(input);
+    const recalculatedArtifacts = createScorecardArtifacts({ prepared: recalculatedDraft, input });
+    const recalculatedProducer = recalculatedArtifacts.snapshots.find(
+      (snapshot) => snapshot.personId === "builder-a" && snapshot.cardType === "producer",
+    )!.visiblePayload;
+    const recalculatedBuilder = recalculatedArtifacts.snapshots.find(
+      (snapshot) => snapshot.personId === "builder-a" && snapshot.cardType === "builder",
+    )!.visiblePayload;
+
+    expect(recalculatedDraft.status).toBe("ready");
+    expect(recalculatedDraft.builderMetrics.find((metric) => metric.personId === "builder-a")?.teamIpCents)
+      .not.toBe(preparedAtPublish.builderMetrics.find((metric) => metric.personId === "builder-a")?.teamIpCents);
+    expect(recalculatedDraft.builderMetrics.find((metric) => metric.personId === "builder-a")?.recruitsAdded).toBe(0);
+    expect(recalculatedProducer).not.toEqual(producerAtPublish);
+    expect(recalculatedBuilder).not.toEqual(builderAtPublish);
+
+    const reloadedProducer = requirePublishedScorecardSnapshotPayload({
+      id: producerSnapshot.id,
+      cardType: producerSnapshot.cardType,
+      periodKind: producerSnapshot.period.kind,
+      periodStart: producerSnapshot.period.start,
+      periodEnd: producerSnapshot.period.end,
+      kpiResults: JSON.parse(persistedProducerJson),
+    });
+    const reloadedBuilder = requirePublishedScorecardSnapshotPayload({
+      id: builderSnapshot.id,
+      cardType: builderSnapshot.cardType,
+      periodKind: builderSnapshot.period.kind,
+      periodStart: builderSnapshot.period.start,
+      periodEnd: builderSnapshot.period.end,
+      kpiResults: JSON.parse(persistedBuilderJson),
+    });
+    expect(reloadedProducer).toEqual(producerAtPublish);
+    expect(reloadedBuilder).toEqual(builderAtPublish);
+  });
+
+  it("independent publication verification rejects tampered frozen stars", () => {
+    const input = completeRun();
+    const prepared = prepareScorecardRun(input);
+    const published = createScorecardArtifacts({ prepared, input });
+    const tampered = structuredClone(published.snapshots);
+    const producer = tampered.find((snapshot) => snapshot.cardType === "producer" && snapshot.personId === "builder-a")!;
+    const payload = producer.visiblePayload as unknown as { score: { overall: number } };
+    payload.score.overall = 5;
+
+    const verification = verifyPublishedScorecardArtifacts(input, prepared, tampered);
+
+    expect(verification.valid).toBe(false);
+    expect(verification.problems).toContainEqual(expect.objectContaining({
+      cardType: "producer",
+      personId: "builder-a",
+      field: "score",
+    }));
   });
 
   it("does not create a partial artifact batch from a blocked run", () => {

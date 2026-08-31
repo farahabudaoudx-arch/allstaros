@@ -1,4 +1,10 @@
 import { countActiveDirects, isInSixWeekWindow } from "./active-directs";
+import {
+  createBuilderAgencyPerformance,
+  createBuilderAgencyValues,
+  type BuilderAgencyPerformance,
+  type BuilderAgencyValues,
+} from "./builder-performance";
 import { licensedRecruitPersonIds } from "./licensed-recruits";
 import {
   comparisonForPeriod,
@@ -7,7 +13,13 @@ import {
   scorecardPeriodFromStart,
   type ScorecardPeriod,
 } from "./period";
-import { verifyPreparedScorecardRun } from "./verifier";
+import { verifyPreparedScorecardRun, verifyPublishedScorecardArtifacts } from "./verifier";
+import {
+  builderPublishedMetric,
+  createPublishedBuilderSnapshotPayload,
+  createPublishedProducerSnapshotPayload,
+  parsePublishedScorecardSnapshotPayload,
+} from "./published-snapshot";
 import type { MonthlyProducerPreview, ProducerOverview } from "./lifecycle";
 
 export type ScorecardPeriodKind = "monthly" | "quarterly" | "annual";
@@ -119,6 +131,8 @@ export type BuilderPeriodMetric = {
   recruitsAdded: number;
   recruitingRank: Rank;
   trend: Array<{ reportDate: string; label: string; teamIpCents: number; share: number }>;
+  performance: BuilderAgencyPerformance;
+  previousPerformance: BuilderAgencyValues;
   sourceReportIds: string[];
   sourceChecksums: string[];
 };
@@ -508,6 +522,75 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         .filter((row) => row.personalIpCents > 0)
         .map((row) => row.personId)),
   );
+  const performancePeople = input.people.map((person) => ({ id: person.id, uplineId: person.uplineId }));
+  const producerProduction = input.producerMetrics.map(({ personId, payload }) => {
+    const totals = payload.overview.activity.totals;
+    return {
+      personId,
+      dials: totals?.dials ?? 0,
+      contacts: totals?.contacts ?? 0,
+      presentations: totals?.presentations ?? 0,
+      sales: totals?.sales ?? 0,
+      apCents: payload.overview.submittedApCents ?? 0,
+    };
+  });
+  const priorProducerProduction = input.producerMetrics.map(({ personId, payload }) => {
+    const totals = payload.overview.priorActivityTotals;
+    return {
+      personId,
+      dials: totals?.dials ?? 0,
+      contacts: totals?.contacts ?? 0,
+      presentations: totals?.presentations ?? 0,
+      sales: totals?.sales ?? 0,
+      apCents: payload.overview.priorSubmittedApCents ?? 0,
+    };
+  });
+  const performanceGatewayRows = eligibleBuilders.map((builder) => {
+    const rows = periodRowsByBuilder.get(builder.id) ?? [];
+    const teamIpCents = rows.reduce((sum, row) => sum + row.teamIpCents, 0);
+    const weightedFirstLegTotal = rows.reduce(
+      (sum, row) => sum + row.teamIpCents * (row.firstLegPercent ?? 0),
+      0,
+    );
+    return {
+      builderId: builder.id,
+      teamIpCents,
+      firstLegPercent: teamIpCents > 0 ? weightedFirstLegTotal / teamIpCents : null,
+    };
+  });
+  const builderPerformance = createBuilderAgencyPerformance({
+    people: performancePeople,
+    eligibleBuilderIds: eligibleBuilders.map((builder) => builder.id),
+    gatewayRows: performanceGatewayRows,
+    activeWriterIds: [...agencyWriterIds],
+    activeDirectWriterIds: [...activeDirectWriterIds],
+    activePersonIds,
+    personProduction: producerProduction,
+    licensedRecruitPersonIds: [...licensedRecruitIds],
+  });
+  const priorLicensedRecruitIds = licensedRecruitPersonIds(
+    input.recruits.map((recruit) => ({
+      personId: recruit.personId,
+      npn: recruit.npn,
+      npnStatus: recruit.npnStatus,
+      npnVerifiedAt: recruit.npnVerifiedAt,
+    })),
+    input.priorPeriod,
+  );
+  const priorBuilderValues = createBuilderAgencyValues({
+    people: performancePeople,
+    eligibleBuilderIds: eligibleBuilders.map((builder) => builder.id),
+    gatewayRows: eligibleBuilders.map((builder) => ({
+      builderId: builder.id,
+      teamIpCents: input.priorBuilderTeamIpCents[builder.id] ?? 0,
+      firstLegPercent: null,
+    })),
+    activeWriterIds: [],
+    activeDirectWriterIds: [],
+    activePersonIds: [],
+    personProduction: priorProducerProduction,
+    licensedRecruitPersonIds: [...priorLicensedRecruitIds],
+  });
 
   const builderMetrics = eligibleBuilders.map<BuilderPeriodMetric>((builder) => {
     const team = descendantIds(builder.id, input.people);
@@ -545,6 +628,27 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
           teamIpCents: value,
         }));
     const trendMaximum = Math.max(...rawTrend.map(({ teamIpCents: value }) => value), 0);
+    const averageMonthlyIpPerWriterCents =
+      agencyActiveWriters > 0 ? Math.round(teamIpCents / months / agencyActiveWriters) : null;
+    const performance = builderPerformance.get(builder.id);
+    const previousPerformance = priorBuilderValues.get(builder.id);
+    if (!performance || !previousPerformance) {
+      throw new Error(`Unable to freeze Builder performance for ${builder.id}.`);
+    }
+    const frozenPerformance: BuilderAgencyPerformance = {
+      ...performance,
+      averageIpPerWriter: {
+        ...performance.averageIpPerWriter,
+        value: averageMonthlyIpPerWriterCents,
+      },
+    };
+    const frozenPreviousPerformance: BuilderAgencyValues = {
+      ...previousPerformance,
+      activeWriters: null,
+      teamIp: input.priorBuilderTeamIpCents[builder.id] ?? null,
+      firstLegPercent: null,
+      averageIpPerWriter: null,
+    };
 
     return {
       runId: input.runId,
@@ -555,8 +659,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
       teamRankUnavailableReason: teamRanks.has(builder.id) ? null : "not_represented_in_gateway",
       activeWriters,
       firstLegPercent: teamIpCents > 0 ? weightedFirstLegTotal / teamIpCents : null,
-      averageMonthlyIpPerWriterCents:
-        agencyActiveWriters > 0 ? Math.round(teamIpCents / months / agencyActiveWriters) : null,
+      averageMonthlyIpPerWriterCents,
       monthCount: months,
       growth: {
         comparison: comparisonForPeriod(input.period.kind),
@@ -570,6 +673,8 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         ...bucket,
         share: trendMaximum > 0 ? Math.round((bucket.teamIpCents / trendMaximum) * 100) : 0,
       })),
+      performance: frozenPerformance,
+      previousPerformance: frozenPreviousPerformance,
       sourceReportIds: periodRows.map(({ reportId }) => reportId),
       sourceChecksums: periodRows.map(({ sourceChecksum }) => sourceChecksum),
     };
@@ -637,22 +742,6 @@ export type ScorecardDeliveryIntent = {
   idempotencyKey: string;
 };
 
-function builderVisiblePayload(metric: BuilderPeriodMetric) {
-  return {
-    teamIpCents: metric.teamIpCents,
-    teamRank: metric.teamRank,
-    teamRankUnavailableReason: metric.teamRankUnavailableReason,
-    activeWriters: metric.activeWriters,
-    firstLegPercent: metric.firstLegPercent,
-    averageMonthlyIpPerWriterCents: metric.averageMonthlyIpPerWriterCents,
-    monthCount: metric.monthCount,
-    growth: metric.growth,
-    recruitsAdded: metric.recruitsAdded,
-    recruitingRank: metric.recruitingRank,
-    trend: metric.trend,
-  };
-}
-
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
@@ -681,18 +770,37 @@ export function createScorecardArtifacts({
   const candidates: Array<{
     personId: string;
     cardType: "producer" | "builder";
+    metricPayload: Record<string, unknown>;
     visiblePayload: Record<string, unknown>;
   }> = [
-    ...prepared.producerMetrics.map((metric) => ({
-      personId: metric.personId,
-      cardType: "producer" as const,
-      visiblePayload: metric.payload as unknown as Record<string, unknown>,
-    })),
-    ...prepared.builderMetrics.map((metric) => ({
-      personId: metric.personId,
-      cardType: "builder" as const,
-      visiblePayload: builderVisiblePayload(metric),
-    })),
+    ...prepared.producerMetrics.map((metric) => {
+      const person = peopleById.get(metric.personId);
+      if (!person) throw new Error(`Producer ${metric.personId} is missing from the frozen run population.`);
+      return {
+        personId: metric.personId,
+        cardType: "producer" as const,
+        metricPayload: metric.payload as unknown as Record<string, unknown>,
+        visiblePayload: createPublishedProducerSnapshotPayload({
+          metricPayload: metric.payload,
+          member: { fullName: person.fullName, photoUrl: person.photoUrl },
+          period: input.period,
+        }) as unknown as Record<string, unknown>,
+      };
+    }),
+    ...prepared.builderMetrics.map((metric) => {
+      const person = peopleById.get(metric.personId);
+      if (!person) throw new Error(`Builder ${metric.personId} is missing from the frozen run population.`);
+      return {
+        personId: metric.personId,
+        cardType: "builder" as const,
+        metricPayload: builderPublishedMetric(metric) as unknown as Record<string, unknown>,
+        visiblePayload: createPublishedBuilderSnapshotPayload({
+          metric,
+          member: { fullName: person.fullName, photoUrl: person.photoUrl },
+          period: input.period,
+        }) as unknown as Record<string, unknown>,
+      };
+    }),
   ];
 
   const snapshots = candidates.flatMap<ScorecardArtifact>((candidate) => {
@@ -708,8 +816,12 @@ export function createScorecardArtifacts({
     ) {
       throw new Error(`Correction lineage does not match the reporting period for ${candidate.personId}.`);
     }
-    if (input.revision > 1 && prior && canonical(prior.visiblePayload) === canonical(candidate.visiblePayload)) {
-      return [];
+    if (input.revision > 1 && prior) {
+      const priorPublished = parsePublishedScorecardSnapshotPayload(prior.visiblePayload);
+      const priorMetricPayload = priorPublished
+        ? priorPublished.metricPayload as unknown as Record<string, unknown>
+        : prior.visiblePayload;
+      if (canonical(priorMetricPayload) === canonical(candidate.metricPayload)) return [];
     }
 
     const id = `${input.runId}:${candidate.cardType}:${candidate.personId}`;
@@ -726,6 +838,14 @@ export function createScorecardArtifacts({
       priorSnapshotId: prior?.id ?? null,
     }];
   });
+
+  const artifactVerification = verifyPublishedScorecardArtifacts(input, prepared, snapshots);
+  if (!artifactVerification.valid) {
+    const first = artifactVerification.problems[0];
+    throw new Error(
+      `Published Scorecard artifact failed independent verification for ${first.cardType} ${first.personId} (${first.field}).`,
+    );
+  }
 
   const deliveries = snapshots.map<ScorecardDeliveryIntent>((snapshot) => {
     const recipientEmail = peopleById.get(snapshot.personId)?.email.trim() || null;

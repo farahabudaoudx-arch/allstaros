@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { groupScorecardArchive, type ScorecardArchiveEntry } from "@/lib/scorecards/archive";
+import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +16,8 @@ type SnapshotRow = {
   lifecycle_status: "final" | "corrected";
   revision: number;
   finalized_at: string;
+  kpi_results: unknown;
 };
-
-function periodLabel(periodKind: SnapshotRow["period_kind"], periodStart: string) {
-  const date = new Date(`${periodStart}T00:00:00Z`);
-  const year = date.getUTCFullYear();
-  if (periodKind === "annual") return String(year);
-  if (periodKind === "quarterly") return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${year}`;
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
-}
 
 export default async function ScorecardsPage() {
   const person = await getCurrentPerson();
@@ -32,7 +26,7 @@ export default async function ScorecardsPage() {
   const service = createServiceRoleClient();
   const { data, error } = await service
     .from("scorecard_snapshot")
-    .select("id, card_type, period_kind, period_start, period_end, lifecycle_status, revision, finalized_at")
+    .select("id, card_type, period_kind, period_start, period_end, lifecycle_status, revision, finalized_at, kpi_results")
     .eq("person_id", person.id)
     .in("lifecycle_status", ["final", "corrected"])
     .not("finalized_at", "is", null)
@@ -44,13 +38,21 @@ export default async function ScorecardsPage() {
   for (const row of (data ?? []) as SnapshotRow[]) {
     const key = `${row.card_type}:${row.period_kind}:${row.period_start}`;
     if (latest.has(key)) continue;
+    const published = requirePublishedScorecardSnapshotPayload({
+      id: row.id,
+      cardType: row.card_type,
+      periodKind: row.period_kind,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      kpiResults: row.kpi_results,
+    });
     latest.set(key, {
       id: row.id,
       cardType: row.card_type,
       periodKind: row.period_kind,
       periodStart: row.period_start,
       periodEnd: row.period_end,
-      periodLabel: periodLabel(row.period_kind, row.period_start),
+      periodLabel: published.period.label,
       revision: row.revision,
       lifecycleStatus: row.lifecycle_status,
       finalizedAt: row.finalized_at,

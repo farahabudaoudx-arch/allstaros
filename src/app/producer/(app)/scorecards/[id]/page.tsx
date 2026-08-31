@@ -4,7 +4,7 @@ import { BuilderScorecardPreview, type BuilderScorecardMetric } from "@/componen
 import { ProducerScorecardPreview } from "@/components/scorecards/ProducerScorecardPreview";
 import { getCurrentPerson } from "@/lib/auth";
 import type { MonthlyProducerPreview, ProducerOverview } from "@/lib/scorecards/lifecycle";
-import { previousEquivalentPeriod, scorecardPeriodFromStart } from "@/lib/scorecards/period";
+import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -18,7 +18,6 @@ type Snapshot = {
   period_start: string;
   period_end: string;
   kpi_results: unknown;
-  metric_run_id: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,7 +43,7 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
   const service = createServiceRoleClient();
   const { data, error } = await service
     .from("scorecard_snapshot")
-    .select("id, person_id, card_type, period_kind, period_start, period_end, kpi_results, metric_run_id")
+    .select("id, person_id, card_type, period_kind, period_start, period_end, kpi_results")
     .eq("id", id)
     .eq("person_id", person.id)
     .in("lifecycle_status", ["final", "corrected"])
@@ -53,29 +52,18 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
   if (!data) notFound();
   const snapshot = data as Snapshot;
 
-  let frozenName = person.full_name;
-  let frozenPhoto = person.photo_url ?? null;
-  if (snapshot.metric_run_id) {
-    const { data: fact } = await service
-      .from("person_role_status_fact")
-      .select("full_name, photo_url")
-      .eq("run_id", snapshot.metric_run_id)
-      .eq("person_id", person.id)
-      .maybeSingle();
-    if (fact) {
-      frozenName = String(fact.full_name);
-      frozenPhoto = fact.photo_url == null ? null : String(fact.photo_url);
-    }
-  }
-
-  const period = scorecardPeriodFromStart(snapshot.period_kind, snapshot.period_start);
-  if (period.end !== snapshot.period_end) throw new Error("Stored Scorecard period does not match its period kind.");
-  const previousPeriod = previousEquivalentPeriod(period);
-  const label = period.label;
-  const card = snapshot.card_type === "producer"
-    ? producerPayload(snapshot.kpi_results)
-    : builderPayload(snapshot.kpi_results);
-  if (!card) notFound();
+  const published = requirePublishedScorecardSnapshotPayload({
+    id: snapshot.id,
+    cardType: snapshot.card_type,
+    periodKind: snapshot.period_kind,
+    periodStart: snapshot.period_start,
+    periodEnd: snapshot.period_end,
+    kpiResults: snapshot.kpi_results,
+  });
+  const card = published.cardType === "producer"
+    ? producerPayload(published.metricPayload)
+    : builderPayload(published.metricPayload);
+  if (!card) throw new Error("Published Scorecard metric payload is incomplete or malformed.");
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
@@ -83,15 +71,30 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
       {snapshot.card_type === "producer" ? (
         <ProducerScorecardPreview
           preview={(card as { preview: MonthlyProducerPreview }).preview}
-          overview={(card as { overview: ProducerOverview }).overview}
-          periodKind={snapshot.period_kind}
+          overview={{
+            ...(card as { overview: ProducerOverview }).overview,
+            producer: {
+              ...(card as { overview: ProducerOverview }).overview.producer,
+              fullName: published.member.fullName,
+              photoUrl: published.member.photoUrl,
+            },
+          }}
+          periodKind={published.period.kind}
+          frozenScore={published.cardType === "producer" ? published.score : undefined}
         />
       ) : (
-        <BuilderScorecardPreview view={{
-          member: { fullName: frozenName, photoUrl: frozenPhoto },
-          period: { kind: snapshot.period_kind, label, previousLabel: previousPeriod.label },
-          metric: card as BuilderScorecardMetric,
-        }} />
+        <BuilderScorecardPreview
+          view={{
+            member: published.member,
+            period: {
+              kind: published.period.kind,
+              label: published.period.label,
+              previousLabel: published.period.previous.label,
+            },
+            metric: card as BuilderScorecardMetric,
+          }}
+          frozenScore={published.cardType === "builder" ? published.score : undefined}
+        />
       )}
     </main>
   );

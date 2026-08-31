@@ -1,8 +1,10 @@
 import type {
   BuilderPeriodMetric,
   PreparedScorecardRun,
+  ScorecardArtifact,
   ScorecardRunInput,
 } from "./run";
+import { parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
 
 export type IndependentVerificationProblem = {
   cardType: "producer" | "builder";
@@ -274,6 +276,204 @@ export function verifyPreparedScorecardRun(
       problems.push({ cardType: "producer", personId, field: "row", expected: expectedRows.length, actual: actualRows.length });
     } else if (!equals(expectedRows[0].payload, actualRows[0].payload)) {
       problems.push({ cardType: "producer", personId, field: "visiblePayload", expected: expectedRows[0].payload, actual: actualRows[0].payload });
+    }
+  }
+
+  return { valid: problems.length === 0, problems };
+}
+
+function independentPeriodFactor(kind: ScorecardRunInput["period"]["kind"]): 1 | 3 | 12 {
+  return kind === "annual" ? 12 : kind === "quarterly" ? 3 : 1;
+}
+
+function independentProducerIpStars(value: unknown, factor: 1 | 3 | 12) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return 0;
+  if (value < 500_000 * factor) return 0;
+  if (value < 1_500_000 * factor) return 1;
+  if (value < 2_000_000 * factor) return 2;
+  if (value < 3_000_000 * factor) return 3;
+  if (value < 4_000_000 * factor) return 4;
+  return 5;
+}
+
+function independentTrackingDays(loggedDates: unknown): number {
+  if (!Array.isArray(loggedDates)) return 0;
+  const counted = new Set<string>();
+  for (const value of loggedDates) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) continue;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value || date.getUTCDay() === 0) continue;
+    counted.add(value);
+  }
+  return counted.size;
+}
+
+function independentProducerTrackingStars(value: number, factor: 1 | 3 | 12) {
+  if (!Number.isInteger(value) || value < 8 * factor) return 0;
+  if (value < 12 * factor) return 1;
+  if (value < 16 * factor) return 2;
+  if (value < 20 * factor) return 3;
+  if (value < 24 * factor) return 4;
+  return 5;
+}
+
+function independentProducerLeadSpendStars(value: unknown, factor: 1 | 3 | 12) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return 0;
+  if (value < 200_000 * factor) return 0;
+  if (value < 400_000 * factor) return 1;
+  if (value < 600_000 * factor) return 2;
+  if (value < 800_000 * factor) return 3;
+  if (value < 1_000_000 * factor) return 4;
+  return 5;
+}
+
+function independentBuilderGrowthStars(value: unknown, prior: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  if (typeof prior !== "number" || !Number.isFinite(prior) || prior <= 0 || value <= 0) return 0;
+  if (value < 5) return 1;
+  if (value < 10) return 2;
+  if (value < 15) return 3;
+  if (value < 25) return 4;
+  return 5;
+}
+
+function independentBuilderFirstLegStars(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100) return 0;
+  if (value < 10) return 5;
+  if (value < 20) return 4;
+  if (value < 30) return 3;
+  if (value < 40) return 2;
+  if (value < 50) return 1;
+  return 0;
+}
+
+function independentBuilderActiveDirectsStars(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) return 0;
+  if (value === 1) return 1;
+  if (value === 2) return 2;
+  if (value <= 4) return 3;
+  if (value <= 7) return 4;
+  return 5;
+}
+
+function independentBuilderRecruitsStars(value: unknown, factor: 1 | 3 | 12) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 * factor) return 0;
+  if (value < 2 * factor) return 1;
+  if (value < 3 * factor) return 2;
+  if (value < 4 * factor) return 3;
+  if (value < 6 * factor) return 4;
+  return 5;
+}
+
+export function verifyPublishedScorecardArtifacts(
+  input: ScorecardRunInput,
+  prepared: PreparedScorecardRun,
+  artifacts: ScorecardArtifact[],
+): { valid: boolean; problems: IndependentVerificationProblem[] } {
+  const problems: IndependentVerificationProblem[] = [];
+  const expectedPrior = expectedPriorPeriod(input);
+  const factor = independentPeriodFactor(input.period.kind);
+
+  for (const artifact of artifacts) {
+    const published = parsePublishedScorecardSnapshotPayload(artifact.visiblePayload);
+    if (!published) {
+      problems.push({
+        cardType: artifact.cardType,
+        personId: artifact.personId,
+        field: "publishedSnapshot",
+        expected: "complete frozen published payload",
+        actual: artifact.visiblePayload,
+      });
+      continue;
+    }
+
+    const person = input.people.find((candidate) => candidate.id === artifact.personId);
+    const expectedMember = person ? { fullName: person.fullName, photoUrl: person.photoUrl } : null;
+    if (!expectedMember || !equals(expectedMember, published.member)) {
+      problems.push({
+        cardType: artifact.cardType,
+        personId: artifact.personId,
+        field: "member",
+        expected: expectedMember,
+        actual: published.member,
+      });
+    }
+    if (
+      published.cardType !== artifact.cardType
+      || !equals({ ...input.period, previous: expectedPrior }, published.period)
+    ) {
+      problems.push({
+        cardType: artifact.cardType,
+        personId: artifact.personId,
+        field: "period",
+        expected: { ...input.period, previous: expectedPrior },
+        actual: published.period,
+      });
+    }
+
+    if (published.cardType === "producer") {
+      const source = prepared.producerMetrics.find((metric) => metric.personId === artifact.personId)?.payload ?? null;
+      if (!source || !equals(source, published.metricPayload)) {
+        problems.push({
+          cardType: "producer",
+          personId: artifact.personId,
+          field: "metricPayload",
+          expected: source,
+          actual: published.metricPayload,
+        });
+        continue;
+      }
+      const trackingDays = independentTrackingDays(source.overview.activity.loggedDates);
+      const ratings = {
+        issuedIp: independentProducerIpStars(source.preview.totalIssuedIpCents, factor),
+        trackingConsistency: independentProducerTrackingStars(trackingDays, factor),
+        leadSpend: independentProducerLeadSpendStars(source.overview.activity.leadSpendCents, factor),
+      };
+      const expectedScore = {
+        ratings,
+        overall: 0.5 * ratings.issuedIp + 0.25 * ratings.trackingConsistency + 0.25 * ratings.leadSpend,
+      };
+      if (!equals(expectedScore, published.score)) {
+        problems.push({ cardType: "producer", personId: artifact.personId, field: "score", expected: expectedScore, actual: published.score });
+      }
+      continue;
+    }
+
+    const source = prepared.builderMetrics.find((metric) => metric.personId === artifact.personId) ?? null;
+    if (!source) {
+      problems.push({ cardType: "builder", personId: artifact.personId, field: "metricPayload", expected: "one Builder metric", actual: null });
+      continue;
+    }
+    const expectedMetricPayload = {
+      teamIpCents: source.teamIpCents,
+      teamRank: source.teamRank,
+      teamRankUnavailableReason: source.teamRankUnavailableReason,
+      activeWriters: source.activeWriters,
+      firstLegPercent: source.firstLegPercent,
+      averageMonthlyIpPerWriterCents: source.averageMonthlyIpPerWriterCents,
+      monthCount: source.monthCount,
+      growth: source.growth,
+      recruitsAdded: source.recruitsAdded,
+      recruitingRank: source.recruitingRank,
+      trend: source.trend,
+      performance: source.performance,
+      previousPerformance: source.previousPerformance,
+    };
+    if (!equals(expectedMetricPayload, published.metricPayload)) {
+      problems.push({ cardType: "builder", personId: artifact.personId, field: "metricPayload", expected: expectedMetricPayload, actual: published.metricPayload });
+      continue;
+    }
+    const ratings = {
+      growth: independentBuilderGrowthStars(source.growth.percentage, source.growth.priorTeamIpCents),
+      firstLegPercent: independentBuilderFirstLegStars(source.firstLegPercent),
+      activeDirects: independentBuilderActiveDirectsStars(source.activeWriters),
+      averageIpPerActiveWriter: independentProducerIpStars(source.averageMonthlyIpPerWriterCents, 1),
+      recruitsLicensed: independentBuilderRecruitsStars(source.recruitsAdded, factor),
+    };
+    const total = Object.values(ratings).reduce((sum, rating) => sum + rating, 0);
+    const expectedScore = { ratings, total, average: total / 5 };
+    if (!equals(expectedScore, published.score)) {
+      problems.push({ cardType: "builder", personId: artifact.personId, field: "score", expected: expectedScore, actual: published.score });
     }
   }
 

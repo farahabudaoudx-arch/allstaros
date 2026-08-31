@@ -7,6 +7,7 @@ import type {
 import {
   createBuilderStarSummary,
   type BuilderStarRatings,
+  type BuilderStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
 import {
@@ -241,11 +242,17 @@ function GrowthTable({ view, rating }: { view: BuilderScorecardView; rating: Sta
   );
 }
 
-export function BuilderScorecardPreview({ view }: { view: BuilderScorecardView }) {
+export function BuilderScorecardPreview({
+  view,
+  frozenScore,
+}: {
+  view: BuilderScorecardView;
+  frozenScore?: BuilderStarSummary;
+}) {
   // #015 defines the legacy `activeWriters` payload field as Active Directs.
   // #016 defines the legacy `recruitsAdded` payload field as Recruits Licensed.
   // #017 scales only cumulative targets; snapshot/rate/monthly-normalized metrics stay fixed.
-  const summary = createBuilderStarSummary({
+  const summary = frozenScore ?? createBuilderStarSummary({
     growthPercent: view.metric.growth.percentage,
     priorPeriodBaseline: view.metric.growth.priorTeamIpCents,
     firstLegPercent: view.metric.firstLegPercent,
