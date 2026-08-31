@@ -6,13 +6,12 @@ import { getCurrentPerson } from "@/lib/auth";
 import type { MonthlyProducerPreview, ProducerOverview } from "@/lib/scorecards/lifecycle";
 import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 type Snapshot = {
   id: string;
-  person_id: string;
   card_type: "producer" | "builder";
   period_kind: ScorecardPeriodKind;
   period_start: string;
@@ -22,6 +21,10 @@ type Snapshot = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function producerPayload(value: unknown): { preview: MonthlyProducerPreview; overview: ProducerOverview } | null {
@@ -40,15 +43,15 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/scorecards");
   const { id } = await params;
-  const service = createServiceRoleClient();
-  const { data, error } = await service
+  if (!isUuid(id)) notFound();
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("scorecard_snapshot")
-    .select("id, person_id, card_type, period_kind, period_start, period_end, kpi_results")
+    .select("id, card_type, period_kind, period_start, period_end, kpi_results")
     .eq("id", id)
-    .eq("person_id", person.id)
     .in("lifecycle_status", ["final", "corrected"])
     .maybeSingle();
-  if (error) throw new Error(`Unable to load this Scorecard: ${error.message}`);
+  if (error) throw new Error("Unable to load this Scorecard.");
   if (!data) notFound();
   const snapshot = data as Snapshot;
 

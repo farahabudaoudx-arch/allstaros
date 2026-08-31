@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { groupScorecardArchive, type ScorecardArchiveEntry } from "@/lib/scorecards/archive";
 import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 type SnapshotRow = {
   id: string;
+  person_id: string;
   card_type: "producer" | "builder";
   period_kind: "monthly" | "quarterly" | "annual";
   period_start: string;
@@ -23,20 +24,19 @@ export default async function ScorecardsPage() {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/scorecards");
 
-  const service = createServiceRoleClient();
-  const { data, error } = await service
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("scorecard_snapshot")
-    .select("id, card_type, period_kind, period_start, period_end, lifecycle_status, revision, finalized_at, kpi_results")
-    .eq("person_id", person.id)
+    .select("id, person_id, card_type, period_kind, period_start, period_end, lifecycle_status, revision, finalized_at, kpi_results")
     .in("lifecycle_status", ["final", "corrected"])
     .not("finalized_at", "is", null)
     .order("period_start", { ascending: false })
     .order("revision", { ascending: false });
 
-  if (error) throw new Error(`Unable to load the Scorecards archive: ${error.message}`);
+  if (error) throw new Error("Unable to load the Scorecards archive.");
   const latest = new Map<string, ScorecardArchiveEntry>();
   for (const row of (data ?? []) as SnapshotRow[]) {
-    const key = `${row.card_type}:${row.period_kind}:${row.period_start}`;
+    const key = `${row.person_id}:${row.card_type}:${row.period_kind}:${row.period_start}`;
     if (latest.has(key)) continue;
     const published = requirePublishedScorecardSnapshotPayload({
       id: row.id,
@@ -48,6 +48,8 @@ export default async function ScorecardsPage() {
     });
     latest.set(key, {
       id: row.id,
+      personId: row.person_id,
+      memberName: published.member.fullName,
       cardType: row.card_type,
       periodKind: row.period_kind,
       periodStart: row.period_start,
@@ -63,7 +65,7 @@ export default async function ScorecardsPage() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
       <h1 className="text-4xl font-semibold tracking-[-0.035em] text-ink md:text-5xl">Scorecards</h1>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-subtle">Your published Producer and Builder reports, preserved exactly as they were validated.</p>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-subtle">Published Producer and Builder reports you are authorized to view, preserved exactly as they were validated.</p>
 
       {groups.length === 0 ? (
         <div className="mt-10 border-l-2 border-accent pl-5">
@@ -81,7 +83,8 @@ export default async function ScorecardsPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="text-xl font-semibold text-ink">{entry.cardType === "producer" ? "Producer Scorecard" : "Builder Scorecard"}</h3>
-                        <p className="mt-2 text-sm text-subtle">{entry.periodKind === "annual" ? "Annual" : entry.periodKind === "quarterly" ? "Quarterly" : "Monthly"} report</p>
+                        <p className="mt-2 text-sm font-medium text-ink">{entry.memberName}</p>
+                        <p className="mt-1 text-sm text-subtle">{entry.periodKind === "annual" ? "Annual" : entry.periodKind === "quarterly" ? "Quarterly" : "Monthly"} report</p>
                       </div>
                       <span className="text-sm font-medium text-accent">Open report</span>
                     </div>

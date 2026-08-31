@@ -2,6 +2,8 @@ import type { ScorecardPeriodKind } from "./run";
 
 export type ScorecardArchiveEntry = {
   id: string;
+  personId: string;
+  memberName: string;
   cardType: "producer" | "builder";
   periodKind: ScorecardPeriodKind;
   periodStart: string;
