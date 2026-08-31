@@ -584,6 +584,130 @@ export async function loadProducerOverviewForPeriod(
   });
 }
 
+/**
+ * Bounded one-person Producer source adapter for manual historical Scorecards.
+ * It intentionally does not load organization-wide rank populations: #012 ratings
+ * are fixed bands and the current Scorecard UI does not consume legacy rank fields.
+ */
+export async function loadManualProducerOverviewForPeriod(
+  supabase: SupabaseClient,
+  producer: {
+    id: string;
+    full_name: string;
+  } & PhotoFields,
+  currentIssuedIpCents: number,
+  priorIssuedIpCents: number | null,
+  period: ScorecardPeriod,
+): Promise<ProducerOverview> {
+  const prior = previousEquivalentPeriod(period);
+  const [
+    clientRows,
+    activityRows,
+    priorActivityRows,
+    leadSpendCents,
+    priorLeadSpendCents,
+    scheduleResult,
+  ] = await Promise.all([
+    fetchAllRows<ClientSaleFields & { id: string }>((lo, hi) =>
+      supabase
+        .from("clients")
+        .select("id, annual_premium, sale_status, submit_date, date, created_at")
+        .eq("person_id", producer.id)
+        .order("id")
+        .range(lo, hi),
+    ),
+    loadProducerTrackingRows(supabase, producer.id, period),
+    loadProducerTrackingRows(supabase, producer.id, prior),
+    loadProducerLeadSpendCents(supabase, producer.id, period),
+    loadProducerLeadSpendCents(supabase, producer.id, prior),
+    supabase
+      .from("member_work_schedule")
+      .select("id, effective_from, effective_to, working_weekdays, created_at")
+      .eq("person_id", producer.id)
+      .lte("effective_from", period.end)
+      .or(`effective_to.is.null,effective_to.gte.${period.start}`)
+      .order("effective_from", { ascending: true })
+      .order("created_at", { ascending: true }),
+  ]);
+
+  let submittedApCents = 0;
+  let priorSubmittedApCents = 0;
+  let submittedApAvailable = true;
+  let priorSubmittedApAvailable = true;
+  for (const client of clientRows) {
+    const day = saleDay(client, "America/Chicago");
+    if (isSale(client) && day && day >= period.start && day <= period.end) {
+      if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) {
+        submittedApAvailable = false;
+      } else {
+        submittedApCents += dollarsToCents(client.annual_premium);
+      }
+    }
+    if (isSale(client) && day && day >= prior.start && day <= prior.end) {
+      if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) {
+        priorSubmittedApAvailable = false;
+      } else {
+        priorSubmittedApCents += dollarsToCents(client.annual_premium);
+      }
+    }
+  }
+
+  let expectedWorkingDates: string[] | null = null;
+  if (!scheduleResult.error && scheduleResult.data?.length) {
+    const schedules = scheduleResult.data as Array<{
+      id: string;
+      effective_from: string;
+      effective_to: string | null;
+      working_weekdays: number[];
+      created_at: string;
+    }>;
+    const { data: exceptionRows, error: exceptionError } = await supabase
+      .from("member_work_schedule_exception")
+      .select("schedule_id, exception_date, is_working_day, created_at")
+      .in("schedule_id", schedules.map((schedule) => schedule.id))
+      .gte("exception_date", period.start)
+      .lte("exception_date", period.end)
+      .order("created_at", { ascending: true });
+    if (exceptionError) throw new Error(`Unable to load schedule exceptions: ${exceptionError.message}`);
+    expectedWorkingDates = expectedDatesForScheduleHistory({
+      periodStart: period.start,
+      periodEnd: period.end,
+      schedules,
+      exceptions: (exceptionRows ?? []) as Array<{
+        schedule_id: string;
+        exception_date: string;
+        is_working_day: boolean;
+      }>,
+    });
+  } else if (scheduleResult.error && !isMissingRelationError(scheduleResult.error)) {
+    throw new Error(`Unable to load work schedule: ${scheduleResult.error.message}`);
+  }
+
+  const unavailableRank = { rank: null, population: 0 };
+  return createProducerOverview({
+    fullName: producer.full_name,
+    photoUrl: approvedPhotoUrl(producer),
+    submittedApCents: submittedApAvailable ? submittedApCents : null,
+    leadSpendCents,
+    priorSubmittedApCents: priorSubmittedApAvailable ? priorSubmittedApCents : null,
+    priorLeadSpendCents,
+    currentIssuedIpCents,
+    priorIssuedIpCents,
+    rank: { rank: null, population: 0, percentile: 0, movement: null },
+    organizationRanks: {
+      submittedAp: unavailableRank,
+      leadSpend: unavailableRank,
+      dials: unavailableRank,
+      contacts: unavailableRank,
+      presentations: unavailableRank,
+      sales: unavailableRank,
+      trackingConsistency: unavailableRank,
+    },
+    activityRows,
+    priorActivityRows,
+    expectedWorkingDates,
+  });
+}
 export async function loadCurrentMonthlyProducerOverview(
   supabase: SupabaseClient,
   producer: {

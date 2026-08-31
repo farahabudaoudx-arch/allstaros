@@ -123,6 +123,38 @@ describe("independent Scorecard verification", () => {
     expect(verification.problems).toContainEqual(expect.objectContaining({ field: "priorPeriod" }));
   });
 
+  it("verifies only the requested Producer and does not require unrelated population metric rows", () => {
+    const input = fixture();
+    input.target = { personId: "writer", cardType: "producer" };
+    input.producerMetrics = [{ personId: "writer", payload: producerPayload("writer") }];
+    input.producerVerificationMetrics = [{ personId: "writer", payload: producerPayload("writer") }];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.producerMetrics.map((metric) => metric.personId)).toEqual(["writer"]);
+    expect(prepared.builderMetrics).toEqual([]);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("verifies only the requested Builder and does not require Producer metric rows for its subtree", () => {
+    const input = fixture();
+    input.target = { personId: "builder", cardType: "builder" };
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+    input.builderProductionSupport = [{
+      personId: "writer",
+      current: { dials: 7, contacts: 5, presentations: 3, sales: 2, apCents: 90_000 },
+      prior: { dials: 4, contacts: 3, presentations: 2, sales: 1, apCents: 50_000 },
+    }];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.producerMetrics).toEqual([]);
+    expect(prepared.builderMetrics.map((metric) => metric.personId)).toEqual(["builder"]);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
   it("detects every corrupted displayed Builder field without calling the production calculator", () => {
     const input = fixture();
     const prepared = prepareScorecardRun(input);

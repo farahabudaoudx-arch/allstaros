@@ -53,6 +53,16 @@ export type GatewayReport = {
   }>;
 };
 
+export type ScorecardRunTarget = {
+  personId: string;
+  cardType: "producer" | "builder";
+};
+
+export type BuilderProductionSupport = {
+  personId: string;
+  current: { dials: number; contacts: number; presentations: number; sales: number; apCents: number };
+  prior: { dials: number; contacts: number; presentations: number; sales: number; apCents: number };
+};
 export type ScorecardRunInput = {
   runId: string;
   revision: number;
@@ -75,6 +85,10 @@ export type ScorecardRunInput = {
   priorBuilderCoverage: Record<string, "complete" | "outside_retention" | "incomplete">;
   producerMetrics: Array<{ personId: string; payload: ProducerPeriodMetricPayload }>;
   producerVerificationMetrics: Array<{ personId: string; payload: ProducerPeriodMetricPayload }>;
+  /** One-card generation scope. Omitted for the normal complete-population run. */
+  target?: ScorecardRunTarget;
+  /** Bounded Producer activity/AP facts used for a targeted Builder without generating Producer artifacts for its subtree. */
+  builderProductionSupport?: BuilderProductionSupport[];
 };
 
 export type ProducerPeriodMetricPayload = {
@@ -136,7 +150,8 @@ export type ScorecardRunProblem = {
     | "independent_verification_failed"
     | "missing_producer_metric"
     | "duplicate_producer_metric"
-    | "extra_producer_metric";
+    | "extra_producer_metric"
+    | "invalid_target";
   message: string;
   reportDate?: string;
   personId?: string;
@@ -221,7 +236,7 @@ function descendantIds(rootId: string, people: ScorecardRunPerson[]) {
   return descendants;
 }
 
-function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<string>) {
+function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<string>, eligibleBuilderIds: Set<string>) {
   const problems: ScorecardRunProblem[] = [];
   try {
     const canonicalPeriod = scorecardPeriodFromStart(input.period.kind, input.period.start);
@@ -267,12 +282,14 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
     }
   }
 
-  const activeWriterDates = [...new Set(input.gatewayReports
-    .filter((report) => report.status === "published" && report.periodType === "wtd" && report.reportDate <= input.period.end)
-    .map((report) => report.reportDate))]
-    .sort((left, right) => right.localeCompare(left))
-    .slice(0, 6);
-  if (activeWriterDates.length < 6) {
+  const activeWriterDates = eligibleBuilderIds.size > 0
+    ? [...new Set(input.gatewayReports
+        .filter((report) => report.status === "published" && report.periodType === "wtd" && report.reportDate <= input.period.end)
+        .map((report) => report.reportDate))]
+        .sort((left, right) => right.localeCompare(left))
+        .slice(0, 6)
+    : [];
+  if (eligibleBuilderIds.size > 0 && activeWriterDates.length < 6) {
     problems.push({
       code: "incomplete_active_writer_window",
       count: activeWriterDates.length,
@@ -327,10 +344,13 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
           message: `Gateway row references unknown person ${row.personId}.`,
         });
       }
+      const validateBuilderFields = !input.target || eligibleBuilderIds.has(row.personId);
       if (
         !Number.isFinite(row.personalIpCents) || !Number.isInteger(row.personalIpCents) || row.personalIpCents < 0 ||
-        !Number.isFinite(row.teamIpCents) || !Number.isInteger(row.teamIpCents) || row.teamIpCents < 0 ||
-        (row.firstLegPercent != null && (!Number.isFinite(row.firstLegPercent) || row.firstLegPercent < 0 || row.firstLegPercent > 100))
+        (validateBuilderFields && (
+          !Number.isFinite(row.teamIpCents) || !Number.isInteger(row.teamIpCents) || row.teamIpCents < 0 ||
+          (row.firstLegPercent != null && (!Number.isFinite(row.firstLegPercent) || row.firstLegPercent < 0 || row.firstLegPercent > 100))
+        ))
       ) {
         problems.push({
           code: "invalid_gateway_value",
@@ -339,7 +359,7 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
           message: `Gateway row for ${row.personId} contains an invalid numeric value.`,
         });
       }
-      if (row.teamIpCents > 0 && row.firstLegPercent == null) {
+      if (validateBuilderFields && row.teamIpCents > 0 && row.firstLegPercent == null) {
         problems.push({
           code: "missing_first_leg_percent",
           reportDate: report.reportDate,
@@ -363,7 +383,7 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
 
   const peopleById = new Map(input.people.map((person) => [person.id, person]));
   for (const person of input.people) {
-    if (person.activeAtPeriodEnd && person.builderAtPeriodEnd && !person.producerAtPeriodEnd) {
+    if ((!input.target || person.id === input.target.personId) && person.activeAtPeriodEnd && person.builderAtPeriodEnd && !person.producerAtPeriodEnd) {
       problems.push({
         code: "builder_without_producer_role",
         personId: person.id,
@@ -386,7 +406,7 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
     }
   }
 
-  for (const person of input.people.filter((candidate) => candidate.activeAtPeriodEnd && candidate.builderAtPeriodEnd)) {
+  for (const person of input.people.filter((candidate) => eligibleBuilderIds.has(candidate.id))) {
     const coverage = input.priorBuilderCoverage[person.id];
     const prior = input.priorBuilderTeamIpCents[person.id] ?? null;
     if (coverage === "incomplete") {
@@ -465,12 +485,33 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
 
 export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecardRun {
   const eligibleProducers = input.people.filter(
-    (person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd,
+    (person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd
+      && (!input.target || (input.target.cardType === "producer" && input.target.personId === person.id)),
   );
   const eligibleBuilders = input.people.filter(
-    (person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd,
+    (person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd
+      && (!input.target || (input.target.cardType === "builder" && input.target.personId === person.id)),
   );
-  const problems = validateSources(input, new Set(eligibleProducers.map(({ id }) => id)));
+  const eligibleProducerIds = new Set(eligibleProducers.map(({ id }) => id));
+  const eligibleBuilderIds = new Set(eligibleBuilders.map(({ id }) => id));
+  const targetPerson = input.target
+    ? input.people.find((person) => person.id === input.target!.personId)
+    : null;
+  const targetApplicable = !input.target || Boolean(
+    targetPerson?.activeAtPeriodEnd && (
+      input.target.cardType === "producer"
+        ? targetPerson.producerAtPeriodEnd
+        : targetPerson.builderAtPeriodEnd
+    ),
+  );
+  const targetProblems: ScorecardRunProblem[] = input.target && !targetApplicable
+    ? [{
+        code: "invalid_target",
+        personId: input.target.personId,
+        message: `The requested ${input.target.cardType} Scorecard is not applicable to ${input.target.personId} at period end.`,
+      }]
+    : [];
+  const problems = [...targetProblems, ...validateSources(input, eligibleProducerIds, eligibleBuilderIds)];
 
   if (problems.length > 0) {
     return {
@@ -562,7 +603,10 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         .map((row) => row.personId)),
   );
   const performancePeople = input.people.map((person) => ({ id: person.id, uplineId: person.uplineId }));
-  const producerProduction = producerMetrics.map(({ personId, payload }) => {
+  const producerProduction = input.builderProductionSupport?.map(({ personId, current }) => ({
+    personId,
+    ...current,
+  })) ?? producerMetrics.map(({ personId, payload }) => {
     const totals = payload.overview.activity.totals;
     return {
       personId,
@@ -573,7 +617,10 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
       apCents: payload.overview.submittedApCents ?? 0,
     };
   });
-  const priorProducerProduction = producerMetrics.map(({ personId, payload }) => {
+  const priorProducerProduction = input.builderProductionSupport?.map(({ personId, prior }) => ({
+    personId,
+    ...prior,
+  })) ?? producerMetrics.map(({ personId, payload }) => {
     const totals = payload.overview.priorActivityTotals;
     return {
       personId,

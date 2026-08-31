@@ -176,7 +176,7 @@ export function verifyPreparedScorecardRun(
       actual: input.priorPeriod,
     });
   }
-  const builders = input.people.filter((person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd);
+  const builders = input.people.filter((person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd && (!input.target || (input.target.cardType === "builder" && input.target.personId === person.id)));
   const periodReports = input.gatewayReports.filter((report) =>
     report.status === "published" && report.periodType === "wtd" &&
     report.reportDate >= input.period.start &&
@@ -290,7 +290,7 @@ export function verifyPreparedScorecardRun(
   }
 
   const eligibleProducerIds = new Set(input.people
-    .filter((person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd)
+    .filter((person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd && (!input.target || (input.target.cardType === "producer" && input.target.personId === person.id)))
     .map((person) => person.id));
   for (const personId of eligibleProducerIds) {
     const actualRows = prepared.producerMetrics.filter((metric) => metric.personId === personId);

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { validateClosedScorecardPeriod } from "@/lib/scorecards/period";
+import { scorecardPeriodFromStart, validateClosedScorecardPeriod } from "@/lib/scorecards/period";
+import { generateManualScorecard as generateManualScorecardService } from "@/lib/scorecards/manual";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 
 function chicagoToday() {
@@ -70,4 +71,68 @@ export async function startScorecardRun(formData: FormData) {
 
   revalidatePath("/admin/scorecards");
   redirect("/admin/scorecards?started=1");
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function manualRedirectParams(values: Record<string, string | undefined>) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value) params.set(key, value);
+  }
+  return `/admin/scorecards?${params.toString()}`;
+}
+
+export async function generateManualScorecard(formData: FormData) {
+  const admin = await requireAdmin();
+  const personId = text(formData, "personId");
+  const cardType = text(formData, "cardType");
+  const periodKind = text(formData, "periodKind");
+  const periodStart = text(formData, "periodStart");
+  const selection = {
+    manualPersonId: personId,
+    manualPeriodKind: periodKind,
+    manualPeriodStart: periodStart,
+  };
+
+  if (!UUID.test(personId)) {
+    redirect(manualRedirectParams({ ...selection, manualError: "Choose a valid person." }));
+  }
+  if (cardType !== "producer" && cardType !== "builder") {
+    redirect(manualRedirectParams({ ...selection, manualError: "Choose an applicable Scorecard type." }));
+  }
+  if (!["monthly", "quarterly", "annual"].includes(periodKind)) {
+    redirect(manualRedirectParams({ ...selection, manualError: "Choose a valid period type." }));
+  }
+
+  let period;
+  try {
+    const canonical = scorecardPeriodFromStart(periodKind as ScorecardPeriodKind, periodStart);
+    period = validateClosedScorecardPeriod({
+      kind: periodKind as ScorecardPeriodKind,
+      start: canonical.start,
+      end: canonical.end,
+      today: chicagoToday(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Choose a valid closed Scorecard period.";
+    redirect(manualRedirectParams({ ...selection, manualError: message }));
+  }
+
+  const result = await generateManualScorecardService({
+    initiatedBy: admin.id,
+    personId,
+    cardType,
+    period,
+  });
+
+  if (result.status === "success" || result.status === "existing") {
+    revalidatePath("/admin/scorecards");
+    redirect(manualRedirectParams({
+      ...selection,
+      manualResult: result.status,
+      snapshotId: result.snapshotId,
+    }));
+  }
+
+  redirect(manualRedirectParams({ ...selection, manualError: "message" in result ? result.message : "Unable to generate the Scorecard." }));
 }

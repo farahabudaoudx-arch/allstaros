@@ -786,6 +786,106 @@ describe("Scorecard run", () => {
     }));
   });
 
+  it("targets exactly one Producer card for a dual-role person and leaves unrelated people out", () => {
+    const input = completeRun();
+    input.target = { personId: "builder-a", cardType: "producer" };
+    input.producerMetrics = [producerPayload("builder-a")];
+    input.producerVerificationMetrics = [producerPayload("builder-a")];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({
+      eligibleProducers: 1,
+      eligibleBuilders: 0,
+      producerRows: 1,
+      builderRows: 0,
+    });
+    expect(prepared.producerMetrics.map((metric) => metric.personId)).toEqual(["builder-a"]);
+    expect(prepared.builderMetrics).toEqual([]);
+
+    const artifacts = createScorecardArtifacts({ prepared, input });
+    expect(artifacts.snapshots.map(({ personId, cardType }) => `${personId}:${cardType}`)).toEqual([
+      "builder-a:producer",
+    ]);
+  });
+
+  it("targets exactly one Builder card while bounded subtree support contributes without Producer artifacts", () => {
+    const input = completeRun();
+    input.target = { personId: "builder-a", cardType: "builder" };
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+    input.builderProductionSupport = [{
+      personId: "producer-b",
+      current: { dials: 9, contacts: 4, presentations: 3, sales: 2, apCents: 125_000 },
+      prior: { dials: 5, contacts: 3, presentations: 2, sales: 1, apCents: 75_000 },
+    }];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({
+      eligibleProducers: 0,
+      eligibleBuilders: 1,
+      producerRows: 0,
+      builderRows: 1,
+    });
+    expect(prepared.producerMetrics).toEqual([]);
+    expect(prepared.builderMetrics.map((metric) => metric.personId)).toEqual(["builder-a"]);
+    expect(prepared.builderMetrics[0].performance.teamDials.value).toBe(9);
+    expect(prepared.builderMetrics[0].performance.teamAp.value).toBe(125_000);
+    expect(prepared.builderMetrics[0].previousPerformance.teamDials).toBe(5);
+    expect(prepared.builderMetrics[0].previousPerformance.teamAp).toBe(75_000);
+
+    const artifacts = createScorecardArtifacts({ prepared, input });
+    expect(artifacts.snapshots.map(({ personId, cardType }) => `${personId}:${cardType}`)).toEqual([
+      "builder-a:builder",
+    ]);
+  });
+
+  it("keeps Producer and Builder targets distinct for the same dual-role person", () => {
+    const producerInput = completeRun();
+    producerInput.target = { personId: "builder-a", cardType: "producer" };
+    producerInput.producerMetrics = [producerPayload("builder-a")];
+    producerInput.producerVerificationMetrics = [producerPayload("builder-a")];
+    const producerArtifacts = createScorecardArtifacts({
+      input: producerInput,
+      prepared: prepareScorecardRun(producerInput),
+    });
+
+    const builderInput = completeRun();
+    builderInput.runId = "run-builder-target";
+    builderInput.target = { personId: "builder-a", cardType: "builder" };
+    builderInput.producerMetrics = [];
+    builderInput.producerVerificationMetrics = [];
+    builderInput.builderProductionSupport = [];
+    const builderArtifacts = createScorecardArtifacts({
+      input: builderInput,
+      prepared: prepareScorecardRun(builderInput),
+    });
+
+    expect(producerArtifacts.snapshots).toHaveLength(1);
+    expect(producerArtifacts.snapshots[0]).toMatchObject({ personId: "builder-a", cardType: "producer" });
+    expect(builderArtifacts.snapshots).toHaveLength(1);
+    expect(builderArtifacts.snapshots[0]).toMatchObject({ personId: "builder-a", cardType: "builder" });
+  });
+
+  it("fails closed when the requested target card is not applicable at period end", () => {
+    const input = completeRun();
+    input.target = { personId: "producer-b", cardType: "builder" };
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("blocked");
+    expect(prepared.problems).toContainEqual(expect.objectContaining({
+      code: "invalid_target",
+      personId: "producer-b",
+    }));
+    expect(prepared.producerMetrics).toEqual([]);
+    expect(prepared.builderMetrics).toEqual([]);
+  });
   it("does not create a partial artifact batch from a blocked run", () => {
     const input = completeRun();
     input.gatewayReports = input.gatewayReports.filter((report) => report.reportDate !== "2026-08-28");
