@@ -24,11 +24,17 @@ export function ManualScorecardSelector({
   const [personId, setPersonId] = useState(initialPersonId);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return people.slice(0, 50);
-    return people
-      .filter((person) => `${person.fullName} ${person.email}`.toLowerCase().includes(needle))
-      .slice(0, 50);
-  }, [people, query]);
+    const matches = !needle
+      ? people.slice(0, 50)
+      : people
+          .filter((person) => `${person.fullName} ${person.email}`.toLowerCase().includes(needle))
+          .slice(0, 50);
+    if (personId && !matches.some((person) => person.id === personId)) {
+      const selectedPerson = people.find((person) => person.id === personId);
+      if (selectedPerson) return [selectedPerson, ...matches].slice(0, 50);
+    }
+    return matches;
+  }, [people, personId, query]);
 
   return (
     <form method="get" action="/admin/scorecards" className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-4">

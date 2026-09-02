@@ -3,12 +3,24 @@ import { ManualScorecardSelector, type ManualScorecardPersonOption } from "@/com
 import { SubmitButton } from "@/components/SubmitButton";
 import { generateManualScorecard, startScorecardRun } from "@/lib/actions/scorecards";
 import { requireAdmin } from "@/lib/admin/guard";
+import {
+  evaluateManualApplicability,
+  type ManualApplicabilityResult,
+} from "@/lib/scorecards/manual-applicability";
 import { loadManualTargetContext } from "@/lib/scorecards/manual";
-import { scorecardPeriodFromStart } from "@/lib/scorecards/period";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+function chicagoToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
 type RunRow = {
   id: string;
@@ -107,25 +119,34 @@ export default async function AdminScorecardsPage({
   const manualPeriodKind = ["monthly", "quarterly", "annual"].includes(params.manualPeriodKind ?? "")
     ? params.manualPeriodKind as ScorecardPeriodKind
     : "monthly";
-  let manualPeriod: ReturnType<typeof scorecardPeriodFromStart> | null = null;
-  let manualTarget: Awaited<ReturnType<typeof loadManualTargetContext>>[number] | null = null;
-  let applicabilityError: string | null = null;
-  if (params.manualPersonId && params.manualPeriodStart) {
-    try {
-      manualPeriod = scorecardPeriodFromStart(manualPeriodKind, params.manualPeriodStart);
-      const context = await loadManualTargetContext(service, params.manualPersonId, manualPeriod.end, false);
-      manualTarget = context.find((row) => row.personId === params.manualPersonId && row.depth === 0) ?? null;
-      if (!manualTarget) applicabilityError = "No historical period-end role fact exists for that person and period.";
-    } catch {
-      applicabilityError = "Choose a valid calendar period before checking applicability.";
+  const checkAttempted = params.manualPersonId != null || params.manualPeriodStart != null;
+  let applicability: ManualApplicabilityResult | null = null;
+  if (checkAttempted) {
+    const personId = params.manualPersonId ?? "";
+    const personExists = personId ? people.some((person) => person.id === personId) : false;
+    const periodCheck = evaluateManualApplicability({
+      personId,
+      periodKind: params.manualPeriodKind,
+      periodStart: params.manualPeriodStart,
+      today: chicagoToday(),
+      personExists,
+      target: undefined,
+    });
+    if (periodCheck.status === "needs_target") {
+      const context = await loadManualTargetContext(service, personId, periodCheck.period.end, false);
+      const target = context.find((row) => row.personId === personId && row.depth === 0) ?? null;
+      applicability = evaluateManualApplicability({
+        personId,
+        periodKind: params.manualPeriodKind,
+        periodStart: params.manualPeriodStart,
+        today: chicagoToday(),
+        personExists,
+        target,
+      });
+    } else {
+      applicability = periodCheck;
     }
   }
-  const applicableCardTypes = manualTarget?.activeAtPeriodEnd
-    ? [
-        ...(manualTarget.producerAtPeriodEnd ? ["producer" as const] : []),
-        ...(manualTarget.builderAtPeriodEnd ? ["builder" as const] : []),
-      ]
-    : [];
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -166,49 +187,43 @@ export default async function AdminScorecardsPage({
           initialPeriodStart={params.manualPeriodStart}
         />
 
-        {params.manualPersonId && params.manualPeriodStart ? (
+        {checkAttempted && applicability ? (
           <div className="mt-6 border-t border-hairline pt-6">
-            {manualTarget && manualPeriod ? (
+            {applicability.status === "ok" ? (
               <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
                 <div>
-                  <p className="text-sm font-semibold text-ink">{manualTarget.fullName}</p>
-                  <p className="mt-1 text-sm text-subtle">{manualTarget.email}</p>
+                  <p className="text-sm font-semibold text-ink">{applicability.target.fullName}</p>
+                  <p className="mt-1 text-sm text-subtle">{applicability.target.email}</p>
                   <p className="mt-3 text-sm text-subtle">
-                    {manualPeriod.label} · period-end status {manualTarget.activeAtPeriodEnd ? "active" : "inactive"}
+                    {applicability.period.label} ({applicability.period.start} – {applicability.period.end}) · period-end status active
                   </p>
                   <p className="mt-1 text-sm text-subtle">
-                    Applicable cards: {applicableCardTypes.length > 0
-                      ? applicableCardTypes.map((card) => card === "producer" ? "Producer" : "Builder").join(" + ")
-                      : "none"}
+                    Applicable cards: {applicability.applicableCardTypes.map((card) => card === "producer" ? "Producer" : "Builder").join(" + ")}
                   </p>
                 </div>
-                {applicableCardTypes.length > 0 ? (
-                  <form action={generateManualScorecard} className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:min-w-[28rem]">
-                    <input type="hidden" name="personId" value={params.manualPersonId} />
-                    <input type="hidden" name="periodKind" value={manualPeriod.kind} />
-                    <input type="hidden" name="periodStart" value={manualPeriod.start} />
-                    <label className="text-sm text-subtle">
-                      Scorecard type
-                      <select name="cardType" required className="mt-2 w-full rounded-lg border border-hairline bg-background px-3 py-2.5 text-ink">
-                        {applicableCardTypes.map((card) => (
-                          <option key={card} value={card}>{card === "producer" ? "Producer" : "Builder"}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <SubmitButton
-                      pendingLabel="Generating…"
-                      className="self-end rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Generate
-                    </SubmitButton>
-                  </form>
-                ) : (
-                  <p className="text-sm text-mute">No manual Scorecard can be generated for this period-end role.</p>
-                )}
+                <form action={generateManualScorecard} className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:min-w-[28rem]">
+                  <input type="hidden" name="personId" value={applicability.target.personId} />
+                  <input type="hidden" name="periodKind" value={applicability.period.kind} />
+                  <input type="hidden" name="periodStart" value={applicability.period.start} />
+                  <label className="text-sm text-subtle">
+                    Scorecard type
+                    <select name="cardType" required className="mt-2 w-full rounded-lg border border-hairline bg-background px-3 py-2.5 text-ink">
+                      {applicability.applicableCardTypes.map((card) => (
+                        <option key={card} value={card}>{card === "producer" ? "Producer" : "Builder"}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <SubmitButton
+                    pendingLabel="Generating…"
+                    className="self-end rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Generate
+                  </SubmitButton>
+                </form>
               </div>
-            ) : (
-              <p role="status" className="text-sm text-mute">{applicabilityError ?? "Choose one person and a valid period to check applicability."}</p>
-            )}
+            ) : applicability.status === "error" ? (
+              <p role="alert" className="border-l-2 border-neg pl-4 text-sm text-neg">{applicability.message}</p>
+            ) : null}
           </div>
         ) : null}
       </section>
