@@ -182,7 +182,7 @@ describe("member-facing Scorecard server queries", () => {
   });
 
   it("fails closed for malformed, unauthorized, and nonexistent detail IDs before frozen data renders", () => {
-    expect(detailPage).toContain("if (!isUuid(id)) notFound()");
+    expect(detailPage).toContain("if (!isScorecardSnapshotUuid(id)) notFound()");
     expect(detailPage).toContain('.eq("id", id)');
     expect(detailPage).toContain("if (!data) notFound()");
     expect(detailPage.indexOf("if (!data) notFound()")).toBeLessThan(

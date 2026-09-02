@@ -134,7 +134,7 @@ export default async function AdminScorecardsPage({
       <Link href="/admin/scorecards/coverage" className="mt-4 inline-block text-sm font-semibold text-accent underline underline-offset-4">Open Gateway Coverage</Link>
 
       {params.error ? <p role="alert" className="mt-6 border-l-2 border-neg pl-4 text-sm text-neg">{params.error}</p> : null}
-      {params.started ? <p role="status" className="mt-6 border-l-2 border-pos pl-4 text-sm text-pos">Completed-period Scorecards published. Open each member&apos;s card from Run history or /producer/scorecards.</p> : null}
+      {params.started ? <p role="status" className="mt-6 border-l-2 border-pos pl-4 text-sm text-pos">Completed-period Scorecards published. Open each card from Run history or the admin preview link after manual generation.</p> : null}
 
       <section className="mt-10 border border-hairline bg-card p-6" aria-labelledby="manual-scorecard-title">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -153,7 +153,7 @@ export default async function AdminScorecardsPage({
         {params.manualResult && params.snapshotId ? (
           <div role="status" className="mt-5 border-l-2 border-pos pl-4 text-sm text-pos">
             <p>{params.manualResult === "existing" ? "This exact Scorecard was already published; the existing artifact was returned." : "Manual Scorecard published. Delivery remains queued through the normal Scorecard outbox."}</p>
-            <Link href={`/producer/scorecards/${params.snapshotId}`} className="mt-2 inline-block font-semibold underline underline-offset-4">
+            <Link href={`/admin/scorecards/${params.snapshotId}`} className="mt-2 inline-block font-semibold underline underline-offset-4">
               Open published Scorecard
             </Link>
           </div>
