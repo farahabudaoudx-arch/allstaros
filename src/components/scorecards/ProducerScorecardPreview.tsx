@@ -2,7 +2,6 @@ import type {
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
-import { previousEquivalentPeriod } from "@/lib/scorecards/period";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
@@ -65,21 +64,20 @@ export function ProducerScorecardPreview({
 
       <ScorecardHowItWorks />
 
-      <StorySection number={null} title="Your Numbers" collapsible sectionId="scorecard-section-01" exportName="Your Numbers" exportMetadata={exportMetadata}>
-        <ProducerNumbersGrid preview={preview} overview={overview} ratings={ratings} />
+      <StorySection number={null} title="Scored Metrics" collapsible sectionId="scorecard-section-scored" exportName="Scored Metrics" exportMetadata={exportMetadata}>
+        <div className="space-y-10">
+          <ProducerScoredMetricsGrid preview={preview} overview={overview} ratings={ratings} />
+          <TrackingConsistencyCalendar
+            preview={preview}
+            activity={overview.activity}
+            rating={ratings.trackingConsistency}
+            scoredLoggedDays={trackingLoggedDays}
+          />
+        </div>
       </StorySection>
 
-      <StorySection number={null} title="Your Tracking" collapsible sectionId="scorecard-section-02" exportName="Your Tracking" exportMetadata={exportMetadata}>
-        <TrackingConsistencyCalendar
-          preview={preview}
-          activity={overview.activity}
-          rating={ratings.trackingConsistency}
-          scoredLoggedDays={trackingLoggedDays}
-        />
-      </StorySection>
-
-      <StorySection number={null} title="Previous Period Growth" collapsible sectionId="scorecard-section-03" exportName="Previous Period Growth" exportMetadata={exportMetadata}>
-        <MonthOverMonthStory preview={preview} overview={overview} periodKind={periodKind} />
+      <StorySection number={null} title="Unscored Metrics" collapsible sectionId="scorecard-section-unscored" exportName="Unscored Metrics" exportMetadata={exportMetadata}>
+        <ProducerUnscoredMetricsGrid preview={preview} overview={overview} />
       </StorySection>
 
       <StorySection number={null} title="Your Scorecard" centerContent centerHeading sectionId="scorecard-section-card" exportName="Your Scorecard" exportMetadata={exportMetadata}>
@@ -106,28 +104,15 @@ const PRODUCER_SCORECARD_AREAS = [
   { label: "Lead Spend", weight: "25%", bands: "0★ < $2k · 1★ $2k–<$4k · 2★ $4k–<$6k · 3★ $6k–<$8k · 4★ $8k–<$10k · 5★ $10k+" },
 ] as const;
 
-function ProducerNumbersGrid({
-  preview,
-  overview,
-  ratings,
+function MetricCards({
+  items,
+  ariaLabel,
 }: {
-  preview: MonthlyProducerPreview;
-  overview: ProducerOverview;
-  ratings: ProducerRatings;
+  items: Array<{ label: string; starLabel?: string; value: string; rating?: StarRating | null }>;
+  ariaLabel: string;
 }) {
-  const totals = overview.activity.totals;
-  const items: Array<{ label: string; starLabel?: string; value: string; rating: StarRating | null }> = [
-    { label: "IP", starLabel: "Issued Premium", value: money(preview.totalIssuedIpCents), rating: ratings.issuedIp },
-    { label: "AP", starLabel: "Submitted AP", value: overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents), rating: null },
-    { label: "Lead Spend", value: money(overview.activity.leadSpendCents), rating: ratings.leadSpend },
-    { label: "Dials", value: totals?.dials.toLocaleString() ?? "Unavailable", rating: null },
-    { label: "Contacts", value: totals?.contacts.toLocaleString() ?? "Unavailable", rating: null },
-    { label: "Presentations", value: totals?.presentations.toLocaleString() ?? "Unavailable", rating: null },
-    { label: "Submitted Sales", value: totals?.sales.toLocaleString() ?? "Unavailable", rating: null },
-  ];
-
   return (
-    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label={`${preview.periodLabel} producer numbers`}>
+    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label={ariaLabel}>
       {items.map((item) => (
         <div key={item.label} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]" role="listitem">
           <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
@@ -136,6 +121,48 @@ function ProducerNumbersGrid({
         </div>
       ))}
     </div>
+  );
+}
+
+function ProducerScoredMetricsGrid({
+  preview,
+  overview,
+  ratings,
+}: {
+  preview: MonthlyProducerPreview;
+  overview: ProducerOverview;
+  ratings: ProducerRatings;
+}) {
+  return (
+    <MetricCards
+      ariaLabel={`${preview.periodLabel} scored producer metrics`}
+      items={[
+        { label: "IP", starLabel: "Issued Premium", value: money(preview.totalIssuedIpCents), rating: ratings.issuedIp },
+        { label: "Lead Spend", value: money(overview.activity.leadSpendCents), rating: ratings.leadSpend },
+      ]}
+    />
+  );
+}
+
+function ProducerUnscoredMetricsGrid({
+  preview,
+  overview,
+}: {
+  preview: MonthlyProducerPreview;
+  overview: ProducerOverview;
+}) {
+  const totals = overview.activity.totals;
+  return (
+    <MetricCards
+      ariaLabel={`${preview.periodLabel} unscored producer metrics`}
+      items={[
+        { label: "AP", starLabel: "Submitted AP", value: overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents) },
+        { label: "Dials", value: totals?.dials.toLocaleString() ?? "Unavailable" },
+        { label: "Contacts", value: totals?.contacts.toLocaleString() ?? "Unavailable" },
+        { label: "Presentations", value: totals?.presentations.toLocaleString() ?? "Unavailable" },
+        { label: "Submitted Sales", value: totals?.sales.toLocaleString() ?? "Unavailable" },
+      ]}
+    />
   );
 }
 
@@ -148,7 +175,7 @@ function ScorecardHowItWorks() {
     >
       <details open className="scorecard-guide">
         <summary
-          aria-label="Toggle How Scorecards Work"
+          aria-label="Toggle How You're Scored"
           aria-controls="scorecard-how-it-works-content"
           className="scorecard-guide__summary flex cursor-pointer list-none items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-background sm:gap-5 [&::-webkit-details-marker]:hidden"
         >
@@ -161,7 +188,7 @@ function ScorecardHowItWorks() {
             id="scorecard-how-it-works-title"
             className="max-w-4xl text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.95] text-ink"
           >
-            How Scorecards Work
+            How You&apos;re Scored
           </h3>
         </summary>
 
@@ -185,6 +212,7 @@ function ScorecardHowItWorks() {
           <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
             <p>Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.</p>
             <p className="mt-4">Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating.</p>
+            <p className="mt-4">Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars.</p>
             <p className="mt-6">You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard.</p>
             <p className="mt-6 font-semibold text-white">Numbers don&apos;t lie. If you don&apos;t like your score, do something about it.</p>
           </div>
@@ -425,65 +453,6 @@ function TrackingConsistencyCalendar({
           })}
         </div>
       </div>
-    </div>
-  );
-}
-
-function MonthOverMonthStory({
-  preview,
-  overview,
-  periodKind,
-}: {
-  preview: MonthlyProducerPreview;
-  overview: ProducerOverview;
-  periodKind: ScorecardPeriodKind;
-}) {
-  const percentageChange = (previous: number | null, current: number | null) => {
-    if (previous == null || current == null) return "Unavailable";
-    if (previous === 0) return current === 0 ? "0%" : "New Baseline";
-    const percentage = Math.round(((current - previous) / previous) * 1_000) / 10;
-    return `${percentage > 0 ? "+" : ""}${percentage}%`;
-  };
-  const formatCount = (value: number | null) => value == null ? "Unavailable" : value.toLocaleString();
-  const previousActivity = overview.priorActivityTotals;
-  const currentActivity = overview.activity.totals;
-  const comparisons = [
-    { label: "Issued Premium", previous: overview.priorIssuedIpCents, current: preview.totalIssuedIpCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
-    { label: "Submitted AP", previous: overview.priorSubmittedApCents, current: overview.submittedApCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
-    { label: "Lead Spend", previous: overview.priorLeadSpendCents, current: overview.activity.leadSpendCents, format: (value: number | null) => value == null ? "Unavailable" : money(value) },
-    { label: "Dials", previous: previousActivity?.dials ?? null, current: currentActivity?.dials ?? null, format: formatCount },
-    { label: "Contacts", previous: previousActivity?.contacts ?? null, current: currentActivity?.contacts ?? null, format: formatCount },
-    { label: "Presentations", previous: previousActivity?.presentations ?? null, current: currentActivity?.presentations ?? null, format: formatCount },
-    { label: "Sales", previous: previousActivity?.sales ?? null, current: currentActivity?.sales ?? null, format: formatCount },
-  ];
-  const previousLabel = previousEquivalentPeriod({
-    kind: periodKind,
-    start: preview.periodStart,
-    end: preview.periodEnd,
-  }).label;
-
-  return (
-    <div className="growth-table max-w-5xl border border-hairline">
-      <div className="grid grid-cols-[3fr_3fr_2fr] border-b border-hairline text-sm font-medium text-subtle sm:text-base">
-        <p className="growth-header-cell px-3 py-4 sm:px-6">{previousLabel}</p>
-        <p className="growth-header-cell border-l border-hairline px-3 py-4 sm:px-6">{preview.periodLabel}</p>
-        <p className="growth-header-cell border-l border-hairline px-3 py-4 text-right sm:px-6">Percent Change</p>
-      </div>
-      {comparisons.map((comparison) => (
-        <div key={comparison.label} className="growth-row grid grid-cols-[3fr_3fr_2fr] border-b border-hairline last:border-b-0">
-          <p className="growth-cell px-3 py-5 sm:px-6">
-            <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
-            <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.previous)}</span>
-          </p>
-          <p className="growth-cell border-l border-hairline px-3 py-5 sm:px-6">
-            <span className="growth-title block text-sm font-medium text-subtle sm:text-base">{comparison.label}</span>
-            <span className="growth-value mt-2 block text-xl font-semibold tabular-nums text-ink sm:text-3xl">{comparison.format(comparison.current)}</span>
-          </p>
-          <p className="growth-cell growth-value border-l border-hairline px-3 pb-5 pt-12 text-right text-xl font-semibold tabular-nums text-accent sm:px-6 sm:text-3xl">
-            {percentageChange(comparison.previous, comparison.current)}
-          </p>
-        </div>
-      ))}
     </div>
   );
 }
