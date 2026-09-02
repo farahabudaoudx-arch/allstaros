@@ -34,6 +34,7 @@ export default async function PortalPage({
   if (!person) redirect("/auth/signin?next=/portal");
   if (person.is_builder) redirect("/producer");
   if (person.is_producer) redirect("/producer");
+  if (person.is_admin || person.is_super_admin) redirect("/admin");
 
   const params = await searchParams;
 

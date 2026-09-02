@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { menuChrome } from "@/lib/producer/menu";
 import { MenuScreen, type MenuTile } from "@/components/producer/menu/MenuScreen";
 
@@ -15,7 +15,7 @@ const TILES: MenuTile[] = [
 export default async function ResourcesMenuPage() {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/menu/resources");
-  if (!person.is_producer && !person.is_builder) redirect("/portal");
+  if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
 

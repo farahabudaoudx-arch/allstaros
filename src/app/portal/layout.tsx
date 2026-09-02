@@ -15,6 +15,7 @@ export default async function PortalLayout({
   if (!person) redirect("/auth/signin?next=/portal");
   if (person.is_builder) redirect("/producer");
   if (person.is_producer) redirect("/producer");
+  if (person.is_admin || person.is_super_admin) redirect("/admin");
 
   const supabase = await createClient();
   const { data: recruitRow } = await supabase

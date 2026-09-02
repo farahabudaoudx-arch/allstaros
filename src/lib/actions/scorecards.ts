@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { scorecardPeriodFromStart, validateClosedScorecardPeriod } from "@/lib/scorecards/period";
+import { loadGatewayCoverageReport } from "@/lib/scorecards/coverage";
 import { generateManualScorecard as generateManualScorecardService } from "@/lib/scorecards/manual";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 
@@ -44,32 +45,49 @@ export async function startScorecardRun(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
-  const { data: prior, error: priorError } = await service
-    .from("scorecard_metric_run")
-    .select("id, revision")
-    .eq("period_kind", periodKind)
-    .eq("period_start", periodStart)
-    .order("revision", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (priorError) throw new Error(`Unable to check Scorecard revisions: ${priorError.message}`);
-
-  if (prior) {
-    redirect("/admin/scorecards?error=Use+the+correction+workflow+for+an+existing+period");
+  const coverage = await loadGatewayCoverageReport(service, period, "all");
+  if (coverage.inScope === 0) {
+    redirect("/admin/scorecards?error=Nobody+was+an+active+Producer+or+Builder+at+that+period+end.");
+  }
+  if (coverage.missing > 0) {
+    redirect(`/admin/scorecards?error=${encodeURIComponent(
+      `${coverage.missing} of ${coverage.inScope} card scopes are missing Gateway coverage. Open Gateway Coverage, then retry.`,
+    )}`);
+  }
+  // A full org run on the scale-test roster is thousands of cards. Keep the
+  // live button for demo-sized periods (the June 2026 scorecard-demo seed).
+  const MAX_LIVE_CARDS = 40;
+  if (coverage.inScope > MAX_LIVE_CARDS) {
+    redirect(`/admin/scorecards?error=${encodeURIComponent(
+      `This period has ${coverage.inScope} eligible cards. Use Manual generation, or a period whose roster is ${MAX_LIVE_CARDS} or fewer (the demo seed uses June 2026).`,
+    )}`);
   }
 
-  const { error } = await service.from("scorecard_metric_run").insert({
-    period_kind: periodKind,
-    period_start: periodStart,
-    period_end: periodEnd,
-    period_label: period.label,
-    revision: 1,
-    status: "capturing",
-    initiated_by: admin.id,
-  });
-  if (error) throw new Error(`Unable to start the Scorecard run: ${error.message}`);
+  const failures: string[] = [];
+  let published = 0;
+  for (const entry of coverage.entries) {
+    const result = await generateManualScorecardService({
+      initiatedBy: admin.id,
+      personId: entry.personId,
+      cardType: entry.cardType,
+      period,
+    });
+    if (result.status === "success" || result.status === "existing") {
+      published += 1;
+      continue;
+    }
+    failures.push(
+      `${entry.fullName} (${entry.cardType}): ${"message" in result ? result.message : result.status}`,
+    );
+  }
 
   revalidatePath("/admin/scorecards");
+  revalidatePath("/producer/scorecards");
+  if (failures.length > 0) {
+    redirect(`/admin/scorecards?error=${encodeURIComponent(
+      `Published ${published}/${coverage.inScope}. ${failures[0]}`,
+    )}`);
+  }
   redirect("/admin/scorecards?started=1");
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

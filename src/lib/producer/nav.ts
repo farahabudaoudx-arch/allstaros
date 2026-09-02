@@ -49,6 +49,7 @@ const PERSONAL: NavEntry[] = [
   {
     label: "Scorecards",
     href: "/producer/scorecards",
+    icon: "/menu-icons/producer/scorecards.png",
   },
   {
     label: "Daily Tracker",

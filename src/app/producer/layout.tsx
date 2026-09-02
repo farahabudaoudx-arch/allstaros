@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { NpnRequestModal } from "./_components/npn-request-modal";
 import { HeadshotGateModal } from "./_components/headshot-gate-modal";
 import { isBehindHeadshotWall } from "@/lib/headshots/wall";
@@ -19,15 +19,20 @@ export default async function ProducerLayout({
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer");
   // Additive roles: builders keep producer access; pure recruits don't.
-  if (!person.is_producer && !person.is_builder) redirect("/portal");
+  // Admins may open producer routes to preview generated Scorecards.
+  if (!canAccessProducerApp(person)) redirect("/portal");
 
   return (
     <>
       {children}
-      {/* Only active producers/builders reach this layout; show the NPN popup to
-          those who still have no NPN on file. Answering flips npn_status off
+      {/* Show the NPN popup to producers/builders who still have no NPN on file.
+          Admins previewing Scorecards skip it. Answering flips npn_status off
           "missing", so it never returns. */}
-      <NpnRequestModal initialOpen={person.npn_status === "missing"} />
+      <NpnRequestModal
+        initialOpen={
+          (person.is_producer || person.is_builder) && person.npn_status === "missing"
+        }
+      />
       {/* Login wall: a forced popup for any builder/producer who has no photo or
           was rejected. Uploading flips them to 'pending' and clears it. */}
       <HeadshotGateModal

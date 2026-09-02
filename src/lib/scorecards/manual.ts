@@ -476,6 +476,12 @@ export async function generateManualScorecardWithClient(
       p_schedule_facts: scheduleFacts,
     });
     if (publishError) {
+      console.error("publish_manual_scorecard failed", {
+        message: publishError.message,
+        code: publishError.code,
+        details: publishError.details,
+        hint: publishError.hint,
+      });
       return { status: "generation_failure", message: "The Scorecard could not be published. No partial manual publication was kept." };
     }
     const published = ((publishData ?? []) as PublishManualRow[])[0];

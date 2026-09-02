@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { DEV_LOGIN_ENABLED } from "@/lib/devLogin";
 import { menuChrome } from "@/lib/producer/menu";
@@ -27,7 +27,7 @@ export default async function ProducerHome({
 }) {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer");
-  if (!person.is_producer && !person.is_builder) redirect("/portal");
+  if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
 

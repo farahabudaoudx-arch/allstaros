@@ -5,11 +5,25 @@ import type { Person } from "@/lib/db/types";
 
 export type Role = "builder" | "producer" | "recruit";
 
+type ProducerAccessPerson = {
+  is_builder: boolean;
+  is_producer: boolean;
+  is_admin: boolean;
+  is_super_admin: boolean;
+};
+
+/** Producer app routes: builders, producers, and admins previewing Scorecards. */
+export function canAccessProducerApp(person: ProducerAccessPerson): boolean {
+  return person.is_producer || person.is_builder || person.is_admin || person.is_super_admin;
+}
+
 /**
  * Pick the right home for a signed-in user.
  * Roles are additive: a builder is a producer with extra tools, so they share
  * the producer portal — the builder-only sections (Team, Recruiting, Uplevel)
  * surface there based on is_builder. Pure recruits go to the recruit portal.
+ * Admins with no producer/builder role go to /admin, not the recruit holding
+ * screen — they have no recruit row, so /portal used to bounce forever.
  * If a person row doesn't exist yet, send them to onboarding.
  */
 export async function resolveLandingPath(
@@ -23,10 +37,8 @@ export async function resolveLandingPath(
     .maybeSingle();
 
   if (!person) return "/onboarding/pending";
-  // Admins/super-admins still log in to their normal home (builders → producer
-  // portal). The /admin area is opt-in: reach it by going to /admin directly,
-  // where the guard lets admins in and bounces everyone else back to /producer.
   if (person.is_builder || person.is_producer) return "/producer";
+  if (person.is_admin || person.is_super_admin) return "/admin";
   return "/portal";
 }
 

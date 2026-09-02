@@ -19,6 +19,7 @@ export type GatewayCoverageReport = {
   missing: number;
   coveragePercent: number;
   missingPeople: GatewayCoverageEntry[];
+  entries: GatewayCoverageEntry[];
 };
 
 type HistoricalRoleRow = {
@@ -144,6 +145,7 @@ export function summarizeGatewayCoverage(input: {
     missing: missingPeople.length,
     coveragePercent: entries.length === 0 ? 0 : Math.round((covered / entries.length) * 1000) / 10,
     missingPeople,
+    entries,
   };
 }
 

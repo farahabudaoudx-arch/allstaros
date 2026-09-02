@@ -1,3 +1,4 @@
+import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,12 @@ export default async function PendingPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/signin");
+
+  // A linked person who already has a home must not sit on this holding
+  // screen. Pure admins were bouncing here (no recruit row) and had no way out.
+  const person = await getCurrentPerson();
+  if (person?.is_builder || person?.is_producer) redirect("/producer");
+  if (person?.is_admin || person?.is_super_admin) redirect("/admin");
 
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-24">

@@ -6,7 +6,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import type { MonthlyProducerPreview, ProducerOverview } from "@/lib/scorecards/lifecycle";
 import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +45,25 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("scorecard_snapshot")
     .select("id, card_type, period_kind, period_start, period_end, kpi_results")
     .eq("id", id)
     .in("lifecycle_status", ["final", "corrected"])
     .maybeSingle();
+  // Admins generate cards they cannot see through member visibility (own row /
+  // builder downline only). The rollout "Open published Scorecard" link would
+  // 404 without a privileged read of that one artifact.
+  if (!data && !error && (person.is_admin || person.is_super_admin)) {
+    const privileged = await createServiceRoleClient()
+      .from("scorecard_snapshot")
+      .select("id, card_type, period_kind, period_start, period_end, kpi_results")
+      .eq("id", id)
+      .in("lifecycle_status", ["final", "corrected"])
+      .maybeSingle();
+    data = privileged.data;
+    error = privileged.error;
+  }
   if (error) throw new Error("Unable to load this Scorecard.");
   if (!data) notFound();
   const snapshot = data as Snapshot;

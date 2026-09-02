@@ -134,7 +134,7 @@ export default async function AdminScorecardsPage({
       <Link href="/admin/scorecards/coverage" className="mt-4 inline-block text-sm font-semibold text-accent underline underline-offset-4">Open Gateway Coverage</Link>
 
       {params.error ? <p role="alert" className="mt-6 border-l-2 border-neg pl-4 text-sm text-neg">{params.error}</p> : null}
-      {params.started ? <p role="status" className="mt-6 border-l-2 border-pos pl-4 text-sm text-pos">Run started. Source capture is now pending.</p> : null}
+      {params.started ? <p role="status" className="mt-6 border-l-2 border-pos pl-4 text-sm text-pos">Completed-period Scorecards published. Open each member&apos;s card from Run history or /producer/scorecards.</p> : null}
 
       <section className="mt-10 border border-hairline bg-card p-6" aria-labelledby="manual-scorecard-title">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -156,7 +156,6 @@ export default async function AdminScorecardsPage({
             <Link href={`/producer/scorecards/${params.snapshotId}`} className="mt-2 inline-block font-semibold underline underline-offset-4">
               Open published Scorecard
             </Link>
-            <p className="mt-1 text-xs text-mute">Normal Scorecard visibility rules still apply to the destination.</p>
           </div>
         ) : null}
 
@@ -215,6 +214,9 @@ export default async function AdminScorecardsPage({
       </section>
       <section className="mt-10 border border-hairline bg-card p-6" aria-labelledby="start-run-title">
         <h2 id="start-run-title" className="text-xl font-semibold text-ink">Start a completed-period run</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-subtle">
+          Publishes a Producer and Builder Scorecard for every person who was in role at period end, when Gateway coverage is complete and the roster is 40 cards or fewer. The demo seed uses monthly June 2026 (2026-06-01 through 2026-06-30).
+        </p>
         <form action={startScorecardRun} className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm text-subtle">Period type
             <select name="periodKind" required className="mt-2 w-full rounded-lg border border-hairline bg-background px-3 py-2.5 text-ink">

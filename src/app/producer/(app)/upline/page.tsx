@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import MessageThread from "@/app/portal/_components/message-thread";
 import type { Message, Recruit } from "@/lib/db/types";
@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/producer/PageHeader";
 export default async function ProducerUplineMessagesPage() {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/upline");
-  if (!person.is_producer && !person.is_builder) redirect("/portal");
+  if (!canAccessProducerApp(person)) redirect("/portal");
 
   const supabase = await createClient();
   const { data: recruitRow } = await supabase

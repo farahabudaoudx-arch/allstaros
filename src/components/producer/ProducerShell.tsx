@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { menuChrome } from "@/lib/producer/menu";
 import { AppChrome } from "@/components/producer/AppChrome";
 import { PageTransition } from "@/components/PageTransition";
@@ -23,7 +23,7 @@ export async function ProducerShell({
 }) {
   const person = await getCurrentPerson();
   if (!person) redirect(`/auth/signin?next=${encodeURIComponent(nextPath)}`);
-  if (!person.is_producer && !person.is_builder) redirect("/portal");
+  if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
 
