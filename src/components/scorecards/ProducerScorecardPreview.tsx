@@ -2,6 +2,7 @@ import type {
   MonthlyProducerPreview,
   ProducerOverview,
 } from "@/lib/scorecards/lifecycle";
+import { scaleCumulativeThreshold } from "@/lib/scorecards/period";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
@@ -23,6 +24,28 @@ export function money(cents: number): string {
     maximumFractionDigits: 0,
   }).format(cents / 100);
 }
+
+function moneyBand(cents: number): string {
+  const dollars = cents / 100;
+  if (dollars >= 1_000) {
+    const thousands = dollars / 1_000;
+    const label = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1).replace(/\.0$/, "");
+    return `$${label}k`;
+  }
+  return money(cents);
+}
+
+export type StarBand = {
+  stars: StarRating;
+  label: string;
+};
+
+export type StarBandMetric = {
+  label: string;
+  weight?: string;
+  note?: string;
+  bands: readonly StarBand[];
+};
 
 export function ProducerScorecardPreview({
   preview,
@@ -62,7 +85,7 @@ export function ProducerScorecardPreview({
         ratingSummary={`${starSummary.overall.toFixed(2)} weighted score`}
       />
 
-      <ScorecardHowItWorks />
+      <ScorecardHowItWorks periodKind={periodKind} />
 
       <StorySection number={null} title="Scored Metrics" collapsible sectionId="scorecard-section-scored" exportName="Scored Metrics" exportMetadata={exportMetadata}>
         <div className="space-y-10">
@@ -98,11 +121,162 @@ export function ProducerScorecardPreview({
   );
 }
 
-const PRODUCER_SCORECARD_AREAS = [
-  { label: "Personal IP", weight: "50%", bands: "0★ < $5k · 1★ $5k–<$15k · 2★ $15k–<$20k · 3★ $20k–<$30k · 4★ $30k–<$40k · 5★ $40k+" },
-  { label: "Tracking", weight: "25%", bands: "Mon–Sat logs only · 0★ 0–7 · 1★ 8–11 · 2★ 12–15 · 3★ 16–19 · 4★ 20–23 · 5★ 24+" },
-  { label: "Lead Spend", weight: "25%", bands: "0★ < $2k · 1★ $2k–<$4k · 2★ $4k–<$6k · 3★ $6k–<$8k · 4★ $8k–<$10k · 5★ $10k+" },
-] as const;
+function producerScorecardAreas(periodKind: ScorecardPeriodKind): StarBandMetric[] {
+  const ip = (base: number) => scaleCumulativeThreshold(base, periodKind);
+  const days = (base: number) => scaleCumulativeThreshold(base, periodKind);
+  const spend = (base: number) => scaleCumulativeThreshold(base, periodKind);
+  return [
+    {
+      label: "Personal IP",
+      weight: "50%",
+      bands: [
+        { stars: 0, label: `Under ${moneyBand(ip(500_000))}` },
+        { stars: 1, label: `${moneyBand(ip(500_000))} – under ${moneyBand(ip(1_500_000))}` },
+        { stars: 2, label: `${moneyBand(ip(1_500_000))} – under ${moneyBand(ip(2_000_000))}` },
+        { stars: 3, label: `${moneyBand(ip(2_000_000))} – under ${moneyBand(ip(3_000_000))}` },
+        { stars: 4, label: `${moneyBand(ip(3_000_000))} – under ${moneyBand(ip(4_000_000))}` },
+        { stars: 5, label: `${moneyBand(ip(4_000_000))}+` },
+      ],
+    },
+    {
+      label: "Tracking",
+      weight: "25%",
+      note: "Mon–Sat logged days only · Sundays never count",
+      bands: [
+        { stars: 0, label: `0 – ${days(8) - 1} days` },
+        { stars: 1, label: `${days(8)} – ${days(12) - 1} days` },
+        { stars: 2, label: `${days(12)} – ${days(16) - 1} days` },
+        { stars: 3, label: `${days(16)} – ${days(20) - 1} days` },
+        { stars: 4, label: `${days(20)} – ${days(24) - 1} days` },
+        { stars: 5, label: `${days(24)}+ days` },
+      ],
+    },
+    {
+      label: "Lead Spend",
+      weight: "25%",
+      bands: [
+        { stars: 0, label: `Under ${moneyBand(spend(200_000))}` },
+        { stars: 1, label: `${moneyBand(spend(200_000))} – under ${moneyBand(spend(400_000))}` },
+        { stars: 2, label: `${moneyBand(spend(400_000))} – under ${moneyBand(spend(600_000))}` },
+        { stars: 3, label: `${moneyBand(spend(600_000))} – under ${moneyBand(spend(800_000))}` },
+        { stars: 4, label: `${moneyBand(spend(800_000))} – under ${moneyBand(spend(1_000_000))}` },
+        { stars: 5, label: `${moneyBand(spend(1_000_000))}+` },
+      ],
+    },
+  ];
+}
+
+export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBandMetric[] {
+  const recruits = (base: number) => scaleCumulativeThreshold(base, periodKind);
+  return [
+    {
+      label: "Growth %",
+      weight: "20%",
+      note: "Needs a usable prior-period baseline · zero or negative growth scores 0",
+      bands: [
+        { stars: 0, label: "0% or less" },
+        { stars: 1, label: "Under 5%" },
+        { stars: 2, label: "5% – under 10%" },
+        { stars: 3, label: "10% – under 15%" },
+        { stars: 4, label: "15% – under 25%" },
+        { stars: 5, label: "25%+" },
+      ],
+    },
+    {
+      label: "First Leg %",
+      weight: "20%",
+      note: "Lower is better",
+      bands: [
+        { stars: 0, label: "50%+" },
+        { stars: 1, label: "40% – under 50%" },
+        { stars: 2, label: "30% – under 40%" },
+        { stars: 3, label: "20% – under 30%" },
+        { stars: 4, label: "10% – under 20%" },
+        { stars: 5, label: "Under 10%" },
+      ],
+    },
+    {
+      label: "Active Directs",
+      weight: "20%",
+      bands: [
+        { stars: 0, label: "0" },
+        { stars: 1, label: "1" },
+        { stars: 2, label: "2" },
+        { stars: 3, label: "3 – 4" },
+        { stars: 4, label: "5 – 7" },
+        { stars: 5, label: "8+" },
+      ],
+    },
+    {
+      label: "Avg IP / Active Writer",
+      weight: "20%",
+      note: "Uses the same monthly IP bands as Personal IP",
+      bands: [
+        { stars: 0, label: `Under ${moneyBand(500_000)}` },
+        { stars: 1, label: `${moneyBand(500_000)} – under ${moneyBand(1_500_000)}` },
+        { stars: 2, label: `${moneyBand(1_500_000)} – under ${moneyBand(2_000_000)}` },
+        { stars: 3, label: `${moneyBand(2_000_000)} – under ${moneyBand(3_000_000)}` },
+        { stars: 4, label: `${moneyBand(3_000_000)} – under ${moneyBand(4_000_000)}` },
+        { stars: 5, label: `${moneyBand(4_000_000)}+` },
+      ],
+    },
+    {
+      label: "Recruits Licensed",
+      weight: "20%",
+      bands: [
+        { stars: 0, label: `Under ${recruits(1)}` },
+        { stars: 1, label: `${recruits(1)} – under ${recruits(2)}` },
+        { stars: 2, label: `${recruits(2)} – under ${recruits(3)}` },
+        { stars: 3, label: `${recruits(3)} – under ${recruits(4)}` },
+        { stars: 4, label: `${recruits(4)} – under ${recruits(6)}` },
+        { stars: 5, label: `${recruits(6)}+` },
+      ],
+    },
+  ];
+}
+
+export function StarBandLegend({ metric }: { metric: StarBandMetric }) {
+  return (
+    <li className="rounded-xl border border-hairline bg-card px-5 py-5 text-ink">
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="font-semibold">{metric.label}</span>
+        {metric.weight ? <span className="text-sm font-medium text-accent">{metric.weight}</span> : null}
+      </div>
+      {metric.note ? <p className="mt-2 text-sm leading-6 text-subtle">{metric.note}</p> : null}
+      <ul aria-label={`${metric.label} star bands`} className="mt-4 grid gap-2.5">
+        {metric.bands.map((band) => (
+          <li
+            key={`${metric.label}-${band.stars}`}
+            className="flex items-center gap-3 text-sm leading-none"
+            aria-label={`${band.stars} stars: ${band.label}`}
+          >
+            <StarBandRow stars={band.stars} />
+            <span className="min-w-0 flex-1 text-subtle">{band.label}</span>
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+function StarBandRow({ stars }: { stars: StarRating }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 text-base leading-none" aria-hidden="true">
+      {Array.from({ length: 5 }, (_, index) => {
+        const filled = index < stars;
+        return (
+          <span
+            key={index}
+            data-star={filled ? "filled" : "hollow"}
+            className={filled ? "text-accent" : "text-white/25"}
+          >
+            {filled ? "★" : "☆"}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 function MetricCards({
   items,
@@ -166,7 +340,8 @@ function ProducerUnscoredMetricsGrid({
   );
 }
 
-function ScorecardHowItWorks() {
+function ScorecardHowItWorks({ periodKind }: { periodKind: ScorecardPeriodKind }) {
+  const areas = producerScorecardAreas(periodKind);
   return (
     <section
       id="scorecard-how-it-works"
@@ -197,15 +372,9 @@ function ScorecardHowItWorks() {
             Producer ratings use three fixed period-aware performance bands, not organization rank or percentile.
           </p>
 
-          <ul aria-label="Three Producer scorecard areas" className="mt-7 grid gap-3 lg:grid-cols-3">
-            {PRODUCER_SCORECARD_AREAS.map((area) => (
-              <li key={area.label} className="rounded-xl border border-hairline bg-card px-5 py-5 text-ink">
-                <div className="flex items-baseline justify-between gap-4">
-                  <span className="font-semibold">{area.label}</span>
-                  <span className="text-sm font-medium text-accent">{area.weight}</span>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-subtle">{area.bands}</p>
-              </li>
+          <ul aria-label="Three Producer scorecard areas" className="mt-7 grid gap-4 lg:grid-cols-3">
+            {areas.map((area) => (
+              <StarBandLegend key={area.label} metric={area} />
             ))}
           </ul>
 
@@ -234,17 +403,31 @@ export function StarScale({
   prominent?: boolean;
 }) {
   const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  const integer = Number.isInteger(value);
   return (
     <span
       data-scorecard-stars=""
-      className={`inline-flex items-center gap-1 leading-none ${prominent ? "text-2xl sm:text-3xl" : "text-lg"}`}
+      className={`inline-flex items-center gap-0.5 leading-none ${prominent ? "text-2xl sm:text-3xl" : "text-lg"}`}
       aria-label={`${label}: ${displayValue} out of 5 stars`}
     >
       {Array.from({ length: 5 }, (_, index) => {
+        if (integer) {
+          const filled = index < value;
+          return (
+            <span
+              key={index}
+              data-star={filled ? "filled" : "hollow"}
+              className={filled ? "text-accent" : "text-white/25"}
+              aria-hidden="true"
+            >
+              {filled ? "★" : "☆"}
+            </span>
+          );
+        }
         const fill = Math.max(0, Math.min(1, value - index));
         return (
-          <span key={index} className="relative inline-block text-white/15" aria-hidden="true">
-            ★
+          <span key={index} className="relative inline-block text-white/25" aria-hidden="true">
+            ☆
             <span className="absolute inset-y-0 left-0 overflow-hidden text-accent" style={{ width: `${fill * 100}%` }}>★</span>
           </span>
         );

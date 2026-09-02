@@ -12,8 +12,10 @@ import {
 import {
   money,
   ScorecardHeader,
+  StarBandLegend,
   StarScale,
   StorySection,
+  builderScorecardAreas,
 } from "./ProducerScorecardPreview";
 import { ScorecardBaseballCard } from "./ProducerBaseballCard";
 
@@ -44,14 +46,6 @@ export type BuilderScorecardMetric = Pick<BuilderPeriodMetric,
   previousPerformance: BuilderAgencyValues;
 };
 
-const BUILDER_RATING_METRICS = [
-  "Growth %",
-  "First Leg %",
-  "Active Directs",
-  "Avg IP / Active Writer",
-  "Recruits Licensed",
-] as const;
-
 const BUILDER_SCORED_METRICS: ReadonlyArray<{
   key: Exclude<BuilderPerformanceKey, "recruits" | "teamDials" | "teamContacts" | "teamPresentations" | "teamSales" | "teamAp" | "teamIp"> | "growth" | "recruits";
   label: string;
@@ -77,7 +71,8 @@ const BUILDER_UNSCORED_METRICS: ReadonlyArray<{
   { key: "teamIp", label: "Total Team IP" },
 ];
 
-function BuilderScorecardHowItWorks() {
+function BuilderScorecardHowItWorks({ periodKind }: { periodKind: ScorecardPeriodKind }) {
+  const areas = builderScorecardAreas(periodKind);
   return (
     <section
       id="builder-scorecard-how-it-works"
@@ -108,16 +103,18 @@ function BuilderScorecardHowItWorks() {
             Builder ratings use five fixed performance bands, not organization rank or percentile.
           </p>
 
+          <p className="mt-6 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
+            Each of these five metrics contributes exactly 20% to your overall Builder rating:
+          </p>
+
+          <ul aria-label="Five Builder rating metrics" className="mt-7 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {areas.map((area) => (
+              <StarBandLegend key={area.label} metric={area} />
+            ))}
+          </ul>
+
           <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            <p>Each of these five metrics contributes exactly 20% to your overall Builder rating:</p>
-            <ul aria-label="Five Builder rating metrics" className="mt-6 grid gap-3 sm:grid-cols-2">
-              {BUILDER_RATING_METRICS.map((metric) => (
-                <li key={metric} className="rounded-xl border border-hairline bg-card px-4 py-3 font-medium text-ink">
-                  {metric}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6">Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed.</p>
+            <p>Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed.</p>
             <p className="mt-6">Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.</p>
             <p className="mt-6">Scored metrics affect your rating. Unscored metrics are still useful team context, but they do not change your stars.</p>
             <p className="mt-6">
@@ -243,7 +240,7 @@ export function BuilderScorecardPreview({
         maximumStars={25}
       />
 
-      <BuilderScorecardHowItWorks />
+      <BuilderScorecardHowItWorks periodKind={view.period.kind} />
 
       <StorySection number={null} title="Scored Metrics" collapsible sectionId="builder-scorecard-section-scored" exportName="Scored Metrics" exportMetadata={exportMetadata}>
         <BuilderScoredMetricsGrid metric={view.metric} ratings={ratings} />

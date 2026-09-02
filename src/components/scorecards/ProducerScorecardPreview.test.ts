@@ -146,6 +146,18 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain('class="scorecard-guide__chevron');
     expect(html).toContain('aria-label="Three Producer scorecard areas"');
     expect(html).toContain("Producer ratings use three fixed period-aware performance bands, not organization rank or percentile.");
+    expect(html).toContain('aria-label="Personal IP star bands"');
+    expect(html).toContain('aria-label="Tracking star bands"');
+    expect(html).toContain('aria-label="Lead Spend star bands"');
+    expect(html).toContain('aria-label="0 stars: Under $5k"');
+    expect(html).toContain('aria-label="5 stars: $40k+"');
+    expect(html).toContain('aria-label="0 stars: 0 – 7 days"');
+    expect(html).toContain('aria-label="5 stars: 24+ days"');
+    expect(html).toContain('aria-label="0 stars: Under $2k"');
+    expect(html).toContain('aria-label="5 stars: $10k+"');
+    expect(html).toContain('data-star="hollow"');
+    expect(html).toContain('data-star="filled"');
+    expect(html).not.toContain("0★ &lt; $5k · 1★ $5k–&lt;$15k");
     expect(html).toContain("Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.");
     expect(html).toContain("Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating.");
     expect(html).toContain("Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars.");

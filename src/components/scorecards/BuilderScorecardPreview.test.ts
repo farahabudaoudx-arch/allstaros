@@ -67,6 +67,17 @@ describe("Builder Scorecard preview", () => {
     expect(html).not.toContain("based on two areas the OS helps you track:");
     expect(html).not.toContain('aria-label="Two Builder scorecard areas"');
     expect(html).toContain("Builder ratings use five fixed performance bands, not organization rank or percentile.");
+    expect(html).toContain('aria-label="Five Builder rating metrics"');
+    expect(html).toContain('aria-label="Growth % star bands"');
+    expect(html).toContain('aria-label="First Leg % star bands"');
+    expect(html).toContain('aria-label="Active Directs star bands"');
+    expect(html).toContain('aria-label="Avg IP / Active Writer star bands"');
+    expect(html).toContain('aria-label="Recruits Licensed star bands"');
+    expect(html).toContain('aria-label="5 stars: 8+"');
+    expect(html).toContain('aria-label="5 stars: Under 10%"');
+    expect(html).toContain('aria-label="0 stars: 50%+"');
+    expect(html).toContain('data-star="hollow"');
+    expect(html).toContain('data-star="filled"');
     expect(html).toContain("Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP\/Active Writer + 20% Recruits Licensed.");
     expect(html).toContain("Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.");
     expect(html).toContain("Scored metrics affect your rating. Unscored metrics are still useful team context, but they do not change your stars.");
