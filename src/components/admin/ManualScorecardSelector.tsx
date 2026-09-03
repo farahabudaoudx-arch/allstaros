@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ScorecardPeriod } from "@/lib/scorecards/period";
 
 export type ManualScorecardPersonOption = {
   id: string;
@@ -8,13 +9,25 @@ export type ManualScorecardPersonOption = {
   email: string;
 };
 
+function periodKey(period: Pick<ScorecardPeriod, "kind" | "start">) {
+  return `${period.kind}:${period.start}`;
+}
+
+function periodKindLabel(kind: ScorecardPeriod["kind"]) {
+  if (kind === "monthly") return "Months";
+  if (kind === "quarterly") return "Quarters";
+  return "Years";
+}
+
 export function ManualScorecardSelector({
   people,
+  periods,
   initialPersonId = "",
   initialPeriodKind = "monthly",
   initialPeriodStart = "",
 }: {
   people: ManualScorecardPersonOption[];
+  periods: ScorecardPeriod[];
   initialPersonId?: string;
   initialPeriodKind?: "monthly" | "quarterly" | "annual";
   initialPeriodStart?: string;
@@ -22,6 +35,11 @@ export function ManualScorecardSelector({
   const selected = people.find((person) => person.id === initialPersonId);
   const [query, setQuery] = useState(selected ? `${selected.fullName} ${selected.email}` : "");
   const [personId, setPersonId] = useState(initialPersonId);
+  const initialPeriodKey = periods.some((period) => period.kind === initialPeriodKind && period.start === initialPeriodStart)
+    ? `${initialPeriodKind}:${initialPeriodStart}`
+    : periodKey(periods.find((period) => period.kind === initialPeriodKind) ?? periods[0]);
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState(initialPeriodKey);
+  const selectedPeriod = periods.find((period) => periodKey(period) === selectedPeriodKey) ?? periods[0];
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matches = !needle
@@ -66,37 +84,34 @@ export function ManualScorecardSelector({
           ))}
         </select>
       </label>
-      <label className="text-sm text-subtle">
-        Period type
+      <label className="text-sm text-subtle md:col-span-2">
+        Closed period
         <select
-          name="manualPeriodKind"
           required
-          defaultValue={initialPeriodKind}
+          value={selectedPeriodKey}
+          onChange={(event) => setSelectedPeriodKey(event.target.value)}
           className="mt-2 w-full rounded-lg border border-hairline bg-background px-3 py-2.5 text-ink"
         >
-          <option value="monthly">Monthly</option>
-          <option value="quarterly">Quarterly</option>
-          <option value="annual">Annual</option>
+          {(["monthly", "quarterly", "annual"] as const).map((kind) => (
+            <optgroup key={kind} label={periodKindLabel(kind)}>
+              {periods.filter((period) => period.kind === kind).map((period) => (
+                <option key={periodKey(period)} value={periodKey(period)}>{period.label}</option>
+              ))}
+            </optgroup>
+          ))}
         </select>
       </label>
-      <label className="text-sm text-subtle">
-        Period start
-        <input
-          name="manualPeriodStart"
-          type="date"
-          required
-          defaultValue={initialPeriodStart}
-          className="mt-2 w-full rounded-lg border border-hairline bg-background px-3 py-2.5 text-ink"
-        />
-      </label>
+      <input type="hidden" name="manualPeriodKind" value={selectedPeriod?.kind ?? ""} />
+      <input type="hidden" name="manualPeriodStart" value={selectedPeriod?.start ?? ""} />
       <p className="self-end text-sm leading-6 text-mute md:col-span-2">
-        Check the historical period-end role before Generate becomes available. Calendar boundaries are derived server-side.
+        Choose a named, fully closed Month, Quarter, or Year. Calendar boundaries are derived server-side.
       </p>
       <button
         type="submit"
-        className="rounded-lg border border-accent px-5 py-3 text-sm font-semibold text-accent transition-colors hover:bg-accent/10 md:col-span-2 lg:col-span-1"
+        disabled={!selectedPeriod}
+        className="rounded-lg border border-accent px-5 py-3 text-sm font-semibold text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2 lg:col-span-1"
       >
-        Check applicability
+        Check recovery eligibility
       </button>
     </form>
   );

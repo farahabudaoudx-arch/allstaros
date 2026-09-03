@@ -5,13 +5,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createProducerPeriodPreview, createScorecardScheduleFacts } from "./lifecycle";
 import { previousEquivalentPeriod, scorecardPeriodFromStart, type ScorecardPeriod } from "./period";
-import { builderPublishedMetric } from "./published-snapshot";
+import { builderPublishedMetric, parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
 import {
   createScorecardArtifacts,
   prepareScorecardRun,
+  type BuilderPeriodMetric,
   type BuilderProductionSupport,
+  type BuilderRankPopulationEntry,
   type GatewayReport,
   type ProducerPeriodMetricPayload,
+  type ScorecardArtifact,
   type ScorecardRunInput,
   type ScorecardRunPerson,
   type ScorecardRunTarget,
@@ -44,13 +47,16 @@ export type ManualTargetContext = {
 
 export type ManualScorecardResult =
   | { status: "success" | "existing"; snapshotId: string; runId: string | null; deliveryId: string | null }
-  | { status: "unauthorized" | "person_not_found" | "card_not_applicable" | "invalid_period" | "generation_failure"; message: string };
+  | { status: "unauthorized" | "person_not_found" | "card_not_applicable" | "invalid_period" | "generation_failure" | "snapshot_not_found" | "stale_revision" | "invalid_correction" | "no_changes"; message: string };
 
 type ManualGenerationRequest = {
   initiatedBy: string;
   personId: string;
   cardType: ManualScorecardCardType;
   period: ScorecardPeriod;
+  revision?: number;
+  priorSnapshot?: ScorecardArtifact;
+  correctionReason?: string;
 };
 
 type GatewayImportRow = {
@@ -85,6 +91,19 @@ type BuilderSupportRow = {
   prior_ap_cents: number | string;
 };
 
+type BuilderRankSnapshotRow = {
+  id: string;
+  person_id: string;
+  revision: number | string;
+  finalized_at: string;
+  kpi_results: unknown;
+};
+
+type BuilderRankPopulationContext = {
+  entries: BuilderRankPopulationEntry[];
+  snapshotIds: string[];
+};
+
 type PublishManualRow = {
   snapshot_id: string;
   run_id: string | null;
@@ -95,6 +114,106 @@ type PublishManualRow = {
 function numeric(value: number | string | null | undefined): number {
   const result = Number(value ?? 0);
   return Number.isFinite(result) ? result : 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function rankShape(value: unknown): value is { rank: number; population: number } {
+  return isRecord(value) &&
+    typeof value.rank === "number" && Number.isInteger(value.rank) && value.rank > 0 &&
+    typeof value.population === "number" && Number.isInteger(value.population) && value.population > 0 &&
+    value.rank <= value.population;
+}
+
+function builderRankSnapshotFact(row: BuilderRankSnapshotRow): {
+  entry: BuilderRankPopulationEntry;
+  teamPopulation: number | null;
+  recruitingPopulation: number;
+  snapshotId: string;
+} | null {
+  if (!isRecord(row.kpi_results) || row.kpi_results.schemaVersion !== "scorecard-published-v1" || row.kpi_results.cardType !== "builder") return null;
+  const metric = row.kpi_results.metricPayload;
+  if (!isRecord(metric)) return null;
+  const teamIpCents = metric.teamIpCents;
+  const recruitsAdded = metric.recruitsAdded;
+  const teamRank = metric.teamRank;
+  const recruitingRank = metric.recruitingRank;
+  const unavailableReason = metric.teamRankUnavailableReason;
+  if (typeof teamIpCents !== "number" || !Number.isFinite(teamIpCents) || teamIpCents < 0) return null;
+  if (typeof recruitsAdded !== "number" || !Number.isInteger(recruitsAdded) || recruitsAdded < 0) return null;
+  if (!rankShape(recruitingRank)) return null;
+  const representedInGateway = teamRank != null;
+  if (representedInGateway) {
+    if (!rankShape(teamRank) || unavailableReason != null) return null;
+  } else if (unavailableReason !== "not_represented_in_gateway") {
+    return null;
+  }
+  return {
+    entry: { personId: row.person_id, teamIpCents, representedInGateway, recruitsAdded },
+    teamPopulation: representedInGateway ? (teamRank as { rank: number; population: number }).population : null,
+    recruitingPopulation: recruitingRank.population,
+    snapshotId: row.id,
+  };
+}
+
+async function loadBuilderRankPopulationContext(
+  service: SupabaseClient,
+  period: ScorecardPeriod,
+  targetPersonId: string,
+  targetMetric: BuilderPeriodMetric,
+): Promise<BuilderRankPopulationContext | null> {
+  const { data, error } = await service
+    .from("scorecard_snapshot")
+    .select("id, person_id, revision, finalized_at, kpi_results")
+    .eq("card_type", "builder")
+    .eq("period_kind", period.kind)
+    .eq("period_start", period.start)
+    .eq("period_end", period.end)
+    .in("lifecycle_status", ["final", "corrected"])
+    .not("finalized_at", "is", null)
+    .order("revision", { ascending: false })
+    .order("finalized_at", { ascending: false });
+  if (error) throw new Error(`Unable to load Builder rank context: ${error.message}`);
+
+  const rows = ((data ?? []) as BuilderRankSnapshotRow[])
+    .sort((left, right) => {
+      const revisionOrder = numeric(right.revision) - numeric(left.revision);
+      return revisionOrder !== 0 ? revisionOrder : right.finalized_at.localeCompare(left.finalized_at);
+    });
+  const latestByPerson = new Map<string, BuilderRankSnapshotRow>();
+  for (const row of rows) {
+    if (!latestByPerson.has(row.person_id)) latestByPerson.set(row.person_id, row);
+  }
+  const facts = [...latestByPerson.values()].map(builderRankSnapshotFact);
+  if (facts.length === 0 || facts.some((fact) => fact == null)) return null;
+  const validFacts = facts.filter((fact): fact is NonNullable<typeof fact> => fact != null);
+  const expectedPopulations = new Set(validFacts.map((fact) => fact.recruitingPopulation));
+  if (expectedPopulations.size !== 1) return null;
+  const expectedPopulation = validFacts[0].recruitingPopulation;
+  const representedTeamPopulations = new Set(validFacts.flatMap((fact) =>
+    fact.teamPopulation == null ? [] : [fact.teamPopulation]));
+  if (representedTeamPopulations.size > 1) return null;
+
+  const entries = validFacts
+    .filter((fact) => fact.entry.personId !== targetPersonId)
+    .map((fact) => fact.entry);
+  entries.push({
+    personId: targetPersonId,
+    teamIpCents: targetMetric.teamIpCents,
+    representedInGateway: targetMetric.teamRankUnavailableReason == null,
+    recruitsAdded: targetMetric.recruitsAdded,
+  });
+  if (entries.length !== expectedPopulation || new Set(entries.map((entry) => entry.personId)).size !== entries.length) return null;
+  const expectedTeamPopulation = [...representedTeamPopulations][0];
+  const representedEntryCount = entries.filter((entry) => entry.representedInGateway).length;
+  if (expectedTeamPopulation != null && representedEntryCount !== expectedTeamPopulation) return null;
+
+  return {
+    entries,
+    snapshotIds: validFacts.map((fact) => fact.snapshotId),
+  };
 }
 
 function sixWeekStart(periodEnd: string): string {
@@ -331,6 +450,30 @@ export async function generateManualScorecardWithClient(
     return { status: "invalid_period", message: "Choose a valid calendar Scorecard period." };
   }
 
+  const revision = request.revision ?? 1;
+  const correctionReason = request.correctionReason?.trim() ?? "";
+  if (!Number.isInteger(revision) || revision < 1) {
+    return { status: "invalid_correction", message: "Scorecard revisions must be positive whole numbers." };
+  }
+  if (revision > 1) {
+    const priorSnapshot = request.priorSnapshot;
+    if (!priorSnapshot || priorSnapshot.revision !== revision - 1) {
+      return { status: "invalid_correction", message: "A correction must continue from the immediately prior published revision." };
+    }
+    if (
+      priorSnapshot.personId !== request.personId ||
+      priorSnapshot.cardType !== request.cardType ||
+      priorSnapshot.period.kind !== request.period.kind ||
+      priorSnapshot.period.start !== request.period.start ||
+      priorSnapshot.period.end !== request.period.end
+    ) {
+      return { status: "invalid_correction", message: "Correction lineage does not match the selected Scorecard." };
+    }
+    if (correctionReason.length < 5 || correctionReason.length > 500) {
+      return { status: "invalid_correction", message: "Correction reason must be between 5 and 500 characters." };
+    }
+  }
+
   const [{ data: admin, error: adminError }, { data: person, error: personError }] = await Promise.all([
     service.from("person").select("id, is_admin, is_super_admin").eq("id", request.initiatedBy).maybeSingle(),
     service.from("person").select("id").eq("id", request.personId).maybeSingle(),
@@ -406,7 +549,7 @@ export async function generateManualScorecardWithClient(
 
     const runInput: ScorecardRunInput = {
       runId: randomUUID(),
-      revision: 1,
+      revision,
       period: request.period,
       priorPeriod: prior,
       generatedAt: generatedAt.toISOString(),
@@ -422,13 +565,39 @@ export async function generateManualScorecardWithClient(
       builderProductionSupport,
     };
 
-    const prepared = prepareScorecardRun(runInput);
+    let prepared = prepareScorecardRun(runInput);
     if (prepared.status !== "ready") {
       return { status: "generation_failure", message: "Scorecard source validation did not pass for the selected person and period." };
     }
-    const artifacts = createScorecardArtifacts({ prepared, input: runInput });
+    let builderRankContext: BuilderRankPopulationContext | null = null;
+    if (request.cardType === "builder") {
+      const targetMetric = prepared.builderMetrics[0];
+      if (!targetMetric) {
+        return { status: "generation_failure", message: "Targeted Builder generation did not produce a validated metric row." };
+      }
+      builderRankContext = await loadBuilderRankPopulationContext(service, request.period, request.personId, targetMetric);
+      if (!builderRankContext) {
+        if (revision > 1) {
+          return { status: "generation_failure", message: "The complete frozen Builder rank population could not be established for this period." };
+        }
+      } else {
+        runInput.builderRankPopulation = builderRankContext.entries;
+        prepared = prepareScorecardRun(runInput);
+        if (prepared.status !== "ready") {
+          return { status: "generation_failure", message: "Builder rank-context verification did not pass for the selected person and period." };
+        }
+      }
+    }
+    const artifacts = createScorecardArtifacts({
+      prepared,
+      input: runInput,
+      priorSnapshots: request.priorSnapshot ? [request.priorSnapshot] : [],
+    });
+    if (revision > 1 && artifacts.snapshots.length === 0) {
+      return { status: "no_changes", message: "No published Scorecard values changed, so no correction revision was created." };
+    }
     if (artifacts.snapshots.length !== 1) {
-      return { status: "generation_failure", message: "Manual Scorecard generation did not produce exactly one card." };
+      return { status: "generation_failure", message: "Targeted Scorecard generation did not produce exactly one card." };
     }
 
     const snapshot = artifacts.snapshots[0];
@@ -449,6 +618,7 @@ export async function generateManualScorecardWithClient(
           completeThrough: prepared.producerMetrics[0].payload.preview.sourceCoverage.completeThrough,
           reportIds: reports.map((report) => report.id),
           sourceChecksums: reports.map((report) => report.sourceChecksum),
+          ...(request.priorSnapshot ? { priorSnapshotId: request.priorSnapshot.id } : {}),
         }
       : {
           generationScope: "manual_person",
@@ -456,33 +626,60 @@ export async function generateManualScorecardWithClient(
           reportIds: prepared.builderMetrics[0].sourceReportIds,
           sourceChecksums: prepared.builderMetrics[0].sourceChecksums,
           activeWriterReportDates,
+          rankContextSource: "published_builder_peers",
+          rankContextSnapshotIds: builderRankContext?.snapshotIds ?? [],
+          rankPopulation: prepared.builderMetrics[0].recruitingRank.population,
+          ...(request.priorSnapshot ? { priorSnapshotId: request.priorSnapshot.id } : {}),
         };
     const scheduleFacts = request.cardType === "producer"
       ? producerScheduleFacts(prepared.producerMetrics[0].payload)
       : [];
 
-    const { data: publishData, error: publishError } = await service.rpc("publish_manual_scorecard", {
-      p_initiated_by: request.initiatedBy,
-      p_person_id: request.personId,
-      p_card_type: request.cardType,
-      p_period_kind: request.period.kind,
-      p_period_start: request.period.start,
-      p_period_end: request.period.end,
-      p_period_label: request.period.label,
-      p_revision: 1,
-      p_metric_payload: metricPayload,
-      p_published_payload: snapshot.visiblePayload,
-      p_source_coverage: sourceCoverage,
-      p_schedule_facts: scheduleFacts,
-    });
+    const publication = revision === 1
+      ? await service.rpc("publish_manual_scorecard", {
+          p_initiated_by: request.initiatedBy,
+          p_person_id: request.personId,
+          p_card_type: request.cardType,
+          p_period_kind: request.period.kind,
+          p_period_start: request.period.start,
+          p_period_end: request.period.end,
+          p_period_label: request.period.label,
+          p_revision: 1,
+          p_metric_payload: metricPayload,
+          p_published_payload: snapshot.visiblePayload,
+          p_source_coverage: sourceCoverage,
+          p_schedule_facts: scheduleFacts,
+        })
+      : await service.rpc("publish_manual_scorecard_correction", {
+          p_initiated_by: request.initiatedBy,
+          p_prior_snapshot_id: request.priorSnapshot!.id,
+          p_correction_reason: correctionReason,
+          p_metric_payload: metricPayload,
+          p_published_payload: snapshot.visiblePayload,
+          p_source_coverage: sourceCoverage,
+          p_schedule_facts: scheduleFacts,
+        });
+    const { data: publishData, error: publishError } = publication;
     if (publishError) {
-      console.error("publish_manual_scorecard failed", {
+      console.error("Scorecard publication RPC failed", {
+        operation: revision === 1 ? "publish_manual_scorecard" : "publish_manual_scorecard_correction",
         message: publishError.message,
         code: publishError.code,
         details: publishError.details,
         hint: publishError.hint,
       });
-      return { status: "generation_failure", message: "The Scorecard could not be published. No partial manual publication was kept." };
+      if (revision > 1 && publishError.message.includes("A newer Scorecard revision already exists")) {
+        return { status: "stale_revision", message: "A newer revision already exists. Correct the latest published Scorecard instead." };
+      }
+      if (revision > 1 && publishError.message.includes("Correction did not change published Scorecard values")) {
+        return { status: "no_changes", message: "No published Scorecard values changed, so no correction revision was created." };
+      }
+      return {
+        status: "generation_failure",
+        message: revision === 1
+          ? "The Scorecard could not be published. No partial manual publication was kept."
+          : "The corrected Scorecard could not be published. No partial correction was kept.",
+      };
     }
     const published = ((publishData ?? []) as PublishManualRow[])[0];
     if (!published?.snapshot_id) {
@@ -497,6 +694,107 @@ export async function generateManualScorecardWithClient(
   } catch {
     return { status: "generation_failure", message: "The Scorecard could not be generated from the selected historical sources." };
   }
+}
+
+export async function generateScorecardCorrectionWithClient(
+  service: SupabaseClient,
+  request: { initiatedBy: string; snapshotId: string; correctionReason: string },
+): Promise<ManualScorecardResult> {
+  const correctionReason = request.correctionReason.trim();
+  if (correctionReason.length < 5 || correctionReason.length > 500) {
+    return { status: "invalid_correction", message: "Correction reason must be between 5 and 500 characters." };
+  }
+
+  const { data: admin, error: adminError } = await service
+    .from("person")
+    .select("id, is_admin, is_super_admin")
+    .eq("id", request.initiatedBy)
+    .maybeSingle();
+  if (adminError || !admin || (!admin.is_admin && !admin.is_super_admin)) {
+    return { status: "unauthorized", message: "You are not authorized to correct Scorecards." };
+  }
+
+  const { data: selected, error: selectedError } = await service
+    .from("scorecard_snapshot")
+    .select("id, person_id, card_type, period_kind, period_start, period_end, lifecycle_status, revision, prior_revision_id, finalized_at, metric_run_id, kpi_results")
+    .eq("id", request.snapshotId)
+    .maybeSingle();
+  if (selectedError || !selected) {
+    return { status: "snapshot_not_found", message: "The published Scorecard selected for correction could not be found." };
+  }
+  if (
+    (selected.card_type !== "producer" && selected.card_type !== "builder") ||
+    !["monthly", "quarterly", "annual"].includes(String(selected.period_kind)) ||
+    (selected.lifecycle_status !== "final" && selected.lifecycle_status !== "corrected") ||
+    !selected.finalized_at ||
+    !selected.metric_run_id ||
+    !Number.isInteger(Number(selected.revision)) ||
+    Number(selected.revision) < 1
+  ) {
+    return { status: "invalid_correction", message: "Only a finalized Scorecard backed by a validated run can be corrected." };
+  }
+
+  let period: ScorecardPeriod;
+  try {
+    period = scorecardPeriodFromStart(selected.period_kind as ScorecardPeriod["kind"], String(selected.period_start));
+    if (period.end !== String(selected.period_end)) throw new Error("mismatched period end");
+  } catch {
+    return { status: "invalid_period", message: "The published Scorecard does not have a canonical calendar period." };
+  }
+
+  const publishedPayload = parsePublishedScorecardSnapshotPayload(selected.kpi_results);
+  if (!publishedPayload || publishedPayload.cardType !== selected.card_type) {
+    return { status: "generation_failure", message: "The selected published Scorecard payload could not be verified." };
+  }
+
+  const { data: latest, error: latestError } = await service
+    .from("scorecard_snapshot")
+    .select("id, revision")
+    .eq("person_id", selected.person_id)
+    .eq("card_type", selected.card_type)
+    .eq("period_kind", selected.period_kind)
+    .eq("period_start", selected.period_start)
+    .eq("period_end", selected.period_end)
+    .in("lifecycle_status", ["final", "corrected"])
+    .not("finalized_at", "is", null)
+    .order("revision", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestError || !latest) {
+    return { status: "generation_failure", message: "Unable to confirm the latest published Scorecard revision." };
+  }
+  if (String(latest.id) !== String(selected.id)) {
+    return { status: "stale_revision", message: "A newer revision already exists. Correct the latest published Scorecard instead." };
+  }
+
+  const priorSnapshot: ScorecardArtifact = {
+    id: String(selected.id),
+    runId: String(selected.metric_run_id),
+    revision: Number(selected.revision),
+    personId: String(selected.person_id),
+    cardType: selected.card_type,
+    lifecycleStatus: selected.lifecycle_status,
+    period,
+    title: `${period.label} ${selected.card_type === "producer" ? "Producer" : "Builder"} Scorecard`,
+    visiblePayload: selected.kpi_results as Record<string, unknown>,
+    priorSnapshotId: selected.prior_revision_id ? String(selected.prior_revision_id) : null,
+  };
+
+  return generateManualScorecardWithClient(service, {
+    initiatedBy: request.initiatedBy,
+    personId: priorSnapshot.personId,
+    cardType: priorSnapshot.cardType,
+    period,
+    revision: priorSnapshot.revision + 1,
+    priorSnapshot,
+    correctionReason,
+  });
+}
+
+export async function generateScorecardCorrection(
+  request: { initiatedBy: string; snapshotId: string; correctionReason: string },
+): Promise<ManualScorecardResult> {
+  return generateScorecardCorrectionWithClient(createServiceRoleClient(), request);
 }
 
 export async function generateManualScorecard(

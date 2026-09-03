@@ -224,6 +224,15 @@ export function verifyPreparedScorecardRun(
     team.delete(builder.id);
     recruitTotals.set(builder.id, [...licensedRecruitIds].filter((personId) => team.has(personId)).length);
   }
+  const rankPopulation = input.target?.cardType === "builder" && input.builderRankPopulation
+    ? input.builderRankPopulation
+    : builders.map((builder) => ({
+        personId: builder.id,
+        teamIpCents: totals.get(builder.id) ?? 0,
+        representedInGateway: represented.has(builder.id),
+        recruitsAdded: recruitTotals.get(builder.id) ?? 0,
+      }));
+  const representedRankPopulation = rankPopulation.filter((entry) => entry.representedInGateway);
 
   for (const builder of builders) {
     const actual = prepared.builderMetrics.find((metric) => metric.personId === builder.id);
@@ -257,10 +266,34 @@ export function verifyPreparedScorecardRun(
     const activeWriters = activeDirectIds.size;
     const monthCount: 1 | 3 | 12 = input.period.kind === "annual" ? 12 : input.period.kind === "quarterly" ? 3 : 1;
     const prior = input.priorBuilderTeamIpCents[builder.id] ?? null;
+    const recruitsAdded = recruitTotals.get(builder.id)!;
+    const rankFact = rankPopulation.find((entry) => entry.personId === builder.id);
+    if (input.builderRankPopulation && (
+      !rankFact ||
+      rankFact.teamIpCents !== total ||
+      rankFact.representedInGateway !== represented.has(builder.id) ||
+      rankFact.recruitsAdded !== recruitsAdded
+    )) {
+      problems.push({
+        cardType: "builder",
+        personId: builder.id,
+        field: "builderRankPopulation",
+        expected: {
+          personId: builder.id,
+          teamIpCents: total,
+          representedInGateway: represented.has(builder.id),
+          recruitsAdded,
+        },
+        actual: rankFact ?? null,
+      });
+    }
     const expected = {
       teamIpCents: total,
       teamRank: represented.has(builder.id)
-        ? { rank: 1 + [...totals].filter(([id, value]) => represented.has(id) && value > total).length, population: represented.size }
+        ? {
+            rank: 1 + representedRankPopulation.filter((entry) => entry.teamIpCents > total).length,
+            population: representedRankPopulation.length,
+          }
         : null,
       teamRankUnavailableReason: represented.has(builder.id) ? null : "not_represented_in_gateway",
       activeWriters,
@@ -273,10 +306,10 @@ export function verifyPreparedScorecardRun(
         currentTeamIpCents: total,
         percentage: expectedGrowth(total, prior),
       },
-      recruitsAdded: recruitTotals.get(builder.id)!,
+      recruitsAdded,
       recruitingRank: {
-        rank: 1 + [...recruitTotals.values()].filter((value) => value > recruitTotals.get(builder.id)!).length,
-        population: builders.length,
+        rank: 1 + rankPopulation.filter((entry) => entry.recruitsAdded > recruitsAdded).length,
+        population: rankPopulation.length,
       },
       trend: trendFor(input, reportRows),
     };

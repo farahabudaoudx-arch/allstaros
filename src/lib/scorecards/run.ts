@@ -63,6 +63,14 @@ export type BuilderProductionSupport = {
   current: { dials: number; contacts: number; presentations: number; sales: number; apCents: number };
   prior: { dials: number; contacts: number; presentations: number; sales: number; apCents: number };
 };
+
+export type BuilderRankPopulationEntry = {
+  personId: string;
+  teamIpCents: number;
+  representedInGateway: boolean;
+  recruitsAdded: number;
+};
+
 export type ScorecardRunInput = {
   runId: string;
   revision: number;
@@ -89,6 +97,8 @@ export type ScorecardRunInput = {
   target?: ScorecardRunTarget;
   /** Bounded Producer activity/AP facts used for a targeted Builder without generating Producer artifacts for its subtree. */
   builderProductionSupport?: BuilderProductionSupport[];
+  /** Frozen same-period Builder peer values used only to preserve organization-wide ranks during one-card recovery/correction. */
+  builderRankPopulation?: BuilderRankPopulationEntry[];
 };
 
 export type ProducerPeriodMetricPayload = {
@@ -151,7 +161,8 @@ export type ScorecardRunProblem = {
     | "missing_producer_metric"
     | "duplicate_producer_metric"
     | "extra_producer_metric"
-    | "invalid_target";
+    | "invalid_target"
+    | "invalid_builder_rank_context";
   message: string;
   reportDate?: string;
   personId?: string;
@@ -511,7 +522,32 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
         message: `The requested ${input.target.cardType} Scorecard is not applicable to ${input.target.personId} at period end.`,
       }]
     : [];
-  const problems = [...targetProblems, ...validateSources(input, eligibleProducerIds, eligibleBuilderIds)];
+  const rankPopulation = input.target?.cardType === "builder" ? input.builderRankPopulation : undefined;
+  const rankContextProblems: ScorecardRunProblem[] = [];
+  if (rankPopulation) {
+    const seen = new Set<string>();
+    for (const entry of rankPopulation) {
+      const invalid = !entry.personId || seen.has(entry.personId) ||
+        !Number.isFinite(entry.teamIpCents) || entry.teamIpCents < 0 ||
+        !Number.isInteger(entry.recruitsAdded) || entry.recruitsAdded < 0;
+      if (invalid) {
+        rankContextProblems.push({
+          code: "invalid_builder_rank_context",
+          personId: entry.personId || input.target?.personId,
+          message: "Builder rank context must contain unique people with non-negative canonical Team IP and recruiting values.",
+        });
+      }
+      seen.add(entry.personId);
+    }
+    if (!input.target || !seen.has(input.target.personId)) {
+      rankContextProblems.push({
+        code: "invalid_builder_rank_context",
+        personId: input.target?.personId,
+        message: "Builder rank context must include the targeted Builder.",
+      });
+    }
+  }
+  const problems = [...targetProblems, ...rankContextProblems, ...validateSources(input, eligibleProducerIds, eligibleBuilderIds)];
 
   if (problems.length > 0) {
     return {
@@ -557,12 +593,16 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
     ]),
   );
   const teamRanks = competitionRanks(
-    eligibleBuilders.flatMap((builder) => {
-      const rows = periodRowsByBuilder.get(builder.id) ?? [];
-      return rows.length > 0
-        ? [{ personId: builder.id, value: rows.reduce((sum, row) => sum + row.teamIpCents, 0) }]
-        : [];
-    }),
+    rankPopulation
+      ? rankPopulation
+          .filter((entry) => entry.representedInGateway)
+          .map((entry) => ({ personId: entry.personId, value: entry.teamIpCents }))
+      : eligibleBuilders.flatMap((builder) => {
+          const rows = periodRowsByBuilder.get(builder.id) ?? [];
+          return rows.length > 0
+            ? [{ personId: builder.id, value: rows.reduce((sum, row) => sum + row.teamIpCents, 0) }]
+            : [];
+        }),
   );
   const licensedRecruitIds = licensedRecruitPersonIds(
     input.recruits.map((recruit) => ({
@@ -581,7 +621,11 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
       value: [...licensedRecruitIds].filter((personId) => team.has(personId)).length,
     };
   });
-  const recruitingRanks = competitionRanks(recruitCounts);
+  const recruitingRanks = competitionRanks(
+    rankPopulation
+      ? rankPopulation.map((entry) => ({ personId: entry.personId, value: entry.recruitsAdded }))
+      : recruitCounts,
+  );
   const months = periodFactor(input.period.kind);
   const activePersonIds = input.people.filter((person) => person.activeAtPeriodEnd).map((person) => person.id);
   const agencyWriterIds = new Set(
@@ -828,12 +872,13 @@ export type ScorecardDeliveryIntent = {
   idempotencyKey: string;
 };
 
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+function canonicalCorrectionMetric(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalCorrectionMetric).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value)
+      .filter(([key]) => key !== "generatedAt")
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`)
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalCorrectionMetric(entry)}`)
       .join(",")}}`;
   }
   return JSON.stringify(value);
@@ -909,7 +954,7 @@ export function createScorecardArtifacts({
       const priorMetricPayload = priorPublished
         ? priorPublished.metricPayload as unknown as Record<string, unknown>
         : prior.visiblePayload;
-      if (canonical(priorMetricPayload) === canonical(candidate.metricPayload)) return [];
+      if (canonicalCorrectionMetric(priorMetricPayload) === canonicalCorrectionMetric(candidate.metricPayload)) return [];
     }
 
     const id = `${input.runId}:${candidate.cardType}:${candidate.personId}`;

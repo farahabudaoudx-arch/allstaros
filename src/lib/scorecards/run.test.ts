@@ -896,6 +896,41 @@ describe("Scorecard run", () => {
     );
   });
 
+  it("ignores regenerated producer timestamps when deciding whether a correction changed business values", () => {
+    const originalInput = completeRun();
+    const original = createScorecardArtifacts({
+      input: originalInput,
+      prepared: prepareScorecardRun(originalInput),
+    });
+    const correctedInput = completeRun();
+    correctedInput.runId = "run-timestamp-only";
+    correctedInput.revision = 2;
+    correctedInput.generatedAt = "2026-09-03T16:00:00.000Z";
+    correctedInput.producerMetrics = correctedInput.producerMetrics.map((metric) => ({
+      ...metric,
+      payload: {
+        ...metric.payload,
+        preview: { ...metric.payload.preview, generatedAt: correctedInput.generatedAt },
+      },
+    }));
+    correctedInput.producerVerificationMetrics = correctedInput.producerVerificationMetrics.map((metric) => ({
+      ...metric,
+      payload: {
+        ...metric.payload,
+        preview: { ...metric.payload.preview, generatedAt: correctedInput.generatedAt },
+      },
+    }));
+
+    const correction = createScorecardArtifacts({
+      input: correctedInput,
+      prepared: prepareScorecardRun(correctedInput),
+      priorSnapshots: original.snapshots,
+    });
+
+    expect(correction.snapshots).toEqual([]);
+    expect(correction.deliveries).toEqual([]);
+  });
+
   it("creates correction artifacts only for card rows whose visible payload changed", () => {
     const originalInput = completeRun();
     const original = createScorecardArtifacts({

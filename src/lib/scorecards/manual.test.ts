@@ -74,7 +74,7 @@ vi.mock("./source", () => {
   };
 });
 
-import { generateManualScorecardWithClient } from "./manual";
+import { generateManualScorecardWithClient, generateScorecardCorrectionWithClient } from "./manual";
 import { parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
 
 type ImportRow = {
@@ -85,6 +85,32 @@ type ImportRow = {
   ambiguous_count: number;
 };
 
+type SnapshotRow = {
+  id: string;
+  person_id: string;
+  card_type: "producer" | "builder";
+  period_kind: "monthly" | "quarterly" | "annual";
+  period_start: string;
+  period_end: string;
+  lifecycle_status: "final" | "corrected";
+  revision: number;
+  prior_revision_id: string | null;
+  finalized_at: string;
+  metric_run_id: string;
+  kpi_results: unknown;
+  correction_reason: string | null;
+};
+
+function correctionComparable(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(correctionComparable);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => key !== "generatedAt")
+      .map(([key, entry]) => [key, correctionComparable(entry)]));
+  }
+  return value;
+}
+
 type FakeState = {
   adminAllowed: boolean;
   people: Set<string>;
@@ -92,8 +118,11 @@ type FakeState = {
   contexts: Record<string, Array<Record<string, unknown>>>;
   gatewayRows: Array<Record<string, unknown>>;
   published: Map<string, { snapshotId: string; runId: string; deliveryId: string; payload: unknown }>;
+  snapshots: SnapshotRow[];
   counts: { runs: number; snapshots: number; deliveries: number };
   publishCalls: Array<Record<string, unknown>>;
+  correctionCalls: Array<Record<string, unknown>>;
+  correctionPublishError: string | null;
 };
 
 class FakeQuery {
@@ -101,17 +130,39 @@ class FakeQuery {
   private lower: string | null = null;
   private upper: string | null = null;
   private selection = "";
+  private inFilters = new Map<string, unknown[]>();
+  private nonNull = new Set<string>();
 
   constructor(private table: string, private state: FakeState) {}
   select(value: string) { this.selection = value; return this; }
   eq(column: string, value: unknown) { this.filters.set(column, value); return this; }
-  not() { return this; }
+  not(column: string, operator: string, value: unknown) {
+    if (operator === "is" && value === null) this.nonNull.add(column);
+    return this;
+  }
   gte(_column: string, value: string) { this.lower = value; return this; }
   lte(_column: string, value: string) { this.upper = value; return this; }
   order() { return this; }
-  in() { return this; }
+  limit() { return this; }
+  in(column: string, values: unknown[]) { this.inFilters.set(column, values); return this; }
 
   async maybeSingle() {
+    if (this.table === "scorecard_snapshot") {
+      let rows = this.state.snapshots.filter((row) => {
+        for (const [column, value] of this.filters) {
+          if ((row as unknown as Record<string, unknown>)[column] !== value) return false;
+        }
+        for (const [column, values] of this.inFilters) {
+          if (!values.includes((row as unknown as Record<string, unknown>)[column])) return false;
+        }
+        for (const column of this.nonNull) {
+          if ((row as unknown as Record<string, unknown>)[column] == null) return false;
+        }
+        return true;
+      });
+      rows = rows.sort((left, right) => right.revision - left.revision);
+      return { data: rows[0] ?? null, error: null };
+    }
     if (this.table !== "person") return { data: null, error: null };
     const id = String(this.filters.get("id") ?? "");
     if (this.selection.includes("is_admin")) {
@@ -129,6 +180,21 @@ class FakeQuery {
     if (this.table === "gateway_issued_premium_import") {
       const rows = this.state.imports.filter((row) =>
         (!this.lower || row.report_date >= this.lower) && (!this.upper || row.report_date <= this.upper));
+      return { data: rows, error: null };
+    }
+    if (this.table === "scorecard_snapshot") {
+      const rows = this.state.snapshots.filter((row) => {
+        for (const [column, value] of this.filters) {
+          if ((row as unknown as Record<string, unknown>)[column] !== value) return false;
+        }
+        for (const [column, values] of this.inFilters) {
+          if (!values.includes((row as unknown as Record<string, unknown>)[column])) return false;
+        }
+        for (const column of this.nonNull) {
+          if ((row as unknown as Record<string, unknown>)[column] == null) return false;
+        }
+        return true;
+      });
       return { data: rows, error: null };
     }
     return { data: [], error: null };
@@ -183,6 +249,58 @@ function context(personId: string, builder = true) {
   ];
 }
 
+
+function builderPeerSnapshot({
+  id,
+  personId,
+  revision = 1,
+  teamIpCents,
+  representedInGateway = true,
+  recruitsAdded,
+  recruitingPopulation = 3,
+}: {
+  id: string;
+  personId: string;
+  revision?: number;
+  teamIpCents: number;
+  representedInGateway?: boolean;
+  recruitsAdded: number;
+  recruitingPopulation?: number;
+}): SnapshotRow {
+  return {
+    id,
+    person_id: personId,
+    card_type: "builder",
+    period_kind: "monthly",
+    period_start: "2026-08-01",
+    period_end: "2026-08-31",
+    lifecycle_status: revision === 1 ? "final" : "corrected",
+    revision,
+    prior_revision_id: revision === 1 ? null : `${personId}-revision-${revision - 1}`,
+    finalized_at: `2026-09-0${Math.min(revision + 1, 9)}T12:00:00.000Z`,
+    metric_run_id: `run-${id}`,
+    correction_reason: revision === 1 ? null : "Peer correction",
+    kpi_results: {
+      schemaVersion: "scorecard-published-v1",
+      cardType: "builder",
+      metricPayload: {
+        teamIpCents,
+        teamRank: representedInGateway ? { rank: 1, population: recruitingPopulation } : null,
+        teamRankUnavailableReason: representedInGateway ? null : "not_represented_in_gateway",
+        recruitsAdded,
+        recruitingRank: { rank: 1, population: recruitingPopulation },
+      },
+    },
+  };
+}
+
+function seedBuilderRankPeers(state: FakeState) {
+  state.snapshots.push(
+    builderPeerSnapshot({ id: "peer-c", personId: "person-c", teamIpCents: 5_000_000, recruitsAdded: 2 }),
+    builderPeerSnapshot({ id: "peer-d", personId: "person-d", teamIpCents: 1_000_000, recruitsAdded: 0 }),
+  );
+}
+
 function fakeState(): FakeState {
   return {
     adminAllowed: true,
@@ -211,8 +329,11 @@ function fakeState(): FakeState {
       { id: "g7", import_id: "annual", person_id: "person-a", report_date: "2025-12-26", personal_ip_cents: 2_000_000, team_ip_cents: 0, first_leg_percent: null },
     ],
     published: new Map(),
+    snapshots: [],
     counts: { runs: 0, snapshots: 0, deliveries: 0 },
     publishCalls: [],
+    correctionCalls: [],
+    correctionPublishError: null,
   };
 }
 
@@ -274,10 +395,76 @@ function fakeClient(state: FakeState) {
           payload: args.p_published_payload,
         };
         state.published.set(key, created);
+        state.snapshots.push({
+          id: created.snapshotId,
+          person_id: String(args.p_person_id),
+          card_type: args.p_card_type as "producer" | "builder",
+          period_kind: args.p_period_kind as "monthly" | "quarterly" | "annual",
+          period_start: String(args.p_period_start),
+          period_end: String(args.p_period_end),
+          lifecycle_status: "final",
+          revision: Number(args.p_revision),
+          prior_revision_id: null,
+          finalized_at: "2026-09-03T12:00:00.000Z",
+          metric_run_id: created.runId,
+          kpi_results: args.p_published_payload,
+          correction_reason: null,
+        });
         state.counts.runs += 1;
         state.counts.snapshots += 1;
         state.counts.deliveries += 1;
         return { data: [{ snapshot_id: created.snapshotId, run_id: created.runId, delivery_id: created.deliveryId, existing: false }], error: null };
+      }
+      if (name === "publish_manual_scorecard_correction") {
+        state.correctionCalls.push(args);
+        if (state.correctionPublishError) {
+          return { data: null, error: { message: state.correctionPublishError, code: "P0001", details: null, hint: null } };
+        }
+        const prior = state.snapshots.find((row) => row.id === String(args.p_prior_snapshot_id));
+        if (!prior) return { data: null, error: { message: "Correction requires a finalized prior Scorecard.", code: "P0001", details: null, hint: null } };
+        const nextRevision = prior.revision + 1;
+        const existingChild = state.snapshots.find((row) =>
+          row.person_id === prior.person_id && row.card_type === prior.card_type && row.period_kind === prior.period_kind &&
+          row.period_start === prior.period_start && row.period_end === prior.period_end && row.revision === nextRevision &&
+          row.prior_revision_id === prior.id && row.lifecycle_status === "corrected");
+        if (existingChild) {
+          const samePayload = JSON.stringify(correctionComparable(existingChild.kpi_results)) === JSON.stringify(correctionComparable(args.p_published_payload));
+          const sameReason = existingChild.correction_reason === String(args.p_correction_reason).trim();
+          if (!samePayload || !sameReason) {
+            return { data: null, error: { message: "A newer Scorecard revision already exists. Correct the latest revision.", code: "P0001", details: null, hint: null } };
+          }
+          return { data: [{ snapshot_id: existingChild.id, run_id: existingChild.metric_run_id, delivery_id: `delivery-${existingChild.id}`, existing: true }], error: null };
+        }
+        const latest = state.snapshots
+          .filter((row) => row.person_id === prior.person_id && row.card_type === prior.card_type && row.period_kind === prior.period_kind && row.period_start === prior.period_start && row.period_end === prior.period_end)
+          .sort((left, right) => right.revision - left.revision)[0];
+        if (!latest || latest.id !== prior.id) {
+          return { data: null, error: { message: "A newer Scorecard revision already exists. Correct the latest revision.", code: "P0001", details: null, hint: null } };
+        }
+        if (JSON.stringify(correctionComparable(prior.kpi_results)) === JSON.stringify(correctionComparable(args.p_published_payload))) {
+          return { data: null, error: { message: "Correction did not change published Scorecard values.", code: "P0001", details: null, hint: null } };
+        }
+        const sequence = state.snapshots.length + 1;
+        const created: SnapshotRow = {
+          id: `snapshot-${sequence}`,
+          person_id: prior.person_id,
+          card_type: prior.card_type,
+          period_kind: prior.period_kind,
+          period_start: prior.period_start,
+          period_end: prior.period_end,
+          lifecycle_status: "corrected",
+          revision: nextRevision,
+          prior_revision_id: prior.id,
+          finalized_at: "2026-09-03T12:05:00.000Z",
+          metric_run_id: `run-${sequence}`,
+          kpi_results: args.p_published_payload,
+          correction_reason: String(args.p_correction_reason).trim(),
+        };
+        state.snapshots.push(created);
+        state.counts.runs += 1;
+        state.counts.snapshots += 1;
+        state.counts.deliveries += 1;
+        return { data: [{ snapshot_id: created.id, run_id: created.metric_run_id, delivery_id: `delivery-${sequence}`, existing: false }], error: null };
       }
       throw new Error(`Unexpected RPC ${name}`);
     },
@@ -341,6 +528,7 @@ describe("manual one-person Scorecard generation", () => {
 
   it("publishes one targeted Builder using subtree support without subtree Scorecard artifacts", async () => {
     const state = fakeState();
+    seedBuilderRankPeers(state);
     const result = await generateManualScorecardWithClient(fakeClient(state), {
       initiatedBy: "admin",
       personId: "person-a",
@@ -361,12 +549,15 @@ describe("manual one-person Scorecard generation", () => {
     expect(published.metricPayload.activeWriters).toBe(1);
     expect(published.metricPayload.averageMonthlyIpPerWriterCents).toBe(2_000_000);
     expect(published.metricPayload.recruitsAdded).toBe(1);
+    expect(published.metricPayload.teamRank).toEqual({ rank: 2, population: 3 });
+    expect(published.metricPayload.recruitingRank).toEqual({ rank: 2, population: 3 });
     expect(published.metricPayload.performance.teamDials.value).toBe(8);
     expect(state.publishCalls.some((entry) => entry.p_person_id === "person-b")).toBe(false);
   });
 
   it("keeps dual-role Producer and Builder publications distinct for the same person and period", async () => {
     const state = fakeState();
+    seedBuilderRankPeers(state);
     const client = fakeClient(state);
     const producer = await generateManualScorecardWithClient(client, { initiatedBy: "admin", personId: "person-a", cardType: "producer", period: monthly });
     const builder = await generateManualScorecardWithClient(client, { initiatedBy: "admin", personId: "person-a", cardType: "builder", period: monthly });
@@ -516,5 +707,256 @@ describe("manual one-person Scorecard generation", () => {
 
     expect(result.status).toBe("invalid_period");
     expect(state.counts).toEqual({ runs: 0, snapshots: 0, deliveries: 0 });
+  });
+});
+
+
+describe("published Scorecard correction", () => {
+  it("publishes the next immutable revision from current canonical source truth", async () => {
+    const state = fakeState();
+    const client = fakeClient(state);
+    const first = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "producer",
+      period: monthly,
+    });
+    expect(first).toMatchObject({ status: "success", snapshotId: "snapshot-1" });
+    if (!("snapshotId" in first)) throw new Error("Expected initial publication.");
+    const frozenFirst = structuredClone(state.snapshots[0]);
+
+    sourceState.noIp = true;
+    const correction = await generateScorecardCorrectionWithClient(client, {
+      initiatedBy: "admin",
+      snapshotId: first.snapshotId,
+      correctionReason: "Gateway source row corrected after reconciliation",
+    });
+
+    expect(correction).toMatchObject({ status: "success", snapshotId: "snapshot-2", runId: "run-2" });
+    expect(state.correctionCalls).toHaveLength(1);
+    expect(state.correctionCalls[0]).toMatchObject({
+      p_prior_snapshot_id: "snapshot-1",
+      p_correction_reason: "Gateway source row corrected after reconciliation",
+    });
+    expect(state.snapshots[0]).toEqual(frozenFirst);
+    expect(state.snapshots[1]).toMatchObject({
+      id: "snapshot-2",
+      revision: 2,
+      lifecycle_status: "corrected",
+      prior_revision_id: "snapshot-1",
+      correction_reason: "Gateway source row corrected after reconciliation",
+    });
+    const corrected = parsePublishedScorecardSnapshotPayload(state.snapshots[1].kpi_results)!;
+    if (corrected.cardType !== "producer") throw new Error("Expected corrected Producer payload.");
+    expect(corrected.metricPayload.preview.totalIssuedIpCents).toBe(0);
+    expect(state.counts).toEqual({ runs: 2, snapshots: 2, deliveries: 2 });
+  });
+
+  it("suppresses a correction when canonical published values did not change", async () => {
+    const state = fakeState();
+    const client = fakeClient(state);
+    const first = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "producer",
+      period: monthly,
+    });
+    if (!("snapshotId" in first)) throw new Error("Expected initial publication.");
+    const countsAfterFirst = { ...state.counts };
+
+    const correction = await generateScorecardCorrectionWithClient(client, {
+      initiatedBy: "admin",
+      snapshotId: first.snapshotId,
+      correctionReason: "Rechecked source truth with no visible changes",
+    });
+
+    expect(correction.status).toBe("no_changes");
+    expect(state.correctionCalls).toEqual([]);
+    expect(state.counts).toEqual(countsAfterFirst);
+    expect(state.snapshots).toHaveLength(1);
+  });
+
+  it("rejects a stale selected revision before recapturing or publishing", async () => {
+    const state = fakeState();
+    const client = fakeClient(state);
+    const first = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "producer",
+      period: monthly,
+    });
+    if (!("snapshotId" in first)) throw new Error("Expected initial publication.");
+    state.snapshots.push({
+      ...structuredClone(state.snapshots[0]),
+      id: "snapshot-newer",
+      revision: 2,
+      lifecycle_status: "corrected",
+      prior_revision_id: first.snapshotId,
+      metric_run_id: "run-newer",
+      correction_reason: "Already corrected by another admin",
+      finalized_at: "2026-09-03T12:10:00.000Z",
+    });
+
+    sourceState.noIp = true;
+    const correction = await generateScorecardCorrectionWithClient(client, {
+      initiatedBy: "admin",
+      snapshotId: first.snapshotId,
+      correctionReason: "Attempt to branch from stale revision",
+    });
+
+    expect(correction.status).toBe("stale_revision");
+    expect(state.correctionCalls).toEqual([]);
+    expect(state.counts).toEqual({ runs: 1, snapshots: 1, deliveries: 1 });
+  });
+
+  it("maps a database race that creates a newer revision to stale_revision", async () => {
+    const state = fakeState();
+    const client = fakeClient(state);
+    const first = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "producer",
+      period: monthly,
+    });
+    if (!("snapshotId" in first)) throw new Error("Expected initial publication.");
+    state.correctionPublishError = "A newer Scorecard revision already exists. Correct the latest revision.";
+    sourceState.noIp = true;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const correction = await generateScorecardCorrectionWithClient(client, {
+      initiatedBy: "admin",
+      snapshotId: first.snapshotId,
+      correctionReason: "Concurrent correction race from another admin",
+    });
+    errorSpy.mockRestore();
+
+    expect(correction.status).toBe("stale_revision");
+    expect(state.correctionCalls).toHaveLength(1);
+    expect(state.counts).toEqual({ runs: 1, snapshots: 1, deliveries: 1 });
+  });
+
+  it("converges concurrent exact correction retries on one immutable child revision", async () => {
+    const state = fakeState();
+    const client = fakeClient(state);
+    const first = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "producer",
+      period: monthly,
+    });
+    if (!("snapshotId" in first)) throw new Error("Expected initial publication.");
+    sourceState.noIp = true;
+
+    const [left, right] = await Promise.all([
+      generateScorecardCorrectionWithClient(client, {
+        initiatedBy: "admin",
+        snapshotId: first.snapshotId,
+        correctionReason: "Same corrected Gateway row after reconciliation",
+      }),
+      generateScorecardCorrectionWithClient(client, {
+        initiatedBy: "admin",
+        snapshotId: first.snapshotId,
+        correctionReason: "Same corrected Gateway row after reconciliation",
+      }),
+    ]);
+
+    expect(new Set([left.status, right.status])).toEqual(new Set(["success", "existing"]));
+    expect("snapshotId" in left ? left.snapshotId : null).toBe("snapshot-2");
+    expect("snapshotId" in right ? right.snapshotId : null).toBe("snapshot-2");
+    expect(state.snapshots).toHaveLength(2);
+    expect(state.counts).toEqual({ runs: 2, snapshots: 2, deliveries: 2 });
+  });
+
+  it("allows only one of two conflicting concurrent corrections to create the next revision", async () => {
+    const state = fakeState();
+    const client = fakeClient(state);
+    const first = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "producer",
+      period: monthly,
+    });
+    if (!("snapshotId" in first)) throw new Error("Expected initial publication.");
+    sourceState.noIp = true;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const [left, right] = await Promise.all([
+      generateScorecardCorrectionWithClient(client, {
+        initiatedBy: "admin",
+        snapshotId: first.snapshotId,
+        correctionReason: "Correction reason from request A",
+      }),
+      generateScorecardCorrectionWithClient(client, {
+        initiatedBy: "admin",
+        snapshotId: first.snapshotId,
+        correctionReason: "Correction reason from request B",
+      }),
+    ]);
+    errorSpy.mockRestore();
+
+    expect(new Set([left.status, right.status])).toEqual(new Set(["success", "stale_revision"]));
+    expect(state.snapshots).toHaveLength(2);
+    expect(state.snapshots[1].revision).toBe(2);
+    expect(["Correction reason from request A", "Correction reason from request B"]).toContain(state.snapshots[1].correction_reason);
+    expect(state.counts).toEqual({ runs: 2, snapshots: 2, deliveries: 2 });
+  });
+
+  it("recomputes a Builder correction rank against latest frozen peer revisions while publishing only the target", async () => {
+    const state = fakeState();
+    state.snapshots.push(
+      builderPeerSnapshot({ id: "peer-c-old", personId: "person-c", revision: 1, teamIpCents: 10_000_000, recruitsAdded: 2 }),
+      builderPeerSnapshot({ id: "peer-c-new", personId: "person-c", revision: 2, teamIpCents: 5_000_000, recruitsAdded: 2 }),
+      builderPeerSnapshot({ id: "peer-d", personId: "person-d", teamIpCents: 1_000_000, recruitsAdded: 0 }),
+    );
+    const client = fakeClient(state);
+    const initial = await generateManualScorecardWithClient(client, {
+      initiatedBy: "admin",
+      personId: "person-a",
+      cardType: "builder",
+      period: monthly,
+    });
+    expect(initial.status).toBe("success");
+    if (!("snapshotId" in initial)) throw new Error("Expected initial Builder publication.");
+    const initialSnapshot = state.snapshots.find((row) => row.id === initial.snapshotId)!;
+    const initialPayload = parsePublishedScorecardSnapshotPayload(initialSnapshot.kpi_results)!;
+    if (initialPayload.cardType !== "builder") throw new Error("Expected Builder payload.");
+    expect(initialPayload.metricPayload.teamRank).toEqual({ rank: 2, population: 3 });
+    expect(initialPayload.metricPayload.recruitingRank).toEqual({ rank: 2, population: 3 });
+
+    const targetGatewayRow = state.gatewayRows.find((row) => row.id === "g2")!;
+    targetGatewayRow.team_ip_cents = 4_000_000;
+    const peerSnapshotsBefore = state.snapshots
+      .filter((row) => row.person_id === "person-c" || row.person_id === "person-d")
+      .map((row) => structuredClone(row));
+
+    const correction = await generateScorecardCorrectionWithClient(client, {
+      initiatedBy: "admin",
+      snapshotId: initial.snapshotId,
+      correctionReason: "Corrected Builder Team IP after Gateway reconciliation",
+    });
+    expect(correction.status).toBe("success");
+    if (!("snapshotId" in correction)) throw new Error("Expected corrected Builder publication.");
+    const correctedSnapshot = state.snapshots.find((row) => row.id === correction.snapshotId)!;
+    const correctedPayload = parsePublishedScorecardSnapshotPayload(correctedSnapshot.kpi_results)!;
+    if (correctedPayload.cardType !== "builder") throw new Error("Expected corrected Builder payload.");
+    expect(correctedPayload.metricPayload.teamIpCents).toBe(7_000_000);
+    expect(correctedPayload.metricPayload.teamRank).toEqual({ rank: 1, population: 3 });
+    expect(correctedPayload.metricPayload.recruitingRank).toEqual({ rank: 2, population: 3 });
+    expect(state.snapshots.filter((row) => row.person_id === "person-a" && row.card_type === "builder")).toHaveLength(2);
+    expect(state.snapshots.filter((row) => row.person_id === "person-c" || row.person_id === "person-d")).toEqual(peerSnapshotsBefore);
+    expect(state.counts).toEqual({ runs: 2, snapshots: 2, deliveries: 2 });
+  });
+
+  it("requires an authorized admin before loading a correction target", async () => {
+    const state = fakeState();
+    state.adminAllowed = false;
+    const result = await generateScorecardCorrectionWithClient(fakeClient(state), {
+      initiatedBy: "admin",
+      snapshotId: "snapshot-does-not-matter",
+      correctionReason: "Valid audit reason",
+    });
+
+    expect(result.status).toBe("unauthorized");
+    expect(state.correctionCalls).toEqual([]);
   });
 });

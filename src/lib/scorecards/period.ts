@@ -77,6 +77,31 @@ export function scorecardPeriodFromStart(kind: ScorecardPeriodKind, start: strin
   throw new Error(`Unsupported Scorecard period kind: ${String(kind)}`);
 }
 
+export function recentClosedScorecardPeriods(
+  today: string,
+  limits: { monthly?: number; quarterly?: number; annual?: number } = {},
+): ScorecardPeriod[] {
+  if (!validIsoDate(today)) throw new Error("Enter a valid ISO date before listing closed Scorecard periods.");
+  const current = new Date(`${today}T00:00:00.000Z`);
+  const year = current.getUTCFullYear();
+  const month = current.getUTCMonth();
+  const monthlyCount = Math.max(0, Math.trunc(limits.monthly ?? 12));
+  const quarterlyCount = Math.max(0, Math.trunc(limits.quarterly ?? 8));
+  const annualCount = Math.max(0, Math.trunc(limits.annual ?? 3));
+
+  const monthly = Array.from({ length: monthlyCount }, (_, index) =>
+    scorecardPeriodFromStart("monthly", isoDate(year, month - index - 1, 1)));
+
+  const currentQuarterStartMonth = Math.floor(month / 3) * 3;
+  const quarterly = Array.from({ length: quarterlyCount }, (_, index) =>
+    scorecardPeriodFromStart("quarterly", isoDate(year, currentQuarterStartMonth - 3 * (index + 1), 1)));
+
+  const annual = Array.from({ length: annualCount }, (_, index) =>
+    scorecardPeriodFromStart("annual", `${year - index - 1}-01-01`));
+
+  return [...monthly, ...quarterly, ...annual];
+}
+
 export function previousEquivalentPeriod(period: Pick<ScorecardPeriod, "kind" | "start" | "end">): ScorecardPeriod {
   const current = scorecardPeriodFromStart(period.kind, period.start);
   if (period.end !== current.end) {

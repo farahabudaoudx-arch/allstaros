@@ -3,6 +3,7 @@ import {
   comparisonForPeriod,
   periodFactor,
   previousEquivalentPeriod,
+  recentClosedScorecardPeriods,
   scaleCumulativeThreshold,
   scorecardPeriodFromStart,
   validateClosedScorecardPeriod,
@@ -61,6 +62,33 @@ describe("closed Scorecard periods", () => {
   });
 });
 
+describe("recent closed Scorecard period choices", () => {
+  it("offers only completed named month, quarter, and year periods", () => {
+    const periods = recentClosedScorecardPeriods("2026-09-03", { monthly: 3, quarterly: 2, annual: 2 });
+    expect(periods).toEqual([
+      { kind: "monthly", start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+      { kind: "monthly", start: "2026-07-01", end: "2026-07-31", label: "July 2026" },
+      { kind: "monthly", start: "2026-06-01", end: "2026-06-30", label: "June 2026" },
+      { kind: "quarterly", start: "2026-04-01", end: "2026-06-30", label: "Q2 2026" },
+      { kind: "quarterly", start: "2026-01-01", end: "2026-03-31", label: "Q1 2026" },
+      { kind: "annual", start: "2025-01-01", end: "2025-12-31", label: "2025" },
+      { kind: "annual", start: "2024-01-01", end: "2024-12-31", label: "2024" },
+    ]);
+  });
+
+  it("never offers the still-open current period and crosses year boundaries correctly", () => {
+    const periods = recentClosedScorecardPeriods("2026-01-02", { monthly: 1, quarterly: 1, annual: 1 });
+    expect(periods).toEqual([
+      { kind: "monthly", start: "2025-12-01", end: "2025-12-31", label: "December 2025" },
+      { kind: "quarterly", start: "2025-10-01", end: "2025-12-31", label: "Q4 2025" },
+      { kind: "annual", start: "2025-01-01", end: "2025-12-31", label: "2025" },
+    ]);
+  });
+
+  it("rejects an invalid today value", () => {
+    expect(() => recentClosedScorecardPeriods("not-a-date")).toThrow("valid ISO date");
+  });
+});
 describe("period scaling metadata", () => {
   it.each([
     ["monthly", 1, "mom"],
