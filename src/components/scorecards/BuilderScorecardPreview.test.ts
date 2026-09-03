@@ -308,6 +308,7 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("Active Directs: 0 out of 5 stars");
     expect(html).toContain("Avg IP / Active Writer: 0 out of 5 stars");
     expect(html).toContain("Recruits Licensed: 0 out of 5 stars");
+    expect(html.match(/>Unavailable<\/p>/g)).toHaveLength(5);
     expect(html).not.toContain("NaN%");
     expect(html).not.toContain("Infinity");
   });

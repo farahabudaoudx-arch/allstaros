@@ -287,13 +287,16 @@ function MetricCards({
 }) {
   return (
     <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label={ariaLabel}>
-      {items.map((item) => (
-        <div key={item.label} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]" role="listitem">
-          <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
-          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">{item.value}</p>
-          {item.rating != null ? <p className="mt-4"><StarScale value={item.rating} label={item.starLabel ?? item.label} /></p> : null}
-        </div>
-      ))}
+      {items.map((item) => {
+        const unavailable = item.value === "Unavailable";
+        return (
+          <div key={item.label} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]" role="listitem">
+            <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
+            <p className={`producer-number-card__value mt-3 font-semibold tabular-nums text-ink ${unavailable ? "break-words text-[clamp(1.4rem,2vw,1.75rem)] leading-tight" : "text-[clamp(1.75rem,4vw,2.5rem)] leading-none"}`}>{item.value}</p>
+            {item.rating != null ? <p className="mt-4"><StarScale value={item.rating} label={item.starLabel ?? item.label} /></p> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

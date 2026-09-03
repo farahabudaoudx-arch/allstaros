@@ -277,6 +277,9 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("2.00 weighted score");
     expect(html).toContain("Tracking Consistency: 0 out of 5 stars");
     expect(html).toContain("Mon–Sat logged days in this period · Sundays are not scored");
+    expect(html.match(/>Unavailable<\/p>/g)).toHaveLength(5);
+    expect(html).toContain("break-words text-[clamp(1.4rem,2vw,1.75rem)] leading-tight");
+    expect(html).toContain("relative z-10 mb-5 flex justify-end gap-2 sm:absolute");
     expect(html).not.toContain("Schedule Needed");
     expect(html).not.toContain("set a schedule to measure consistency");
   });

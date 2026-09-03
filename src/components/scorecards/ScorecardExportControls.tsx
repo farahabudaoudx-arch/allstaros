@@ -446,7 +446,7 @@ export function ScorecardExportControls({
   };
 
   return (
-    <div data-export-controls className="absolute right-5 top-5 z-10 flex gap-2 sm:right-8 sm:top-8">
+    <div data-export-controls className="relative z-10 mb-5 flex justify-end gap-2 sm:absolute sm:right-8 sm:top-8 sm:mb-0">
       <p className="sr-only" role="status" aria-live="polite">{status}</p>
       {(["portrait", "landscape"] as const).map((format) => {
         const label = SCORECARD_EXPORTS[format].label;
