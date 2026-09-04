@@ -44,6 +44,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/health") ||
     pathname === "/api/version" ||
+    pathname.startsWith("/api/gateway/report-jobs/") ||
     pathname === "/api/gateway/issued-premium/upload";
 
   if (!user && !isPublic) {

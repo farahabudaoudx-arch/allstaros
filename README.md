@@ -79,8 +79,10 @@ supabase/
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` — server only
    - `ANTHROPIC_API_KEY` — server only
-   - `CRON_SECRET` — server only, optional but recommended (Vercel sets the
-     Authorization header for cron requests automatically)
+   - `GATEWAY_AGENT_REPORT_TOKEN` — server only; dedicated bearer token for the
+     personal Gateway report runner claim/import/complete endpoints
+   - `CRON_SECRET` — server only; required by the Gateway reminder/report and
+     Scorecard-delivery cron routes (Vercel sets the Authorization header automatically)
 4. Add the production callback URL to Supabase Auth and Google OAuth:
    `https://<your-domain>/auth/callback`.
 5. Deploy. The Vercel Cron in [vercel.json](vercel.json) runs daily at 08:00

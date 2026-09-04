@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/gateway-reminders",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/gateway-report-pulls",
+      "schedule": "0 * * * *"
     }
   ]
 }
