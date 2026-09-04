@@ -15,6 +15,7 @@ const SECTIONS: Record<string, SettingsSectionKey> = {
   "policy-info": "policy-info",
   account: "account",
   npn: "npn",
+  gateway: "gateway",
   builder: "builder",
   discord: "discord",
 };

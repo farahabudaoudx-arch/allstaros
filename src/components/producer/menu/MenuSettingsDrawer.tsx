@@ -11,6 +11,8 @@ import { PolicyContactSettingsForm } from "@/components/producer/PolicyContactSe
 import { NpnSettingsForm } from "@/components/producer/NpnSettingsForm";
 import { BuilderSettingsForm } from "@/components/producer/BuilderSettingsForm";
 import { DiscordSettingsSection } from "@/components/producer/DiscordSettingsSection";
+import { GatewayConnectionSettings } from "@/components/producer/GatewayConnectionSettings";
+import { gatewayStatusLabel, type GatewayConnectionState } from "@/lib/gateway/connection-types";
 
 /** Slide duration, kept in sync with the `duration-300` classes below. */
 const DRAWER_MS = 300;
@@ -24,6 +26,7 @@ export type MenuPerson = {
   photoUrl: string | null;
   photoRejectionReason: string | null;
   discordConnected: boolean;
+  gatewayConnection: GatewayConnectionState;
 };
 
 /** The settings sections, in the order they appear in the drawer. */
@@ -31,6 +34,7 @@ export type SettingsSectionKey =
   | "policy-info"
   | "account"
   | "npn"
+  | "gateway"
   | "builder"
   | "discord";
 
@@ -76,6 +80,13 @@ function sectionsFor(person: MenuPerson): Section[] {
       content: (
         <NpnSettingsForm initialNpn={person.npn ?? ""} status={person.npnStatus} />
       ),
+    },
+    {
+      key: "gateway",
+      title: "Gateway",
+      description:
+        "Connect or disconnect your personal Gateway login. Gateway-driven numbers stay unknown whenever the connection cannot be verified.",
+      content: <GatewayConnectionSettings state={person.gatewayConnection} />,
     },
     ...(person.isBuilder
       ? [
@@ -247,6 +258,10 @@ export function MenuSettingsDrawer({
                   right={
                     section.key === "npn" && person.npn ? (
                       <span className="text-mute">{person.npn}</span>
+                    ) : section.key === "gateway" ? (
+                      <span className={person.gatewayConnection.connected ? "text-pos" : "text-mute"}>
+                        {gatewayStatusLabel(person.gatewayConnection)}
+                      </span>
                     ) : section.key === "discord" ? (
                       <span className={person.discordConnected ? "text-pos" : "text-mute"}>
                         {person.discordConnected ? "Connected" : "Not connected"}

@@ -16,12 +16,15 @@ import {
   type SettingsSectionKey,
 } from "./menu/MenuSettingsDrawer";
 
+import { GatewayConnectPrompt } from "@/app/producer/_components/gateway-connect-prompt";
+import { shouldPromptGatewayConnection } from "@/lib/gateway/connection-types";
 const RAIL_KEY = "producer.nav.rail";
 
 const SETTINGS_SECTIONS: SettingsSectionKey[] = [
   "policy-info",
   "account",
   "npn",
+  "gateway",
   "builder",
   "discord",
 ];
@@ -210,6 +213,10 @@ export function AppChrome({
         open={settingsOpen}
         initialSection={section}
         onClose={() => setSettingsOpen(false)}
+      />
+      <GatewayConnectPrompt
+        initialOpen={shouldPromptGatewayConnection(person.gatewayConnection)}
+        reconnect={person.gatewayConnection.needsReconnect || person.gatewayConnection.everConnected}
       />
     </div>
   );

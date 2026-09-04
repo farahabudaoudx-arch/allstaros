@@ -54,9 +54,8 @@ export type ProducerNumbers = {
   presentations: number;
   sales: number;
   apCents: number;
-  ipCents: number;
-  /** Gateway's team IP for this person, null if they're not in a report.
-   *  Only the builder screen shows it. */
+  ipCents: number | null;
+  /** Gateway's team IP for this person, null whenever Gateway is unavailable. */
   teamIpCents: number | null;
 };
 
@@ -174,36 +173,12 @@ async function recentReportDates(supabase: SupabaseClient): Promise<string[]> {
  *  the builder screen never shows dials, presentations, deals or personal AP,
  *  so it must not pay for computing them. */
 export type BuilderNumbers = {
-  ipCents: number;
+  ipCents: number | null;
   recruitsInPipeline: number;
-  writers: number;
+  writers: number | null;
   teamApCents: number;
-  teamIpCents: number;
+  teamIpCents: number | null;
 };
-
-/**
- * A single person's issued premium from the in-app clients book, year to date.
- * Only ever used as the fallback when someone has no Gateway row at all —
- * usually an NPN that hasn't been matched into a report yet, where reporting a
- * flat $0 would read as "no production" rather than "not matched".
- */
-async function bookIpCents(
-  supabase: SupabaseClient,
-  personId: string,
-): Promise<number> {
-  const { from, to } = resolveRange("ytd", TZ);
-  const { data } = await supabase
-    .from("clients")
-    .select("annual_premium, issue_date")
-    .eq("person_id", personId)
-    .gte("issue_date", from)
-    .lte("issue_date", to);
-  let cents = 0;
-  for (const c of (data ?? []) as Array<{ annual_premium: number | null }>) {
-    cents += dollarsToCents(c.annual_premium);
-  }
-  return cents;
-}
 
 /**
  * Submitted AP across a team, year to date. Same rule the leaderboard applies
@@ -248,20 +223,21 @@ async function teamSubmittedApCents(
 export async function producerYtd(
   supabase: SupabaseClient,
   personId: string,
+  gatewayConnected: boolean,
 ): Promise<ProducerNumbers> {
   const [{ totals }, gateway] = await Promise.all([
     computeAnalytics(supabase, personId, { rangeKey: "ytd", tz: TZ }),
-    gatewayYtd(supabase, personId),
+    gatewayConnected ? gatewayYtd(supabase, personId) : Promise.resolve(null),
   ]);
   return {
     dials: totals.dials,
     presentations: totals.presentations,
     sales: totals.sales,
     apCents: totals.ap_cents,
-    // Gateway is the record of what issued. Fall back to the in-app book only
-    // when this person has no Gateway row at all.
-    ipCents: gateway?.personalCents ?? totals.ip_cents,
-    teamIpCents: gateway?.teamCents ?? null,
+    // Ticket #005: never substitute the in-app client book for Gateway. If the
+    // personal Gateway session is unavailable, issued values are unknown.
+    ipCents: gatewayConnected ? (gateway?.personalCents ?? null) : null,
+    teamIpCents: gatewayConnected ? (gateway?.teamCents ?? null) : null,
   };
 }
 
@@ -339,10 +315,11 @@ export async function builderYtd(
   supabase: SupabaseClient,
   personId: string,
   /** Pre-resolved downline, for callers reading past RLS (see downlineIds). */
-  explicit?: Downline,
+  explicit: Downline | undefined,
+  gatewayConnected: boolean,
 ): Promise<BuilderNumbers> {
   const [gateway, rosterRes, pipeline] = await Promise.all([
-    gatewayYtd(supabase, personId),
+    gatewayConnected ? gatewayYtd(supabase, personId) : Promise.resolve(null),
     // Licensed people the viewer can see. RLS already clips this to their
     // downline; the exclusion list drops internal/test rows so the count
     // matches the leaderboards.
@@ -353,7 +330,7 @@ export async function builderYtd(
           .select("id")
           .eq("status", "active")
           .or("is_producer.eq.true,is_builder.eq.true"),
-    // Recruits still working through licensing — the same set the Recruiting
+    // Recruits still working through licensing ? the same set the Recruiting
     // Pipeline page counts. That page leans on can_view(), which asks whether
     // the recruit's own person row is anywhere in the downline, so the explicit
     // path has to ask the same question of the same unfiltered set.
@@ -379,23 +356,20 @@ export async function builderYtd(
       ).length
     : (pipeline.count ?? 0);
 
-  const [writers, teamApCents, bookIp] = await Promise.all([
-    activeWriters(supabase, personId, teamIds),
-    // Submitted AP has no Gateway equivalent — Gateway only reports what
-    // issued — so it stays a sum over the team's own submissions.
+  const [writers, teamApCents] = await Promise.all([
+    gatewayConnected
+      ? activeWriters(supabase, personId, teamIds)
+      : Promise.resolve<number | null>(null),
+    // Submitted AP has no Gateway equivalent ? Gateway only reports what
+    // issued ? so it stays a sum over the team's own submissions.
     teamSubmittedApCents(supabase, teamIds),
-    // When there's no Gateway row, fall back to the in-app book — run alongside
-    // the other stage-B reads instead of blocking the response afterward.
-    gateway ? Promise.resolve(null) : bookIpCents(supabase, personId),
   ]);
 
   return {
-    ipCents: gateway?.personalCents ?? bookIp ?? 0,
+    ipCents: gatewayConnected ? (gateway?.personalCents ?? null) : null,
     writers,
     recruitsInPipeline,
     teamApCents,
-    // Gateway already rolls the whole downline into one team figure, so use it
-    // rather than re-summing the book.
-    teamIpCents: gateway?.teamCents ?? 0,
+    teamIpCents: gatewayConnected ? (gateway?.teamCents ?? null) : null,
   };
 }

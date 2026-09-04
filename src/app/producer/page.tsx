@@ -16,6 +16,16 @@ import {
 
 /** "1 deal" / "2 deals". The copy is written around a blank, so the noun has
  *  to agree with whatever number lands in it. */
+import { loadGatewayConnectionState } from "@/lib/gateway/connection";
+
+function gatewayMoney(value: number | null): string {
+  return value == null ? "Unknown" : money(value);
+}
+
+function gatewayCount(value: number | null): string {
+  return value == null ? "Unknown" : num(value);
+}
+
 function plural(count: number, singular: string, pluralForm: string): string {
   return count === 1 ? singular : pluralForm;
 }
@@ -33,7 +43,7 @@ export default async function ProducerHome({
 
   // DEV-ONLY (hard-gated by DEV_LOGIN_ENABLED, never reachable in production):
   // ?preview=<name> renders a real person's scoreboard, read with the service
-  // role. Same escape hatch the Downline Tree has, for the same reason — you
+  // role. Same escape hatch the Downline Tree has, for the same reason ? you
   // can see what a populated screen looks like without impersonating anyone.
   const { preview } = await searchParams;
   const previewName = DEV_LOGIN_ENABLED && preview ? preview.trim() : "";
@@ -56,11 +66,12 @@ export default async function ProducerHome({
   const isBuilder = subject ? subject.is_builder : person.is_builder;
   const fullName = subject?.full_name ?? person.full_name;
   const supabase = service ?? (await createClient());
-  const downline =
-    service && subject ? await downlineIds(service, subject.id) : undefined;
+  const [downline, gatewayConnection] = await Promise.all([
+    service && subject ? downlineIds(service, subject.id) : Promise.resolve(undefined),
+    subject ? loadGatewayConnectionState(subject.id) : Promise.resolve(menuPerson.gatewayConnection),
+  ]);
 
   const firstName = fullName?.trim()?.split(/\s+/)[0] ?? "there";
-
   // Dress the chrome as the previewed person too, so previewing a producer
   // shows the producer's sidebar rather than the signed-in builder's. Only the
   // shape of the nav changes; the drawer still acts on the real session.
@@ -72,9 +83,14 @@ export default async function ProducerHome({
   // own activity. Both end on issued premium, the number that pays.
   let lines: NumberLine[];
   if (isBuilder) {
-    const n = await builderYtd(supabase, subjectId, downline);
+    const n = await builderYtd(
+      supabase,
+      subjectId,
+      downline,
+      gatewayConnection.connected,
+    );
     lines = [
-      { before: "You have issued", value: money(n.ipCents), after: "IP" },
+      { before: "You have issued", value: gatewayMoney(n.ipCents), after: "IP" },
       {
         before: "You have",
         value: num(n.recruitsInPipeline),
@@ -82,24 +98,35 @@ export default async function ProducerHome({
       },
       {
         before: "You have",
-        value: num(n.writers),
-        after: `${plural(n.writers, "writer", "writers")} on your team`,
+        value: gatewayCount(n.writers),
+        after:
+          n.writers == null
+            ? "writers on your team"
+            : `${plural(n.writers, "writer", "writers")} on your team`,
       },
       { before: "Your team has submitted", value: money(n.teamApCents), after: "AP" },
-      { before: "Your team has issued", value: money(n.teamIpCents), after: "IP" },
+      { before: "Your team has issued", value: gatewayMoney(n.teamIpCents), after: "IP" },
     ];
   } else {
-    const n = await producerYtd(supabase, subjectId);
+    const n = await producerYtd(supabase, subjectId, gatewayConnection.connected);
     lines = [
-      { before: "You have made", value: num(n.dials), after: plural(n.dials, "dial", "dials") },
+      {
+        before: "You have made",
+        value: num(n.dials),
+        after: plural(n.dials, "dial", "dials"),
+      },
       {
         before: "You have ran",
         value: num(n.presentations),
         after: plural(n.presentations, "presentation", "presentations"),
       },
-      { before: "You have closed", value: num(n.sales), after: plural(n.sales, "deal", "deals") },
+      {
+        before: "You have closed",
+        value: num(n.sales),
+        after: plural(n.sales, "deal", "deals"),
+      },
       { before: "You have submitted", value: money(n.apCents), after: "AP" },
-      { before: "You have issued", value: money(n.ipCents), after: "IP" },
+      { before: "You have issued", value: gatewayMoney(n.ipCents), after: "IP" },
     ];
   }
 

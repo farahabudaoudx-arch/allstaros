@@ -7,6 +7,8 @@ import {
   type PeriodKey,
 } from "@/components/producer/issued-premium/IssuedPremiumView";
 
+import { loadGatewayConnectionState } from "@/lib/gateway/connection";
+import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 type Row = {
@@ -69,17 +71,27 @@ export default async function IssuedPremiumPage({
     }
   }
 
-  const { data } = await supabase
-    .from("producer_issued_premium")
-    .select(
-      "period_type, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_producer, first_leg_percent, outside_first_leg_cents, created_at",
-    )
-    .eq("person_id", view.id)
-    .order("report_date", { ascending: true });
+  const gatewayConnection = await loadGatewayConnectionState(view.id);
+  let rows: Row[] = [];
+  let reportsError = false;
 
-  // Fold the up-to-three period rows per report date into one report entry.
-  const byDate = new Map<string, { report: IpReport; labels: Partial<Record<PeriodKey, string | null>> }>();
-  for (const row of (data as Row[] | null) ?? []) {
+  if (gatewayConnection.connected) {
+    const result = await supabase
+      .from("producer_issued_premium")
+      .select(
+        "period_type, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_producer, first_leg_percent, outside_first_leg_cents, created_at",
+      )
+      .eq("person_id", view.id)
+      .order("report_date", { ascending: true });
+    reportsError = Boolean(result.error);
+    rows = reportsError ? [] : ((result.data as Row[] | null) ?? []);
+  }
+
+  const byDate = new Map<
+    string,
+    { report: IpReport; labels: Partial<Record<PeriodKey, string | null>> }
+  >();
+  for (const row of rows) {
     let entry = byDate.get(row.report_date);
     if (!entry) {
       entry = {
@@ -118,7 +130,7 @@ export default async function IssuedPremiumPage({
   // downline; in dev view-as mode the service client sees everyone, so we
   // walk the upline tree from the viewed person either way.
   let agentCount: number | null = null;
-  if (view.is_builder) {
+  if (gatewayConnection.connected && !reportsError && view.is_builder) {
     const { data: peopleRows } = await supabase
       .from("person")
       .select("id, upline_id, status, is_producer, is_builder");
@@ -151,6 +163,20 @@ export default async function IssuedPremiumPage({
     agentCount = count;
   }
 
+  const connectionBlocked = !gatewayConnection.connected;
+  const blockedTitle =
+    gatewayConnection.status === "unavailable"
+      ? "Gateway status unavailable"
+      : gatewayConnection.everConnected
+        ? "Reconnect Gateway to refresh Issued Premium"
+        : "Connect Gateway to see Issued Premium";
+  const blockedCopy =
+    gatewayConnection.status === "unavailable"
+      ? "We cannot verify your personal Gateway connection right now, so Gateway-dependent values are hidden instead of showing stale or guessed numbers."
+      : gatewayConnection.everConnected
+        ? "Your previous connection is no longer active. Current Gateway-dependent values stay unknown until you reconnect."
+        : "All Star OS cannot report your personal Issued Premium until you connect your own Gateway login.";
+
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       {devViewing && (
@@ -159,12 +185,67 @@ export default async function IssuedPremiumPage({
           {view.is_builder ? "(Builder)" : "(Producer)"}
         </p>
       )}
-      <IssuedPremiumView
-        reports={reports}
-        isBuilder={view.is_builder}
-        agentCount={agentCount}
-        backHref="/producer/menu/my-numbers"
-      />
+
+      {connectionBlocked ? (
+        <div>
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/producer/menu/my-numbers"
+              className="text-sm text-subtle transition hover:text-ink"
+            >
+              ← My Numbers
+            </Link>
+            <span className="text-xs font-medium uppercase tracking-[0.14em] text-mute">
+              Issued Premium
+            </span>
+          </div>
+          <section className="mt-8 rounded-2xl border border-hairline bg-card px-6 py-12 text-center">
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+              {blockedTitle}
+            </h1>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-subtle">
+              {blockedCopy}
+            </p>
+            {gatewayConnection.status !== "unavailable" ? (
+              <Link
+                href="/producer?settings=gateway"
+                className="mt-6 inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black"
+              >
+                {gatewayConnection.everConnected ? "Reconnect Gateway" : "Connect Gateway"}
+              </Link>
+            ) : null}
+          </section>
+        </div>
+      ) : reportsError ? (
+        <div>
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/producer/menu/my-numbers"
+              className="text-sm text-subtle transition hover:text-ink"
+            >
+              ← My Numbers
+            </Link>
+            <span className="text-xs font-medium uppercase tracking-[0.14em] text-mute">
+              Issued Premium
+            </span>
+          </div>
+          <section className="mt-8 rounded-2xl border border-hairline bg-card px-6 py-12 text-center">
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+              Issued Premium is temporarily unavailable
+            </h1>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-subtle">
+              Your Gateway is connected, but the report data could not be loaded. We are hiding the values instead of substituting zero or stale data.
+            </p>
+          </section>
+        </div>
+      ) : (
+        <IssuedPremiumView
+          reports={reports}
+          isBuilder={view.is_builder}
+          agentCount={agentCount}
+          backHref="/producer/menu/my-numbers"
+        />
+      )}
     </main>
   );
 }

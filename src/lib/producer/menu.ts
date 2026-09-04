@@ -4,6 +4,7 @@ import type { Person } from "@/lib/db/types";
 import type { InviteRole } from "@/lib/invite/batch";
 import type { MenuPerson } from "@/components/producer/menu/MenuSettingsDrawer";
 
+import { loadGatewayConnectionState } from "@/lib/gateway/connection";
 export type MenuTile = {
   label: string;
   hint?: string;
@@ -36,7 +37,10 @@ export async function menuChrome(person: Person): Promise<{
   chatHref: string;
   unreadChat: boolean;
 }> {
-  const unread = await getProducerUnread(person.id);
+  const [unread, gatewayConnection] = await Promise.all([
+    getProducerUnread(person.id),
+    loadGatewayConnectionState(person.id),
+  ]);
   return {
     menuPerson: {
       fullName: person.full_name,
@@ -50,6 +54,7 @@ export async function menuChrome(person: Person): Promise<{
           ? person.photo_rejection_reason
           : null,
       discordConnected: Boolean(person.discord_webhook_url),
+      gatewayConnection,
     },
     chatHref: person.is_builder ? "/producer/messages" : "/producer/upline",
     unreadChat: person.is_builder ? unread.team : unread.upline,
