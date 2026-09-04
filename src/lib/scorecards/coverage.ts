@@ -1,5 +1,12 @@
-﻿import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScorecardPeriod } from "./period";
+import {
+  chicagoDateOfInstant,
+  requiredGatewayMondays,
+  summarizePersonalGatewayEvidence,
+  type PersonalGatewayImportEvidence,
+  type PersonalGatewayPremiumRow,
+} from "./gateway-completeness";
 
 export type GatewayCoverageScope = "all" | "producer" | "builder";
 
@@ -9,6 +16,9 @@ export type GatewayCoverageEntry = {
   email: string;
   cardType: "producer" | "builder";
   covered: boolean;
+  connectedByPeriodEnd: boolean;
+  finalWeekReady: boolean;
+  missingReportDates: string[];
 };
 
 export type GatewayCoverageReport = {
@@ -33,13 +43,9 @@ type HistoricalRoleRow = {
 };
 
 type PersonRow = { id: string; full_name: string; email: string | null };
-type ImportRow = { report_date: string };
-type PremiumRow = {
-  person_id: string;
-  report_date: string;
-  personal_ip_cents: number | null;
-  team_ip_cents: number | null;
-};
+type ConnectionRow = { person_id: string; first_connected_at: string | null };
+type ImportRow = PersonalGatewayImportEvidence;
+type PremiumRow = PersonalGatewayPremiumRow;
 
 type CoveragePage<T> = { data: T[] | null; error: { message: string } | null };
 const COVERAGE_PAGE_SIZE = 1000;
@@ -91,7 +97,8 @@ export function summarizeGatewayCoverage(input: {
   scope: GatewayCoverageScope;
   roles: HistoricalRoleRow[];
   people: PersonRow[];
-  importedReportDates: string[];
+  connections: ConnectionRow[];
+  imports: ImportRow[];
   premiumRows: PremiumRow[];
 }): GatewayCoverageReport {
   const latestRoleByPerson = new Map<string, HistoricalRoleRow>();
@@ -99,28 +106,38 @@ export function summarizeGatewayCoverage(input: {
     if (!latestRoleByPerson.has(role.person_id)) latestRoleByPerson.set(role.person_id, role);
   }
   const peopleById = new Map(input.people.map((person) => [person.id, person]));
-  const importedDates = new Set(input.importedReportDates);
-  const rowsByPerson = new Map<string, PremiumRow[]>();
-  for (const row of input.premiumRows) {
-    if (row.report_date < input.period.start || row.report_date > input.period.end || !importedDates.has(row.report_date)) continue;
-    const current = rowsByPerson.get(row.person_id) ?? [];
-    current.push(row);
-    rowsByPerson.set(row.person_id, current);
-  }
+  const connectionsByPerson = new Map(input.connections.map((row) => [row.person_id, row]));
+  const requiredDates = requiredGatewayMondays(input.period);
+  const evidence = summarizePersonalGatewayEvidence({
+    personIds: latestRoleByPerson.keys(),
+    requiredDates,
+    imports: input.imports,
+    premiumRows: input.premiumRows,
+  });
 
   const entries: GatewayCoverageEntry[] = [];
   for (const role of latestRoleByPerson.values()) {
     if (role.status !== "active") continue;
     const person = peopleById.get(role.person_id);
     if (!person) continue;
-    const rows = rowsByPerson.get(role.person_id) ?? [];
+    const firstConnectedDate = chicagoDateOfInstant(connectionsByPerson.get(role.person_id)?.first_connected_at);
+    const connectedByPeriodEnd = firstConnectedDate != null && firstConnectedDate <= input.period.end;
+    const personEvidence = evidence.byPerson.get(role.person_id) ?? {
+      complete: false,
+      finalWeekReady: false,
+      missingDates: requiredDates,
+    };
+    const covered = connectedByPeriodEnd && personEvidence.complete && personEvidence.finalWeekReady;
     if ((input.scope === "all" || input.scope === "producer") && role.is_producer) {
       entries.push({
         personId: role.person_id,
         fullName: person.full_name,
         email: person.email ?? "",
         cardType: "producer",
-        covered: rows.some((row) => row.personal_ip_cents !== null && row.personal_ip_cents !== undefined),
+        covered,
+        connectedByPeriodEnd,
+        finalWeekReady: personEvidence.finalWeekReady,
+        missingReportDates: [...personEvidence.missingDates],
       });
     }
     if ((input.scope === "all" || input.scope === "builder") && role.is_builder) {
@@ -129,7 +146,10 @@ export function summarizeGatewayCoverage(input: {
         fullName: person.full_name,
         email: person.email ?? "",
         cardType: "builder",
-        covered: rows.some((row) => row.team_ip_cents !== null && row.team_ip_cents !== undefined),
+        covered,
+        connectedByPeriodEnd,
+        finalWeekReady: personEvidence.finalWeekReady,
+        missingReportDates: [...personEvidence.missingDates],
       });
     }
   }
@@ -155,7 +175,7 @@ export async function loadGatewayCoverageReport(
   scope: GatewayCoverageScope,
 ): Promise<GatewayCoverageReport> {
   const cutoff = chicagoPeriodEndCutoff(period.end);
-  const [roles, people, imports, premiumRows] = await Promise.all([
+  const [roles, people, connections, imports, premiumRows] = await Promise.all([
     loadAllPages<HistoricalRoleRow>(async (from, to) => {
       const result = await supabase
         .from("person_role_status_history")
@@ -172,22 +192,32 @@ export async function loadGatewayCoverageReport(
       const result = await supabase.from("person").select("id, full_name, email").order("id", { ascending: true }).range(from, to);
       return result as CoveragePage<PersonRow>;
     }, "Scorecard people coverage"),
+    loadAllPages<ConnectionRow>(async (from, to) => {
+      const result = await supabase
+        .from("gateway_connection")
+        .select("person_id, first_connected_at")
+        .order("person_id", { ascending: true })
+        .range(from, to);
+      return result as CoveragePage<ConnectionRow>;
+    }, "Gateway connection coverage"),
     loadAllPages<ImportRow>(async (from, to) => {
       const result = await supabase
         .from("gateway_issued_premium_import")
-        .select("report_date")
+        .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+        .not("person_id", "is", null)
         .eq("period_type", "wtd")
-        .eq("status", "imported")
         .gte("report_date", period.start)
         .lte("report_date", period.end)
+        .order("person_id", { ascending: true })
         .order("report_date", { ascending: true })
+        .order("created_at", { ascending: true })
         .range(from, to);
       return result as CoveragePage<ImportRow>;
     }, "Gateway report coverage"),
     loadAllPages<PremiumRow>(async (from, to) => {
       const result = await supabase
         .from("producer_issued_premium")
-        .select("person_id, report_date, personal_ip_cents, team_ip_cents")
+        .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
         .eq("period_type", "wtd")
         .gte("report_date", period.start)
         .lte("report_date", period.end)
@@ -203,7 +233,8 @@ export async function loadGatewayCoverageReport(
     scope,
     roles,
     people,
-    importedReportDates: imports.map((row) => row.report_date),
+    connections,
+    imports,
     premiumRows,
   });
 }

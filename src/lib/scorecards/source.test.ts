@@ -187,12 +187,28 @@ describe("monthly Producer source adapter", () => {
 
   it("loads Gateway WTD rows across an explicit quarterly Scorecard period", async () => {
     const fake = fakeMonthlyProducerSource({
-      imports: [{ report_date: "2026-09-25", gateway_label: "Q3 Week" }],
-      premiumRows: [{
+      imports: [{
+        id: "import-q3",
         person_id: "producer-1",
-        report_date: "2026-09-25",
+        period_type: "wtd",
+        status: "imported",
+        report_date: "2026-09-21",
+        gateway_label: "Q3 Week",
+        source_checksum: "q3-checksum",
+        matched_count: 1,
+        unmatched_count: 0,
+        ambiguous_count: 0,
+        summary: { samples: { matchReason: null } },
+        created_at: "2026-09-21T12:00:00.000Z",
+      }],
+      premiumRows: [{
+        import_id: "import-q3",
+        person_id: "producer-1",
+        report_date: "2026-09-21",
         gateway_label: "Q3 Week",
         personal_ip_cents: 1_000_000,
+        team_ip_cents: 2_000_000,
+        first_leg_percent: 20,
       }],
     });
 
@@ -297,15 +313,30 @@ describe("Producer scored metric source wiring", () => {
   });
 
 
-  it("queries producer_issued_premium for personal IP only and scopes it to the requested producer/month", async () => {
+  it("scopes personal Gateway evidence and its premium row to the requested producer/month", async () => {
     const fake = fakeMonthlyProducerSource({
-      imports: [{ report_date: "2026-08-07", gateway_label: "August Week 1" }],
-      premiumRows: [{
+      imports: [{
+        id: "import-1",
         person_id: "producer-1",
-        report_date: "2026-08-07",
+        period_type: "wtd",
+        status: "imported",
+        report_date: "2026-08-03",
+        gateway_label: "August Week 1",
+        source_checksum: "checksum-1",
+        matched_count: 1,
+        unmatched_count: 0,
+        ambiguous_count: 0,
+        summary: { samples: { matchReason: null } },
+        created_at: "2026-08-03T12:00:00.000Z",
+      }],
+      premiumRows: [{
+        import_id: "import-1",
+        person_id: "producer-1",
+        report_date: "2026-08-03",
         gateway_label: "August Week 1",
         personal_ip_cents: 1_200_000,
         team_ip_cents: 9_900_000,
+        first_leg_percent: 30,
       }],
     });
 
@@ -319,13 +350,9 @@ describe("Producer scored metric source wiring", () => {
     expect(fake.calls).toContainEqual([
       "select",
       "producer_issued_premium",
-      "person_id, report_date, gateway_label, personal_ip_cents",
+      "id, import_id, person_id, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_percent",
     ]);
-    expect(fake.calls).not.toContainEqual([
-      "select",
-      "producer_issued_premium",
-      expect.stringContaining("team_ip_cents"),
-    ]);
+    expect(fake.calls).toContainEqual(["eq", "gateway_issued_premium_import", "person_id", "producer-1"]);
     expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "person_id", "producer-1"]);
     expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "period_type", "wtd"]);
     expect(fake.calls).toContainEqual(["gte", "producer_issued_premium", "report_date", "2026-08-01"]);

@@ -4,6 +4,12 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createProducerPeriodPreview, createScorecardScheduleFacts } from "./lifecycle";
+import {
+  aggregatePersonalGatewayReports,
+  requiredGatewayMondays,
+  summarizePersonalGatewayEvidence,
+  type PersonalGatewayImportEvidence,
+} from "./gateway-completeness";
 import { previousEquivalentPeriod, scorecardPeriodFromStart, type ScorecardPeriod } from "./period";
 import { builderPublishedMetric, parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
 import {
@@ -57,14 +63,6 @@ type ManualGenerationRequest = {
   revision?: number;
   priorSnapshot?: ScorecardArtifact;
   correctionReason?: string;
-};
-
-type GatewayImportRow = {
-  id: string;
-  report_date: string | null;
-  source_checksum: string | null;
-  unmatched_count: number | null;
-  ambiguous_count: number | null;
 };
 
 type ManualGatewayRow = {
@@ -264,20 +262,22 @@ export async function loadManualTargetContext(
 
 async function loadGatewayImports(
   service: SupabaseClient,
+  personIds: string[],
   start: string,
   end: string,
-): Promise<GatewayImportRow[]> {
+): Promise<PersonalGatewayImportEvidence[]> {
+  if (personIds.length === 0) return [];
   const { data, error } = await service
     .from("gateway_issued_premium_import")
-    .select("id, report_date, source_checksum, unmatched_count, ambiguous_count")
+    .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+    .in("person_id", personIds)
     .eq("period_type", "wtd")
-    .eq("status", "imported")
     .not("report_date", "is", null)
     .gte("report_date", start)
     .lte("report_date", end)
-    .order("report_date", { ascending: true });
+    .order("created_at", { ascending: true });
   if (error) throw new Error(`Unable to load manual Scorecard Gateway coverage: ${error.message}`);
-  return (data ?? []) as GatewayImportRow[];
+  return (data ?? []) as PersonalGatewayImportEvidence[];
 }
 
 async function loadGatewayRows(
@@ -300,31 +300,19 @@ async function loadGatewayRows(
 }
 
 function gatewayReports(
-  imports: GatewayImportRow[],
+  imports: PersonalGatewayImportEvidence[],
   rows: ManualGatewayRow[],
+  personIds: Iterable<string>,
+  start: string,
+  end: string,
 ): GatewayReport[] {
-  const rowsByDate = new Map<string, GatewayReport["rows"]>();
-  for (const row of rows) {
-    const reportRows = rowsByDate.get(row.report_date) ?? [];
-    reportRows.push({
-      personId: row.person_id,
-      personalIpCents: numeric(row.personal_ip_cents),
-      teamIpCents: numeric(row.team_ip_cents),
-      firstLegPercent: row.first_leg_percent == null ? null : numeric(row.first_leg_percent),
-    });
-    rowsByDate.set(row.report_date, reportRows);
-  }
-
-  return imports.flatMap<GatewayReport>((report) => report.report_date ? [{
-    id: report.id,
-    periodType: "wtd",
-    reportDate: report.report_date,
-    status: "published",
-    sourceChecksum: report.source_checksum ?? "",
-    unmatchedCount: numeric(report.unmatched_count),
-    ambiguousCount: numeric(report.ambiguous_count),
-    rows: rowsByDate.get(report.report_date) ?? [],
-  }] : []);
+  return aggregatePersonalGatewayReports({
+    imports,
+    premiumRows: rows,
+    personIds,
+    start,
+    end,
+  });
 }
 
 async function captureProducerMetric(
@@ -499,19 +487,26 @@ export async function generateManualScorecardWithClient(
     const reportStart = request.cardType === "builder"
       ? earlierDate(request.period.start, sixWeekStart(request.period.end))
       : request.period.start;
+    const evidencePersonIds = context
+      .filter((person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd)
+      .map((person) => person.personId);
     const [imports, priorImports, rows] = await Promise.all([
-      loadGatewayImports(service, reportStart, request.period.end),
-      request.cardType === "builder" ? loadGatewayImports(service, prior.start, prior.end) : Promise.resolve([]),
+      loadGatewayImports(service, evidencePersonIds, reportStart, request.period.end),
+      request.cardType === "builder" ? loadGatewayImports(service, [target.personId], prior.start, prior.end) : Promise.resolve([]),
       loadGatewayRows(service, request.personId, request.period.end, reportStart, request.period.end, includeSubtree),
     ]);
-    const reports = gatewayReports(imports, rows);
-    const expectedReportDates = [...new Set(imports
-      .map((row) => row.report_date)
-      .filter((date): date is string => Boolean(date) && date! >= request.period.start && date! <= request.period.end))]
-      .sort();
-    if (expectedReportDates.length === 0) {
-      return { status: "generation_failure", message: "No published Gateway WTD coverage exists for the selected period." };
+    const evidenceRequiredDates = requiredGatewayMondays({ start: reportStart, end: request.period.end });
+    const evidenceCoverage = summarizePersonalGatewayEvidence({
+      personIds: evidencePersonIds,
+      requiredDates: evidenceRequiredDates,
+      imports,
+      premiumRows: rows,
+    });
+    if (evidencePersonIds.some((personId) => !evidenceCoverage.byPerson.get(personId)?.complete)) {
+      return { status: "generation_failure", message: "Personal Gateway WTD coverage is incomplete for the selected Scorecard scope." };
     }
+    const reports = gatewayReports(imports, rows, evidencePersonIds, reportStart, request.period.end);
+    const expectedReportDates = requiredGatewayMondays(request.period);
 
     const generatedAt = new Date();
     let producerMetrics: ScorecardRunInput["producerMetrics"] = [];
@@ -533,17 +528,28 @@ export async function generateManualScorecardWithClient(
         loadGatewayRows(service, target.personId, request.period.end, prior.start, prior.end, false),
       ]);
       builderProductionSupport = support;
-      const priorDates = new Set(priorImports
-        .map((row) => row.report_date)
-        .filter((date): date is string => Boolean(date)));
-      if (priorDates.size === 0) {
+      if (priorImports.length === 0) {
         priorBuilderCoverage[target.personId] = "outside_retention";
         priorBuilderTeamIpCents[target.personId] = null;
       } else {
-        priorBuilderCoverage[target.personId] = "complete";
-        priorBuilderTeamIpCents[target.personId] = priorRows
-          .filter((row) => priorDates.has(row.report_date))
-          .reduce((sum, row) => sum + numeric(row.team_ip_cents), 0);
+        const priorRequiredDates = requiredGatewayMondays(prior);
+        const priorCoverage = summarizePersonalGatewayEvidence({
+          personIds: [target.personId],
+          requiredDates: priorRequiredDates,
+          imports: priorImports,
+          premiumRows: priorRows,
+        }).byPerson.get(target.personId);
+        if (!priorCoverage?.complete) {
+          priorBuilderCoverage[target.personId] = "incomplete";
+          priorBuilderTeamIpCents[target.personId] = null;
+        } else {
+          const priorReports = gatewayReports(priorImports, priorRows, [target.personId], prior.start, prior.end);
+          priorBuilderCoverage[target.personId] = "complete";
+          priorBuilderTeamIpCents[target.personId] = priorReports
+            .flatMap((report) => report.rows)
+            .filter((row) => row.personId === target.personId)
+            .reduce((sum, row) => sum + row.teamIpCents, 0);
+        }
       }
     }
 

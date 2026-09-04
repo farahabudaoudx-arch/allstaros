@@ -14,6 +14,13 @@ import {
   type ProducerActivityRow,
   type ProducerOverview,
 } from "./lifecycle";
+import {
+  buildPersonalGatewayEvidenceIndex,
+  personalGatewayEvidenceKey,
+  requiredGatewayMondays,
+  type PersonalGatewayImportEvidence,
+  type PersonalGatewayPremiumRow,
+} from "./gateway-completeness";
 import { previousEquivalentPeriod, type ScorecardPeriod } from "./period";
 
 type GatewayWeekRow = {
@@ -121,9 +128,9 @@ export function monthlyProducerSourceFromRows(args: {
   };
 }
 
-/** Server-only source adapter. The caller must pass an authorized service-role
- * client: organization report dates are needed even when this producer has no
- * row, while the returned source includes only the requested member's value. */
+/** Server-only source adapter. Scorecard WTD dates are personal, Monday-only
+ * evidence. Another member's audit can never create a report date or a zero for
+ * this producer. */
 export async function loadProducerSourceForPeriod(
   supabase: SupabaseClient,
   producerId: string,
@@ -136,15 +143,15 @@ export async function loadProducerSourceForPeriod(
     [importsResult, rowsResult] = await Promise.all([
       supabase
         .from("gateway_issued_premium_import")
-        .select("report_date, gateway_label")
+        .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+        .eq("person_id", producerId)
         .eq("period_type", "wtd")
-        .eq("status", "imported")
         .gte("report_date", period.start)
         .lte("report_date", period.end)
-        .order("report_date", { ascending: true }),
+        .order("created_at", { ascending: true }),
       supabase
         .from("producer_issued_premium")
-        .select("person_id, report_date, gateway_label, personal_ip_cents")
+        .select("id, import_id, person_id, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_percent")
         .eq("person_id", producerId)
         .eq("period_type", "wtd")
         .gte("report_date", period.start)
@@ -157,11 +164,34 @@ export async function loadProducerSourceForPeriod(
   if (importsResult.error) throw scorecardSourceError("Gateway report coverage", importsResult.error);
   if (rowsResult.error) throw scorecardSourceError("Producer personal IP", rowsResult.error);
 
+  const imports = (importsResult.data ?? []) as PersonalGatewayImportEvidence[];
+  const premiums = (rowsResult.data ?? []) as Array<PersonalGatewayPremiumRow & { gateway_label?: string | null }>;
+  const evidence = buildPersonalGatewayEvidenceIndex(imports, premiums);
+  const requiredDates = new Set(requiredGatewayMondays({ start: period.start, end: period.end }));
+  const reportImports: GatewayWeekImport[] = [];
+  const rows: GatewayWeekRow[] = [];
+  for (const reportDate of [...requiredDates].sort()) {
+    const resolved = evidence.get(personalGatewayEvidenceKey(producerId, reportDate));
+    if (!resolved) continue;
+    reportImports.push({
+      report_date: reportDate,
+      gateway_label: resolved.audit.gateway_label,
+    });
+    rows.push({
+      person_id: producerId,
+      report_date: reportDate,
+      gateway_label: resolved.audit.gateway_label,
+      personal_ip_cents: resolved.kind === "verified_zero"
+        ? 0
+        : Number(resolved.premiumRow!.personal_ip_cents),
+    });
+  }
+
   return monthlyProducerSourceFromRows({
     producerId,
     period,
-    reportImports: (importsResult.data ?? []) as GatewayWeekImport[],
-    rows: (rowsResult.data ?? []) as GatewayWeekRow[],
+    reportImports,
+    rows,
     generatedAt: generatedAt.toISOString(),
   });
 }
@@ -365,20 +395,20 @@ export async function loadProducerOverviewForPeriod(
           .order("id")
           .range(lo, hi),
       ),
-      fetchAllRows<{ id: string; person_id: string; report_date: string; personal_ip_cents: number }>((lo, hi) =>
+      fetchAllRows<PersonalGatewayPremiumRow & { id: string }>((lo, hi) =>
         supabase
           .from("producer_issued_premium")
-          .select("id, person_id, report_date, personal_ip_cents")
+          .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
           .eq("period_type", "wtd")
           .gte("report_date", period.start)
           .lte("report_date", period.end)
           .order("id")
           .range(lo, hi),
       ),
-      fetchAllRows<{ id: string; person_id: string; report_date: string; personal_ip_cents: number }>((lo, hi) =>
+      fetchAllRows<PersonalGatewayPremiumRow & { id: string }>((lo, hi) =>
         supabase
           .from("producer_issued_premium")
-          .select("id, person_id, report_date, personal_ip_cents")
+          .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
           .eq("period_type", "wtd")
           .gte("report_date", prior.start)
           .lte("report_date", prior.end)
@@ -398,11 +428,28 @@ export async function loadProducerOverviewForPeriod(
         .or(`effective_to.is.null,effective_to.gte.${period.start}`)
         .order("effective_from", { ascending: true })
         .order("created_at", { ascending: true }),
-      supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", period.start).lte("report_date", period.end),
-      supabase.from("gateway_issued_premium_import").select("report_date").eq("period_type", "wtd").eq("status", "imported").gte("report_date", prior.start).lte("report_date", prior.end),
+      fetchAllRows<PersonalGatewayImportEvidence & { id: string }>((lo, hi) =>
+        supabase.from("gateway_issued_premium_import")
+          .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+          .not("person_id", "is", null)
+          .eq("period_type", "wtd")
+          .gte("report_date", period.start)
+          .lte("report_date", period.end)
+          .order("id")
+          .range(lo, hi),
+      ),
+      fetchAllRows<PersonalGatewayImportEvidence & { id: string }>((lo, hi) =>
+        supabase.from("gateway_issued_premium_import")
+          .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+          .not("person_id", "is", null)
+          .eq("period_type", "wtd")
+          .gte("report_date", prior.start)
+          .lte("report_date", prior.end)
+          .order("id")
+          .range(lo, hi),
+      ),
     ]);
   if (peopleResult.error) throw new Error(`Unable to load rank population: ${peopleResult.error.message}`);
-  if (currentImportsResult.error || priorImportsResult.error) throw new Error("Unable to load imported Gateway coverage for ranking.");
 
   let submittedApCents = 0;
   let priorSubmittedApCents = 0;
@@ -491,12 +538,15 @@ export async function loadProducerOverviewForPeriod(
     [...organizationTrackedDates.values()].map((dates) => dates.size),
   );
   const totalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
-  const currentImportedDates = new Set((currentImportsResult.data ?? []).map((row) => String(row.report_date)));
-  for (const row of currentPremiumRows) {
-    if (!activeIds.has(row.person_id) || !currentImportedDates.has(row.report_date)) continue;
+  const currentMondayDates = new Set(requiredGatewayMondays(period));
+  const currentEvidence = buildPersonalGatewayEvidenceIndex(currentImportsResult, currentPremiumRows);
+  for (const resolved of currentEvidence.values()) {
+    const personId = resolved.audit.person_id;
+    const reportDate = resolved.audit.report_date;
+    if (!personId || !reportDate || !activeIds.has(personId) || !currentMondayDates.has(reportDate)) continue;
     totalsByPerson.set(
-      row.person_id,
-      (totalsByPerson.get(row.person_id) ?? 0) + row.personal_ip_cents,
+      personId,
+      (totalsByPerson.get(personId) ?? 0) + (resolved.kind === "verified_zero" ? 0 : Number(resolved.premiumRow!.personal_ip_cents)),
     );
   }
   const rankingIssuedIpCents = totalsByPerson.get(producer.id);
@@ -511,15 +561,19 @@ export async function loadProducerOverviewForPeriod(
   const percentile = population && rank != null
     ? Math.max(1, Math.round(((population - rank + 1) / population) * 100))
     : 0;
-  const priorImportedDates = new Set((priorImportsResult.data ?? []).map((row) => String(row.report_date)));
   const priorTotalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
-  for (const row of priorPremiumRows) {
-    if (!activeIds.has(row.person_id) || !priorImportedDates.has(row.report_date)) continue;
-    priorTotalsByPerson.set(row.person_id, (priorTotalsByPerson.get(row.person_id) ?? 0) + row.personal_ip_cents);
+  const priorMondayDates = new Set(requiredGatewayMondays(prior));
+  const priorEvidence = buildPersonalGatewayEvidenceIndex(priorImportsResult, priorPremiumRows);
+  let producerHasPriorEvidence = false;
+  for (const resolved of priorEvidence.values()) {
+    const personId = resolved.audit.person_id;
+    const reportDate = resolved.audit.report_date;
+    if (!personId || !reportDate || !activeIds.has(personId) || !priorMondayDates.has(reportDate)) continue;
+    const amount = resolved.kind === "verified_zero" ? 0 : Number(resolved.premiumRow!.personal_ip_cents);
+    priorTotalsByPerson.set(personId, (priorTotalsByPerson.get(personId) ?? 0) + amount);
+    if (personId === producer.id) producerHasPriorEvidence = true;
   }
-  const priorIssuedIpCents = priorPremiumRows
-    .filter((row) => row.person_id === producer.id && priorImportedDates.has(row.report_date))
-    .reduce((total, row) => total + row.personal_ip_cents, 0);
+  const priorIssuedIpCents = priorTotalsByPerson.get(producer.id) ?? 0;
   const priorSortedTotals = [...priorTotalsByPerson.values()].filter((value) => value > 0).sort((a, b) => b - a);
   const priorRankIndex = priorSortedTotals.findIndex((value) => value === priorIssuedIpCents);
 
@@ -570,7 +624,7 @@ export async function loadProducerOverviewForPeriod(
       population,
       percentile,
       movement:
-        priorImportedDates.size === 0 || priorRankIndex < 0 || rank == null ? null : priorRankIndex + 1 - rank,
+        !producerHasPriorEvidence || priorRankIndex < 0 || rank == null ? null : priorRankIndex + 1 - rank,
     },
     organizationRanks: {
       submittedAp: submittedApRank,

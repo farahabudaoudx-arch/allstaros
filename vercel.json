@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/gateway-report-pulls",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/scorecard-publishing",
+      "schedule": "0 * * * *"
     }
   ]
 }

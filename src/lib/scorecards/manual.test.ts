@@ -79,10 +79,17 @@ import { parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
 
 type ImportRow = {
   id: string;
+  person_id: string;
+  period_type: "wtd";
+  status: "imported" | "no_new_report" | "failed";
   report_date: string;
+  gateway_label: string | null;
   source_checksum: string;
+  matched_count: number;
   unmatched_count: number;
   ambiguous_count: number;
+  summary: unknown;
+  created_at: string;
 };
 
 type SnapshotRow = {
@@ -178,8 +185,20 @@ class FakeQuery {
 
   private result() {
     if (this.table === "gateway_issued_premium_import") {
-      const rows = this.state.imports.filter((row) =>
-        (!this.lower || row.report_date >= this.lower) && (!this.upper || row.report_date <= this.upper));
+      const rows = this.state.imports.filter((row) => {
+        if (this.lower && row.report_date < this.lower) return false;
+        if (this.upper && row.report_date > this.upper) return false;
+        for (const [column, value] of this.filters) {
+          if ((row as unknown as Record<string, unknown>)[column] !== value) return false;
+        }
+        for (const [column, values] of this.inFilters) {
+          if (!values.includes((row as unknown as Record<string, unknown>)[column])) return false;
+        }
+        for (const column of this.nonNull) {
+          if ((row as unknown as Record<string, unknown>)[column] == null) return false;
+        }
+        return true;
+      });
       return { data: rows, error: null };
     }
     if (this.table === "scorecard_snapshot") {
@@ -301,33 +320,86 @@ function seedBuilderRankPeers(state: FakeState) {
   );
 }
 
+function mondayDates(start: string, end: string): string[] {
+  const result: string[] = [];
+  const cursor = new Date(`${start}T00:00:00.000Z`);
+  const stop = new Date(`${end}T00:00:00.000Z`);
+  while (cursor <= stop) {
+    if (cursor.getUTCDay() === 1) result.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return result;
+}
+
+function seedPersonalGatewayEvidence(
+  imports: ImportRow[],
+  gatewayRows: Array<Record<string, unknown>>,
+  personId: string,
+  start: string,
+  end: string,
+) {
+  for (const reportDate of mondayDates(start, end)) {
+    const importId = `import-${personId}-${reportDate}`;
+    imports.push({
+      id: importId,
+      person_id: personId,
+      period_type: "wtd",
+      status: "imported",
+      report_date: reportDate,
+      gateway_label: reportDate,
+      source_checksum: `checksum-${personId}-${reportDate}`,
+      matched_count: 1,
+      unmatched_count: 0,
+      ambiguous_count: 0,
+      summary: { samples: { matchReason: null } },
+      created_at: `${reportDate}T12:00:00.000Z`,
+    });
+    gatewayRows.push({
+      id: `premium-${personId}-${reportDate}`,
+      import_id: importId,
+      person_id: personId,
+      report_date: reportDate,
+      personal_ip_cents: 0,
+      team_ip_cents: 0,
+      first_leg_percent: null,
+    });
+  }
+}
+
+function setGatewayValues(
+  rows: Array<Record<string, unknown>>,
+  personId: string,
+  reportDate: string,
+  values: { personalIpCents?: number; teamIpCents?: number; firstLegPercent?: number | null },
+) {
+  const row = rows.find((candidate) => candidate.person_id === personId && candidate.report_date === reportDate);
+  if (!row) throw new Error(`Missing seeded Gateway row for ${personId} on ${reportDate}.`);
+  if (values.personalIpCents != null) row.personal_ip_cents = values.personalIpCents;
+  if (values.teamIpCents != null) row.team_ip_cents = values.teamIpCents;
+  if (Object.prototype.hasOwnProperty.call(values, "firstLegPercent")) row.first_leg_percent = values.firstLegPercent ?? null;
+}
+
 function fakeState(): FakeState {
+  const imports: ImportRow[] = [];
+  const gatewayRows: Array<Record<string, unknown>> = [];
+  seedPersonalGatewayEvidence(imports, gatewayRows, "person-a", "2025-01-01", "2026-08-31");
+  seedPersonalGatewayEvidence(imports, gatewayRows, "person-b", "2026-07-01", "2026-08-31");
+
+  setGatewayValues(gatewayRows, "person-a", "2026-07-27", { teamIpCents: 2_000_000, firstLegPercent: 40 });
+  setGatewayValues(gatewayRows, "person-a", "2026-08-03", { teamIpCents: 1_000_000, firstLegPercent: 50 });
+  setGatewayValues(gatewayRows, "person-a", "2026-08-10", { teamIpCents: 3_000_000, firstLegPercent: 25 });
+  setGatewayValues(gatewayRows, "person-a", "2026-08-31", { personalIpCents: 2_000_000 });
+  setGatewayValues(gatewayRows, "person-b", "2026-08-10", { personalIpCents: 100_000, teamIpCents: 100_000, firstLegPercent: 10 });
+
   return {
     adminAllowed: true,
     people: new Set(["admin", "person-a", "person-b"]),
-    imports: [
-      { id: "jul-24", report_date: "2026-07-24", source_checksum: "jul24", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "jul-31", report_date: "2026-07-31", source_checksum: "jul31", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "aug-07", report_date: "2026-08-07", source_checksum: "aug07", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "aug-14", report_date: "2026-08-14", source_checksum: "aug14", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "aug-21", report_date: "2026-08-21", source_checksum: "aug21", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "aug-28", report_date: "2026-08-28", source_checksum: "aug28", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "q2", report_date: "2026-06-26", source_checksum: "q2", unmatched_count: 0, ambiguous_count: 0 },
-      { id: "annual", report_date: "2025-12-26", source_checksum: "annual", unmatched_count: 0, ambiguous_count: 0 },
-    ],
+    imports,
     contexts: {
       "person-a": context("person-a"),
       "person-b": context("person-b", false).slice(0, 1),
     },
-    gatewayRows: [
-      { id: "g1", import_id: "jul-24", person_id: "person-a", report_date: "2026-07-24", personal_ip_cents: 0, team_ip_cents: 2_000_000, first_leg_percent: 40 },
-      { id: "g2", import_id: "aug-07", person_id: "person-a", report_date: "2026-08-07", personal_ip_cents: 0, team_ip_cents: 1_000_000, first_leg_percent: 50 },
-      { id: "g3", import_id: "aug-14", person_id: "person-a", report_date: "2026-08-14", personal_ip_cents: 0, team_ip_cents: 3_000_000, first_leg_percent: 25 },
-      { id: "g4", import_id: "aug-14", person_id: "person-b", report_date: "2026-08-14", personal_ip_cents: 100_000, team_ip_cents: 100_000, first_leg_percent: 10 },
-      { id: "g5", import_id: "aug-28", person_id: "person-a", report_date: "2026-08-28", personal_ip_cents: 2_000_000, team_ip_cents: 0, first_leg_percent: null },
-      { id: "g6", import_id: "q2", person_id: "person-a", report_date: "2026-06-26", personal_ip_cents: 2_000_000, team_ip_cents: 0, first_leg_percent: null },
-      { id: "g7", import_id: "annual", person_id: "person-a", report_date: "2025-12-26", personal_ip_cents: 2_000_000, team_ip_cents: 0, first_leg_percent: null },
-    ],
+    gatewayRows,
     published: new Map(),
     snapshots: [],
     counts: { runs: 0, snapshots: 0, deliveries: 0 },
@@ -923,7 +995,8 @@ describe("published Scorecard correction", () => {
     expect(initialPayload.metricPayload.teamRank).toEqual({ rank: 2, population: 3 });
     expect(initialPayload.metricPayload.recruitingRank).toEqual({ rank: 2, population: 3 });
 
-    const targetGatewayRow = state.gatewayRows.find((row) => row.id === "g2")!;
+    const targetGatewayRow = state.gatewayRows.find((row) =>
+      row.person_id === "person-a" && row.report_date === "2026-08-03")!;
     targetGatewayRow.team_ip_cents = 4_000_000;
     const peerSnapshotsBefore = state.snapshots
       .filter((row) => row.person_id === "person-c" || row.person_id === "person-d")
