@@ -5,6 +5,7 @@ import type { InviteRole } from "@/lib/invite/batch";
 import type { MenuPerson } from "@/components/producer/menu/MenuSettingsDrawer";
 
 import { loadGatewayConnectionState } from "@/lib/gateway/connection";
+import { loadGatewayReminderPresentation } from "@/lib/gateway/reminders";
 export type MenuTile = {
   label: string;
   hint?: string;
@@ -41,6 +42,10 @@ export async function menuChrome(person: Person): Promise<{
     getProducerUnread(person.id),
     loadGatewayConnectionState(person.id),
   ]);
+  const gatewayReminder = await loadGatewayReminderPresentation(
+    person.id,
+    gatewayConnection,
+  );
   return {
     menuPerson: {
       fullName: person.full_name,
@@ -55,6 +60,7 @@ export async function menuChrome(person: Person): Promise<{
           : null,
       discordConnected: Boolean(person.discord_webhook_url),
       gatewayConnection,
+      gatewayReminder,
     },
     chatHref: person.is_builder ? "/producer/messages" : "/producer/upline",
     unreadChat: person.is_builder ? unread.team : unread.upline,

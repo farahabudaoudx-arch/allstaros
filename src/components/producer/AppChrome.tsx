@@ -17,7 +17,6 @@ import {
 } from "./menu/MenuSettingsDrawer";
 
 import { GatewayConnectPrompt } from "@/app/producer/_components/gateway-connect-prompt";
-import { shouldPromptGatewayConnection } from "@/lib/gateway/connection-types";
 const RAIL_KEY = "producer.nav.rail";
 
 const SETTINGS_SECTIONS: SettingsSectionKey[] = [
@@ -215,8 +214,9 @@ export function AppChrome({
         onClose={() => setSettingsOpen(false)}
       />
       <GatewayConnectPrompt
-        initialOpen={shouldPromptGatewayConnection(person.gatewayConnection)}
-        reconnect={person.gatewayConnection.needsReconnect || person.gatewayConnection.everConnected}
+        reminderId={person.gatewayReminder?.id ?? null}
+        initialOpen={Boolean(person.gatewayReminder && !person.gatewayReminder.popupDismissedAt)}
+        reconnect={person.gatewayReminder?.variant === "reconnect"}
       />
     </div>
   );

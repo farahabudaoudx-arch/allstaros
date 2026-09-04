@@ -6,8 +6,8 @@ import { getCurrentPerson } from "@/lib/auth";
 import {
   completeGatewayConnectRequest,
   disconnectGatewayForPerson,
-  dismissGatewayPromptForPerson,
 } from "@/lib/gateway/connection";
+import { dismissGatewayReminderForPerson } from "@/lib/gateway/reminders";
 
 function eligible(person: Awaited<ReturnType<typeof getCurrentPerson>>) {
   return Boolean(
@@ -35,11 +35,11 @@ export async function disconnectGateway() {
   }
 }
 
-export async function dismissGatewayPrompt() {
+export async function dismissGatewayPrompt(reminderId: string) {
   const person = await getCurrentPerson();
   if (!eligible(person) || !person) return { ok: false as const, error: "Not authorized." };
   try {
-    await dismissGatewayPromptForPerson(person.id);
+    await dismissGatewayReminderForPerson(person.id, reminderId);
     revalidatePath("/producer");
     return { ok: true as const };
   } catch {

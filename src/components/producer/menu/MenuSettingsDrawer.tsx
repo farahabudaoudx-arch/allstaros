@@ -13,6 +13,7 @@ import { BuilderSettingsForm } from "@/components/producer/BuilderSettingsForm";
 import { DiscordSettingsSection } from "@/components/producer/DiscordSettingsSection";
 import { GatewayConnectionSettings } from "@/components/producer/GatewayConnectionSettings";
 import { gatewayStatusLabel, type GatewayConnectionState } from "@/lib/gateway/connection-types";
+import type { GatewayReminderPresentation } from "@/lib/gateway/reminders";
 
 /** Slide duration, kept in sync with the `duration-300` classes below. */
 const DRAWER_MS = 300;
@@ -27,6 +28,7 @@ export type MenuPerson = {
   photoRejectionReason: string | null;
   discordConnected: boolean;
   gatewayConnection: GatewayConnectionState;
+  gatewayReminder: GatewayReminderPresentation | null;
 };
 
 /** The settings sections, in the order they appear in the drawer. */

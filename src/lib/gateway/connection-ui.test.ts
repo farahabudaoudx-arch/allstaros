@@ -15,7 +15,7 @@ const scorecards = read("src/app/producer/(app)/scorecards/page.tsx");
 describe("Gateway connection UI semantics", () => {
   it("wires Gateway into the shared producer chrome and settings deep-link", () => {
     expect(chrome).toContain('"gateway"');
-    expect(chrome).toContain("shouldPromptGatewayConnection(person.gatewayConnection)");
+    expect(chrome).toContain("person.gatewayReminder?.id");
     expect(drawer).toContain('key: "gateway"');
     expect(drawer).toContain("<GatewayConnectionSettings state={person.gatewayConnection} />");
   });

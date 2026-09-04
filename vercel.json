@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/scorecard-delivery",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/gateway-reminders",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
