@@ -39,8 +39,11 @@ export function gatewayReportAgentAuthorized(authorization: string | null): bool
   const supplied = authorization?.startsWith("Bearer ")
     ? authorization.slice("Bearer ".length).trim()
     : "";
-  if (!supplied || supplied.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
+  if (!supplied) return false;
+  const expectedBytes = Buffer.from(expected);
+  const suppliedBytes = Buffer.from(supplied);
+  if (suppliedBytes.length !== expectedBytes.length) return false;
+  return timingSafeEqual(expectedBytes, suppliedBytes);
 }
 
 export function gatewayReportImportErrorStatus(error: unknown): 400 | 409 {

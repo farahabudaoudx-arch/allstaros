@@ -33,6 +33,16 @@ describe("Gateway report job claim route", () => {
     expect(response.status).toBe(403);
   });
 
+  it("rejects a same-character-count Unicode token without throwing", async () => {
+    process.env.GATEWAY_AGENT_REPORT_TOKEN = "expected";
+    const response = await POST(new NextRequest("http://localhost/api/gateway/report-jobs/claim", {
+      method: "POST",
+      headers: { authorization: "Bearer éééééééé" },
+    }));
+    expect(response.status).toBe(403);
+    expect(mocks.claim).not.toHaveBeenCalled();
+  });
+
   it("returns one claimed personal job including the opaque session reference", async () => {
     process.env.GATEWAY_AGENT_REPORT_TOKEN = "expected";
     mocks.claim.mockResolvedValue({
