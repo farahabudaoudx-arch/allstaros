@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { disconnectGateway } from "@/lib/actions/gateway";
 import {
+  GATEWAY_NEVER_CONNECTED_COPY,
+  GATEWAY_RECONNECT_COPY,
   gatewayStatusLabel,
   type GatewayConnectionState,
 } from "@/lib/gateway/connection-types";
@@ -37,8 +39,8 @@ export function GatewayConnectionSettings({ state }: { state: GatewayConnectionS
               {state.connected
                 ? "Your personal Gateway is connected."
                 : state.needsReconnect || state.everConnected
-                  ? "Reconnect your personal Gateway so new report-driven numbers can be pulled."
-                  : "Connect your own Gateway account so All Star OS can report your issued premium."}
+                  ? GATEWAY_RECONNECT_COPY
+                  : GATEWAY_NEVER_CONNECTED_COPY}
             </p>
           </div>
           <span className={state.connected ? "text-sm font-medium text-pos" : "text-sm font-medium text-mute"}>
@@ -82,7 +84,7 @@ export function GatewayConnectionSettings({ state }: { state: GatewayConnectionS
       )}
 
       <p className="text-xs leading-5 text-mute">
-        All Star OS does not store your Gateway password or 2FA code here. If Gateway itself asks for two-factor authentication during sign-in, complete that Gateway challenge; otherwise there is no extra 2FA step.
+        All Star OS keeps a Gateway session after you sign in so Monday can run without you clicking Run. We do not store your Gateway password or 2FA code. If Gateway itself asks for two-factor during sign-in, complete that Gateway challenge; otherwise there is no extra 2FA step.
       </p>
     </div>
   );

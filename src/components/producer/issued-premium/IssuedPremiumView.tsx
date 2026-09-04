@@ -132,11 +132,13 @@ export function IssuedPremiumView({
   isBuilder,
   agentCount = null,
   backHref,
+  notice = null,
 }: {
   reports: IpReport[]; // oldest first
   isBuilder: boolean;
   agentCount?: number | null;
   backHref: string;
+  notice?: { body: string; href?: string; cta?: string } | null;
 }) {
   const [period, setPeriod] = useState<PeriodKey>("mtd");
   const [metric, setMetric] = useState<BuilderMetric>("team");
@@ -244,6 +246,20 @@ export function IssuedPremiumView({
           ))}
         </div>
       </PageHeader>
+
+      {notice ? (
+        <section className="mt-6 rounded-2xl border border-hairline bg-card px-5 py-4">
+          <p className="text-sm leading-6 text-subtle">{notice.body}</p>
+          {notice.href && notice.cta ? (
+            <Link
+              href={notice.href}
+              className="mt-3 inline-flex rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black"
+            >
+              {notice.cta}
+            </Link>
+          ) : null}
+        </section>
+      ) : null}
 
       {reports.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-hairline bg-card px-6 py-12 text-center">

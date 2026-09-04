@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AppChrome } from "@/components/producer/AppChrome";
 import { PageTransition } from "@/components/PageTransition";
 import { type MenuPerson } from "./MenuSettingsDrawer";
@@ -37,6 +38,7 @@ export function HomeNumbers({
   chatHref,
   unreadChat,
   previewOf,
+  gatewayNotice,
 }: {
   person: MenuPerson;
   greetingName: string;
@@ -46,6 +48,7 @@ export function HomeNumbers({
   /** Set only by the dev ?preview=<name> escape hatch, to label whose numbers
    *  these are so a screenshot is never mistaken for your own. */
   previewOf?: string;
+  gatewayNotice?: string | null;
 }) {
   // Computed after mount so the server and client agree on the markup; the
   // server has no idea what time it is where the reader is.
@@ -89,6 +92,18 @@ export function HomeNumbers({
               </li>
             ))}
           </ul>
+
+          {gatewayNotice ? (
+            <p className="mt-6 max-w-xl text-sm leading-6 text-subtle">
+              {gatewayNotice}{" "}
+              <Link
+                href="/producer?settings=gateway"
+                className="font-medium text-accent underline-offset-2 hover:underline"
+              >
+                Open Settings
+              </Link>
+            </p>
+          ) : null}
 
           <p className="mt-10 text-xl font-semibold tracking-[-0.02em] text-ink md:text-2xl">
             Let&apos;s get to work.

@@ -6,9 +6,15 @@ import {
   type IpReport,
   type PeriodKey,
 } from "@/components/producer/issued-premium/IssuedPremiumView";
-
 import { loadGatewayConnectionState } from "@/lib/gateway/connection";
+import {
+  GATEWAY_NEVER_CONNECTED_COPY,
+  GATEWAY_RECONNECT_COPY,
+  gatewayIssuedPaidHistoryVisible,
+  type GatewayConnectionState,
+} from "@/lib/gateway/connection-types";
 import Link from "next/link";
+
 export const dynamic = "force-dynamic";
 
 type Row = {
@@ -35,6 +41,19 @@ function rangeLabel(labels: Partial<Record<PeriodKey, string | null>>, reportDat
     day: "numeric",
     year: "numeric",
   });
+}
+
+function issuedPaidBlockedCopy(state: GatewayConnectionState) {
+  if (state.status === "unavailable") {
+    return {
+      title: "Gateway status unavailable",
+      body: "We cannot verify your personal Gateway connection right now, so Gateway-dependent values are hidden instead of showing stale or guessed numbers.",
+    };
+  }
+  return {
+    title: "Connect Gateway to see Issued Premium",
+    body: GATEWAY_NEVER_CONNECTED_COPY,
+  };
 }
 
 export default async function IssuedPremiumPage({
@@ -72,10 +91,11 @@ export default async function IssuedPremiumPage({
   }
 
   const gatewayConnection = await loadGatewayConnectionState(view.id);
+  const showHistory = gatewayIssuedPaidHistoryVisible(gatewayConnection);
   let rows: Row[] = [];
   let reportsError = false;
 
-  if (gatewayConnection.connected) {
+  if (showHistory) {
     const result = await supabase
       .from("producer_issued_premium")
       .select(
@@ -130,7 +150,7 @@ export default async function IssuedPremiumPage({
   // downline; in dev view-as mode the service client sees everyone, so we
   // walk the upline tree from the viewed person either way.
   let agentCount: number | null = null;
-  if (gatewayConnection.connected && !reportsError && view.is_builder) {
+  if (showHistory && !reportsError && view.is_builder) {
     const { data: peopleRows } = await supabase
       .from("person")
       .select("id, upline_id, status, is_producer, is_builder");
@@ -163,19 +183,17 @@ export default async function IssuedPremiumPage({
     agentCount = count;
   }
 
-  const connectionBlocked = !gatewayConnection.connected;
-  const blockedTitle =
-    gatewayConnection.status === "unavailable"
-      ? "Gateway status unavailable"
-      : gatewayConnection.everConnected
-        ? "Reconnect Gateway to refresh Issued Premium"
-        : "Connect Gateway to see Issued Premium";
-  const blockedCopy =
-    gatewayConnection.status === "unavailable"
-      ? "We cannot verify your personal Gateway connection right now, so Gateway-dependent values are hidden instead of showing stale or guessed numbers."
-      : gatewayConnection.everConnected
-        ? "Your previous connection is no longer active. Current Gateway-dependent values stay unknown until you reconnect."
-        : "All Star OS cannot report your personal Issued Premium until you connect your own Gateway login.";
+  const historyNotice =
+    showHistory && !gatewayConnection.connected
+      ? {
+          body: `${GATEWAY_RECONNECT_COPY} Reports we already pulled stay here. New weeks will not appear until you reconnect.`,
+          href: "/producer?settings=gateway",
+          cta: "Reconnect Gateway",
+        }
+      : null;
+
+  const blocked = !showHistory;
+  const blockedCopy = issuedPaidBlockedCopy(gatewayConnection);
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -186,7 +204,7 @@ export default async function IssuedPremiumPage({
         </p>
       )}
 
-      {connectionBlocked ? (
+      {blocked ? (
         <div>
           <div className="flex items-center justify-between gap-4">
             <Link
@@ -201,17 +219,17 @@ export default async function IssuedPremiumPage({
           </div>
           <section className="mt-8 rounded-2xl border border-hairline bg-card px-6 py-12 text-center">
             <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
-              {blockedTitle}
+              {blockedCopy.title}
             </h1>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-subtle">
-              {blockedCopy}
+              {blockedCopy.body}
             </p>
             {gatewayConnection.status !== "unavailable" ? (
               <Link
                 href="/producer?settings=gateway"
                 className="mt-6 inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black"
               >
-                {gatewayConnection.everConnected ? "Reconnect Gateway" : "Connect Gateway"}
+                Connect Gateway
               </Link>
             ) : null}
           </section>
@@ -234,7 +252,7 @@ export default async function IssuedPremiumPage({
               Issued Premium is temporarily unavailable
             </h1>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-subtle">
-              Your Gateway is connected, but the report data could not be loaded. We are hiding the values instead of substituting zero or stale data.
+              The report data could not be loaded. We are hiding the values instead of substituting zero or stale data.
             </p>
           </section>
         </div>
@@ -244,6 +262,7 @@ export default async function IssuedPremiumPage({
           isBuilder={view.is_builder}
           agentCount={agentCount}
           backHref="/producer/menu/my-numbers"
+          notice={historyNotice}
         />
       )}
     </main>

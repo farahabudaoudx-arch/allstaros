@@ -87,7 +87,7 @@ function sectionsFor(person: MenuPerson): Section[] {
       key: "gateway",
       title: "Gateway",
       description:
-        "Connect or disconnect your personal Gateway login. Gateway-driven numbers stay unknown whenever the connection cannot be verified.",
+        "Connect or disconnect your personal Gateway login. We keep a session, not your password, so Monday can pull your reports. Disconnect anytime.",
       content: <GatewayConnectionSettings state={person.gatewayConnection} />,
     },
     ...(person.isBuilder

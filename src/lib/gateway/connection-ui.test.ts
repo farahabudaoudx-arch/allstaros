@@ -31,29 +31,32 @@ describe("Gateway connection UI semantics", () => {
     expect(settings).toContain("Disconnect Gateway");
     expect(settings).toContain("Reconnect Gateway");
     expect(settings).toContain("Connect Gateway");
-    expect(settings).toContain("does not store your Gateway password or 2FA code");
+    expect(settings).toContain("We do not store your Gateway password or 2FA code");
+    expect(settings).toContain("keeps a Gateway session");
     expect(settings).not.toContain('name="password"');
     expect(settings).not.toContain('name="twoFactorCode"');
   });
 
   it("renders Gateway-dependent home numbers as Unknown instead of falling back to the client book", () => {
     expect(home).toContain('return value == null ? "Unknown"');
+    expect(home).toContain("gatewayConnectionNotice(gatewayConnection)");
     expect(numbers).toContain("ipCents: gatewayConnected ? (gateway?.personalCents ?? null) : null");
     expect(numbers).toContain("teamIpCents: gatewayConnected ? (gateway?.teamCents ?? null) : null");
     const producer = numbers.slice(numbers.indexOf("export async function producerYtd"), numbers.indexOf("export async function downlineIds"));
     expect(producer).not.toContain("totals.ip_cents");
   });
 
-  it("does not read legacy Issued Premium rows when the personal Gateway is disconnected", () => {
-    expect(issued).toContain("if (gatewayConnection.connected)");
-    expect(issued).toContain("Current Gateway-dependent values stay unknown until you reconnect.");
-    expect(issued).toContain("cannot report your personal Issued Premium until you connect your own Gateway login");
-    expect(issued).toContain("hiding the values instead of substituting zero or stale data");
+  it("hides leftover agency Issued Paid when never connected and keeps history after disconnect", () => {
+    expect(issued).toContain("gatewayIssuedPaidHistoryVisible");
+    expect(issued).toContain("GATEWAY_NEVER_CONNECTED_COPY");
+    expect(issued).toContain("GATEWAY_RECONNECT_COPY");
+    expect(issued).not.toContain("if (gatewayConnection.connected)");
   });
 
-  it("leaves the frozen published Scorecard archive independent from Gateway connection state", () => {
-    expect(scorecards).toContain("scorecard_snapshot");
-    expect(scorecards).not.toContain("gateway_connection");
-    expect(scorecards).not.toContain("GatewayConnection");
+  it("gates Scorecards by personal Gateway connection without showing in-progress unpublished cards", () => {
+    expect(scorecards).toContain("filterScorecardArchiveByGatewayConnection");
+    expect(scorecards).toContain("GATEWAY_NEVER_CONNECTED_COPY");
+    expect(scorecards).toContain("GATEWAY_SCORECARD_NOT_CREATED_COPY");
+    expect(scorecards).not.toContain("in_progress");
   });
 });

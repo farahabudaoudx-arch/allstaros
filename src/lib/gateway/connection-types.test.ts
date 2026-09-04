@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_GATEWAY_CONNECTION_STATE,
+  GATEWAY_NEVER_CONNECTED_COPY,
+  GATEWAY_RECONNECT_COPY,
   UNAVAILABLE_GATEWAY_CONNECTION_STATE,
   gatewayConnectionNotice,
   gatewayDependentValuesAvailable,
+  gatewayIssuedPaidHistoryVisible,
   gatewayStatusLabel,
   shouldPromptGatewayConnection,
   type GatewayConnectionState,
@@ -37,9 +40,19 @@ describe("Gateway connection product state", () => {
     expect(gatewayDependentValuesAvailable(state({ status: "connected", connected: true, everConnected: true }))).toBe(true);
   });
 
+  it("keeps Issued Paid history after disconnect and hides it when never connected", () => {
+    expect(gatewayIssuedPaidHistoryVisible(EMPTY_GATEWAY_CONNECTION_STATE)).toBe(false);
+    expect(gatewayIssuedPaidHistoryVisible(UNAVAILABLE_GATEWAY_CONNECTION_STATE)).toBe(false);
+    expect(gatewayIssuedPaidHistoryVisible(state({ status: "disconnected", everConnected: true }))).toBe(true);
+    expect(gatewayIssuedPaidHistoryVisible(state({ status: "needs_reconnect", everConnected: true, needsReconnect: true }))).toBe(true);
+    expect(gatewayIssuedPaidHistoryVisible(state({ status: "connected", connected: true, everConnected: true }))).toBe(true);
+  });
+
   it("uses distinct never-connected and reconnect notices", () => {
-    expect(gatewayConnectionNotice(EMPTY_GATEWAY_CONNECTION_STATE)).toContain("Connect your Gateway");
-    expect(gatewayConnectionNotice(state({ status: "disconnected", everConnected: true }))).toContain("disconnected");
+    expect(gatewayConnectionNotice(EMPTY_GATEWAY_CONNECTION_STATE)).toBe(GATEWAY_NEVER_CONNECTED_COPY);
+    expect(gatewayConnectionNotice(state({ status: "disconnected", everConnected: true }))).toBe(GATEWAY_RECONNECT_COPY);
+    expect(gatewayConnectionNotice(state({ status: "needs_reconnect", everConnected: true, needsReconnect: true }))).toBe(GATEWAY_RECONNECT_COPY);
     expect(gatewayConnectionNotice(UNAVAILABLE_GATEWAY_CONNECTION_STATE)).toContain("temporarily unavailable");
+    expect(GATEWAY_NEVER_CONNECTED_COPY).not.toBe(GATEWAY_RECONNECT_COPY);
   });
 });

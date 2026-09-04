@@ -33,6 +33,45 @@ function safeGeneration(value: number | string | null | undefined) {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+function connectionStateFromRow(
+  row: ConnectionRow | null,
+  connectionInProgress: boolean,
+): GatewayConnectionState {
+  if (!row) {
+    return {
+      ...EMPTY_GATEWAY_CONNECTION_STATE,
+      connectionInProgress,
+    };
+  }
+
+  const everConnected = row.first_connected_at != null;
+  const connected = row.status === "connected";
+  const needsReconnect = row.status === "needs_reconnect";
+
+  return {
+    status: connected
+      ? "connected"
+      : needsReconnect
+        ? "needs_reconnect"
+        : everConnected
+          ? "disconnected"
+          : "never_connected",
+    connected,
+    everConnected,
+    connectionInProgress,
+    sessionGeneration: safeGeneration(row.session_generation),
+    firstConnectedAt: row.first_connected_at,
+    connectedAt: row.connected_at,
+    disconnectedAt: row.disconnected_at,
+    lastVerifiedAt: row.last_verified_at,
+    needsReconnect,
+    lastError: row.last_error,
+    promptDismissedAt: row.prompt_dismissed_at,
+    initialBackfillCompletedAt: row.initial_backfill_completed_at,
+    unavailableReason: null,
+  };
+}
+
 export async function loadGatewayConnectionState(
   personId: string,
 ): Promise<GatewayConnectionState> {
@@ -61,38 +100,40 @@ export async function loadGatewayConnectionState(
     return UNAVAILABLE_GATEWAY_CONNECTION_STATE;
   }
 
-  const row = connectionResult.data as ConnectionRow | null;
-  if (!row) return EMPTY_GATEWAY_CONNECTION_STATE;
-
   const pending = requestResult.data as PendingRequestRow | null;
   const connectionInProgress =
     pending != null && Number.isFinite(Date.parse(pending.expires_at)) && Date.parse(pending.expires_at) > Date.now();
-  const everConnected = row.first_connected_at != null;
-  const connected = row.status === "connected";
-  const needsReconnect = row.status === "needs_reconnect";
+  return connectionStateFromRow(connectionResult.data as ConnectionRow | null, connectionInProgress);
+}
 
-  return {
-    status: connected
-      ? "connected"
-      : needsReconnect
-        ? "needs_reconnect"
-        : everConnected
-          ? "disconnected"
-          : "never_connected",
-    connected,
-    everConnected,
-    connectionInProgress,
-    sessionGeneration: safeGeneration(row.session_generation),
-    firstConnectedAt: row.first_connected_at,
-    connectedAt: row.connected_at,
-    disconnectedAt: row.disconnected_at,
-    lastVerifiedAt: row.last_verified_at,
-    needsReconnect,
-    lastError: row.last_error,
-    promptDismissedAt: row.prompt_dismissed_at,
-    initialBackfillCompletedAt: row.initial_backfill_completed_at,
-    unavailableReason: null,
-  };
+const CONNECTION_SELECT =
+  "person_id, status, session_generation, first_connected_at, connected_at, disconnected_at, last_verified_at, last_error, prompt_dismissed_at, initial_backfill_completed_at";
+
+type ConnectionRowWithPerson = ConnectionRow & { person_id: string };
+
+export async function loadGatewayConnectionStates(
+  personIds: string[],
+): Promise<Map<string, GatewayConnectionState>> {
+  const unique = [...new Set(personIds.filter(Boolean))];
+  const states = new Map<string, GatewayConnectionState>();
+  for (const id of unique) states.set(id, EMPTY_GATEWAY_CONNECTION_STATE);
+  if (unique.length === 0) return states;
+
+  const service = createServiceRoleClient();
+  const { data, error } = await service
+    .from("gateway_connection")
+    .select(CONNECTION_SELECT)
+    .in("person_id", unique);
+
+  if (error) {
+    for (const id of unique) states.set(id, UNAVAILABLE_GATEWAY_CONNECTION_STATE);
+    return states;
+  }
+
+  for (const row of (data ?? []) as ConnectionRowWithPerson[]) {
+    states.set(row.person_id, connectionStateFromRow(row, false));
+  }
+  return states;
 }
 
 export async function createGatewayConnectRequest(personId: string) {

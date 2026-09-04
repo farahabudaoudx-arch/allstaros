@@ -19,6 +19,6 @@ export async function GET(request: NextRequest) {
     ok: true,
     skipped: true,
     reason:
-      "Gateway issued premium website automation has moved out of Vercel. Use the Mac Gateway Agent handoff plan for the replacement runner.",
+      "Agency-wide Gateway scrape is retired. Issued Premium is filled from each person's own Gateway connection.",
   });
 }

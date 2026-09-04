@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { dismissGatewayPrompt } from "@/lib/actions/gateway";
+import {
+  GATEWAY_NEVER_CONNECTED_COPY,
+  GATEWAY_RECONNECT_COPY,
+} from "@/lib/gateway/connection-types";
 
 export function GatewayConnectPrompt({
   reminderId,
@@ -18,7 +22,10 @@ export function GatewayConnectPrompt({
   if (!open) return null;
 
   function later() {
-    if (!reminderId) return;
+    if (!reminderId) {
+      setOpen(false);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const result = await dismissGatewayPrompt(reminderId);
@@ -49,8 +56,8 @@ export function GatewayConnectPrompt({
         </h2>
         <p className="mt-3 text-sm leading-6 text-subtle">
           {reconnect
-            ? "Your Gateway has disconnected. Please reconnect so we can run your scorecard. You can keep using the rest of All Star OS in the meantime."
-            : "Issued Premium and other Gateway report-driven numbers stay unknown until your Gateway is connected. You can keep using the rest of All Star OS and connect later from Settings."}
+            ? `${GATEWAY_RECONNECT_COPY} You can keep using the rest of All Star OS in the meantime.`
+            : `${GATEWAY_NEVER_CONNECTED_COPY} You can keep using the rest of All Star OS and connect later from Settings.`}
         </p>
         {error ? (
           <p role="alert" className="mt-4 text-sm text-neg">

@@ -13,10 +13,11 @@ import {
   HomeNumbers,
   type NumberLine,
 } from "@/components/producer/menu/HomeNumbers";
+import { loadGatewayConnectionState } from "@/lib/gateway/connection";
+import { gatewayConnectionNotice } from "@/lib/gateway/connection-types";
 
 /** "1 deal" / "2 deals". The copy is written around a blank, so the noun has
  *  to agree with whatever number lands in it. */
-import { loadGatewayConnectionState } from "@/lib/gateway/connection";
 
 function gatewayMoney(value: number | null): string {
   return value == null ? "Unknown" : money(value);
@@ -138,6 +139,7 @@ export default async function ProducerHome({
       chatHref={chatHref}
       unreadChat={unreadChat}
       previewOf={subject?.full_name}
+      gatewayNotice={gatewayConnectionNotice(gatewayConnection)}
     />
   );
 }
