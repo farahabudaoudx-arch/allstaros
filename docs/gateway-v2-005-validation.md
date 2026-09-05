@@ -76,7 +76,7 @@ Desktop and mobile coverage included:
 - `I?ll do it later` dismissal
 - app remains usable while disconnected
 - Settings displays `Gateway ? Not connected`
-- Connect launches the DEV hosted-login mock
+- at the time of this historical QA pass, Connect used the isolated hosted-login harness; the current production path no longer contains that route
 - normal successful hosted sign-in path
 - Gateway-requested 2FA path
 - required-code validation on the 2FA path
@@ -107,12 +107,14 @@ The default Turbopack build command cannot run in this linked worktree because `
 
 ## External integration boundary
 
-The repository does not contain a production personal-login runner contract that can safely create a real member Gateway browser session. Ticket #005 therefore implements the application-side contract and authenticated callback boundary without reusing the legacy global Gateway cookie/session.
+This section described the state at the time Ticket #005 was originally validated. It is superseded by the 2026-09-05 Gateway production work.
 
-Production hosted login expects:
+The repository now contains the real external runner contract and Mac/Chrome Gateway provider. Production hosted login requires:
 
 - `GATEWAY_HOSTED_CONNECT_URL`
 - `GATEWAY_AGENT_CONNECT_TOKEN`
+- `GATEWAY_AGENT_REPORT_TOKEN`
 - a trusted runner that returns only an opaque `sessionRef` after real Gateway sign-in succeeds
+- the production hosted-browser/live-view infrastructure described in `docs/gateway-production-handoff.md`
 
-This keeps the product state truthful: production cannot mark a member connected merely from a browser action.
+The application mock connector has been removed. A member is marked connected only after the authenticated runner callback succeeds.

@@ -6,7 +6,11 @@ This directory is the external runner boundary required by Tickets #005/#007. It
 
 `server.mjs` exposes `/connect` for the existing `GATEWAY_HOSTED_CONNECT_URL` redirect and runs a bounded report-worker pool. A provider plug-in performs the actual Gateway interaction. The provider is responsible for requesting/handling 2FA **only when Gateway presents a verification challenge** and for returning explicit report coverage metadata from Gateway rather than guessing it from acquisition dates or labels.
 
-No Gateway selectors, URLs, credentials, or 2FA details are present in this repository. A real provider module must be supplied after the Gateway/Rent-a-Mac browser flow is inspected. The included fake provider is test-only and the runner refuses to load it unless `GATEWAY_RUNNER_TEST_MODE=true`.
+`providers/gateway.mjs` is the real Mac/Chrome provider derived from the inspected Gateway flow. The production-default path opens an isolated system-Chrome context for each personal connection, waits for the member to complete Gateway sign-in and any Gateway-requested OTP, exchanges that authenticated dashboard session for the IP Report session, then stores only Playwright storage state inside the runner's encrypted session envelope. The included fake provider remains test-only and the runner refuses to load it unless `GATEWAY_RUNNER_TEST_MODE=true`.
+
+The inspected Mac also has an **acceptance-only legacy-profile compatibility mode**. When `GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR` is set explicitly, the provider launches the host's established Chrome profile with a bounded local CDP port and reuses its existing Gateway/Cloudflare browser state for operator-controlled acceptance. Only in that explicit mode may the provider consume the legacy host's `GATEWAY_LOGIN_EMAIL` / `GATEWAY_LOGIN_PASSWORD` environment values for autofill; they are never serialized into the session envelope, logged, or returned to All Star OS. This compatibility path is not the production personal-login design and must not be used to represent multiple members with one global Gateway identity.
+
+The real provider does **not** implement remote browser streaming. Its interactive Chrome window appears on the runner host. That is sufficient for the inspected Rent-a-Mac acceptance host and for an operator-controlled hosted-browser surface, but it is not by itself a finished internet-facing personal-login UX for members on unrelated devices. Do not claim production personal-login acceptance until the chosen hosted-browser surface lets the connecting member actually interact with that Chrome session.
 
 ## Required environment
 
@@ -17,6 +21,18 @@ No Gateway selectors, URLs, credentials, or 2FA details are present in this repo
 - `GATEWAY_RUNNER_SESSION_KEY` — 32-byte AES key encoded as base64 or 64 hex characters.
 - `GATEWAY_RUNNER_SESSION_DIR` — private runner-host directory for encrypted session envelopes.
 - `GATEWAY_RUNNER_PROVIDER_MODULE` — absolute/relative module exporting `createProvider()`.
+
+Real provider settings (`providers/gateway.mjs`):
+
+- `GATEWAY_RUNNER_GATEWAY_CHROME_PATH` — system Chrome executable; defaults to `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`.
+- `GATEWAY_RUNNER_GATEWAY_DASHBOARD_URL` — defaults to `https://ww3.familyfirstlife.com/dashboard`.
+- `GATEWAY_RUNNER_GATEWAY_STATS_BASE_URL` — defaults to `https://stats.uppatop.com`.
+- `GATEWAY_RUNNER_GATEWAY_HEADLESS` — background validate/pull mode; defaults to headless, set `false` only for diagnosis. Interactive `/connect` is always visible.
+- `GATEWAY_RUNNER_GATEWAY_LAUNCH_TIMEOUT_MS`, `GATEWAY_RUNNER_GATEWAY_STEP_TIMEOUT_MS`, `GATEWAY_RUNNER_GATEWAY_DOWNLOAD_TIMEOUT_MS` — bounded provider-side browser timeouts.
+- `GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR` — **acceptance-only** opt-in for the inspected Mac's established Chrome profile. Leave unset for the production-default personal flow.
+- `GATEWAY_RUNNER_GATEWAY_LEGACY_CDP_PORT` — local CDP port used only with the acceptance legacy profile; defaults to `9223`.
+
+The provider uses the host's existing Chrome, so install dependencies without downloading a Playwright browser when provisioning the runner host, for example `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci`.
 
 Operational tuning:
 
@@ -47,7 +63,7 @@ The server derives `cycle = floor((now - anchorInstant) / interval)` and advance
 
 Acceleration changes only the server-derived business date for a cron invocation. It does not install an in-process timer and does not change the production Vercel cron cadence. Fast application-scheduler acceptance must have the test harness invoke the existing authorized cron route at the configured test interval; the request supplies only the cron authorization, never a business date or cycle.
 
-Acceptance is deliberately split into three layers: `report-pulls.test.ts` covers the application scheduler and mocked RPC boundary; `e2e.test.mjs` covers the runner against a fake backend while exercising the real claim loop; and real DEV durable-queue/claim acceptance requires the Gateway hardening schema. If DEV has not applied that schema, the first two layers can pass while the third remains explicitly schema-blocked.
+The durable backend contract requires migration `20260905000100_gateway_runner_hardening.sql`. Production deployment must apply that migration before runner traffic is enabled. The repository verification layers cover scheduler behavior, runner claim/fencing behavior, encrypted session callbacks, and the durable SQL contract independently so failures can be localized without weakening the production path.
 
 ## Provider contract
 
@@ -58,7 +74,11 @@ Acceptance is deliberately split into three layers: `report-pulls.test.ts` cover
 - `listHistoricalReports(session,{from,through,signal})` for first connect. It must enumerate available Gateway months from 2026 onward. Historical files before 2026 may be reported but the backend will retain only a skipped audit.
 - `pullCurrentReports(session,{businessDate,signal})` returning WTD, MTD and YTD.
 
-Each report contains `periodType`, `csvText`, acquisition `reportDate`, optional file/label fields, and coverage. WTD coverage must include canonical month start/end, Gateway week ordinal, and whether it is the period-final Gateway week. MTD/YTD coverage identifies the actual month/year covered. `reportDate` is never used as Scorecard week identity.
+Each report contains `periodType`, `csvText`, acquisition `reportDate`, optional file/label fields, and coverage. WTD coverage includes the sidebar's covered month, the explicit `Week N` ordinal, the workbook `File Date` as `weekStart`, and `periodFinal=true` only for the highest `Week N` Gateway exposes inside that exact month. MTD/YTD coverage starts from the workbook `File Date` and ends at that month/year boundary. The acquisition `reportDate` is the durable job business date; Gateway's weekly URL/data key is coverage evidence and is never substituted for acquisition time or Scorecard week identity.
+
+On the inspected Mac flow on 2026-09-05, the real Gateway provider completed login, session validation, and all three current downloads without upload side effects: WTD 920 rows, MTD 1574 rows, and YTD 2696 rows. The acquisition `reportDate` was `2026-09-05`; WTD resolved to `August Week 4`, covered `2026-08-01` through `2026-08-31`, used workbook `File Date` `2026-08-22` as `weekStart`, and correctly marked `periodFinal=true` even though the Gateway weekly key was `2026-08-28`. MTD started `2026-08-01`; YTD started `2026-01-01`. This is why the provider keeps acquisition date, weekly end key, and covered-period metadata separate.
+
+The runner HTTP connect boundary is independently covered by `server.test.mjs`: a successful `/connect` stores provider session material only in the AES-256-GCM encrypted session store and callbacks an opaque `gw_...` reference, while a failed application callback deletes the just-created encrypted session.
 
 The worker renews each claim lease, stops on a stale claim, marks a dead provider session `needs_reconnect`, and never carries a prior report forward into a missing week.
 

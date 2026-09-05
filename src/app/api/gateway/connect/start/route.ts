@@ -6,11 +6,6 @@ import {
   gatewayHostedConnectUrl,
 } from "@/lib/gateway/connection";
 
-function safeReturnTo(value: FormDataEntryValue | null) {
-  const path = typeof value === "string" ? value : "/producer?settings=gateway";
-  return path.startsWith("/producer") ? path : "/producer?settings=gateway";
-}
-
 export async function POST(request: NextRequest) {
   const person = await getCurrentPerson();
   if (!person) {
@@ -20,8 +15,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "not_eligible" }, { status: 403 });
   }
 
-  const form = await request.formData().catch(() => new FormData());
-  const returnTo = safeReturnTo(form.get("returnTo"));
   let attempt: Awaited<ReturnType<typeof createGatewayConnectRequest>>;
   try {
     attempt = await createGatewayConnectRequest(person.id);
@@ -29,16 +22,6 @@ export async function POST(request: NextRequest) {
     const target = new URL("/producer", request.url);
     target.searchParams.set("settings", "gateway");
     target.searchParams.set("gatewayError", "start_failed");
-    return NextResponse.redirect(target, 303);
-  }
-
-  // The development harness exercises the same product states as the hosted
-  // connector while remaining isolated from real Gateway credentials/sessions.
-  // NODE_ENV keeps this path unreachable in production.
-  if (process.env.NODE_ENV === "development" && process.env.DEV_LOGIN_ENABLED === "true") {
-    const target = new URL("/producer/gateway/connect/mock", request.url);
-    target.searchParams.set("state", attempt.state);
-    target.searchParams.set("next", returnTo);
     return NextResponse.redirect(target, 303);
   }
 
