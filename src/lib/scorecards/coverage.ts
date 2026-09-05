@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScorecardPeriod } from "./period";
 import {
   chicagoDateOfInstant,
-  requiredGatewayMondays,
+  gatewayPeriodRequirements,
   summarizePersonalGatewayEvidence,
   type PersonalGatewayImportEvidence,
   type PersonalGatewayPremiumRow,
@@ -17,6 +17,7 @@ export type GatewayCoverageEntry = {
   cardType: "producer" | "builder";
   covered: boolean;
   connectedByPeriodEnd: boolean;
+  currentlyConnected: boolean;
   finalWeekReady: boolean;
   missingReportDates: string[];
 };
@@ -43,7 +44,7 @@ type HistoricalRoleRow = {
 };
 
 type PersonRow = { id: string; full_name: string; email: string | null };
-type ConnectionRow = { person_id: string; first_connected_at: string | null };
+type ConnectionRow = { person_id: string; first_connected_at: string | null; status: string };
 type ImportRow = PersonalGatewayImportEvidence;
 type PremiumRow = PersonalGatewayPremiumRow;
 
@@ -107,10 +108,10 @@ export function summarizeGatewayCoverage(input: {
   }
   const peopleById = new Map(input.people.map((person) => [person.id, person]));
   const connectionsByPerson = new Map(input.connections.map((row) => [row.person_id, row]));
-  const requiredDates = requiredGatewayMondays(input.period);
+  const requirements = gatewayPeriodRequirements(input.imports, input.period);
   const evidence = summarizePersonalGatewayEvidence({
     personIds: latestRoleByPerson.keys(),
-    requiredDates,
+    requiredWeeks: requirements.requiredWeeks,
     imports: input.imports,
     premiumRows: input.premiumRows,
   });
@@ -120,14 +121,20 @@ export function summarizeGatewayCoverage(input: {
     if (role.status !== "active") continue;
     const person = peopleById.get(role.person_id);
     if (!person) continue;
-    const firstConnectedDate = chicagoDateOfInstant(connectionsByPerson.get(role.person_id)?.first_connected_at);
+    const connection = connectionsByPerson.get(role.person_id);
+    const firstConnectedDate = chicagoDateOfInstant(connection?.first_connected_at);
     const connectedByPeriodEnd = firstConnectedDate != null && firstConnectedDate <= input.period.end;
+    const currentlyConnected = connection?.status === "connected";
     const personEvidence = evidence.byPerson.get(role.person_id) ?? {
       complete: false,
       finalWeekReady: false,
-      missingDates: requiredDates,
+      missingDates: [],
+      missingWeeks: requirements.requiredWeeks,
     };
-    const covered = connectedByPeriodEnd && personEvidence.complete && personEvidence.finalWeekReady;
+    const covered = requirements.ready && connectedByPeriodEnd && currentlyConnected &&
+      personEvidence.complete && personEvidence.finalWeekReady;
+    const missingReportDates = personEvidence.missingWeeks.map((week) =>
+      `${week.periodStart}:week-${week.weekOrdinal}`);
     if ((input.scope === "all" || input.scope === "producer") && role.is_producer) {
       entries.push({
         personId: role.person_id,
@@ -136,8 +143,9 @@ export function summarizeGatewayCoverage(input: {
         cardType: "producer",
         covered,
         connectedByPeriodEnd,
+        currentlyConnected,
         finalWeekReady: personEvidence.finalWeekReady,
-        missingReportDates: [...personEvidence.missingDates],
+        missingReportDates,
       });
     }
     if ((input.scope === "all" || input.scope === "builder") && role.is_builder) {
@@ -148,8 +156,9 @@ export function summarizeGatewayCoverage(input: {
         cardType: "builder",
         covered,
         connectedByPeriodEnd,
+        currentlyConnected,
         finalWeekReady: personEvidence.finalWeekReady,
-        missingReportDates: [...personEvidence.missingDates],
+        missingReportDates,
       });
     }
   }
@@ -195,7 +204,7 @@ export async function loadGatewayCoverageReport(
     loadAllPages<ConnectionRow>(async (from, to) => {
       const result = await supabase
         .from("gateway_connection")
-        .select("person_id, first_connected_at")
+        .select("person_id, first_connected_at, status")
         .order("person_id", { ascending: true })
         .range(from, to);
       return result as CoveragePage<ConnectionRow>;
@@ -203,11 +212,12 @@ export async function loadGatewayCoverageReport(
     loadAllPages<ImportRow>(async (from, to) => {
       const result = await supabase
         .from("gateway_issued_premium_import")
-        .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+        .select("id, person_id, source_kind, pull_kind, period_type, status, report_date, period_start, gateway_label, source_checksum, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, matched_count, unmatched_count, ambiguous_count, summary, created_at")
         .not("person_id", "is", null)
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", period.start)
-        .lte("report_date", period.end)
+        .gte("scorecard_period_start", `${period.start.slice(0, 7)}-01`)
+        .lte("scorecard_period_start", period.end)
         .order("person_id", { ascending: true })
         .order("report_date", { ascending: true })
         .order("created_at", { ascending: true })
@@ -217,10 +227,11 @@ export async function loadGatewayCoverageReport(
     loadAllPages<PremiumRow>(async (from, to) => {
       const result = await supabase
         .from("producer_issued_premium")
-        .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
+        .select("id, import_id, person_id, source_kind, report_date, period_start, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, personal_ip_cents, team_ip_cents, first_leg_percent")
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", period.start)
-        .lte("report_date", period.end)
+        .gte("scorecard_period_start", `${period.start.slice(0, 7)}-01`)
+        .lte("scorecard_period_start", period.end)
         .order("person_id", { ascending: true })
         .order("report_date", { ascending: true })
         .range(from, to);

@@ -42,10 +42,10 @@ export default async function ProducerHome({
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
 
-  // DEV-ONLY (hard-gated by DEV_LOGIN_ENABLED, never reachable in production):
-  // ?preview=<name> renders a real person's scoreboard, read with the service
-  // role. Same escape hatch the Downline Tree has, for the same reason ? you
-  // can see what a populated screen looks like without impersonating anyone.
+  // Development-only visual QA. ?preview=<name> renders a member's scoreboard
+  // through the service role without changing the signed-in identity.
+  // DEV_LOGIN_ENABLED is production-disabled and keeps this path unreachable
+  // outside the approved development environment.
   const { preview } = await searchParams;
   const previewName = DEV_LOGIN_ENABLED && preview ? preview.trim() : "";
   const service = previewName ? createServiceRoleClient() : null;

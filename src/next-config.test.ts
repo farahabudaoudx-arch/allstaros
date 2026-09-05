@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@sentry/nextjs", () => ({
+  withSentryConfig: (config: unknown) => config,
+}));
+
 describe("next.config deployment skew guard", () => {
   const originalEnv = { ...process.env };
 

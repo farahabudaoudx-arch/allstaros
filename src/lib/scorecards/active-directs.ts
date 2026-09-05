@@ -16,6 +16,29 @@ export function isInSixWeekWindow(reportDate: string, periodEnd: string): boolea
   return reportDate >= start && reportDate <= periodEnd;
 }
 
+/** A scoped week ordinal identifies a report, not a calendar date. Older
+ * reports without a provider date are decidable only when their entire covered
+ * month is inside or outside the window. null means more source evidence is needed. */
+export function gatewayActiveDirectWindow(report: {
+  reportDate: string;
+  scorecardPeriodStart?: string | null;
+  scorecardPeriodEnd?: string | null;
+  gatewayWeekStart?: string | null;
+}, periodEnd: string): boolean | null {
+  if (!report.scorecardPeriodStart) return isInSixWeekWindow(report.reportDate, periodEnd);
+  const start = sixWeekWindowStart(periodEnd);
+  if (report.gatewayWeekStart != null) {
+    const date = new Date(`${report.gatewayWeekStart}T00:00:00Z`);
+    if (!DATE_ONLY.test(report.gatewayWeekStart) || Number.isNaN(date.getTime()) ||
+        date.toISOString().slice(0, 10) !== report.gatewayWeekStart) return null;
+    return report.gatewayWeekStart >= start && report.gatewayWeekStart <= periodEnd;
+  }
+  if (!report.scorecardPeriodEnd) return null;
+  if (report.scorecardPeriodEnd < start || report.scorecardPeriodStart > periodEnd) return false;
+  if (report.scorecardPeriodStart >= start && report.scorecardPeriodEnd <= periodEnd) return true;
+  return null;
+}
+
 export type ActiveDirectPerson = {
   id: string;
   uplineId: string | null;

@@ -16,8 +16,6 @@ import {
 } from "./lifecycle";
 import {
   buildPersonalGatewayEvidenceIndex,
-  personalGatewayEvidenceKey,
-  requiredGatewayMondays,
   type PersonalGatewayImportEvidence,
   type PersonalGatewayPremiumRow,
 } from "./gateway-completeness";
@@ -25,12 +23,14 @@ import { previousEquivalentPeriod, type ScorecardPeriod } from "./period";
 
 type GatewayWeekRow = {
   person_id: string;
+  report_key?: string;
   report_date: string;
   gateway_label: string | null;
   personal_ip_cents: number | null;
 };
 
 type GatewayWeekImport = {
+  report_key?: string;
   report_date: string;
   gateway_label: string | null;
 };
@@ -97,12 +97,14 @@ export function monthlyProducerSourceFromRows(args: {
   rows: GatewayWeekRow[];
   generatedAt: string;
 }): MonthlyProducerSource {
-  const reportByDate = new Map<string, { reportDate: string; label: string }>();
+  const reportByKey = new Map<string, { reportKey?: string; reportDate: string; label: string }>();
   const producerRows: MonthlyProducerSource["producerRows"] = [];
 
   for (const report of args.reportImports) {
-    if (!reportByDate.has(report.report_date)) {
-      reportByDate.set(report.report_date, {
+    const reportKey = report.report_key ?? `date:${report.report_date}`;
+    if (!reportByKey.has(reportKey)) {
+      reportByKey.set(reportKey, {
+        ...(report.report_key ? { reportKey: report.report_key } : {}),
         reportDate: report.report_date,
         label: report.gateway_label?.trim() || formatReportDate(report.report_date),
       });
@@ -112,6 +114,7 @@ export function monthlyProducerSourceFromRows(args: {
     if (row.person_id !== args.producerId) continue;
     if (!Number.isInteger(row.personal_ip_cents) || (row.personal_ip_cents ?? -1) < 0) continue;
     producerRows.push({
+      ...(row.report_key ? { reportKey: row.report_key } : {}),
       reportDate: row.report_date,
       personalIpCents: row.personal_ip_cents!,
     });
@@ -122,7 +125,7 @@ export function monthlyProducerSourceFromRows(args: {
     periodStart: args.period.start,
     periodEnd: args.period.end,
     periodLabel: args.period.label,
-    reportDates: [...reportByDate.values()],
+    reportDates: [...reportByKey.values()],
     producerRows,
     generatedAt: args.generatedAt,
   };
@@ -143,20 +146,18 @@ export async function loadProducerSourceForPeriod(
     [importsResult, rowsResult] = await Promise.all([
       supabase
         .from("gateway_issued_premium_import")
-        .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+        .select("id, person_id, source_kind, pull_kind, period_type, status, report_date, period_start, gateway_label, source_checksum, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, matched_count, unmatched_count, ambiguous_count, summary, created_at")
         .eq("person_id", producerId)
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", period.start)
-        .lte("report_date", period.end)
         .order("created_at", { ascending: true }),
       supabase
         .from("producer_issued_premium")
-        .select("id, import_id, person_id, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_percent")
+        .select("id, import_id, person_id, source_kind, report_date, period_start, gateway_label, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, personal_ip_cents, team_ip_cents, first_leg_percent")
         .eq("person_id", producerId)
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", period.start)
-        .lte("report_date", period.end)
-        .order("report_date", { ascending: true }),
+        .order("updated_at", { ascending: true }),
     ]);
   } catch (error) {
     throw scorecardSourceError("Gateway issued premium", error);
@@ -167,18 +168,29 @@ export async function loadProducerSourceForPeriod(
   const imports = (importsResult.data ?? []) as PersonalGatewayImportEvidence[];
   const premiums = (rowsResult.data ?? []) as Array<PersonalGatewayPremiumRow & { gateway_label?: string | null }>;
   const evidence = buildPersonalGatewayEvidenceIndex(imports, premiums);
-  const requiredDates = new Set(requiredGatewayMondays({ start: period.start, end: period.end }));
   const reportImports: GatewayWeekImport[] = [];
   const rows: GatewayWeekRow[] = [];
-  for (const reportDate of [...requiredDates].sort()) {
-    const resolved = evidence.get(personalGatewayEvidenceKey(producerId, reportDate));
-    if (!resolved) continue;
+  for (const resolved of [...evidence.values()].sort((left, right) =>
+    left.identity.weekDate.localeCompare(right.identity.weekDate)
+      || (left.identity.weekOrdinal ?? 0) - (right.identity.weekOrdinal ?? 0))) {
+    if (resolved.audit.person_id !== producerId) continue;
+    const identity = resolved.identity;
+    const insidePeriod = identity.scoped
+      ? identity.periodStart! >= period.start && identity.periodStart! <= period.end
+      : identity.weekDate >= period.start && identity.weekDate <= period.end;
+    if (!insidePeriod) continue;
+    const reportDate = identity.weekDate;
+    const reportKey = identity.scoped
+      ? `coverage:${identity.periodStart}:w${identity.weekOrdinal}`
+      : `date:${reportDate}`;
     reportImports.push({
+      report_key: reportKey,
       report_date: reportDate,
       gateway_label: resolved.audit.gateway_label,
     });
     rows.push({
       person_id: producerId,
+      report_key: reportKey,
       report_date: reportDate,
       gateway_label: resolved.audit.gateway_label,
       personal_ip_cents: resolved.kind === "verified_zero"
@@ -398,20 +410,18 @@ export async function loadProducerOverviewForPeriod(
       fetchAllRows<PersonalGatewayPremiumRow & { id: string }>((lo, hi) =>
         supabase
           .from("producer_issued_premium")
-          .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
+          .select("id, import_id, person_id, source_kind, report_date, period_start, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, personal_ip_cents, team_ip_cents, first_leg_percent")
+          .eq("source_kind", "personal_gateway")
           .eq("period_type", "wtd")
-          .gte("report_date", period.start)
-          .lte("report_date", period.end)
           .order("id")
           .range(lo, hi),
       ),
       fetchAllRows<PersonalGatewayPremiumRow & { id: string }>((lo, hi) =>
         supabase
           .from("producer_issued_premium")
-          .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
+          .select("id, import_id, person_id, source_kind, report_date, period_start, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, personal_ip_cents, team_ip_cents, first_leg_percent")
+          .eq("source_kind", "personal_gateway")
           .eq("period_type", "wtd")
-          .gte("report_date", prior.start)
-          .lte("report_date", prior.end)
           .order("id")
           .range(lo, hi),
       ),
@@ -430,21 +440,19 @@ export async function loadProducerOverviewForPeriod(
         .order("created_at", { ascending: true }),
       fetchAllRows<PersonalGatewayImportEvidence & { id: string }>((lo, hi) =>
         supabase.from("gateway_issued_premium_import")
-          .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+          .select("id, person_id, source_kind, pull_kind, period_type, status, report_date, period_start, gateway_label, source_checksum, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, matched_count, unmatched_count, ambiguous_count, summary, created_at")
           .not("person_id", "is", null)
+          .eq("source_kind", "personal_gateway")
           .eq("period_type", "wtd")
-          .gte("report_date", period.start)
-          .lte("report_date", period.end)
           .order("id")
           .range(lo, hi),
       ),
       fetchAllRows<PersonalGatewayImportEvidence & { id: string }>((lo, hi) =>
         supabase.from("gateway_issued_premium_import")
-          .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+          .select("id, person_id, source_kind, pull_kind, period_type, status, report_date, period_start, gateway_label, source_checksum, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, matched_count, unmatched_count, ambiguous_count, summary, created_at")
           .not("person_id", "is", null)
+          .eq("source_kind", "personal_gateway")
           .eq("period_type", "wtd")
-          .gte("report_date", prior.start)
-          .lte("report_date", prior.end)
           .order("id")
           .range(lo, hi),
       ),
@@ -538,12 +546,14 @@ export async function loadProducerOverviewForPeriod(
     [...organizationTrackedDates.values()].map((dates) => dates.size),
   );
   const totalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
-  const currentMondayDates = new Set(requiredGatewayMondays(period));
   const currentEvidence = buildPersonalGatewayEvidenceIndex(currentImportsResult, currentPremiumRows);
   for (const resolved of currentEvidence.values()) {
     const personId = resolved.audit.person_id;
-    const reportDate = resolved.audit.report_date;
-    if (!personId || !reportDate || !activeIds.has(personId) || !currentMondayDates.has(reportDate)) continue;
+    const identity = resolved.identity;
+    const insidePeriod = identity.scoped
+      ? identity.periodStart! >= period.start && identity.periodStart! <= period.end
+      : identity.weekDate >= period.start && identity.weekDate <= period.end;
+    if (!personId || !activeIds.has(personId) || !insidePeriod) continue;
     totalsByPerson.set(
       personId,
       (totalsByPerson.get(personId) ?? 0) + (resolved.kind === "verified_zero" ? 0 : Number(resolved.premiumRow!.personal_ip_cents)),
@@ -562,13 +572,15 @@ export async function loadProducerOverviewForPeriod(
     ? Math.max(1, Math.round(((population - rank + 1) / population) * 100))
     : 0;
   const priorTotalsByPerson = new Map([...activeIds].map((id) => [id, 0]));
-  const priorMondayDates = new Set(requiredGatewayMondays(prior));
   const priorEvidence = buildPersonalGatewayEvidenceIndex(priorImportsResult, priorPremiumRows);
   let producerHasPriorEvidence = false;
   for (const resolved of priorEvidence.values()) {
     const personId = resolved.audit.person_id;
-    const reportDate = resolved.audit.report_date;
-    if (!personId || !reportDate || !activeIds.has(personId) || !priorMondayDates.has(reportDate)) continue;
+    const identity = resolved.identity;
+    const insidePrior = identity.scoped
+      ? identity.periodStart! >= prior.start && identity.periodStart! <= prior.end
+      : identity.weekDate >= prior.start && identity.weekDate <= prior.end;
+    if (!personId || !activeIds.has(personId) || !insidePrior) continue;
     const amount = resolved.kind === "verified_zero" ? 0 : Number(resolved.premiumRow!.personal_ip_cents);
     priorTotalsByPerson.set(personId, (priorTotalsByPerson.get(personId) ?? 0) + amount);
     if (personId === producer.id) producerHasPriorEvidence = true;

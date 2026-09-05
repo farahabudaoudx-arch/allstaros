@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   try {
     return NextResponse.json(await processPendingGatewayReminders());
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown Gateway reminder error.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[cron/gateway-reminders] Reminder processing failed.", error);
+    return NextResponse.json({ error: "gateway_reminder_processing_failed" }, { status: 500 });
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   gatewayReportAgentConfigured,
-  mintGatewayMondayReportPullJobs,
+  mintGatewayScheduledReportPullJobs,
 } from "@/lib/gateway/report-pulls";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +25,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await mintGatewayMondayReportPullJobs();
+    const result = await mintGatewayScheduledReportPullJobs();
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
+    console.error("[cron/gateway-report-pulls] Report pull mint failed.", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Gateway report pull mint failed" },
+      { error: "gateway_report_pull_mint_failed" },
       { status: 500 },
     );
   }

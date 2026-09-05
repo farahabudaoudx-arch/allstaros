@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
     const result = await processCompletedScorecardPeriods();
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
+    console.error("[cron/scorecard-publishing] Automatic publication failed.", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Scorecard publishing failed" },
+      { error: "scorecard_publishing_failed" },
       { status: 500 },
     );
   }

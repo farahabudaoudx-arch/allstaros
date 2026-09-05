@@ -6,6 +6,10 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createProducerPeriodPreview, createScorecardScheduleFacts } from "./lifecycle";
 import {
   aggregatePersonalGatewayReports,
+  canonicalGatewayReportIdentity,
+  gatewayReportInScorecardPeriod,
+  gatewayPeriodRequirements,
+  latestCanonicalGatewayReports,
   requiredGatewayMondays,
   summarizePersonalGatewayEvidence,
   type PersonalGatewayImportEvidence,
@@ -69,7 +73,13 @@ type ManualGatewayRow = {
   id: string;
   import_id: string | null;
   person_id: string;
+  source_kind?: string | null;
   report_date: string;
+  period_start?: string | null;
+  scorecard_period_start?: string | null;
+  scorecard_period_end?: string | null;
+  gateway_week_ordinal?: number | string | null;
+  gateway_period_final?: boolean | null;
   personal_ip_cents: number | string;
   team_ip_cents: number | string;
   first_leg_percent: number | string | null;
@@ -269,12 +279,11 @@ async function loadGatewayImports(
   if (personIds.length === 0) return [];
   const { data, error } = await service
     .from("gateway_issued_premium_import")
-    .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+    .select("id, person_id, source_kind, pull_kind, period_type, status, report_date, period_start, gateway_label, source_checksum, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, matched_count, unmatched_count, ambiguous_count, summary, created_at")
     .in("person_id", personIds)
+    .eq("source_kind", "personal_gateway")
     .eq("period_type", "wtd")
-    .not("report_date", "is", null)
-    .gte("report_date", start)
-    .lte("report_date", end)
+    .or(`and(scorecard_period_start.gte.${start.slice(0, 7)}-01,scorecard_period_start.lte.${end}),and(scorecard_period_start.is.null,report_date.gte.${start},report_date.lte.${end})`)
     .order("created_at", { ascending: true });
   if (error) throw new Error(`Unable to load manual Scorecard Gateway coverage: ${error.message}`);
   return (data ?? []) as PersonalGatewayImportEvidence[];
@@ -495,18 +504,46 @@ export async function generateManualScorecardWithClient(
       request.cardType === "builder" ? loadGatewayImports(service, [target.personId], prior.start, prior.end) : Promise.resolve([]),
       loadGatewayRows(service, request.personId, request.period.end, reportStart, request.period.end, includeSubtree),
     ]);
-    const evidenceRequiredDates = requiredGatewayMondays({ start: reportStart, end: request.period.end });
-    const evidenceCoverage = summarizePersonalGatewayEvidence({
-      personIds: evidencePersonIds,
-      requiredDates: evidenceRequiredDates,
-      imports,
-      premiumRows: rows,
+    const scopedCurrentEvidence = imports.some((row) => row.scorecard_period_start != null);
+    const periodRequirements = gatewayPeriodRequirements(imports, request.period);
+    const legacyEvidenceRequiredDates = requiredGatewayMondays({ start: reportStart, end: request.period.end });
+    const evidenceCoverage = periodRequirements.ready
+      ? summarizePersonalGatewayEvidence({
+          personIds: evidencePersonIds,
+          requiredWeeks: periodRequirements.requiredWeeks,
+          imports,
+          premiumRows: rows,
+        })
+      : summarizePersonalGatewayEvidence({
+          personIds: evidencePersonIds,
+          requiredDates: scopedCurrentEvidence ? [] : legacyEvidenceRequiredDates,
+          imports,
+          premiumRows: rows,
+        });
+    if (scopedCurrentEvidence && !periodRequirements.ready) {
+      return { status: "generation_failure", message: "Personal Gateway final-week coverage is incomplete for the selected Scorecard period." };
+    }
+    const unresolvedCurrentEvidence = evidencePersonIds.some((personId) => {
+      const personEvidence = evidenceCoverage.byPerson.get(personId);
+      return scopedCurrentEvidence ? !personEvidence?.finalWeekReady : !personEvidence?.complete;
     });
-    if (evidencePersonIds.some((personId) => !evidenceCoverage.byPerson.get(personId)?.complete)) {
-      return { status: "generation_failure", message: "Personal Gateway WTD coverage is incomplete for the selected Scorecard scope." };
+    if (unresolvedCurrentEvidence) {
+      return {
+        status: "generation_failure",
+        message: scopedCurrentEvidence
+          ? "Personal Gateway final-week evidence is unresolved for the selected Scorecard scope."
+          : "Personal Gateway WTD coverage is incomplete for the selected Scorecard scope.",
+      };
     }
     const reports = gatewayReports(imports, rows, evidencePersonIds, reportStart, request.period.end);
-    const expectedReportDates = requiredGatewayMondays(request.period);
+    const periodReports = reports.filter((report) => gatewayReportInScorecardPeriod(report, request.period));
+    const expectedReportDates = [...new Set(periodReports.map((report) => report.reportDate))].sort();
+    const expectedGatewayWeeks = scopedCurrentEvidence && periodRequirements.ready
+      ? periodRequirements.finalWeeks.map((week) => ({
+          periodStart: week.periodStart,
+          weekOrdinal: week.weekOrdinal,
+        }))
+      : undefined;
 
     const generatedAt = new Date();
     let producerMetrics: ScorecardRunInput["producerMetrics"] = [];
@@ -532,13 +569,21 @@ export async function generateManualScorecardWithClient(
         priorBuilderCoverage[target.personId] = "outside_retention";
         priorBuilderTeamIpCents[target.personId] = null;
       } else {
-        const priorRequiredDates = requiredGatewayMondays(prior);
-        const priorCoverage = summarizePersonalGatewayEvidence({
-          personIds: [target.personId],
-          requiredDates: priorRequiredDates,
-          imports: priorImports,
-          premiumRows: priorRows,
-        }).byPerson.get(target.personId);
+        const priorRequirements = gatewayPeriodRequirements(priorImports, prior);
+        const priorHasScoped = priorImports.some((row) => row.scorecard_period_start != null);
+        const priorCoverage = (priorRequirements.ready
+          ? summarizePersonalGatewayEvidence({
+              personIds: [target.personId],
+              requiredWeeks: priorRequirements.requiredWeeks,
+              imports: priorImports,
+              premiumRows: priorRows,
+            })
+          : summarizePersonalGatewayEvidence({
+              personIds: [target.personId],
+              requiredDates: priorHasScoped ? [] : requiredGatewayMondays(prior),
+              imports: priorImports,
+              premiumRows: priorRows,
+            })).byPerson.get(target.personId);
         if (!priorCoverage?.complete) {
           priorBuilderCoverage[target.personId] = "incomplete";
           priorBuilderTeamIpCents[target.personId] = null;
@@ -559,7 +604,8 @@ export async function generateManualScorecardWithClient(
       period: request.period,
       priorPeriod: prior,
       generatedAt: generatedAt.toISOString(),
-      expectedReportDates,
+      expectedReportDates: expectedGatewayWeeks ? [] : expectedReportDates,
+      expectedGatewayWeeks,
       people: runPeople(context),
       gatewayReports: reports,
       recruits: runRecruits(context),
@@ -610,10 +656,8 @@ export async function generateManualScorecardWithClient(
     const metricPayload = request.cardType === "producer"
       ? prepared.producerMetrics[0].payload
       : builderPublishedMetric(prepared.builderMetrics[0]);
-    const activeWriterReportDates = request.cardType === "builder"
-      ? [...new Set(reports.map((report) => report.reportDate))]
-          .sort((left, right) => right.localeCompare(left))
-          .slice(0, 6)
+    const activeWriterReports = request.cardType === "builder"
+      ? latestCanonicalGatewayReports(reports, request.period.end, 6)
       : [];
     const sourceCoverage = request.cardType === "producer"
       ? {
@@ -622,8 +666,8 @@ export async function generateManualScorecardWithClient(
           source: "gateway",
           reportCount: prepared.producerMetrics[0].payload.preview.sourceCoverage.reportCount,
           completeThrough: prepared.producerMetrics[0].payload.preview.sourceCoverage.completeThrough,
-          reportIds: reports.map((report) => report.id),
-          sourceChecksums: reports.map((report) => report.sourceChecksum),
+          reportIds: periodReports.map((report) => report.id),
+          sourceChecksums: periodReports.map((report) => report.sourceChecksum),
           ...(request.priorSnapshot ? { priorSnapshotId: request.priorSnapshot.id } : {}),
         }
       : {
@@ -631,7 +675,10 @@ export async function generateManualScorecardWithClient(
           targetPersonId: request.personId,
           reportIds: prepared.builderMetrics[0].sourceReportIds,
           sourceChecksums: prepared.builderMetrics[0].sourceChecksums,
-          activeWriterReportDates,
+          activeWriterReportKeys: activeWriterReports.map(canonicalGatewayReportIdentity),
+          activeWriterReportIds: activeWriterReports.map((report) => report.id),
+          activeWriterSourceChecksums: activeWriterReports.map((report) => report.sourceChecksum),
+          activeWriterReportDates: activeWriterReports.map((report) => report.reportDate),
           rankContextSource: "published_builder_peers",
           rankContextSnapshotIds: builderRankContext?.snapshotIds ?? [],
           rankPopulation: prepared.builderMetrics[0].recruitingRank.population,

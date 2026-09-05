@@ -1,0 +1,898 @@
+{
+  "auth": {
+    "signinPostStatus": 303,
+    "cookieNames": [
+      "sb-oyuqwuvewyntnxfboutd-auth-token"
+    ],
+    "cookieCount": 1
+  },
+  "pages": {
+    "maya-producer-desktop": {
+      "screenshot": "docs\\task-003-assets\\maya-producer-desktop.png",
+      "url": "http://localhost:3137/admin/scorecards/96340979-24e4-4f2d-9eac-b86fc05ceffb",
+      "title": "All Star OS",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "horizontalOverflow": 0,
+      "fontStatus": "loaded",
+      "fontFamilies": [
+        "Geist, \"Geist Fallback\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      ],
+      "headings": [
+        "Maya Chen",
+        "How You're Scored",
+        "Scored Metrics",
+        "Unscored Metrics",
+        "Your Scorecard"
+      ],
+      "sections": [
+        {
+          "id": "scorecard-how-it-works",
+          "heading": "How You're Scored"
+        },
+        {
+          "id": "scorecard-section-scored",
+          "heading": "Scored Metrics"
+        },
+        {
+          "id": "scorecard-section-unscored",
+          "heading": "Unscored Metrics"
+        },
+        {
+          "id": "scorecard-section-card",
+          "heading": "Your Scorecard"
+        }
+      ],
+      "exportLabels": [
+        "Download Scored Metrics as a 9:16 PNG",
+        "Download Scored Metrics as a 16:9 PNG",
+        "Download Unscored Metrics as a 9:16 PNG",
+        "Download Unscored Metrics as a 16:9 PNG",
+        "Download Your Scorecard as a 9:16 PNG",
+        "Download Your Scorecard as a 16:9 PNG"
+      ],
+      "unavailableCount": 0,
+      "exactUnavailable": 0,
+      "starGroups": [
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★5.00 weighted score"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        }
+      ],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 85,
+          "displayHeight": 48
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 112,
+          "displayHeight": 112
+        },
+        {
+          "alt": "",
+          "complete": false,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 380,
+          "displayHeight": 540
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 50,
+          "displayHeight": 28
+        }
+      ],
+      "suspiciousClipping": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "relative overflow-hidden bg-black",
+          "text": "Maya ChenJune 2026 Producer Scorecard★★★★★5.00 weighted score",
+          "client": [
+            1070,
+            449
+          ],
+          "scroll": [
+            1102,
+            463
+          ],
+          "overflow": [
+            "hidden",
+            "hidden"
+          ]
+        }
+      ],
+      "keyLines": [
+        "June 2026 Producer Scorecard",
+        "5.00 weighted score",
+        "Personal IP",
+        "Lead Spend",
+        "Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.",
+        "Lead Spend",
+        "Tracking Consistency",
+        "June 2026 Producer Scorecard",
+        "5.00 overall",
+        "Personal IP",
+        "Lead Spend"
+      ],
+      "bodyText": "SUPER ADMIN Dashboard People › Performance › Leaderboard Scorecard rollout Flags Content › Access › Super Admin › D Dev Admin Sign out Report a bug Light mode Back to Scorecards admin Maya Chen June 2026 Producer Scorecard ★ ★ ★ ★ ★ 5.00 weighted score How You're Scored Producer ratings use three fixed period-aware performance bands, not organization rank or percentile. Personal IP 50% ☆ ☆ ☆ ☆ ☆ Under $5k ★ ☆ ☆ ☆ ☆ $5k – under $15k ★ ★ ☆ ☆ ☆ $15k – under $20k ★ ★ ★ ☆ ☆ $20k – under $30k ★ ★ ★ ★ ☆ $30k – under $40k ★ ★ ★ ★ ★ $40k+ Tracking 25% Mon–Sat logged days only · Sundays never count ☆ ☆ ☆ ☆ ☆ 0 – 7 days ★ ☆ ☆ ☆ ☆ 8 – 11 days ★ ★ ☆ ☆ ☆ 12 – 15 days ★ ★ ★ ☆ ☆ 16 – 19 days ★ ★ ★ ★ ☆ 20 – 23 days ★ ★ ★ ★ ★ 24+ days Lead Spend 25% ☆ ☆ ☆ ☆ ☆ Under $2k ★ ☆ ☆ ☆ ☆ $2k – under $4k ★ ★ ☆ ☆ ☆ $4k – under $6k ★ ★ ★ ☆ ☆ $6k – under $8k ★ ★ ★ ★ ☆ $8k – under $10k ★ ★ ★ ★ ★ $10k+ Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend. Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating. Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars. You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard. Numbers don't lie. If you don't like your score, do something about it. Scored Metrics IP $42,000 ★ ★ ★ ★ ★ Lead Spend $10,800 ★ ★ ★ ★ ★ Tracking Consistency 25 ★ ★ ★ ★ ★ Mon–Sat logged days in this period · Sundays are not scored Logged Sun Mon Tue Wed Thu Fri Sat 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 Unscored Metrics AP $3,500 Dials 1,000 Contacts 300 Presentations 50 Submitted Sales 25 Your Scorecard Maya Chen June 2026 Producer Scorecard June 2026 5.0 5.00 overall Personal IP ★ ★ ★ ★ ★ Tracking ★ ★ ★ ★ ★ Lead Spend ★ ★ ★ ★ ★ Click To Flip"
+    },
+    "maya-producer-mobile": {
+      "screenshot": "docs\\task-003-assets\\maya-producer-mobile.png",
+      "url": "http://localhost:3137/admin/scorecards/96340979-24e4-4f2d-9eac-b86fc05ceffb",
+      "title": "All Star OS",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "fontStatus": "loaded",
+      "fontFamilies": [
+        "Geist, \"Geist Fallback\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      ],
+      "headings": [
+        "Maya Chen",
+        "How You're Scored",
+        "Scored Metrics",
+        "Unscored Metrics",
+        "Your Scorecard"
+      ],
+      "sections": [
+        {
+          "id": "scorecard-how-it-works",
+          "heading": "How You're Scored"
+        },
+        {
+          "id": "scorecard-section-scored",
+          "heading": "Scored Metrics"
+        },
+        {
+          "id": "scorecard-section-unscored",
+          "heading": "Unscored Metrics"
+        },
+        {
+          "id": "scorecard-section-card",
+          "heading": "Your Scorecard"
+        }
+      ],
+      "exportLabels": [
+        "Download Scored Metrics as a 9:16 PNG",
+        "Download Scored Metrics as a 16:9 PNG",
+        "Download Unscored Metrics as a 9:16 PNG",
+        "Download Unscored Metrics as a 16:9 PNG",
+        "Download Your Scorecard as a 9:16 PNG",
+        "Download Your Scorecard as a 16:9 PNG"
+      ],
+      "unavailableCount": 0,
+      "exactUnavailable": 0,
+      "starGroups": [
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★5.00 weighted score"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        }
+      ],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 71,
+          "displayHeight": 40
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 96,
+          "displayHeight": 96
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 280,
+          "displayHeight": 400
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 50,
+          "displayHeight": 28
+        }
+      ],
+      "suspiciousClipping": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "relative overflow-hidden bg-black",
+          "text": "Maya ChenJune 2026 Producer Scorecard★★★★★5.00 weighted score",
+          "client": [
+            348,
+            420
+          ],
+          "scroll": [
+            358,
+            433
+          ],
+          "overflow": [
+            "hidden",
+            "hidden"
+          ]
+        }
+      ],
+      "keyLines": [
+        "June 2026 Producer Scorecard",
+        "5.00 weighted score",
+        "Personal IP",
+        "Lead Spend",
+        "Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.",
+        "Lead Spend",
+        "Tracking Consistency",
+        "June 2026 Producer Scorecard",
+        "5.00 overall",
+        "Personal IP",
+        "Lead Spend"
+      ],
+      "bodyText": "SUPER ADMIN SUPER ADMIN Dashboard People › Performance › Leaderboard Scorecard rollout Flags Content › Access › Super Admin › D Dev Admin Sign out Report a bug Light mode Back to Scorecards admin Maya Chen June 2026 Producer Scorecard ★ ★ ★ ★ ★ 5.00 weighted score How You're Scored Producer ratings use three fixed period-aware performance bands, not organization rank or percentile. Personal IP 50% ☆ ☆ ☆ ☆ ☆ Under $5k ★ ☆ ☆ ☆ ☆ $5k – under $15k ★ ★ ☆ ☆ ☆ $15k – under $20k ★ ★ ★ ☆ ☆ $20k – under $30k ★ ★ ★ ★ ☆ $30k – under $40k ★ ★ ★ ★ ★ $40k+ Tracking 25% Mon–Sat logged days only · Sundays never count ☆ ☆ ☆ ☆ ☆ 0 – 7 days ★ ☆ ☆ ☆ ☆ 8 – 11 days ★ ★ ☆ ☆ ☆ 12 – 15 days ★ ★ ★ ☆ ☆ 16 – 19 days ★ ★ ★ ★ ☆ 20 – 23 days ★ ★ ★ ★ ★ 24+ days Lead Spend 25% ☆ ☆ ☆ ☆ ☆ Under $2k ★ ☆ ☆ ☆ ☆ $2k – under $4k ★ ★ ☆ ☆ ☆ $4k – under $6k ★ ★ ★ ☆ ☆ $6k – under $8k ★ ★ ★ ★ ☆ $8k – under $10k ★ ★ ★ ★ ★ $10k+ Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend. Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating. Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars. You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard. Numbers don't lie. If you don't like your score, do something about it. Scored Metrics IP $42,000 ★ ★ ★ ★ ★ Lead Spend $10,800 ★ ★ ★ ★ ★ Tracking Consistency 25 ★ ★ ★ ★ ★ Mon–Sat logged days in this period · Sundays are not scored Logged Sun Mon Tue Wed Thu Fri Sat 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 Unscored Metrics AP $3,500 Dials 1,000 Contacts 300 Presentations 50 Submitted Sales 25 Your Scorecard Maya Chen June 2026 Producer Scorecard June 2026 5.0 5.00 overall Personal IP ★ ★ ★ ★ ★ Tracking ★ ★ ★ ★ ★ Lead Spend ★ ★ ★ ★ ★ Click To Flip"
+    },
+    "maya-builder-desktop": {
+      "screenshot": "docs\\task-003-assets\\maya-builder-desktop.png",
+      "url": "http://localhost:3137/admin/scorecards/94efc129-ada9-4005-83d6-3aae296aae25",
+      "title": "All Star OS",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "horizontalOverflow": 0,
+      "fontStatus": "loaded",
+      "fontFamilies": [
+        "Geist, \"Geist Fallback\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      ],
+      "headings": [
+        "Maya Chen",
+        "How You're Scored",
+        "Scored Metrics",
+        "Unscored Metrics",
+        "Your Scorecard"
+      ],
+      "sections": [
+        {
+          "id": "builder-scorecard-how-it-works",
+          "heading": "How You're Scored"
+        },
+        {
+          "id": "builder-scorecard-section-scored",
+          "heading": "Scored Metrics"
+        },
+        {
+          "id": "builder-scorecard-section-unscored",
+          "heading": "Unscored Metrics"
+        },
+        {
+          "id": "builder-scorecard-section-card",
+          "heading": "Your Scorecard"
+        }
+      ],
+      "exportLabels": [
+        "Download Scored Metrics as a 9:16 PNG",
+        "Download Scored Metrics as a 16:9 PNG",
+        "Download Unscored Metrics as a 9:16 PNG",
+        "Download Unscored Metrics as a 16:9 PNG",
+        "Download Your Scorecard as a 9:16 PNG",
+        "Download Your Scorecard as a 16:9 PNG"
+      ],
+      "unavailableCount": 0,
+      "exactUnavailable": 0,
+      "starGroups": [
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★5.0 average · 25 of 25 total stars"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        }
+      ],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 85,
+          "displayHeight": 48
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 112,
+          "displayHeight": 112
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 380,
+          "displayHeight": 540
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 50,
+          "displayHeight": 28
+        }
+      ],
+      "suspiciousClipping": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "relative overflow-hidden bg-black",
+          "text": "Maya ChenJune 2026 Builder Scorecard★★★★★5.0 average · 25 of 25 total stars",
+          "client": [
+            1070,
+            449
+          ],
+          "scroll": [
+            1102,
+            463
+          ],
+          "overflow": [
+            "hidden",
+            "hidden"
+          ]
+        }
+      ],
+      "keyLines": [
+        "June 2026 Builder Scorecard",
+        "Each of these five metrics contributes exactly 20% to your overall Builder rating:",
+        "Growth %",
+        "Needs a usable prior-period baseline · zero or negative growth scores 0",
+        "First Leg %",
+        "Uses the same monthly IP bands as Personal IP",
+        "Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed.",
+        "Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.",
+        "Growth %",
+        "First Leg %",
+        "Total Team IP",
+        "June 2026 Builder Scorecard",
+        "Growth %",
+        "First Leg %"
+      ],
+      "bodyText": "SUPER ADMIN Dashboard People › Performance › Leaderboard Scorecard rollout Flags Content › Access › Super Admin › D Dev Admin Sign out Report a bug Light mode Back to Scorecards admin Maya Chen June 2026 Builder Scorecard ★ ★ ★ ★ ★ 5.0 average · 25 of 25 total stars How You're Scored Builder ratings use five fixed performance bands, not organization rank or percentile. Each of these five metrics contributes exactly 20% to your overall Builder rating: Growth % 20% Needs a usable prior-period baseline · zero or negative growth scores 0 ☆ ☆ ☆ ☆ ☆ 0% or less ★ ☆ ☆ ☆ ☆ Under 5% ★ ★ ☆ ☆ ☆ 5% – under 10% ★ ★ ★ ☆ ☆ 10% – under 15% ★ ★ ★ ★ ☆ 15% – under 25% ★ ★ ★ ★ ★ 25%+ First Leg % 20% Lower is better ☆ ☆ ☆ ☆ ☆ 50%+ ★ ☆ ☆ ☆ ☆ 40% – under 50% ★ ★ ☆ ☆ ☆ 30% – under 40% ★ ★ ★ ☆ ☆ 20% – under 30% ★ ★ ★ ★ ☆ 10% – under 20% ★ ★ ★ ★ ★ Under 10% Active Directs 20% ☆ ☆ ☆ ☆ ☆ 0 ★ ☆ ☆ ☆ ☆ 1 ★ ★ ☆ ☆ ☆ 2 ★ ★ ★ ☆ ☆ 3 – 4 ★ ★ ★ ★ ☆ 5 – 7 ★ ★ ★ ★ ★ 8+ Avg IP / Active Writer 20% Uses the same monthly IP bands as Personal IP ☆ ☆ ☆ ☆ ☆ Under $5k ★ ☆ ☆ ☆ ☆ $5k – under $15k ★ ★ ☆ ☆ ☆ $15k – under $20k ★ ★ ★ ☆ ☆ $20k – under $30k ★ ★ ★ ★ ☆ $30k – under $40k ★ ★ ★ ★ ★ $40k+ Recruits Licensed 20% ☆ ☆ ☆ ☆ ☆ Under 1 ★ ☆ ☆ ☆ ☆ 1 – under 2 ★ ★ ☆ ☆ ☆ 2 – under 3 ★ ★ ★ ☆ ☆ 3 – under 4 ★ ★ ★ ★ ☆ 4 – under 6 ★ ★ ★ ★ ★ 6+ Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed. Lower First Leg % is better. Missing or unusable rating inputs score 0 stars. Scored metrics affect your rating. Unscored metrics are still useful team context, but they do not change your stars. You can download 9:16 or 16:9 screenshots of each section to post online. If you are not proud to post your numbers online, chances are you should get to work. Numbers don't lie. If you don't like your score, do something about it! Scored Metrics Growth % +33.3% ★ ★ ★ ★ ★ First Leg % 8% ★ ★ ★ ★ ★ Active Directs 8 ★ ★ ★ ★ ★ Avg IP / Active Writer $44,444 ★ ★ ★ ★ ★ Recruits Licensed 14 ★ ★ ★ ★ ★ Unscored Metrics Total Team Dials 6,480 Total Team Contacts 1,944 Total Team Presentations 324 Total Team Sales 165 Total Team AP $20,667 Total Team IP $400,000 Your Scorecard Maya Chen June 2026 Builder Scorecard June 2026 5.0 5.0 average 25 of 25 points Growth % ★ ★ ★ ★ ★ First Leg % ★ ★ ★ ★ ★ Active Directs ★ ★ ★ ★ ★ Avg IP / Active Writer ★ ★ ★ ★ ★ Recruits Licensed ★ ★ ★ ★ ★ Click To Flip"
+    },
+    "maya-builder-mobile": {
+      "screenshot": "docs\\task-003-assets\\maya-builder-mobile.png",
+      "url": "http://localhost:3137/admin/scorecards/94efc129-ada9-4005-83d6-3aae296aae25",
+      "title": "All Star OS",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "fontStatus": "loaded",
+      "fontFamilies": [
+        "Geist, \"Geist Fallback\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      ],
+      "headings": [
+        "Maya Chen",
+        "How You're Scored",
+        "Scored Metrics",
+        "Unscored Metrics",
+        "Your Scorecard"
+      ],
+      "sections": [
+        {
+          "id": "builder-scorecard-how-it-works",
+          "heading": "How You're Scored"
+        },
+        {
+          "id": "builder-scorecard-section-scored",
+          "heading": "Scored Metrics"
+        },
+        {
+          "id": "builder-scorecard-section-unscored",
+          "heading": "Unscored Metrics"
+        },
+        {
+          "id": "builder-scorecard-section-card",
+          "heading": "Your Scorecard"
+        }
+      ],
+      "exportLabels": [
+        "Download Scored Metrics as a 9:16 PNG",
+        "Download Scored Metrics as a 16:9 PNG",
+        "Download Unscored Metrics as a 9:16 PNG",
+        "Download Unscored Metrics as a 16:9 PNG",
+        "Download Your Scorecard as a 9:16 PNG",
+        "Download Your Scorecard as a 16:9 PNG"
+      ],
+      "unavailableCount": 0,
+      "exactUnavailable": 0,
+      "starGroups": [
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★5.0 average · 25 of 25 total stars"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        },
+        {
+          "text": "★★★★★",
+          "filled": 5,
+          "empty": 0,
+          "context": "★★★★★"
+        }
+      ],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 71,
+          "displayHeight": 40
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 96,
+          "displayHeight": 96
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "displayWidth": 280,
+          "displayHeight": 400
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 50,
+          "displayHeight": 28
+        }
+      ],
+      "suspiciousClipping": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "relative overflow-hidden bg-black",
+          "text": "Maya ChenJune 2026 Builder Scorecard★★★★★5.0 average · 25 of 25 total stars",
+          "client": [
+            348,
+            391
+          ],
+          "scroll": [
+            358,
+            402
+          ],
+          "overflow": [
+            "hidden",
+            "hidden"
+          ]
+        }
+      ],
+      "keyLines": [
+        "June 2026 Builder Scorecard",
+        "Each of these five metrics contributes exactly 20% to your overall Builder rating:",
+        "Growth %",
+        "Needs a usable prior-period baseline · zero or negative growth scores 0",
+        "First Leg %",
+        "Uses the same monthly IP bands as Personal IP",
+        "Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed.",
+        "Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.",
+        "Growth %",
+        "First Leg %",
+        "Total Team IP",
+        "June 2026 Builder Scorecard",
+        "Growth %",
+        "First Leg %"
+      ],
+      "bodyText": "SUPER ADMIN SUPER ADMIN Dashboard People › Performance › Leaderboard Scorecard rollout Flags Content › Access › Super Admin › D Dev Admin Sign out Report a bug Light mode Back to Scorecards admin Maya Chen June 2026 Builder Scorecard ★ ★ ★ ★ ★ 5.0 average · 25 of 25 total stars How You're Scored Builder ratings use five fixed performance bands, not organization rank or percentile. Each of these five metrics contributes exactly 20% to your overall Builder rating: Growth % 20% Needs a usable prior-period baseline · zero or negative growth scores 0 ☆ ☆ ☆ ☆ ☆ 0% or less ★ ☆ ☆ ☆ ☆ Under 5% ★ ★ ☆ ☆ ☆ 5% – under 10% ★ ★ ★ ☆ ☆ 10% – under 15% ★ ★ ★ ★ ☆ 15% – under 25% ★ ★ ★ ★ ★ 25%+ First Leg % 20% Lower is better ☆ ☆ ☆ ☆ ☆ 50%+ ★ ☆ ☆ ☆ ☆ 40% – under 50% ★ ★ ☆ ☆ ☆ 30% – under 40% ★ ★ ★ ☆ ☆ 20% – under 30% ★ ★ ★ ★ ☆ 10% – under 20% ★ ★ ★ ★ ★ Under 10% Active Directs 20% ☆ ☆ ☆ ☆ ☆ 0 ★ ☆ ☆ ☆ ☆ 1 ★ ★ ☆ ☆ ☆ 2 ★ ★ ★ ☆ ☆ 3 – 4 ★ ★ ★ ★ ☆ 5 – 7 ★ ★ ★ ★ ★ 8+ Avg IP / Active Writer 20% Uses the same monthly IP bands as Personal IP ☆ ☆ ☆ ☆ ☆ Under $5k ★ ☆ ☆ ☆ ☆ $5k – under $15k ★ ★ ☆ ☆ ☆ $15k – under $20k ★ ★ ★ ☆ ☆ $20k – under $30k ★ ★ ★ ★ ☆ $30k – under $40k ★ ★ ★ ★ ★ $40k+ Recruits Licensed 20% ☆ ☆ ☆ ☆ ☆ Under 1 ★ ☆ ☆ ☆ ☆ 1 – under 2 ★ ★ ☆ ☆ ☆ 2 – under 3 ★ ★ ★ ☆ ☆ 3 – under 4 ★ ★ ★ ★ ☆ 4 – under 6 ★ ★ ★ ★ ★ 6+ Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed. Lower First Leg % is better. Missing or unusable rating inputs score 0 stars. Scored metrics affect your rating. Unscored metrics are still useful team context, but they do not change your stars. You can download 9:16 or 16:9 screenshots of each section to post online. If you are not proud to post your numbers online, chances are you should get to work. Numbers don't lie. If you don't like your score, do something about it! Scored Metrics Growth % +33.3% ★ ★ ★ ★ ★ First Leg % 8% ★ ★ ★ ★ ★ Active Directs 8 ★ ★ ★ ★ ★ Avg IP / Active Writer $44,444 ★ ★ ★ ★ ★ Recruits Licensed 14 ★ ★ ★ ★ ★ Unscored Metrics Total Team Dials 6,480 Total Team Contacts 1,944 Total Team Presentations 324 Total Team Sales 165 Total Team AP $20,667 Total Team IP $400,000 Your Scorecard Maya Chen June 2026 Builder Scorecard June 2026 5.0 5.0 average 25 of 25 points Growth % ★ ★ ★ ★ ★ First Leg % ★ ★ ★ ★ ★ Active Directs ★ ★ ★ ★ ★ Avg IP / Active Writer ★ ★ ★ ★ ★ Recruits Licensed ★ ★ ★ ★ ★ Click To Flip"
+    },
+    "james-missing-desktop": {
+      "screenshot": "docs\\task-003-assets\\james-missing-desktop.png",
+      "url": "http://localhost:3137/admin/scorecards/94c34f9c-27b0-4e32-bea3-adbb780d7fef",
+      "title": "All Star OS",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "horizontalOverflow": 0,
+      "fontStatus": "loaded",
+      "fontFamilies": [
+        "Geist, \"Geist Fallback\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      ],
+      "headings": [
+        "James Lee",
+        "How You're Scored",
+        "Scored Metrics",
+        "Unscored Metrics",
+        "Your Scorecard"
+      ],
+      "sections": [
+        {
+          "id": "scorecard-how-it-works",
+          "heading": "How You're Scored"
+        },
+        {
+          "id": "scorecard-section-scored",
+          "heading": "Scored Metrics"
+        },
+        {
+          "id": "scorecard-section-unscored",
+          "heading": "Unscored Metrics"
+        },
+        {
+          "id": "scorecard-section-card",
+          "heading": "Your Scorecard"
+        }
+      ],
+      "exportLabels": [
+        "Download Scored Metrics as a 9:16 PNG",
+        "Download Scored Metrics as a 16:9 PNG",
+        "Download Unscored Metrics as a 9:16 PNG",
+        "Download Unscored Metrics as a 16:9 PNG",
+        "Download Your Scorecard as a 9:16 PNG",
+        "Download Your Scorecard as a 16:9 PNG"
+      ],
+      "unavailableCount": 4,
+      "exactUnavailable": 4,
+      "starGroups": [
+        {
+          "text": "☆☆☆☆☆",
+          "filled": 0,
+          "empty": 5,
+          "context": "☆☆☆☆☆0.00 weighted score"
+        },
+        {
+          "text": "☆☆☆☆☆",
+          "filled": 0,
+          "empty": 5,
+          "context": "☆☆☆☆☆"
+        },
+        {
+          "text": "☆☆☆☆☆",
+          "filled": 0,
+          "empty": 5,
+          "context": "☆☆☆☆☆"
+        },
+        {
+          "text": "☆☆☆☆☆",
+          "filled": 0,
+          "empty": 5,
+          "context": "☆☆☆☆☆"
+        }
+      ],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 85,
+          "displayHeight": 48
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 64,
+          "displayHeight": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": false,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "displayWidth": 50,
+          "displayHeight": 28
+        }
+      ],
+      "suspiciousClipping": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "relative overflow-hidden bg-black",
+          "text": "JLJames LeeAugust 2026 Producer Scorecard☆☆☆☆☆0.00 weighted score",
+          "client": [
+            1070,
+            442
+          ],
+          "scroll": [
+            1102,
+            456
+          ],
+          "overflow": [
+            "hidden",
+            "hidden"
+          ]
+        }
+      ],
+      "keyLines": [
+        "August 2026 Producer Scorecard",
+        "0.00 weighted score",
+        "Personal IP",
+        "Lead Spend",
+        "Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.",
+        "Lead Spend",
+        "Tracking Consistency",
+        "Unavailable",
+        "Unavailable",
+        "Unavailable",
+        "Unavailable",
+        "August 2026 Producer Scorecard",
+        "0.00 overall",
+        "Personal IP",
+        "Lead Spend"
+      ],
+      "bodyText": "SUPER ADMIN Dashboard People › Performance › Leaderboard Scorecard rollout Flags Content › Access › Super Admin › D Dev Admin Sign out Report a bug Light mode Back to Scorecards admin JL James Lee August 2026 Producer Scorecard ☆ ☆ ☆ ☆ ☆ 0.00 weighted score How You're Scored Producer ratings use three fixed period-aware performance bands, not organization rank or percentile. Personal IP 50% ☆ ☆ ☆ ☆ ☆ Under $5k ★ ☆ ☆ ☆ ☆ $5k – under $15k ★ ★ ☆ ☆ ☆ $15k – under $20k ★ ★ ★ ☆ ☆ $20k – under $30k ★ ★ ★ ★ ☆ $30k – under $40k ★ ★ ★ ★ ★ $40k+ Tracking 25% Mon–Sat logged days only · Sundays never count ☆ ☆ ☆ ☆ ☆ 0 – 7 days ★ ☆ ☆ ☆ ☆ 8 – 11 days ★ ★ ☆ ☆ ☆ 12 – 15 days ★ ★ ★ ☆ ☆ 16 – 19 days ★ ★ ★ ★ ☆ 20 – 23 days ★ ★ ★ ★ ★ 24+ days Lead Spend 25% ☆ ☆ ☆ ☆ ☆ Under $2k ★ ☆ ☆ ☆ ☆ $2k – under $4k ★ ★ ☆ ☆ ☆ $4k – under $6k ★ ★ ★ ☆ ☆ $6k – under $8k ★ ★ ★ ★ ☆ $8k – under $10k ★ ★ ★ ★ ★ $10k+ Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend. Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating. Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars. You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard. Numbers don't lie. If you don't like your score, do something about it. Scored Metrics IP $0 ☆ ☆ ☆ ☆ ☆ Lead Spend $0 ☆ ☆ ☆ ☆ ☆ Tracking Consistency 0 ☆ ☆ ☆ ☆ ☆ Mon–Sat logged days in this period · Sundays are not scored Logged Sun Mon Tue Wed Thu Fri Sat 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 Unscored Metrics AP $0 Dials Unavailable Contacts Unavailable Presentations Unavailable Submitted Sales Unavailable Your Scorecard JL James Lee August 2026 Producer Scorecard August 2026 0.0 0.00 overall Personal IP ★ ★ ★ ★ ★ Tracking ★ ★ ★ ★ ★ Lead Spend ★ ★ ★ ★ ★ Click To Flip"
+    }
+  },
+  "exports": [
+    {
+      "prefix": "maya-producer",
+      "ariaLabel": "Download Your Scorecard as a 9:16 PNG",
+      "file": "docs\\task-003-assets\\maya-producer-maya-chen-june-2026-producer-scorecard-your-scorecard-9x16.png",
+      "suggestedFilename": "maya-chen-june-2026-producer-scorecard-your-scorecard-9x16.png",
+      "bytes": 1453341,
+      "dims": {
+        "width": 2160,
+        "height": 3840
+      }
+    },
+    {
+      "prefix": "maya-producer",
+      "ariaLabel": "Download Your Scorecard as a 16:9 PNG",
+      "file": "docs\\task-003-assets\\maya-producer-maya-chen-june-2026-producer-scorecard-your-scorecard-16x9.png",
+      "suggestedFilename": "maya-chen-june-2026-producer-scorecard-your-scorecard-16x9.png",
+      "bytes": 1033861,
+      "dims": {
+        "width": 3840,
+        "height": 2160
+      }
+    },
+    {
+      "prefix": "maya-builder",
+      "ariaLabel": "Download Your Scorecard as a 9:16 PNG",
+      "file": "docs\\task-003-assets\\maya-builder-maya-chen-june-2026-builder-scorecard-your-scorecard-9x16.png",
+      "suggestedFilename": "maya-chen-june-2026-builder-scorecard-your-scorecard-9x16.png",
+      "bytes": 1472079,
+      "dims": {
+        "width": 2160,
+        "height": 3840
+      }
+    },
+    {
+      "prefix": "maya-builder",
+      "ariaLabel": "Download Your Scorecard as a 16:9 PNG",
+      "file": "docs\\task-003-assets\\maya-builder-maya-chen-june-2026-builder-scorecard-your-scorecard-16x9.png",
+      "suggestedFilename": "maya-chen-june-2026-builder-scorecard-your-scorecard-16x9.png",
+      "bytes": 1053448,
+      "dims": {
+        "width": 3840,
+        "height": 2160
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

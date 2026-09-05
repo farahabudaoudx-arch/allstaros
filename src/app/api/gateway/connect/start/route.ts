@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCurrentPerson } from "@/lib/auth";
 import {
   createGatewayConnectRequest,
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(target, 303);
   }
 
-  // DEV QA uses an All Star OS-hosted mock page. It proves product states and
-  // the optional Gateway-requested 2FA branch without touching a real Gateway
-  // login, password, cookie, or production Mac agent.
+  // The development harness exercises the same product states as the hosted
+  // connector while remaining isolated from real Gateway credentials/sessions.
+  // NODE_ENV keeps this path unreachable in production.
   if (process.env.NODE_ENV === "development" && process.env.DEV_LOGIN_ENABLED === "true") {
     const target = new URL("/producer/gateway/connect/mock", request.url);
     target.searchParams.set("state", attempt.state);

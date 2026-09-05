@@ -15,6 +15,7 @@ describe("Gateway report job claim route", () => {
   afterEach(() => {
     if (original === undefined) delete process.env.GATEWAY_AGENT_REPORT_TOKEN;
     else process.env.GATEWAY_AGENT_REPORT_TOKEN = original;
+    vi.restoreAllMocks();
   });
 
   it("fails closed without the dedicated report-agent token", async () => {
@@ -48,6 +49,7 @@ describe("Gateway report job claim route", () => {
     mocks.claim.mockResolvedValue({
       id: "job-1", personId: "person-1", pullKind: "monday", businessDate: "2026-09-07",
       sessionGeneration: 4, sessionRef: "opaque-session", attemptCount: 1,
+      claimToken: "claim-token-1", leaseExpiresAt: "2026-09-07T12:15:00.000Z",
     });
     const response = await POST(new NextRequest("http://localhost/api/gateway/report-jobs/claim", {
       method: "POST",
@@ -55,7 +57,26 @@ describe("Gateway report job claim route", () => {
       body: JSON.stringify({ leaseSeconds: 900 }),
     }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ ok: true, job: { pullKind: "monday", sessionRef: "opaque-session" } });
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      job: { pullKind: "monday", sessionRef: "opaque-session", claimToken: "claim-token-1" },
+    });
     expect(mocks.claim).toHaveBeenCalledWith(900);
+  });
+
+  it("does not expose internal claim failures", async () => {
+    process.env.GATEWAY_AGENT_REPORT_TOKEN = "expected";
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.claim.mockImplementationOnce(async () => {
+      throw new Error("database detail that must stay server-side");
+    });
+    const response = await POST(new NextRequest("http://localhost/api/gateway/report-jobs/claim", {
+      method: "POST",
+      headers: { authorization: "Bearer expected", "content-type": "application/json" },
+      body: JSON.stringify({ leaseSeconds: 900 }),
+    }));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "gateway_report_claim_failed" });
+    expect(log).toHaveBeenCalledOnce();
   });
 });

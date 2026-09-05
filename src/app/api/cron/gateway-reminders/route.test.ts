@@ -21,6 +21,7 @@ describe("Gateway reminder cron", () => {
   afterEach(() => {
     if (originalSecret === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = originalSecret;
+    vi.restoreAllMocks();
   });
 
   it("fails closed when CRON_SECRET is missing", async () => {
@@ -65,6 +66,7 @@ describe("Gateway reminder cron", () => {
 
   it("returns 500 when the reminder worker itself fails", async () => {
     process.env.CRON_SECRET = "expected-secret";
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.processPendingGatewayReminders.mockRejectedValue(new Error("reminder worker failed"));
 
     const response = await GET(new NextRequest("http://localhost/api/cron/gateway-reminders", {
@@ -72,6 +74,7 @@ describe("Gateway reminder cron", () => {
     }));
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "reminder worker failed" });
+    expect(await response.json()).toEqual({ error: "gateway_reminder_processing_failed" });
+    expect(log).toHaveBeenCalledOnce();
   });
 });

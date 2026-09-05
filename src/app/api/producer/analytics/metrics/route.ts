@@ -44,19 +44,26 @@ export async function GET(req: Request) {
 
     // Hall of Fame is always the official Gateway personal YTD figure (never the
     // self-reported analytics number), so both pages show the same value. Take
-    // the newest YTD snapshot for this person; the report year is the award year.
+    // the newest personal YTD version for the currently covered Chicago year.
+    // Acquisition date is not the award-year identity.
+    const currentYear = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago",
+      year: "numeric",
+    }).format(new Date());
     const { data: hofRow } = await supabase
       .from("producer_issued_premium")
-      .select("personal_ip_cents, report_date")
+      .select("personal_ip_cents, report_date, scorecard_period_start")
       .eq("person_id", targetPersonId)
+      .eq("source_kind", "personal_gateway")
       .eq("period_type", "ytd")
+      .eq("scorecard_period_start", `${currentYear}-01-01`)
       .order("report_date", { ascending: false })
       .limit(1)
       .maybeSingle();
     const hof = hofRow
       ? {
           currentCents: (hofRow as { personal_ip_cents: number }).personal_ip_cents,
-          year: Number(String((hofRow as { report_date: string }).report_date).slice(0, 4)),
+          year: Number(String((hofRow as { scorecard_period_start: string }).scorecard_period_start).slice(0, 4)),
         }
       : null;
 

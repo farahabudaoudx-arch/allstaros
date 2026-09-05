@@ -1,12 +1,16 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { gatewayActiveDirectWindow } from "./active-directs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   aggregatePersonalGatewayReports,
+  canonicalGatewayReportIdentity,
   chicagoDateOfInstant,
-  requiredGatewayMondays,
+  gatewayReportInScorecardPeriod,
+  gatewayPeriodRequirements,
+  latestCanonicalGatewayReports,
   summarizePersonalGatewayEvidence,
   type PersonalGatewayImportEvidence,
   type PersonalGatewayPremiumRow,
@@ -52,6 +56,23 @@ type PopulationContextRow = {
 type ConnectionRow = {
   person_id: string;
   first_connected_at: string | null;
+  status: string;
+};
+
+type AutoPublishLedgerRow = {
+  period_kind: ScorecardPeriod["kind"];
+  period_start: string;
+  period_end: string;
+  period_label: string;
+  status: "waiting" | "published" | "blocked" | "failed";
+  run_id: string | null;
+};
+
+type MemberDecision = {
+  personId: string;
+  cardType: "producer" | "builder";
+  status: "eligible" | "excluded";
+  reason?: string;
 };
 
 type ExistingRunRow = {
@@ -71,10 +92,11 @@ type PopulationPublishRow = {
 
 export type AutoPublishPeriodResult = {
   period: ScorecardPeriod;
-  status: "published" | "existing" | "incomplete" | "blocked" | "no_population";
+  status: "published" | "existing" | "incomplete" | "blocked" | "failed" | "no_population";
   runId?: string;
   snapshotCount?: number;
   reason?: string;
+  memberDecisions?: MemberDecision[];
 };
 
 export type AutoPublishResult = {
@@ -102,10 +124,23 @@ function earlierDate(left: string, right: string) {
   return left < right ? left : right;
 }
 
+function monthStart(value: string) {
+  return `${value.slice(0, 7)}-01`;
+}
+
+function periodFromLedger(row: AutoPublishLedgerRow): ScorecardPeriod {
+  return {
+    kind: row.period_kind,
+    start: row.period_start,
+    end: row.period_end,
+    label: row.period_label,
+  };
+}
+
 /**
- * Automatic publication only considers periods that closed in the immediately
- * preceding Chicago calendar month. This deliberately prevents first-connect
- * historical backfill from minting old Scorecards.
+ * Natural-close hints. These are persisted to the automatic-publish ledger;
+ * unresolved rows remain due after the calendar moves on. Actual publication
+ * still waits for explicit Gateway final-week evidence.
  */
 export function candidateClosedPeriods(now: Date | string): ScorecardPeriod[] {
   const instant = typeof now === "string" ? now : now.toISOString();
@@ -160,7 +195,7 @@ async function loadConnections(service: SupabaseClient): Promise<ConnectionRow[]
   return loadAllPages<ConnectionRow>(async (from, to) => {
     const result = await service
       .from("gateway_connection")
-      .select("person_id, first_connected_at")
+      .select("person_id, first_connected_at, status")
       .order("person_id", { ascending: true })
       .range(from, to);
     return result as { data: ConnectionRow[] | null; error: { message: string } | null };
@@ -176,13 +211,15 @@ async function loadGatewayEvidence(
     loadAllPages<PersonalGatewayImportEvidence>(async (from, to) => {
       const result = await service
         .from("gateway_issued_premium_import")
-        .select("id, person_id, period_type, status, report_date, gateway_label, source_checksum, matched_count, unmatched_count, ambiguous_count, summary, created_at")
+        .select("id, person_id, source_kind, pull_kind, period_type, status, report_date, period_start, gateway_label, source_checksum, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, matched_count, unmatched_count, ambiguous_count, summary, created_at")
         .not("person_id", "is", null)
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", start)
-        .lte("report_date", end)
+        .gte("scorecard_period_start", monthStart(start))
+        .lte("scorecard_period_start", end)
         .order("person_id", { ascending: true })
-        .order("report_date", { ascending: true })
+        .order("scorecard_period_start", { ascending: true })
+        .order("gateway_week_ordinal", { ascending: true })
         .order("created_at", { ascending: true })
         .range(from, to);
       return result as { data: PersonalGatewayImportEvidence[] | null; error: { message: string } | null };
@@ -190,17 +227,93 @@ async function loadGatewayEvidence(
     loadAllPages<PersonalGatewayPremiumRow>(async (from, to) => {
       const result = await service
         .from("producer_issued_premium")
-        .select("id, import_id, person_id, report_date, personal_ip_cents, team_ip_cents, first_leg_percent")
+        .select("id, import_id, person_id, source_kind, report_date, period_start, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, personal_ip_cents, team_ip_cents, first_leg_percent")
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", start)
-        .lte("report_date", end)
+        .gte("scorecard_period_start", monthStart(start))
+        .lte("scorecard_period_start", end)
         .order("person_id", { ascending: true })
-        .order("report_date", { ascending: true })
+        .order("scorecard_period_start", { ascending: true })
+        .order("gateway_week_ordinal", { ascending: true })
         .range(from, to);
       return result as { data: PersonalGatewayPremiumRow[] | null; error: { message: string } | null };
     }, "personal Gateway premium rows"),
   ]);
   return { imports, premiumRows };
+}
+
+async function ensureAutoPublishLedgerCandidates(
+  service: SupabaseClient,
+  periods: ScorecardPeriod[],
+) {
+  if (periods.length === 0) return;
+  const rows = periods.map((period) => ({
+    period_kind: period.kind,
+    period_start: period.start,
+    period_end: period.end,
+    period_label: period.label,
+    status: "waiting",
+  }));
+  const { error } = await service
+    .from("scorecard_auto_publish_period")
+    .upsert(rows, { onConflict: "period_kind,period_start", ignoreDuplicates: true });
+  if (error) throw new Error(`Unable to persist automatic Scorecard due periods: ${error.message}`);
+}
+
+async function loadDueAutoPublishPeriods(service: SupabaseClient): Promise<AutoPublishLedgerRow[]> {
+  const { data, error } = await service
+    .from("scorecard_auto_publish_period")
+    .select("period_kind, period_start, period_end, period_label, status, run_id")
+    .in("status", ["waiting", "failed"])
+    .order("period_start", { ascending: true })
+    .order("period_kind", { ascending: true });
+  if (error) throw new Error(`Unable to load automatic Scorecard due periods: ${error.message}`);
+  return (data ?? []) as AutoPublishLedgerRow[];
+}
+
+async function updateAutoPublishLedger(
+  service: SupabaseClient,
+  result: AutoPublishPeriodResult,
+) {
+  const status = result.status === "published" || result.status === "existing"
+    ? "published"
+    : result.status === "blocked"
+      ? "blocked"
+      : "waiting";
+  const payload: Record<string, unknown> = {
+    status,
+    last_evaluated_at: new Date().toISOString(),
+    last_reason: result.reason ?? null,
+    member_decisions: result.memberDecisions ?? [],
+    run_id: result.runId ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  if (status === "published") payload.published_at = new Date().toISOString();
+  const { error } = await service
+    .from("scorecard_auto_publish_period")
+    .update(payload)
+    .eq("period_kind", result.period.kind)
+    .eq("period_start", result.period.start);
+  if (error) throw new Error(`Unable to update automatic Scorecard ledger: ${error.message}`);
+}
+
+async function markAutoPublishFailure(
+  service: SupabaseClient,
+  period: ScorecardPeriod,
+  error: unknown,
+) {
+  const message = error instanceof Error ? error.message : "Automatic Scorecard processing failed.";
+  const { error: updateError } = await service
+    .from("scorecard_auto_publish_period")
+    .update({
+      status: "failed",
+      last_evaluated_at: new Date().toISOString(),
+      last_reason: message.slice(0, 500),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("period_kind", period.kind)
+    .eq("period_start", period.start);
+  if (updateError) throw new Error(`Unable to record automatic Scorecard failure: ${updateError.message}`);
 }
 
 function toRunPeople(context: PopulationContextRow[]): ScorecardRunPerson[] {
@@ -293,13 +406,19 @@ function producerScheduleFacts(payload: ProducerPeriodMetricPayload) {
   });
 }
 
-function builderSourceCoverage(metric: BuilderPeriodMetric, activeWriterReportDates: string[]) {
+function builderSourceCoverage(
+  metric: BuilderPeriodMetric,
+  activeWriterReports: ScorecardRunInput["gatewayReports"],
+) {
   return {
     generationScope: "population",
     trigger: "gateway_complete",
     reportIds: metric.sourceReportIds,
     sourceChecksums: metric.sourceChecksums,
-    activeWriterReportDates,
+    activeWriterReportKeys: activeWriterReports.map(canonicalGatewayReportIdentity),
+    activeWriterReportIds: activeWriterReports.map((report) => report.id),
+    activeWriterSourceChecksums: activeWriterReports.map((report) => report.sourceChecksum),
+    activeWriterReportDates: activeWriterReports.map((report) => report.reportDate),
   };
 }
 
@@ -365,126 +484,219 @@ async function processPeriod(
 
   const context = await loadPopulationContext(service, period.end);
   const people = toRunPeople(context);
-  const eligiblePeople = context.filter((person) =>
-    person.active_at_period_end && (person.producer_at_period_end || person.builder_at_period_end));
-  const eligiblePersonIds = [...new Set(eligiblePeople.map((person) => person.person_id))];
-  const eligibleProducers = context.filter((person) => person.active_at_period_end && person.producer_at_period_end);
-  const eligibleBuilders = context.filter((person) => person.active_at_period_end && person.builder_at_period_end);
-  if (eligibleProducers.length + eligibleBuilders.length === 0) {
+  const frozenProducers = context.filter((person) => person.active_at_period_end && person.producer_at_period_end);
+  const frozenBuilders = context.filter((person) => person.active_at_period_end && person.builder_at_period_end);
+  if (frozenProducers.length + frozenBuilders.length === 0) {
     return { period, status: "no_population" };
   }
 
-  const reportStart = eligibleBuilders.length > 0
+  const reportStart = frozenBuilders.length > 0
     ? earlierDate(period.start, sixWeekStart(period.end))
     : period.start;
   const [{ imports, premiumRows }, connections] = await Promise.all([
     loadGatewayEvidence(service, reportStart, period.end),
     loadConnections(service),
   ]);
-  const connectionsByPerson = new Map(connections.map((row) => [row.person_id, row.first_connected_at]));
-  const requiredDates = requiredGatewayMondays(period);
-  const periodEvidence = summarizePersonalGatewayEvidence({
-    personIds: eligiblePersonIds,
-    requiredDates,
+  const requirements = gatewayPeriodRequirements(imports, period, { ongoingOnly: true });
+  if (!requirements.ready) {
+    return {
+      period,
+      status: "incomplete",
+      reason: requirements.missingMonthStarts.length
+        ? `Waiting for Gateway final-week evidence for ${requirements.missingMonthStarts.join(", ")}.`
+        : "Waiting for Gateway final-week evidence.",
+    };
+  }
+
+  const frozenPersonIds = [...new Set(
+    context
+      .filter((person) => person.active_at_period_end && (person.producer_at_period_end || person.builder_at_period_end))
+      .map((person) => person.person_id),
+  )];
+  const connectionsByPerson = new Map(connections.map((row) => [row.person_id, row]));
+  const memberEvidence = summarizePersonalGatewayEvidence({
+    personIds: frozenPersonIds,
+    requiredWeeks: requirements.requiredWeeks,
     imports,
     premiumRows,
   });
-  for (const personId of eligiblePersonIds) {
-    const firstConnectedDate = chicagoDateOfInstant(connectionsByPerson.get(personId));
-    const evidence = periodEvidence.byPerson.get(personId);
-    if (
-      !firstConnectedDate ||
-      firstConnectedDate > period.end ||
-      !evidence?.complete ||
-      !evidence.finalWeekReady
-    ) {
-      return {
-        period,
-        status: "incomplete",
-        reason: `Gateway evidence is incomplete for ${personId}.`,
-      };
+  const decisions: MemberDecision[] = [];
+  const baseEligibilityReason = (personId: string): string | null => {
+    const connection = connectionsByPerson.get(personId);
+    const firstConnectedDate = chicagoDateOfInstant(connection?.first_connected_at);
+    if (!firstConnectedDate || firstConnectedDate > period.end) {
+      return "Personal Gateway was not connected by this period end.";
     }
-  }
-
-  // Builders need a complete six-WTD active-writer source window as well as
-  // the exact period Mondays. A partial older week would undercount writers.
-  if (eligibleBuilders.length > 0) {
-    const metricWindowDates = requiredGatewayMondays({ start: reportStart, end: period.end });
-    const metricWindow = summarizePersonalGatewayEvidence({
-      personIds: eligiblePersonIds,
-      requiredDates: metricWindowDates,
-      imports,
-      premiumRows,
+    if (connection?.status !== "connected") {
+      return "Personal Gateway is not currently connected.";
+    }
+    const evidence = memberEvidence.byPerson.get(personId);
+    if (!evidence?.finalWeekReady) {
+      return "The person's final Gateway week is unresolved.";
+    }
+    return null;
+  };
+  for (const producer of frozenProducers) {
+    const reason = baseEligibilityReason(producer.person_id);
+    decisions.push({
+      personId: producer.person_id,
+      cardType: "producer",
+      status: reason ? "excluded" : "eligible",
+      ...(reason ? { reason } : {}),
     });
-    if (eligiblePersonIds.some((personId) => !metricWindow.byPerson.get(personId)?.complete)) {
-      return {
-        period,
-        status: "incomplete",
-        reason: "The complete six-WTD Builder active-writer source window is not available.",
-      };
-    }
+  }
+  for (const builder of frozenBuilders) {
+    const reason = baseEligibilityReason(builder.person_id);
+    decisions.push({
+      personId: builder.person_id,
+      cardType: "builder",
+      status: reason ? "excluded" : "eligible",
+      ...(reason ? { reason } : {}),
+    });
   }
 
   const gatewayReports = aggregatePersonalGatewayReports({
     imports,
     premiumRows,
-    personIds: eligiblePersonIds,
+    personIds: frozenPersonIds,
     start: reportStart,
     end: period.end,
   });
+  const knownDirects = new Set<string>();
+  const unresolvedDirects = new Set<string>();
+  for (const report of gatewayReports) {
+    const membership = gatewayActiveDirectWindow(report, period.end);
+    for (const row of report.rows) {
+      if (row.personalIpCents <= 0) continue;
+      if (membership === true) knownDirects.add(row.personId);
+      if (membership === null) unresolvedDirects.add(row.personId);
+    }
+  }
+  for (const decision of decisions) {
+    if (decision.cardType !== "builder" || decision.status !== "eligible") continue;
+    if (people.some((person) => person.activeAtPeriodEnd && person.uplineId === decision.personId &&
+        person.id !== decision.personId && unresolvedDirects.has(person.id) && !knownDirects.has(person.id))) {
+      decision.status = "excluded";
+      decision.reason = "Active Direct coverage needs a provider-sourced week date at the six-week boundary.";
+    }
+  }
+  const activeWriterReports = latestCanonicalGatewayReports(gatewayReports, period.end, 6);
+  if (activeWriterReports.length < 6) {
+    for (const decision of decisions) {
+      if (decision.cardType === "builder" && decision.status === "eligible") {
+        decision.status = "excluded";
+        decision.reason = "Six distinct Gateway WTD source buckets are not available for Active Writers.";
+      }
+    }
+  }
+
   const prior = previousEquivalentPeriod(period);
   const priorBuilderTeamIpCents: Record<string, number | null> = {};
   const priorBuilderCoverage: ScorecardRunInput["priorBuilderCoverage"] = {};
-  if (eligibleBuilders.length > 0) {
+  let eligibleBuilderIds = decisions
+    .filter((decision) => decision.cardType === "builder" && decision.status === "eligible")
+    .map((decision) => decision.personId);
+  if (eligibleBuilderIds.length > 0) {
     if (prior.end < "2026-01-01") {
-      for (const builder of eligibleBuilders) {
-        priorBuilderCoverage[builder.person_id] = "outside_retention";
-        priorBuilderTeamIpCents[builder.person_id] = null;
+      for (const builderId of eligibleBuilderIds) {
+        priorBuilderCoverage[builderId] = "outside_retention";
+        priorBuilderTeamIpCents[builderId] = null;
       }
     } else {
       const priorEvidenceRows = await loadGatewayEvidence(service, prior.start, prior.end);
-      const builderIds = eligibleBuilders.map((builder) => builder.person_id);
-      const priorRequiredDates = requiredGatewayMondays(prior);
+      const priorRequirements = gatewayPeriodRequirements(priorEvidenceRows.imports, prior);
       const priorEvidence = summarizePersonalGatewayEvidence({
-        personIds: builderIds,
-        requiredDates: priorRequiredDates,
+        personIds: eligibleBuilderIds,
+        requiredWeeks: priorRequirements.requiredWeeks,
         imports: priorEvidenceRows.imports,
         premiumRows: priorEvidenceRows.premiumRows,
       });
       const priorReports = aggregatePersonalGatewayReports({
         imports: priorEvidenceRows.imports,
         premiumRows: priorEvidenceRows.premiumRows,
-        personIds: builderIds,
+        personIds: eligibleBuilderIds,
         start: prior.start,
         end: prior.end,
       });
-      for (const builder of eligibleBuilders) {
-        if (!priorEvidence.byPerson.get(builder.person_id)?.complete) {
-          priorBuilderCoverage[builder.person_id] = "incomplete";
-          priorBuilderTeamIpCents[builder.person_id] = null;
+      for (const builderId of eligibleBuilderIds) {
+        if (!priorRequirements.ready || !priorEvidence.byPerson.get(builderId)?.complete) {
+          const decision = decisions.find((entry) => entry.cardType === "builder" && entry.personId === builderId)!;
+          decision.status = "excluded";
+          decision.reason = "The Builder comparison period does not have verifiable final Gateway coverage.";
+          priorBuilderCoverage[builderId] = "incomplete";
+          priorBuilderTeamIpCents[builderId] = null;
           continue;
         }
-        priorBuilderCoverage[builder.person_id] = "complete";
-        priorBuilderTeamIpCents[builder.person_id] = priorReports
+        priorBuilderCoverage[builderId] = "complete";
+        priorBuilderTeamIpCents[builderId] = priorReports
           .flatMap((report) => report.rows)
-          .filter((row) => row.personId === builder.person_id)
+          .filter((row) => row.personId === builderId)
           .reduce((sum, row) => sum + row.teamIpCents, 0);
       }
     }
   }
 
+  const eligibleProducerIds = decisions
+    .filter((decision) => decision.cardType === "producer" && decision.status === "eligible")
+    .map((decision) => decision.personId);
+  eligibleBuilderIds = decisions
+    .filter((decision) => decision.cardType === "builder" && decision.status === "eligible")
+    .map((decision) => decision.personId);
+  if (eligibleProducerIds.length + eligibleBuilderIds.length === 0) {
+    return {
+      period,
+      status: "incomplete",
+      reason: "No frozen Scorecard card is currently eligible for publication.",
+      memberDecisions: decisions,
+    };
+  }
+
   const generatedAt = now;
-  const captured = await mapWithConcurrency(
-    eligibleProducers,
+  const supportPeople = eligibleBuilderIds.length > 0
+    ? frozenProducers
+    : frozenProducers.filter((person) => eligibleProducerIds.includes(person.person_id));
+  const supportCaptured = await mapWithConcurrency(
+    supportPeople,
     PRODUCER_CAPTURE_CONCURRENCY,
     async (person) => {
-      const [metric, verification] = await Promise.all([
-        captureProducerMetric(service, person, period, generatedAt),
-        captureProducerMetric(service, person, period, generatedAt),
-      ]);
-      return { personId: person.person_id, metric, verification };
+      const metric = await captureProducerMetric(service, person, period, generatedAt);
+      return { personId: person.person_id, metric };
     },
   );
+  const metricsByPerson = new Map(supportCaptured.map((row) => [row.personId, row.metric]));
+  const verificationCaptured = await mapWithConcurrency(
+    frozenProducers.filter((person) => eligibleProducerIds.includes(person.person_id)),
+    PRODUCER_CAPTURE_CONCURRENCY,
+    async (person) => ({
+      personId: person.person_id,
+      verification: await captureProducerMetric(service, person, period, generatedAt),
+    }),
+  );
+  const builderProductionSupport = eligibleBuilderIds.length > 0
+    ? supportCaptured.map(({ personId, metric }) => {
+        const current = metric.overview.activity.totals;
+        const priorActivity = metric.overview.priorActivityTotals;
+        return {
+          personId,
+          current: {
+            dials: current?.dials ?? 0,
+            contacts: current?.contacts ?? 0,
+            presentations: current?.presentations ?? 0,
+            sales: current?.sales ?? 0,
+            apCents: metric.overview.submittedApCents ?? 0,
+          },
+          prior: {
+            dials: priorActivity?.dials ?? 0,
+            contacts: priorActivity?.contacts ?? 0,
+            presentations: priorActivity?.presentations ?? 0,
+            sales: priorActivity?.sales ?? 0,
+            apCents: metric.overview.priorSubmittedApCents ?? 0,
+          },
+        };
+      })
+    : undefined;
+  const periodReports = gatewayReports
+    .filter((report) => gatewayReportInScorecardPeriod(report, period));
   const runId = randomUUID();
   const input: ScorecardRunInput = {
     runId,
@@ -492,14 +704,29 @@ async function processPeriod(
     period,
     priorPeriod: prior,
     generatedAt: generatedAt.toISOString(),
-    expectedReportDates: requiredDates,
+    expectedReportDates: [],
+    expectedGatewayWeeks: requirements.finalWeeks.map((week) => ({
+      periodStart: week.periodStart,
+      weekOrdinal: week.weekOrdinal,
+    })),
     people,
     gatewayReports,
     recruits: toRunRecruits(context),
     priorBuilderTeamIpCents,
     priorBuilderCoverage,
-    producerMetrics: captured.map((row) => ({ personId: row.personId, payload: row.metric })),
-    producerVerificationMetrics: captured.map((row) => ({ personId: row.personId, payload: row.verification })),
+    producerMetrics: eligibleProducerIds.map((personId) => ({
+      personId,
+      payload: metricsByPerson.get(personId)!,
+    })),
+    producerVerificationMetrics: verificationCaptured.map((row) => ({
+      personId: row.personId,
+      payload: row.verification,
+    })),
+    eligibleTargets: [
+      ...eligibleProducerIds.map((personId) => ({ personId, cardType: "producer" as const })),
+      ...eligibleBuilderIds.map((personId) => ({ personId, cardType: "builder" as const })),
+    ],
+    builderProductionSupport,
   };
   const prepared = prepareScorecardRun(input);
   if (prepared.status !== "ready") {
@@ -521,10 +748,6 @@ async function processPeriod(
 
   const producerMetricIds = new Map(prepared.producerMetrics.map((metric) => [metric.personId, randomUUID()]));
   const builderMetricIds = new Map(prepared.builderMetrics.map((metric) => [metric.personId, randomUUID()]));
-  const periodReports = gatewayReports.filter((report) => report.reportDate >= period.start && report.reportDate <= period.end);
-  const activeWriterReportDates = [...new Set(gatewayReports.map((report) => report.reportDate))]
-    .sort((left, right) => right.localeCompare(left))
-    .slice(0, 6);
   const producerCoverageByPerson = new Map(prepared.producerMetrics.map((metric) => [metric.personId, {
     generationScope: "population",
     trigger: "gateway_complete",
@@ -536,7 +759,7 @@ async function processPeriod(
   }]));
   const builderCoverageByPerson = new Map(prepared.builderMetrics.map((metric) => [
     metric.personId,
-    builderSourceCoverage(metric, activeWriterReportDates),
+    builderSourceCoverage(metric, activeWriterReports),
   ]));
   const snapshots = artifacts.snapshots.map((artifact) => {
     const metricId = artifact.cardType === "producer"
@@ -562,12 +785,13 @@ async function processPeriod(
   const sourceManifest = {
     trigger: "gateway_complete",
     generationScope: "population",
-    requiredGatewayMondays: requiredDates,
-    finalRequiredDate: periodEvidence.finalRequiredDate,
+    requiredGatewayWeeks: requirements.requiredWeeks,
+    finalGatewayWeeks: requirements.finalWeeks,
+    memberDecisions: decisions,
     gatewayReportIds: periodReports.map((report) => report.id),
     generatedAt: generatedAt.toISOString(),
   };
-  const { data, error } = await service.rpc("publish_gateway_complete_scorecard_population", {
+  const { data, error } = await service.rpc("publish_gateway_eligible_scorecard_population", {
     p_run_id: runId,
     p_period_kind: period.kind,
     p_period_start: period.start,
@@ -596,6 +820,7 @@ async function processPeriod(
     status: published.existing ? "existing" : "published",
     runId: published.run_id,
     snapshotCount: Number(published.snapshot_count ?? 0),
+    memberDecisions: decisions,
   };
 }
 
@@ -608,14 +833,27 @@ export async function processCompletedScorecardPeriods({
 } = {}): Promise<AutoPublishResult> {
   const instant = typeof now === "string" ? new Date(now) : now;
   if (Number.isNaN(instant.getTime())) throw new Error("Scorecard publishing requires a valid current instant.");
-  const candidates = candidateClosedPeriods(instant);
-  const bounded = limit == null
-    ? candidates
-    : candidates.slice(0, Math.max(0, Math.trunc(limit)));
   const service = createServiceRoleClient();
+  await ensureAutoPublishLedgerCandidates(service, candidateClosedPeriods(instant));
+  const dueRows = await loadDueAutoPublishPeriods(service);
+  const due = dueRows.map(periodFromLedger);
+  const bounded = limit == null
+    ? due
+    : due.slice(0, Math.max(0, Math.trunc(limit)));
   const periods: AutoPublishPeriodResult[] = [];
   for (const period of bounded) {
-    periods.push(await processPeriod(service, period, instant));
+    try {
+      const result = await processPeriod(service, period, instant);
+      await updateAutoPublishLedger(service, result);
+      periods.push(result);
+    } catch (error) {
+      await markAutoPublishFailure(service, period, error);
+      periods.push({
+        period,
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Automatic Scorecard processing failed.",
+      });
+    }
   }
   return {
     evaluated: periods.length,

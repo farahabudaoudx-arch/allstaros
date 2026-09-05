@@ -80,9 +80,16 @@ import { parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
 type ImportRow = {
   id: string;
   person_id: string;
+  source_kind: "personal_gateway";
+  pull_kind: "monday" | "reconnect" | "first_connect";
   period_type: "wtd";
   status: "imported" | "no_new_report" | "failed";
   report_date: string;
+  period_start: string;
+  scorecard_period_start: string;
+  scorecard_period_end: string;
+  gateway_week_ordinal: number;
+  gateway_period_final: boolean;
   gateway_label: string | null;
   source_checksum: string;
   matched_count: number;
@@ -149,6 +156,7 @@ class FakeQuery {
   }
   gte(_column: string, value: string) { this.lower = value; return this; }
   lte(_column: string, value: string) { this.upper = value; return this; }
+  or() { return this; }
   order() { return this; }
   limit() { return this; }
   in(column: string, values: unknown[]) { this.inFilters.set(column, values); return this; }
@@ -340,12 +348,24 @@ function seedPersonalGatewayEvidence(
 ) {
   for (const reportDate of mondayDates(start, end)) {
     const importId = `import-${personId}-${reportDate}`;
+    const monthStart = `${reportDate.slice(0, 7)}-01`;
+    const [year, month] = reportDate.slice(0, 7).split("-").map(Number);
+    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    const monthMondays = mondayDates(monthStart, monthEnd);
+    const weekOrdinal = monthMondays.indexOf(reportDate) + 1;
     imports.push({
       id: importId,
       person_id: personId,
+      source_kind: "personal_gateway",
+      pull_kind: "monday",
       period_type: "wtd",
       status: "imported",
       report_date: reportDate,
+      period_start: reportDate,
+      scorecard_period_start: monthStart,
+      scorecard_period_end: monthEnd,
+      gateway_week_ordinal: weekOrdinal,
+      gateway_period_final: weekOrdinal === monthMondays.length,
       gateway_label: reportDate,
       source_checksum: `checksum-${personId}-${reportDate}`,
       matched_count: 1,
@@ -358,7 +378,13 @@ function seedPersonalGatewayEvidence(
       id: `premium-${personId}-${reportDate}`,
       import_id: importId,
       person_id: personId,
+      source_kind: "personal_gateway",
       report_date: reportDate,
+      period_start: reportDate,
+      scorecard_period_start: monthStart,
+      scorecard_period_end: monthEnd,
+      gateway_week_ordinal: weekOrdinal,
+      gateway_period_final: weekOrdinal === monthMondays.length,
       personal_ip_cents: 0,
       team_ip_cents: 0,
       first_leg_percent: null,

@@ -54,11 +54,24 @@ describe("personal Gateway issued-premium scoping", () => {
     expect(result.reason).toBe("duplicate_target_npn_in_gateway_report");
   });
 
-  it("enforces the 2026-only cutoff only for first-connect history", () => {
-    expect(personalGatewayReportSkipReason("first_connect", "2025-12-31")).toBe("first_connect_before_2026");
+  it("rejects impossible or mixed Gateway File Date values instead of inventing coverage", () => {
+    expect(() => parsedRows([
+      "2/31/2026,Sarah,123456,sarah@example.com,Wylie,900,Agency,$100,$500,Leg,222,40%,$300",
+    ])).toThrow("invalid File Date");
+
+    expect(() => parsedRows([
+      "2/2/2026,Sarah,123456,sarah@example.com,Wylie,900,Agency,$100,$500,Leg,222,40%,$300",
+      "2/9/2026,Jake,654321,jake@example.com,Wylie,900,Agency,$200,$600,Leg,333,30%,$420",
+    ])).toThrow("inconsistent File Date");
+  });
+
+  it("enforces the 2026-only cutoff by covered period for every pull kind", () => {
+    expect(personalGatewayReportSkipReason("first_connect", "2025-12-31")).toBe("covered_period_before_2026");
     expect(personalGatewayReportSkipReason("first_connect", "2026-01-01")).toBeNull();
-    expect(personalGatewayReportSkipReason("monday", "2025-12-31")).toBeNull();
-    expect(personalGatewayReportSkipReason("reconnect", "2025-12-31")).toBeNull();
+    expect(personalGatewayReportSkipReason("monday", "2025-12-31")).toBe("covered_period_before_2026");
+    expect(personalGatewayReportSkipReason("reconnect", "2025-12-31")).toBe("covered_period_before_2026");
+    expect(personalGatewayReportSkipReason("first_connect", null)).toBe("first_connect_period_unknown");
+    expect(personalGatewayReportSkipReason("monday", null)).toBeNull();
   });
 
   it("fences current pulls to their Chicago business date and rejects future history", () => {

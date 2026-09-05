@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
     const job = await claimGatewayReportPullJob(leaseSeconds);
     return NextResponse.json({ ok: true, job });
   } catch (error) {
+    console.error("[gateway-report-jobs/claim] Failed to claim report job.", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "gateway_report_claim_failed" },
+      { error: "gateway_report_claim_failed" },
       { status: 500 },
     );
   }

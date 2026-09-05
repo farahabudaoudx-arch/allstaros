@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-// react-simple-maps doesn't ship types
-// @ts-expect-error - no types
-import { ComposableMap, Geographies, Geography } from "react-simple-maps";
+import { geoAlbersUsa, geoPath } from "d3-geo";
+import type { FeatureCollection, Geometry } from "geojson";
+import { feature } from "topojson-client";
 import statesTopojson from "us-atlas/states-10m.json";
 
 export type StateDatum = {
@@ -13,6 +13,19 @@ export type StateDatum = {
 };
 
 const GOLD = "#f6c945";
+const MAP_WIDTH = 780;
+const MAP_HEIGHT = 480;
+
+type StateProperties = { name?: string };
+
+const projection = geoAlbersUsa()
+  .scale(850)
+  .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2]);
+const pathGenerator = geoPath(projection);
+const stateFeatures = feature(
+  statesTopojson as never,
+  statesTopojson.objects.states as never,
+) as unknown as FeatureCollection<Geometry, StateProperties>;
 
 const NAME_TO_CODE: Record<string, string> = {
   Alabama: "AL", Alaska: "AK", Arizona: "AZ", Arkansas: "AR", California: "CA",
@@ -50,54 +63,46 @@ export function UsStateMap({
 
   return (
     <div className="relative w-full">
-      <ComposableMap
-        projection="geoAlbersUsa"
-        projectionConfig={{ scale: 850 }}
-        width={780}
-        height={480}
+      <svg
+        viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+        role="img"
+        aria-label={`${metricLabel} by U.S. state`}
         style={{ width: "100%", height: "auto" }}
       >
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <Geographies geography={statesTopojson as any}>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {({ geographies }: any) =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            geographies.map((geo: any) => {
-              const name = geo.properties.name as string;
-              const code = NAME_TO_CODE[name];
-              const datum = code ? data[code] : undefined;
-              const fill = colorFor(datum?.value ?? 0, max);
-              const isHovered = hovered?.code === code;
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={fill}
-                  stroke={isHovered ? GOLD : "rgba(255,255,255,0.16)"}
-                  strokeWidth={isHovered ? 1.5 : 0.5}
-                  style={{
-                    default: { outline: "none" },
-                    hover: { outline: "none", cursor: datum ? "pointer" : "default" },
-                    pressed: { outline: "none" },
-                  }}
-                  onMouseEnter={(e: React.MouseEvent) => {
-                    if (!code) return;
-                    const svg = (e.currentTarget as SVGPathElement).ownerSVGElement!;
-                    const rect = svg.getBoundingClientRect();
-                    const bbox = (e.currentTarget as SVGPathElement).getBoundingClientRect();
-                    setHovered({
-                      code,
-                      x: bbox.left - rect.left + bbox.width / 2,
-                      y: bbox.top - rect.top,
-                    });
-                  }}
-                  onMouseLeave={() => setHovered(null)}
-                />
-              );
-            })
-          }
-        </Geographies>
-      </ComposableMap>
+        {stateFeatures.features.map((geo) => {
+          const name = geo.properties?.name ?? "";
+          const code = NAME_TO_CODE[name];
+          const datum = code ? data[code] : undefined;
+          const fill = colorFor(datum?.value ?? 0, max);
+          const isHovered = hovered?.code === code;
+          const path = pathGenerator(geo);
+          if (!path) return null;
+
+          return (
+            <path
+              key={String(geo.id ?? name)}
+              d={path}
+              fill={fill}
+              stroke={isHovered ? GOLD : "rgba(255,255,255,0.16)"}
+              strokeWidth={isHovered ? 1.5 : 0.5}
+              style={{ outline: "none", cursor: datum ? "pointer" : "default" }}
+              onMouseEnter={(e) => {
+                if (!code) return;
+                const svg = e.currentTarget.ownerSVGElement;
+                if (!svg) return;
+                const rect = svg.getBoundingClientRect();
+                const bbox = e.currentTarget.getBoundingClientRect();
+                setHovered({
+                  code,
+                  x: bbox.left - rect.left + bbox.width / 2,
+                  y: bbox.top - rect.top,
+                });
+              }}
+              onMouseLeave={() => setHovered(null)}
+            />
+          );
+        })}
+      </svg>
 
       {hovered && hoveredDatum && (
         <div

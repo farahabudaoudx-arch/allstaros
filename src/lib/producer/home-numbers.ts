@@ -68,11 +68,17 @@ async function gatewayYtd(
   supabase: SupabaseClient,
   personId: string,
 ): Promise<{ personalCents: number; teamCents: number } | null> {
+  const year = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    year: "numeric",
+  }).format(new Date());
   const { data } = await supabase
     .from("producer_issued_premium")
     .select("personal_ip_cents, team_ip_cents")
     .eq("person_id", personId)
+    .eq("source_kind", "personal_gateway")
     .eq("period_type", "ytd")
+    .eq("scorecard_period_start", `${year}-01-01`)
     .order("report_date", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -125,13 +131,20 @@ async function activeWriters(
     // production as current.
     recentReportDates(supabase),
     ...chunk(ids, IN_FILTER_CHUNK).map((part) =>
-      fetchAllRows<{ person_id: string; report_date: string }>((lo, hi) =>
+      fetchAllRows<{
+        person_id: string;
+        scorecard_period_start: string;
+        gateway_week_ordinal: number;
+      }>((lo, hi) =>
         supabase
           .from("producer_issued_premium")
-          .select("person_id, report_date")
+          .select("person_id, scorecard_period_start, gateway_week_ordinal")
+          .eq("source_kind", "personal_gateway")
           .eq("period_type", "wtd")
           .in("person_id", part)
-          .gte("report_date", sinceDay)
+          .not("scorecard_period_start", "is", null)
+          .not("gateway_week_ordinal", "is", null)
+          .gte("scorecard_period_start", `${sinceDay.slice(0, 7)}-01`)
           .gt("personal_ip_cents", 0)
           .order("id")
           .range(lo, hi),
@@ -142,7 +155,8 @@ async function activeWriters(
   const inWindow = new Set(weeks);
   const writers = new Set<string>();
   for (const r of rowChunks.flat()) {
-    if (inWindow.has(r.report_date)) writers.add(r.person_id);
+    const slot = `${r.scorecard_period_start}:w${r.gateway_week_ordinal}`;
+    if (inWindow.has(slot)) writers.add(r.person_id);
   }
   return writers.size;
 }
@@ -158,15 +172,28 @@ async function recentReportDates(supabase: SupabaseClient): Promise<string[]> {
   for (let page = 0; page < 5; page++) {
     const { data } = await supabase
       .from("producer_issued_premium")
-      .select("report_date")
+      .select("scorecard_period_start, gateway_week_ordinal")
+      .eq("source_kind", "personal_gateway")
       .eq("period_type", "wtd")
-      .order("report_date", { ascending: false })
+      .not("scorecard_period_start", "is", null)
+      .not("gateway_week_ordinal", "is", null)
+      .order("scorecard_period_start", { ascending: false })
+      .order("gateway_week_ordinal", { ascending: false })
       .range(page * pageSize, (page + 1) * pageSize - 1);
-    const rows = (data ?? []) as Array<{ report_date: string }>;
-    for (const r of rows) seen.add(r.report_date);
+    const rows = (data ?? []) as Array<{
+      scorecard_period_start: string;
+      gateway_week_ordinal: number;
+    }>;
+    for (const r of rows) seen.add(`${r.scorecard_period_start}:w${r.gateway_week_ordinal}`);
     if (seen.size >= WRITER_WEEKS || rows.length < pageSize) break;
   }
-  return [...seen].sort().slice(-WRITER_WEEKS);
+  return [...seen]
+    .sort((left, right) => {
+      const [leftMonth, leftWeek] = left.split(":w");
+      const [rightMonth, rightWeek] = right.split(":w");
+      return leftMonth.localeCompare(rightMonth) || Number(leftWeek) - Number(rightWeek);
+    })
+    .slice(-WRITER_WEEKS);
 }
 
 /** A builder's five lines. Deliberately NOT an extension of ProducerNumbers:

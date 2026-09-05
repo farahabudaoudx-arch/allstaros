@@ -1,0 +1,264 @@
+{
+  "mobileOverlaps": {
+    "producer": {
+      "scorecard-section-scored": {
+        "heading": "Scored Metrics",
+        "headingRect": {
+          "x": 97,
+          "y": 2186.953125,
+          "width": 236.390625,
+          "height": 30.390625,
+          "left": 97,
+          "right": 333.390625,
+          "top": 2186.953125,
+          "bottom": 2217.34375
+        },
+        "controlsRect": {
+          "x": 253,
+          "y": 2162.15625,
+          "width": 96,
+          "height": 44,
+          "left": 253,
+          "right": 349,
+          "top": 2162.15625,
+          "bottom": 2206.15625
+        },
+        "intersectionArea": 1543.751220703125,
+        "headingRightPastControlsLeft": 80.4
+      },
+      "scorecard-section-unscored": {
+        "heading": "Unscored Metrics",
+        "headingRect": {
+          "x": 97,
+          "y": 3242.15625,
+          "width": 248,
+          "height": 60.78125,
+          "left": 97,
+          "right": 345,
+          "top": 3242.15625,
+          "bottom": 3302.9375
+        },
+        "controlsRect": {
+          "x": 253,
+          "y": 3222.15625,
+          "width": 96,
+          "height": 44,
+          "left": 253,
+          "right": 349,
+          "top": 3222.15625,
+          "bottom": 3266.15625
+        },
+        "intersectionArea": 2208,
+        "headingRightPastControlsLeft": 92
+      },
+      "scorecard-section-card": {
+        "heading": "Your Scorecard",
+        "headingRect": {
+          "x": 76.546875,
+          "y": 3989.9375,
+          "width": 236.890625,
+          "height": 30.390625,
+          "left": 76.546875,
+          "right": 313.4375,
+          "top": 3989.9375,
+          "bottom": 4020.328125
+        },
+        "controlsRect": {
+          "x": 253,
+          "y": 3961.9375,
+          "width": 96,
+          "height": 44,
+          "left": 253,
+          "right": 349,
+          "top": 3961.9375,
+          "bottom": 4005.9375
+        },
+        "intersectionArea": 967,
+        "headingRightPastControlsLeft": 60.4
+      }
+    },
+    "builder": {
+      "builder-scorecard-section-scored": {
+        "heading": "Scored Metrics",
+        "headingRect": {
+          "x": 97,
+          "y": 2969.265625,
+          "width": 236.390625,
+          "height": 30.390625,
+          "left": 97,
+          "right": 333.390625,
+          "top": 2969.265625,
+          "bottom": 2999.65625
+        },
+        "controlsRect": {
+          "x": 253,
+          "y": 2944.46875,
+          "width": 96,
+          "height": 44,
+          "left": 253,
+          "right": 349,
+          "top": 2944.46875,
+          "bottom": 2988.46875
+        },
+        "intersectionArea": 1543.751220703125,
+        "headingRightPastControlsLeft": 80.4
+      },
+      "builder-scorecard-section-unscored": {
+        "heading": "Unscored Metrics",
+        "headingRect": {
+          "x": 97,
+          "y": 3883.46875,
+          "width": 248,
+          "height": 60.78125,
+          "left": 97,
+          "right": 345,
+          "top": 3883.46875,
+          "bottom": 3944.25
+        },
+        "controlsRect": {
+          "x": 253,
+          "y": 3863.46875,
+          "width": 96,
+          "height": 44,
+          "left": 253,
+          "right": 349,
+          "top": 3863.46875,
+          "bottom": 3907.46875
+        },
+        "intersectionArea": 2208,
+        "headingRightPastControlsLeft": 92
+      },
+      "builder-scorecard-section-card": {
+        "heading": "Your Scorecard",
+        "headingRect": {
+          "x": 76.546875,
+          "y": 4745.25,
+          "width": 236.890625,
+          "height": 30.390625,
+          "left": 76.546875,
+          "right": 313.4375,
+          "top": 4745.25,
+          "bottom": 4775.640625
+        },
+        "controlsRect": {
+          "x": 253,
+          "y": 4717.25,
+          "width": 96,
+          "height": 44,
+          "left": 253,
+          "right": 349,
+          "top": 4717.25,
+          "bottom": 4761.25
+        },
+        "intersectionArea": 967,
+        "headingRightPastControlsLeft": 60.4
+      }
+    }
+  },
+  "jamesUnavailable": [
+    {
+      "className": "producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink",
+      "textRect": {
+        "left": 633,
+        "right": 806,
+        "width": 173,
+        "top": 2741.796875,
+        "bottom": 2781.796875
+      },
+      "parentRect": {
+        "left": 612,
+        "right": 827,
+        "width": 215,
+        "top": 2688.796875,
+        "bottom": 2802.796875
+      },
+      "overrunRight": 0,
+      "overrunLeft": 0,
+      "scrollWidth": 226,
+      "clientWidth": 173
+    },
+    {
+      "className": "producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink",
+      "textRect": {
+        "left": 860,
+        "right": 1033,
+        "width": 173,
+        "top": 2741.796875,
+        "bottom": 2781.796875
+      },
+      "parentRect": {
+        "left": 839,
+        "right": 1054,
+        "width": 215,
+        "top": 2688.796875,
+        "bottom": 2802.796875
+      },
+      "overrunRight": 0,
+      "overrunLeft": 0,
+      "scrollWidth": 226,
+      "clientWidth": 173
+    },
+    {
+      "className": "producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink",
+      "textRect": {
+        "left": 1087,
+        "right": 1260,
+        "width": 173,
+        "top": 2741.796875,
+        "bottom": 2781.796875
+      },
+      "parentRect": {
+        "left": 1066,
+        "right": 1281,
+        "width": 215,
+        "top": 2688.796875,
+        "bottom": 2802.796875
+      },
+      "overrunRight": 0,
+      "overrunLeft": 0,
+      "scrollWidth": 226,
+      "clientWidth": 173
+    },
+    {
+      "className": "producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink",
+      "textRect": {
+        "left": 746.5,
+        "right": 919.5,
+        "width": 173,
+        "top": 2867.796875,
+        "bottom": 2907.796875
+      },
+      "parentRect": {
+        "left": 725.5,
+        "right": 940.5,
+        "width": 215,
+        "top": 2814.796875,
+        "bottom": 2928.796875
+      },
+      "overrunRight": 0,
+      "overrunLeft": 0,
+      "scrollWidth": 226,
+      "clientWidth": 173
+    }
+  ],
+  "jamesExports": [
+    {
+      "format": "9:16",
+      "file": "docs\\task-003-assets\\james-missing-unscored-9x16.png",
+      "bytes": 328241,
+      "dims": {
+        "width": 2160,
+        "height": 3840
+      }
+    },
+    {
+      "format": "16:9",
+      "file": "docs\\task-003-assets\\james-missing-unscored-16x9.png",
+      "bytes": 263351,
+      "dims": {
+        "width": 3840,
+        "height": 2160
+      }
+    }
+  ]
+}

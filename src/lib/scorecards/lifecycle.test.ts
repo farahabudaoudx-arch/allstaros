@@ -282,4 +282,23 @@ describe("Scorecard lifecycle — monthly Producer preview", () => {
       ),
     ).toThrow(/duplicate/i);
   });
+
+  it("keeps two canonical weeks with the same File Date distinct when report keys differ", () => {
+    const preview = createMonthlyProducerPreview(source({
+      reportDates: [
+        { reportKey: "coverage:2026-08-01:w1", reportDate: "2026-09-01", label: "August Week 1" },
+        { reportKey: "coverage:2026-08-01:w2", reportDate: "2026-09-01", label: "August Week 2" },
+      ],
+      producerRows: [
+        { reportKey: "coverage:2026-08-01:w1", reportDate: "2026-09-01", personalIpCents: 1_000_000 },
+        { reportKey: "coverage:2026-08-01:w2", reportDate: "2026-09-01", personalIpCents: 2_000_000 },
+      ],
+    }));
+
+    expect(preview.weeklyReports).toEqual([
+      { reportDate: "2026-09-01", label: "August Week 1", personalIpCents: 1_000_000 },
+      { reportDate: "2026-09-01", label: "August Week 2", personalIpCents: 2_000_000 },
+    ]);
+    expect(preview.totalIssuedIpCents).toBe(3_000_000);
+  });
 });

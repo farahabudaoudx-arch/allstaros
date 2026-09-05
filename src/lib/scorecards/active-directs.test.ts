@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countActiveDirects, isInSixWeekWindow, sixWeekWindowStart } from "./active-directs";
+import { countActiveDirects, gatewayActiveDirectWindow, isInSixWeekWindow, sixWeekWindowStart } from "./active-directs";
 
 describe("six-week Active Directs window", () => {
   it("uses an inclusive 42-day window ending on the scorecard period end", () => {
@@ -23,6 +23,25 @@ describe("six-week Active Directs window", () => {
   it("rejects malformed activity dates without crashing", () => {
     expect(isInSixWeekWindow("not-a-date", "2026-08-31")).toBe(false);
     expect(() => sixWeekWindowStart("2026-02-30")).toThrow("valid calendar date");
+  });
+});
+
+describe("provider week evidence", () => {
+  it("keeps September week five in September even when downloaded in October", () => {
+    expect(gatewayActiveDirectWindow({ reportDate: "2026-10-05", scorecardPeriodStart: "2026-09-01",
+      scorecardPeriodEnd: "2026-09-30", gatewayWeekStart: "2026-09-28" }, "2026-09-30")).toBe(true);
+  });
+  it.each([
+    ["2026-07-01", "2026-07-31", null],
+    ["2026-08-01", "2026-08-31", true],
+    ["2026-06-01", "2026-06-30", false],
+  ])("uses only decisive month bounds for legacy scoped evidence %s", (start, end, expected) => {
+    expect(gatewayActiveDirectWindow({ reportDate: "2026-08-28", scorecardPeriodStart: start as string,
+      scorecardPeriodEnd: end as string }, "2026-08-31")).toBe(expected);
+  });
+  it("does not treat an impossible provider date as evidence", () => {
+    expect(gatewayActiveDirectWindow({ reportDate: "2026-08-28", scorecardPeriodStart: "2026-08-01",
+      scorecardPeriodEnd: "2026-08-31", gatewayWeekStart: "2026-02-31" }, "2026-08-31")).toBeNull();
   });
 });
 

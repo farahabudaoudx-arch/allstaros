@@ -22,6 +22,7 @@ describe("Gateway report job completion route", () => {
   afterEach(() => {
     if (original === undefined) delete process.env.GATEWAY_AGENT_REPORT_TOKEN;
     else process.env.GATEWAY_AGENT_REPORT_TOKEN = original;
+    vi.restoreAllMocks();
   });
 
   it("marks a successful job complete", async () => {
@@ -30,7 +31,7 @@ describe("Gateway report job completion route", () => {
     const response = await POST(new NextRequest("http://localhost/api/gateway/report-jobs/complete", {
       method: "POST",
       headers: { authorization: "Bearer secret", "content-type": "application/json" },
-      body: JSON.stringify({ jobId: "job-1", sessionGeneration: 4, outcome: "succeeded", summary: { reports: 3 } }),
+      body: JSON.stringify({ jobId: "job-1", sessionGeneration: 4, claimToken: "claim-1", outcome: "succeeded", summary: { reports: 3 } }),
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, status: "succeeded" });
@@ -45,6 +46,7 @@ describe("Gateway report job completion route", () => {
       body: JSON.stringify({
         jobId: "job-1",
         sessionGeneration: 4,
+        claimToken: "claim-1",
         outcome: "needs_reconnect",
         error: "gateway logged out",
       }),
@@ -63,9 +65,23 @@ describe("Gateway report job completion route", () => {
     const response = await POST(new NextRequest("http://localhost/api/gateway/report-jobs/complete", {
       method: "POST",
       headers: { authorization: "Bearer secret", "content-type": "application/json" },
-      body: JSON.stringify({ jobId: "job-1", sessionGeneration: 3, outcome: "succeeded" }),
+      body: JSON.stringify({ jobId: "job-1", sessionGeneration: 3, claimToken: "old-claim", outcome: "succeeded" }),
     }));
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ ok: false, status: "stale" });
+  });
+
+  it("does not expose internal completion failures", async () => {
+    process.env.GATEWAY_AGENT_REPORT_TOKEN = "secret";
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.complete.mockRejectedValue(new Error("database detail that must stay server-side"));
+    const response = await POST(new NextRequest("http://localhost/api/gateway/report-jobs/complete", {
+      method: "POST",
+      headers: { authorization: "Bearer secret", "content-type": "application/json" },
+      body: JSON.stringify({ jobId: "job-1", sessionGeneration: 4, claimToken: "claim-1", outcome: "succeeded" }),
+    }));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "gateway_report_completion_failed" });
+    expect(log).toHaveBeenCalledOnce();
   });
 });

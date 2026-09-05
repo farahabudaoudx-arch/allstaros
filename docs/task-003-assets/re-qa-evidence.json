@@ -1,0 +1,1548 @@
+{
+  "timestamp": "2026-09-03T06:22:57.145Z",
+  "authUrl": "http://localhost:3137/admin/scorecards/96340979-24e4-4f2d-9eac-b86fc05ceffb",
+  "pages": {
+    "maya-producer-desktop": {
+      "kind": "maya-producer",
+      "url": "http://localhost:3137/admin/scorecards/96340979-24e4-4f2d-9eac-b86fc05ceffb",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": {
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "documentOverflowPx": 0,
+        "bodyOverflowPx": 0
+      },
+      "headings": {
+        "scorecard-section-scored": {
+          "heading": "Scored Metrics",
+          "headingRect": {
+            "x": 453,
+            "y": 1453.015625,
+            "width": 528.375,
+            "height": 68.390625,
+            "left": 453,
+            "right": 981.375,
+            "top": 1453.015625,
+            "bottom": 1521.40625
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 1437.015625,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 1437.015625,
+            "bottom": 1481.015625
+          },
+          "intersection": {
+            "width": 0,
+            "height": 28,
+            "area": 0
+          },
+          "verticalGap": -28,
+          "horizontalGap": 265.625
+        },
+        "scorecard-section-unscored": {
+          "heading": "Unscored Metrics",
+          "headingRect": {
+            "x": 453,
+            "y": 2499.40625,
+            "width": 611.796875,
+            "height": 68.390625,
+            "left": 453,
+            "right": 1064.796875,
+            "top": 2499.40625,
+            "bottom": 2567.796875
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 2483.40625,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 2483.40625,
+            "bottom": 2527.40625
+          },
+          "intersection": {
+            "width": 0,
+            "height": 28,
+            "area": 0
+          },
+          "verticalGap": -28,
+          "horizontalGap": 182.203125
+        },
+        "scorecard-section-card": {
+          "heading": "Your Scorecard",
+          "headingRect": {
+            "x": 575.25,
+            "y": 2955.984375,
+            "width": 529.484375,
+            "height": 68.390625,
+            "left": 575.25,
+            "right": 1104.734375,
+            "top": 2955.984375,
+            "bottom": 3024.375
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 2936.796875,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 2936.796875,
+            "bottom": 2980.796875
+          },
+          "intersection": {
+            "width": 0,
+            "height": 24.8125,
+            "area": 0
+          },
+          "verticalGap": -24.8125,
+          "horizontalGap": 142.265625
+        }
+      },
+      "fontStatus": "loaded",
+      "exactUnavailableCount": 0,
+      "unavailable": [],
+      "pairCollisions": [],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 85.328125,
+          "height": 48
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 112,
+          "height": 112
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 380,
+          "height": 540
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 49.765625,
+          "height": 28
+        }
+      ]
+    },
+    "maya-producer-mobile": {
+      "kind": "maya-producer",
+      "url": "http://localhost:3137/admin/scorecards/96340979-24e4-4f2d-9eac-b86fc05ceffb",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": {
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "documentOverflowPx": 0,
+        "bodyOverflowPx": 0
+      },
+      "headings": {
+        "scorecard-section-scored": {
+          "heading": "Scored Metrics",
+          "headingRect": {
+            "x": 97,
+            "y": 2250.953125,
+            "width": 236.390625,
+            "height": 30.390625,
+            "left": 97,
+            "right": 333.390625,
+            "top": 2250.953125,
+            "bottom": 2281.34375
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 2182.15625,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 2182.15625,
+            "bottom": 2226.15625
+          },
+          "intersection": {
+            "width": 236.390625,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 24.796875,
+          "horizontalGap": -288.390625
+        },
+        "scorecard-section-unscored": {
+          "heading": "Unscored Metrics",
+          "headingRect": {
+            "x": 97,
+            "y": 3370.15625,
+            "width": 248,
+            "height": 60.78125,
+            "left": 97,
+            "right": 345,
+            "top": 3370.15625,
+            "bottom": 3430.9375
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 3306.15625,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 3306.15625,
+            "bottom": 3350.15625
+          },
+          "intersection": {
+            "width": 248,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 20,
+          "horizontalGap": -300
+        },
+        "scorecard-section-card": {
+          "heading": "Your Scorecard",
+          "headingRect": {
+            "x": 76.546875,
+            "y": 4181.9375,
+            "width": 236.890625,
+            "height": 30.390625,
+            "left": 76.546875,
+            "right": 313.4375,
+            "top": 4181.9375,
+            "bottom": 4212.328125
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 4117.9375,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 4117.9375,
+            "bottom": 4161.9375
+          },
+          "intersection": {
+            "width": 236.890625,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 20,
+          "horizontalGap": -268.4375
+        }
+      },
+      "fontStatus": "loaded",
+      "exactUnavailableCount": 0,
+      "unavailable": [],
+      "pairCollisions": [],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 71.109375,
+          "height": 40
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 96,
+          "height": 96
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 280,
+          "height": 400
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 49.765625,
+          "height": 28
+        }
+      ]
+    },
+    "maya-builder-desktop": {
+      "kind": "maya-builder",
+      "url": "http://localhost:3137/admin/scorecards/94efc129-ada9-4005-83d6-3aae296aae25",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": {
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "documentOverflowPx": 0,
+        "bodyOverflowPx": 0
+      },
+      "headings": {
+        "builder-scorecard-section-scored": {
+          "heading": "Scored Metrics",
+          "headingRect": {
+            "x": 453,
+            "y": 1889.015625,
+            "width": 528.375,
+            "height": 68.390625,
+            "left": 453,
+            "right": 981.375,
+            "top": 1889.015625,
+            "bottom": 1957.40625
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 1873.015625,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 1873.015625,
+            "bottom": 1917.015625
+          },
+          "intersection": {
+            "width": 0,
+            "height": 28,
+            "area": 0
+          },
+          "verticalGap": -28,
+          "horizontalGap": 265.625
+        },
+        "builder-scorecard-section-unscored": {
+          "heading": "Unscored Metrics",
+          "headingRect": {
+            "x": 453,
+            "y": 2422.40625,
+            "width": 611.796875,
+            "height": 68.390625,
+            "left": 453,
+            "right": 1064.796875,
+            "top": 2422.40625,
+            "bottom": 2490.796875
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 2406.40625,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 2406.40625,
+            "bottom": 2450.40625
+          },
+          "intersection": {
+            "width": 0,
+            "height": 28,
+            "area": 0
+          },
+          "verticalGap": -28,
+          "horizontalGap": 182.203125
+        },
+        "builder-scorecard-section-card": {
+          "heading": "Your Scorecard",
+          "headingRect": {
+            "x": 575.25,
+            "y": 2878.984375,
+            "width": 529.484375,
+            "height": 68.390625,
+            "left": 575.25,
+            "right": 1104.734375,
+            "top": 2878.984375,
+            "bottom": 2947.375
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 2859.796875,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 2859.796875,
+            "bottom": 2903.796875
+          },
+          "intersection": {
+            "width": 0,
+            "height": 24.8125,
+            "area": 0
+          },
+          "verticalGap": -24.8125,
+          "horizontalGap": 142.265625
+        }
+      },
+      "fontStatus": "loaded",
+      "exactUnavailableCount": 0,
+      "unavailable": [],
+      "pairCollisions": [],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 85.328125,
+          "height": 48
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 112,
+          "height": 112
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 380,
+          "height": 540
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 49.765625,
+          "height": 28
+        }
+      ]
+    },
+    "maya-builder-mobile": {
+      "kind": "maya-builder",
+      "url": "http://localhost:3137/admin/scorecards/94efc129-ada9-4005-83d6-3aae296aae25",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": {
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "documentOverflowPx": 0,
+        "bodyOverflowPx": 0
+      },
+      "headings": {
+        "builder-scorecard-section-scored": {
+          "heading": "Scored Metrics",
+          "headingRect": {
+            "x": 97,
+            "y": 3033.265625,
+            "width": 236.390625,
+            "height": 30.390625,
+            "left": 97,
+            "right": 333.390625,
+            "top": 3033.265625,
+            "bottom": 3063.65625
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 2964.46875,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 2964.46875,
+            "bottom": 3008.46875
+          },
+          "intersection": {
+            "width": 236.390625,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 24.796875,
+          "horizontalGap": -288.390625
+        },
+        "builder-scorecard-section-unscored": {
+          "heading": "Unscored Metrics",
+          "headingRect": {
+            "x": 97,
+            "y": 4011.46875,
+            "width": 248,
+            "height": 60.78125,
+            "left": 97,
+            "right": 345,
+            "top": 4011.46875,
+            "bottom": 4072.25
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 3947.46875,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 3947.46875,
+            "bottom": 3991.46875
+          },
+          "intersection": {
+            "width": 248,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 20,
+          "horizontalGap": -300
+        },
+        "builder-scorecard-section-card": {
+          "heading": "Your Scorecard",
+          "headingRect": {
+            "x": 76.546875,
+            "y": 4937.25,
+            "width": 236.890625,
+            "height": 30.390625,
+            "left": 76.546875,
+            "right": 313.4375,
+            "top": 4937.25,
+            "bottom": 4967.640625
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 4873.25,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 4873.25,
+            "bottom": 4917.25
+          },
+          "intersection": {
+            "width": 236.890625,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 20,
+          "horizontalGap": -268.4375
+        }
+      },
+      "fontStatus": "loaded",
+      "exactUnavailableCount": 0,
+      "unavailable": [],
+      "pairCollisions": [],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 71.109375,
+          "height": 40
+        },
+        {
+          "alt": "Maya Chen",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 96,
+          "height": 96
+        },
+        {
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 128,
+          "width": 280,
+          "height": 400
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 49.765625,
+          "height": 28
+        }
+      ]
+    },
+    "james-desktop": {
+      "kind": "james",
+      "url": "http://localhost:3137/admin/scorecards/94c34f9c-27b0-4e32-bea3-adbb780d7fef",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": {
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "documentOverflowPx": 0,
+        "bodyOverflowPx": 0
+      },
+      "headings": {
+        "scorecard-section-scored": {
+          "heading": "Scored Metrics",
+          "headingRect": {
+            "x": 453,
+            "y": 1446.015625,
+            "width": 528.375,
+            "height": 68.390625,
+            "left": 453,
+            "right": 981.375,
+            "top": 1446.015625,
+            "bottom": 1514.40625
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 1430.015625,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 1430.015625,
+            "bottom": 1474.015625
+          },
+          "intersection": {
+            "width": 0,
+            "height": 28,
+            "area": 0
+          },
+          "verticalGap": -28,
+          "horizontalGap": 265.625
+        },
+        "scorecard-section-unscored": {
+          "heading": "Unscored Metrics",
+          "headingRect": {
+            "x": 453,
+            "y": 2572.40625,
+            "width": 611.796875,
+            "height": 68.390625,
+            "left": 453,
+            "right": 1064.796875,
+            "top": 2572.40625,
+            "bottom": 2640.796875
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 2556.40625,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 2556.40625,
+            "bottom": 2600.40625
+          },
+          "intersection": {
+            "width": 0,
+            "height": 28,
+            "area": 0
+          },
+          "verticalGap": -28,
+          "horizontalGap": 182.203125
+        },
+        "scorecard-section-card": {
+          "heading": "Your Scorecard",
+          "headingRect": {
+            "x": 575.25,
+            "y": 3023.984375,
+            "width": 529.484375,
+            "height": 68.390625,
+            "left": 575.25,
+            "right": 1104.734375,
+            "top": 3023.984375,
+            "bottom": 3092.375
+          },
+          "controlsRect": {
+            "x": 1247,
+            "y": 3004.796875,
+            "width": 96,
+            "height": 44,
+            "left": 1247,
+            "right": 1343,
+            "top": 3004.796875,
+            "bottom": 3048.796875
+          },
+          "intersection": {
+            "width": 0,
+            "height": 24.8125,
+            "area": 0
+          },
+          "verticalGap": -24.8125,
+          "horizontalGap": 142.265625
+        }
+      },
+      "fontStatus": "loaded",
+      "exactUnavailableCount": 4,
+      "unavailable": [
+        {
+          "textRect": {
+            "left": 633,
+            "right": 806,
+            "top": 2741.796875,
+            "bottom": 2776.796875,
+            "width": 173,
+            "height": 35
+          },
+          "textScrollWidth": 173,
+          "textClientWidth": 173,
+          "parentRect": {
+            "left": 612,
+            "right": 827,
+            "top": 2688.796875,
+            "bottom": 2802.796875,
+            "width": 215,
+            "height": 114
+          },
+          "parentScrollWidth": 213,
+          "parentClientWidth": 213,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        },
+        {
+          "textRect": {
+            "left": 860,
+            "right": 1033,
+            "top": 2741.796875,
+            "bottom": 2776.796875,
+            "width": 173,
+            "height": 35
+          },
+          "textScrollWidth": 173,
+          "textClientWidth": 173,
+          "parentRect": {
+            "left": 839,
+            "right": 1054,
+            "top": 2688.796875,
+            "bottom": 2802.796875,
+            "width": 215,
+            "height": 114
+          },
+          "parentScrollWidth": 213,
+          "parentClientWidth": 213,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        },
+        {
+          "textRect": {
+            "left": 1087,
+            "right": 1260,
+            "top": 2741.796875,
+            "bottom": 2776.796875,
+            "width": 173,
+            "height": 35
+          },
+          "textScrollWidth": 173,
+          "textClientWidth": 173,
+          "parentRect": {
+            "left": 1066,
+            "right": 1281,
+            "top": 2688.796875,
+            "bottom": 2802.796875,
+            "width": 215,
+            "height": 114
+          },
+          "parentScrollWidth": 213,
+          "parentClientWidth": 213,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        },
+        {
+          "textRect": {
+            "left": 746.5,
+            "right": 919.5,
+            "top": 2867.796875,
+            "bottom": 2902.796875,
+            "width": 173,
+            "height": 35
+          },
+          "textScrollWidth": 173,
+          "textClientWidth": 173,
+          "parentRect": {
+            "left": 725.5,
+            "right": 940.5,
+            "top": 2814.796875,
+            "bottom": 2923.796875,
+            "width": 215,
+            "height": 109
+          },
+          "parentScrollWidth": 213,
+          "parentClientWidth": 213,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        }
+      ],
+      "pairCollisions": [],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 85.328125,
+          "height": 48
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 49.765625,
+          "height": 28
+        }
+      ]
+    },
+    "james-mobile": {
+      "kind": "james",
+      "url": "http://localhost:3137/admin/scorecards/94c34f9c-27b0-4e32-bea3-adbb780d7fef",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": {
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "documentOverflowPx": 0,
+        "bodyOverflowPx": 0
+      },
+      "headings": {
+        "scorecard-section-scored": {
+          "heading": "Scored Metrics",
+          "headingRect": {
+            "x": 97,
+            "y": 2243.953125,
+            "width": 236.390625,
+            "height": 30.390625,
+            "left": 97,
+            "right": 333.390625,
+            "top": 2243.953125,
+            "bottom": 2274.34375
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 2175.15625,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 2175.15625,
+            "bottom": 2219.15625
+          },
+          "intersection": {
+            "width": 236.390625,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 24.796875,
+          "horizontalGap": -288.390625
+        },
+        "scorecard-section-unscored": {
+          "heading": "Unscored Metrics",
+          "headingRect": {
+            "x": 97,
+            "y": 3427.15625,
+            "width": 248,
+            "height": 60.78125,
+            "left": 97,
+            "right": 345,
+            "top": 3427.15625,
+            "bottom": 3487.9375
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 3363.15625,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 3363.15625,
+            "bottom": 3407.15625
+          },
+          "intersection": {
+            "width": 248,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 20,
+          "horizontalGap": -300
+        },
+        "scorecard-section-card": {
+          "heading": "Your Scorecard",
+          "headingRect": {
+            "x": 76.546875,
+            "y": 4238.9375,
+            "width": 236.890625,
+            "height": 30.390625,
+            "left": 76.546875,
+            "right": 313.4375,
+            "top": 4238.9375,
+            "bottom": 4269.328125
+          },
+          "controlsRect": {
+            "x": 45,
+            "y": 4174.9375,
+            "width": 300,
+            "height": 44,
+            "left": 45,
+            "right": 345,
+            "top": 4174.9375,
+            "bottom": 4218.9375
+          },
+          "intersection": {
+            "width": 236.890625,
+            "height": 0,
+            "area": 0
+          },
+          "verticalGap": 20,
+          "horizontalGap": -268.4375
+        }
+      },
+      "fontStatus": "loaded",
+      "exactUnavailableCount": 4,
+      "unavailable": [
+        {
+          "textRect": {
+            "left": 66,
+            "right": 324,
+            "top": 3694.9375,
+            "bottom": 3722.9375,
+            "width": 258,
+            "height": 28
+          },
+          "textScrollWidth": 258,
+          "textClientWidth": 258,
+          "parentRect": {
+            "left": 45,
+            "right": 345,
+            "top": 3641.9375,
+            "bottom": 3743.9375,
+            "width": 300,
+            "height": 102
+          },
+          "parentScrollWidth": 298,
+          "parentClientWidth": 298,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        },
+        {
+          "textRect": {
+            "left": 66,
+            "right": 324,
+            "top": 3808.9375,
+            "bottom": 3836.9375,
+            "width": 258,
+            "height": 28
+          },
+          "textScrollWidth": 258,
+          "textClientWidth": 258,
+          "parentRect": {
+            "left": 45,
+            "right": 345,
+            "top": 3755.9375,
+            "bottom": 3857.9375,
+            "width": 300,
+            "height": 102
+          },
+          "parentScrollWidth": 298,
+          "parentClientWidth": 298,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        },
+        {
+          "textRect": {
+            "left": 66,
+            "right": 324,
+            "top": 3922.9375,
+            "bottom": 3950.9375,
+            "width": 258,
+            "height": 28
+          },
+          "textScrollWidth": 258,
+          "textClientWidth": 258,
+          "parentRect": {
+            "left": 45,
+            "right": 345,
+            "top": 3869.9375,
+            "bottom": 3971.9375,
+            "width": 300,
+            "height": 102
+          },
+          "parentScrollWidth": 298,
+          "parentClientWidth": 298,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        },
+        {
+          "textRect": {
+            "left": 66,
+            "right": 324,
+            "top": 4036.9375,
+            "bottom": 4064.9375,
+            "width": 258,
+            "height": 28
+          },
+          "textScrollWidth": 258,
+          "textClientWidth": 258,
+          "parentRect": {
+            "left": 45,
+            "right": 345,
+            "top": 3983.9375,
+            "bottom": 4085.9375,
+            "width": 300,
+            "height": 102
+          },
+          "parentScrollWidth": 298,
+          "parentClientWidth": 298,
+          "overflowLeft": 0,
+          "overflowRight": 0
+        }
+      ],
+      "pairCollisions": [],
+      "images": [
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star OS",
+          "complete": true,
+          "naturalWidth": 128,
+          "naturalHeight": 72,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 71.109375,
+          "height": 40
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 64,
+          "height": 36
+        },
+        {
+          "alt": "All Star",
+          "complete": true,
+          "naturalWidth": 256,
+          "naturalHeight": 144,
+          "width": 49.765625,
+          "height": 28
+        }
+      ]
+    }
+  },
+  "exports": [
+    {
+      "aria": "Download Your Scorecard as a 9:16 PNG",
+      "suggestedFilename": "maya-chen-june-2026-producer-scorecard-your-scorecard-9x16.png",
+      "file": "docs\\task-003-assets\\re-qa-maya-producer-your-scorecard-9x16.png",
+      "bytes": 1604486,
+      "dims": {
+        "width": 2160,
+        "height": 3840
+      }
+    },
+    {
+      "aria": "Download Your Scorecard as a 16:9 PNG",
+      "suggestedFilename": "maya-chen-june-2026-producer-scorecard-your-scorecard-16x9.png",
+      "file": "docs\\task-003-assets\\re-qa-maya-producer-your-scorecard-16x9.png",
+      "bytes": 1132410,
+      "dims": {
+        "width": 3840,
+        "height": 2160
+      }
+    },
+    {
+      "aria": "Download Your Scorecard as a 9:16 PNG",
+      "suggestedFilename": "maya-chen-june-2026-builder-scorecard-your-scorecard-9x16.png",
+      "file": "docs\\task-003-assets\\re-qa-maya-builder-your-scorecard-9x16.png",
+      "bytes": 1623362,
+      "dims": {
+        "width": 2160,
+        "height": 3840
+      }
+    },
+    {
+      "aria": "Download Your Scorecard as a 16:9 PNG",
+      "suggestedFilename": "maya-chen-june-2026-builder-scorecard-your-scorecard-16x9.png",
+      "file": "docs\\task-003-assets\\re-qa-maya-builder-your-scorecard-16x9.png",
+      "bytes": 1152387,
+      "dims": {
+        "width": 3840,
+        "height": 2160
+      }
+    },
+    {
+      "aria": "Download Unscored Metrics as a 9:16 PNG",
+      "suggestedFilename": "james-lee-august-2026-producer-scorecard-unscored-metrics-9x16.png",
+      "file": "docs\\task-003-assets\\re-qa-james-unscored-9x16.png",
+      "bytes": 327861,
+      "dims": {
+        "width": 2160,
+        "height": 3840
+      }
+    },
+    {
+      "aria": "Download Unscored Metrics as a 16:9 PNG",
+      "suggestedFilename": "james-lee-august-2026-producer-scorecard-unscored-metrics-16x9.png",
+      "file": "docs\\task-003-assets\\re-qa-james-unscored-16x9.png",
+      "bytes": 263894,
+      "dims": {
+        "width": 3840,
+        "height": 2160
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=X95hbjg3cLJ6HkP1",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=X95hbjg3cLJ6HkP1",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=f6-SUfxpMYvdN04p",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/preview/scorecards/export-png",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=Gy-3uui9ENuxhrde",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/preview/scorecards/export-png",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=X95hbjg3cLJ6HkP1",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/preview/scorecards/export-png",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=WkBFvKx-Df9ZIQsm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=X95hbjg3cLJ6HkP1",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=X95hbjg3cLJ6HkP1",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=X95hbjg3cLJ6HkP1",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/preview/scorecards/export-png",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=eiiohEY8m-8_-Vnm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=eiiohEY8m-8_-Vnm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=eiiohEY8m-8_-Vnm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=eiiohEY8m-8_-Vnm",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/preview/scorecards/export-png",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/flags?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/scorecards?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin/leaderboard?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/admin?_rsc=er-r27y4dUEUX6s8",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:3137/preview/scorecards/export-png",
+      "error": "net::ERR_ABORTED"
+    }
+  ]
+}

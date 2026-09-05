@@ -1,5 +1,5 @@
 import { approvedPhotoUrl } from "@/lib/headshots/photo";
-import { countActiveDirects, isInSixWeekWindow } from "./active-directs";
+import { countActiveDirects, gatewayActiveDirectWindow } from "./active-directs";
 import {
   createBuilderAgencyPerformance,
   createBuilderAgencyValues,
@@ -41,6 +41,11 @@ export type GatewayReport = {
   id: string;
   periodType: "wtd" | "mtd" | "ytd";
   reportDate: string;
+  scorecardPeriodStart?: string | null;
+  scorecardPeriodEnd?: string | null;
+  gatewayWeekOrdinal?: number | null;
+  gatewayWeekStart?: string | null;
+  gatewayPeriodFinal?: boolean | null;
   status: "published" | "pending" | "failed";
   sourceChecksum: string;
   unmatchedCount: number;
@@ -52,6 +57,41 @@ export type GatewayReport = {
     firstLegPercent: number | null;
   }>;
 };
+
+function gatewayReportIdentity(report: GatewayReport): string {
+  if (
+    report.periodType === "wtd" &&
+    report.scorecardPeriodStart &&
+    Number.isInteger(report.gatewayWeekOrdinal) &&
+    (report.gatewayWeekOrdinal ?? 0) > 0
+  ) {
+    return `coverage:${report.scorecardPeriodStart}:w${report.gatewayWeekOrdinal}`;
+  }
+  return `date:${report.reportDate}`;
+}
+
+function gatewayReportSortKey(report: GatewayReport): string {
+  if (report.scorecardPeriodStart && Number.isInteger(report.gatewayWeekOrdinal)) {
+    return `${report.scorecardPeriodStart}:${String(report.gatewayWeekOrdinal).padStart(2, "0")}:${report.reportDate}`;
+  }
+  return `${report.reportDate}:legacy`;
+}
+
+function gatewayReportInPeriod(report: GatewayReport, period: Pick<ScorecardPeriod, "start" | "end">): boolean {
+  if (report.scorecardPeriodStart) {
+    const periodEnd = report.scorecardPeriodEnd ?? report.scorecardPeriodStart;
+    return periodEnd >= period.start && report.scorecardPeriodStart <= period.end;
+  }
+  return report.reportDate >= period.start && report.reportDate <= period.end;
+}
+
+function gatewayReportAtOrBefore(report: GatewayReport, date: string): boolean {
+  return (report.scorecardPeriodStart ?? report.reportDate) <= date;
+}
+
+function gatewayReportMonth(report: GatewayReport): string {
+  return (report.scorecardPeriodStart ?? report.reportDate).slice(0, 7);
+}
 
 export type ScorecardRunTarget = {
   personId: string;
@@ -77,7 +117,10 @@ export type ScorecardRunInput = {
   period: ScorecardPeriod;
   priorPeriod: ScorecardPeriod;
   generatedAt: string;
+  /** Legacy/unscoped Gateway source requirements keyed by acquisition/File Date. */
   expectedReportDates: string[];
+  /** Scoped personal-Gateway source requirements keyed by the canonical covered week. */
+  expectedGatewayWeeks?: Array<{ periodStart: string; weekOrdinal: number }>;
   people: ScorecardRunPerson[];
   gatewayReports: GatewayReport[];
   recruits: Array<{
@@ -95,11 +138,18 @@ export type ScorecardRunInput = {
   producerVerificationMetrics: Array<{ personId: string; payload: ProducerPeriodMetricPayload }>;
   /** One-card generation scope. Omitted for the normal complete-population run. */
   target?: ScorecardRunTarget;
+  /** Explicit automatic-publication subset. Omitted by manual/legacy callers,
+   * which retain the canonical full frozen-period population behavior. */
+  eligibleTargets?: ScorecardRunTarget[];
   /** Bounded Producer activity/AP facts used for a targeted Builder without generating Producer artifacts for its subtree. */
   builderProductionSupport?: BuilderProductionSupport[];
   /** Frozen same-period Builder peer values used only to preserve organization-wide ranks during one-card recovery/correction. */
   builderRankPopulation?: BuilderRankPopulationEntry[];
 };
+
+function expectedGatewayIdentity(periodStart: string, weekOrdinal: number): string {
+  return `coverage:${periodStart}:w${weekOrdinal}`;
+}
 
 export type ProducerPeriodMetricPayload = {
   preview: MonthlyProducerPreview;
@@ -151,6 +201,7 @@ export type ScorecardRunProblem = {
     | "impossible_gateway_identity"
     | "hierarchy_cycle"
     | "incomplete_active_writer_window"
+    | "unresolved_active_direct_week"
     | "builder_without_producer_role"
     | "invalid_reporting_period"
     | "invalid_comparison_period"
@@ -276,51 +327,82 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
     });
   }
   const peopleIds = new Set(input.people.map((person) => person.id));
-  const publishedByDate = new Map<string, GatewayReport[]>();
-  for (const report of input.gatewayReports) {
-    if (report.status !== "published" || report.periodType !== "wtd") continue;
-    publishedByDate.set(report.reportDate, [...(publishedByDate.get(report.reportDate) ?? []), report]);
+  const publishedReports = input.gatewayReports.filter(
+    (report) => report.status === "published" && report.periodType === "wtd",
+  );
+  const publishedByIdentity = new Map<string, GatewayReport[]>();
+  for (const report of publishedReports) {
+    const identity = gatewayReportIdentity(report);
+    publishedByIdentity.set(identity, [...(publishedByIdentity.get(identity) ?? []), report]);
   }
 
-  for (const reportDate of input.expectedReportDates) {
-    const reports = publishedByDate.get(reportDate) ?? [];
-    if (reports.length === 0) {
-      problems.push({
-        code: "missing_gateway_report",
-        reportDate,
-        message: `The published Gateway report for ${reportDate} is missing.`,
-      });
+  const scopedExpectedIdentities = input.expectedGatewayWeeks
+    ? new Set(input.expectedGatewayWeeks.map((week) => expectedGatewayIdentity(week.periodStart, week.weekOrdinal)))
+    : null;
+  if (scopedExpectedIdentities) {
+    for (const identity of scopedExpectedIdentities) {
+      if (!publishedByIdentity.has(identity)) {
+        problems.push({
+          code: "missing_gateway_report",
+          message: `The published Gateway report for canonical week ${identity} is missing.`,
+        });
+      }
+    }
+  } else {
+    for (const reportDate of input.expectedReportDates) {
+      if (!publishedReports.some((report) => report.reportDate === reportDate)) {
+        problems.push({
+          code: "missing_gateway_report",
+          reportDate,
+          message: `The published Gateway report for ${reportDate} is missing.`,
+        });
+      }
     }
   }
 
-  const activeWriterDates = eligibleBuilderIds.size > 0
-    ? [...new Set(input.gatewayReports
-        .filter((report) => report.status === "published" && report.periodType === "wtd" && report.reportDate <= input.period.end)
-        .map((report) => report.reportDate))]
-        .sort((left, right) => right.localeCompare(left))
+  const canonicalPublishedReports = [...publishedByIdentity.values()]
+    .map((reports) => reports[0]!)
+    .sort((left, right) => gatewayReportSortKey(right).localeCompare(gatewayReportSortKey(left)));
+  const activeWriterReports = eligibleBuilderIds.size > 0
+    ? canonicalPublishedReports
+        .filter((report) => gatewayReportAtOrBefore(report, input.period.end))
         .slice(0, 6)
     : [];
-  if (eligibleBuilderIds.size > 0 && activeWriterDates.length < 6) {
+  if (eligibleBuilderIds.size > 0 && activeWriterReports.length < 6) {
     problems.push({
       code: "incomplete_active_writer_window",
-      count: activeWriterDates.length,
-      message: `Active Writers requires six published organization WTD report dates; found ${activeWriterDates.length}.`,
+      count: activeWriterReports.length,
+      message: `Active Writers requires six published organization WTD Gateway weeks; found ${activeWriterReports.length}.`,
     });
   }
-  const relevantDates = new Set([...input.expectedReportDates, ...activeWriterDates]);
-  for (const [reportDate, reports] of publishedByDate) {
-    if (relevantDates.has(reportDate) && reports.length > 1) {
+  const relevantIdentities = new Set([
+    ...activeWriterReports.map(gatewayReportIdentity),
+    ...(scopedExpectedIdentities
+      ? publishedReports
+          .filter((report) => gatewayReportInPeriod(report, input.period))
+          .map(gatewayReportIdentity)
+      : publishedReports
+          .filter((report) => input.expectedReportDates.includes(report.reportDate))
+          .map(gatewayReportIdentity)),
+    ...(scopedExpectedIdentities ?? []),
+  ]);
+  for (const [identity, reports] of publishedByIdentity) {
+    if (relevantIdentities.has(identity) && reports.length > 1) {
+      const reportDate = reports[0]!.reportDate;
       problems.push({
         code: "duplicate_gateway_report",
         reportDate,
         count: reports.length,
-        message: `${reports.length} published Gateway reports exist for ${reportDate}.`,
+        message: `${reports.length} published Gateway reports exist for canonical identity ${identity}.`,
       });
     }
   }
 
   for (const report of input.gatewayReports) {
-    if (report.status !== "published" || report.periodType !== "wtd" || !relevantDates.has(report.reportDate)) continue;
+    if (
+      report.status !== "published" || report.periodType !== "wtd" ||
+      !relevantIdentities.has(gatewayReportIdentity(report))
+    ) continue;
     if (!report.sourceChecksum.trim()) {
       problems.push({
         code: "invalid_source_checksum",
@@ -355,7 +437,7 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
           message: `Gateway row references unknown person ${row.personId}.`,
         });
       }
-      const validateBuilderFields = !input.target || eligibleBuilderIds.has(row.personId);
+      const validateBuilderFields = eligibleBuilderIds.has(row.personId);
       if (
         !Number.isFinite(row.personalIpCents) || !Number.isInteger(row.personalIpCents) || row.personalIpCents < 0 ||
         (validateBuilderFields && (
@@ -394,7 +476,7 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
 
   const peopleById = new Map(input.people.map((person) => [person.id, person]));
   for (const person of input.people) {
-    if ((!input.target || person.id === input.target.personId) && person.activeAtPeriodEnd && person.builderAtPeriodEnd && !person.producerAtPeriodEnd) {
+    if (eligibleBuilderIds.has(person.id) && !person.producerAtPeriodEnd) {
       problems.push({
         code: "builder_without_producer_role",
         personId: person.id,
@@ -491,17 +573,41 @@ function validateSources(input: ScorecardRunInput, eligibleProducerIds: Set<stri
     }
   }
 
+  const knownWriters = new Set<string>();
+  const unresolvedWriters = new Set<string>();
+  for (const report of input.gatewayReports) {
+    if (report.status !== "published" || report.periodType !== "wtd") continue;
+    const membership = gatewayActiveDirectWindow(report, input.period.end);
+    for (const row of report.rows) {
+      if (row.personalIpCents <= 0) continue;
+      if (membership === true) knownWriters.add(row.personId);
+      if (membership === null) unresolvedWriters.add(row.personId);
+    }
+  }
+  for (const person of input.people) {
+    if (person.activeAtPeriodEnd && person.uplineId && eligibleBuilderIds.has(person.uplineId) &&
+        person.id !== person.uplineId && unresolvedWriters.has(person.id) && !knownWriters.has(person.id)) {
+      problems.push({ code: "unresolved_active_direct_week", personId: person.id,
+        message: `Active Direct ${person.id} needs a provider-sourced week date to resolve the six-week boundary.` });
+    }
+  }
+
   return problems;
 }
 
 export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecardRun {
+  const explicitEligibility = input.eligibleTargets
+    ? new Set(input.eligibleTargets.map((target) => `${target.cardType}:${target.personId}`))
+    : null;
   const eligibleProducers = input.people.filter(
     (person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd
-      && (!input.target || (input.target.cardType === "producer" && input.target.personId === person.id)),
+      && (!input.target || (input.target.cardType === "producer" && input.target.personId === person.id))
+      && (!explicitEligibility || explicitEligibility.has(`producer:${person.id}`)),
   );
   const eligibleBuilders = input.people.filter(
     (person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd
-      && (!input.target || (input.target.cardType === "builder" && input.target.personId === person.id)),
+      && (!input.target || (input.target.cardType === "builder" && input.target.personId === person.id))
+      && (!explicitEligibility || explicitEligibility.has(`builder:${person.id}`)),
   );
   const eligibleProducerIds = new Set(eligibleProducers.map(({ id }) => id));
   const eligibleBuilderIds = new Set(eligibleBuilders.map(({ id }) => id));
@@ -575,12 +681,11 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
   const periodReports = input.gatewayReports.filter(
     (report) =>
       report.status === "published" && report.periodType === "wtd" &&
-      report.reportDate >= input.period.start &&
-      report.reportDate <= input.period.end,
-  );
+      gatewayReportInPeriod(report, input.period),
+  ).sort((left, right) => gatewayReportSortKey(left).localeCompare(gatewayReportSortKey(right)));
   const activeWriterReports = input.gatewayReports
-    .filter((report) => report.status === "published" && report.periodType === "wtd" && report.reportDate <= input.period.end)
-    .sort((a, b) => b.reportDate.localeCompare(a.reportDate))
+    .filter((report) => report.status === "published" && report.periodType === "wtd" && gatewayReportAtOrBefore(report, input.period.end))
+    .sort((a, b) => gatewayReportSortKey(b).localeCompare(gatewayReportSortKey(a)))
     .slice(0, 6);
   const periodRowsByBuilder = new Map(
     eligibleBuilders.map((builder) => [
@@ -640,7 +745,7 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
       .filter((report) =>
         report.status === "published" &&
         report.periodType === "wtd" &&
-        isInSixWeekWindow(report.reportDate, input.period.end),
+        gatewayActiveDirectWindow(report, input.period.end) === true,
       )
       .flatMap((report) => report.rows
         .filter((row) => row.personalIpCents > 0)
@@ -746,8 +851,8 @@ export function prepareScorecardRun(input: ScorecardRunInput): PreparedScorecard
           teamIpCents: row.teamIpCents,
         }))
       : [...periodRows.reduce((monthsByDate, row) => {
-          const reportDate = periodReports.find((report) => report.id === row.reportId)!.reportDate;
-          const month = reportDate.slice(0, 7);
+          const report = periodReports.find((candidate) => candidate.id === row.reportId)!;
+          const month = gatewayReportMonth(report);
           const current = monthsByDate.get(month) ?? 0;
           monthsByDate.set(month, current + row.teamIpCents);
           return monthsByDate;

@@ -30,8 +30,8 @@ export type MonthlyProducerSource = {
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
-  reportDates: Array<{ reportDate: string; label: string }>;
-  producerRows: Array<{ reportDate: string; personalIpCents: number }>;
+  reportDates: Array<{ reportKey?: string; reportDate: string; label: string }>;
+  producerRows: Array<{ reportKey?: string; reportDate: string; personalIpCents: number }>;
   generatedAt: string;
 };
 
@@ -282,29 +282,34 @@ export function createProducerPeriodPreview(
   source: MonthlyProducerSource,
   periodKind: ScorecardPeriodKind,
 ): MonthlyProducerPreview {
-  const reportDateSet = new Set<string>();
+  const reportKeySet = new Set<string>();
   for (const report of source.reportDates) {
-    if (reportDateSet.has(report.reportDate)) {
-      throw new Error(`Duplicate Gateway report date: ${report.reportDate}`);
+    const reportKey = report.reportKey ?? `date:${report.reportDate}`;
+    if (reportKeySet.has(reportKey)) {
+      throw new Error(`Duplicate Gateway report identity: ${reportKey}`);
     }
-    reportDateSet.add(report.reportDate);
+    reportKeySet.add(reportKey);
   }
 
-  const amountByDate = new Map<string, number>();
+  const amountByKey = new Map<string, number>();
   for (const row of source.producerRows) {
-    if (!reportDateSet.has(row.reportDate)) continue;
+    const reportKey = row.reportKey ?? `date:${row.reportDate}`;
+    if (!reportKeySet.has(reportKey)) continue;
     if (!Number.isInteger(row.personalIpCents) || row.personalIpCents < 0) {
       throw new Error("Gateway issued premium must be non-negative integer cents.");
     }
-    amountByDate.set(row.reportDate, row.personalIpCents);
+    amountByKey.set(reportKey, row.personalIpCents);
   }
 
   const weeklyReports = [...source.reportDates]
-    .sort((a, b) => a.reportDate.localeCompare(b.reportDate))
+    .sort((a, b) => a.reportDate.localeCompare(b.reportDate)
+      || (a.reportKey ?? `date:${a.reportDate}`).localeCompare(b.reportKey ?? `date:${b.reportDate}`))
     .map((report) => {
-      const personalIpCents = amountByDate.get(report.reportDate) ?? 0;
+      const reportKey = report.reportKey ?? `date:${report.reportDate}`;
+      const personalIpCents = amountByKey.get(reportKey) ?? 0;
       return {
-        ...report,
+        reportDate: report.reportDate,
+        label: report.label,
         personalIpCents,
       };
     });

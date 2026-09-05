@@ -4,7 +4,7 @@ import { runGatewayPersonalIssuedPremiumImport } from "@/lib/gateway/personal-is
 import {
   gatewayReportAgentAuthorized,
   gatewayReportAgentConfigured,
-  gatewayReportImportErrorStatus,
+  gatewayReportImportFailure,
 } from "@/lib/gateway/report-pulls";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +36,18 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const jobId = text(body?.jobId);
+  const claimToken = text(body?.claimToken);
   const periodType = text(body?.periodType);
   const csvText = typeof body?.csvText === "string" ? body.csvText : "";
   const sessionGeneration = Number(body?.sessionGeneration);
   const reportDate = text(body?.reportDate);
-  if (!jobId || !isGatewayIssuedPremiumPeriod(periodType)) {
+  const scorecardPeriodStart = text(body?.scorecardPeriodStart);
+  const scorecardPeriodEnd = text(body?.scorecardPeriodEnd);
+  const hasWeekOrdinal = body?.gatewayWeekOrdinal != null;
+  const weekOrdinal = hasWeekOrdinal ? Number(body?.gatewayWeekOrdinal) : null;
+  const weekStart = text(body?.gatewayWeekStart);
+  const periodFinal = body?.gatewayPeriodFinal;
+  if (!jobId || !claimToken || !isGatewayIssuedPremiumPeriod(periodType)) {
     return NextResponse.json({ error: "invalid_job_or_period" }, { status: 400 });
   }
   if (!Number.isSafeInteger(sessionGeneration) || sessionGeneration < 0) {
@@ -52,20 +59,53 @@ export async function POST(request: NextRequest) {
   if (!validIsoDate(reportDate)) {
     return NextResponse.json({ error: "invalid_report_date" }, { status: 400 });
   }
+  if (scorecardPeriodStart != null || scorecardPeriodEnd != null) {
+    if (
+      !scorecardPeriodStart || !scorecardPeriodEnd ||
+      !validIsoDate(scorecardPeriodStart) || !validIsoDate(scorecardPeriodEnd)
+    ) {
+      return NextResponse.json({ error: "invalid_scorecard_coverage" }, { status: 400 });
+    }
+  }
+  if (body?.gatewayWeekStart != null && (!weekStart || !validIsoDate(weekStart) || !scorecardPeriodStart)) {
+    return NextResponse.json({ error: "invalid_scorecard_coverage" }, { status: 400 });
+  }
+  if (periodType === "wtd") {
+    const noCoverageSupplied = scorecardPeriodStart == null && scorecardPeriodEnd == null;
+    if (!noCoverageSupplied && (
+      !Number.isInteger(weekOrdinal) || (weekOrdinal ?? 0) < 1 || (weekOrdinal ?? 0) > 8 ||
+      typeof periodFinal !== "boolean"
+    )) {
+      return NextResponse.json({ error: "invalid_scorecard_coverage" }, { status: 400 });
+    }
+  } else if (hasWeekOrdinal || body?.gatewayPeriodFinal != null || body?.gatewayWeekStart != null) {
+    return NextResponse.json({ error: "unexpected_gateway_week_metadata" }, { status: 400 });
+  }
 
   try {
     const result = await runGatewayPersonalIssuedPremiumImport({
       jobId,
       sessionGeneration,
+      claimToken,
       periodType,
       csvText,
       sourceFileName: text(body?.sourceFileName),
       reportDate,
       gatewayLabel: text(body?.gatewayLabel),
+      scorecardCoverage: scorecardPeriodStart && scorecardPeriodEnd ? {
+        periodStart: scorecardPeriodStart,
+        periodEnd: scorecardPeriodEnd,
+        ...(weekStart ? { weekStart } : {}),
+        weekOrdinal: periodType === "wtd" ? weekOrdinal : null,
+        periodFinal: periodType === "wtd" ? periodFinal as boolean : null,
+      } : null,
     });
     return NextResponse.json({ ok: true, result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "gateway_personal_import_failed";
-    return NextResponse.json({ error: message }, { status: gatewayReportImportErrorStatus(error) });
+    const failure = gatewayReportImportFailure(error);
+    if (failure.status === 500) {
+      console.error("[gateway-report-jobs/import] Personal report import failed.", error);
+    }
+    return NextResponse.json({ error: failure.code }, { status: failure.status });
   }
 }

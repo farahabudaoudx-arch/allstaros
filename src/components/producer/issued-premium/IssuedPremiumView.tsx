@@ -20,7 +20,9 @@ export type IpPeriodValues = {
 // One Gateway upload (report date) with whichever of the three period
 // snapshots matched this person in that upload.
 export type IpReport = {
+  id: string;
   reportDate: string;
+  coverageStart: string;
   rangeLabel: string;
   uploadedAt: string;
   periods: Partial<Record<PeriodKey, IpPeriodValues>>;
@@ -80,7 +82,7 @@ function momGrowth(
   for (const r of reports) {
     const mtd = r.periods.mtd;
     if (!mtd) continue;
-    const key = r.reportDate.slice(0, 7); // YYYY-MM
+    const key = r.coverageStart.slice(0, 7); // covered YYYY-MM, not acquisition month
     const prev = byMonth.get(key);
     if (!prev || r.reportDate > prev.reportDate) {
       byMonth.set(key, { reportDate: r.reportDate, value: pick(mtd) });
@@ -215,7 +217,7 @@ export function IssuedPremiumView({
       if (ytd) {
         return {
           currentCents: ytd.personalCents,
-          year: Number(reports[i].reportDate.slice(0, 4)),
+          year: Number(reports[i].coverageStart.slice(0, 4)),
         };
       }
     }
@@ -496,7 +498,7 @@ export function IssuedPremiumView({
                     const v = r.periods[period];
                     return (
                       <tr
-                        key={r.reportDate}
+                        key={r.id}
                         className="border-b border-hairline transition last:border-b-0 hover:bg-card-hi/40"
                       >
                         <Td align="left" strong>

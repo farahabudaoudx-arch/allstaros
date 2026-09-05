@@ -45,8 +45,8 @@ export function HomeNumbers({
   lines: NumberLine[];
   chatHref: string;
   unreadChat: boolean;
-  /** Set only by the dev ?preview=<name> escape hatch, to label whose numbers
-   *  these are so a screenshot is never mistaken for your own. */
+  /** Development-only preview label so another member's numbers cannot be
+   * mistaken for the signed-in member's data during visual QA. */
   previewOf?: string;
   gatewayNotice?: string | null;
 }) {
@@ -66,7 +66,7 @@ export function HomeNumbers({
         <main>
           {previewOf ? (
             <p className="mb-5 text-sm text-mute">
-              Dev preview: viewing as {previewOf}
+              Viewing numbers as {previewOf}
             </p>
           ) : null}
           <h1 className="text-[clamp(2.25rem,5.5vw,3.5rem)] font-semibold leading-[1.1] tracking-[-0.03em]">

@@ -18,6 +18,7 @@ describe("Scorecard publishing cron", () => {
   afterEach(() => {
     if (original === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = original;
+    vi.restoreAllMocks();
   });
 
   it("fails closed when CRON_SECRET is missing", async () => {
@@ -49,11 +50,13 @@ describe("Scorecard publishing cron", () => {
 
   it("returns 500 when automatic publication fails", async () => {
     process.env.CRON_SECRET = "secret";
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.process.mockRejectedValue(new Error("atomic publication failed"));
     const response = await GET(new NextRequest("http://localhost/api/cron/scorecard-publishing", {
       headers: { authorization: "Bearer secret" },
     }));
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "atomic publication failed" });
+    expect(await response.json()).toEqual({ error: "scorecard_publishing_failed" });
+    expect(log).toHaveBeenCalledOnce();
   });
 });

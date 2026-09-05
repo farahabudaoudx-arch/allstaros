@@ -15,6 +15,8 @@ type PullJobRow = {
   business_date: string;
   status: string;
   session_generation: number | string;
+  claim_token: string | null;
+  lease_expires_at: string | null;
 };
 
 type PersonRow = {
@@ -31,12 +33,76 @@ type RpcImportResult = {
 export type GatewayPersonalIssuedPremiumImportArgs = {
   jobId: string;
   sessionGeneration: number;
+  claimToken: string;
   periodType: GatewayIssuedPremiumPeriod;
   csvText: string;
   sourceFileName?: string | null;
   reportDate?: string | null;
   gatewayLabel?: string | null;
+  scorecardCoverage?: {
+    periodStart: string;
+    periodEnd: string;
+    weekOrdinal?: number | null;
+    weekStart?: string | null;
+    periodFinal?: boolean | null;
+  } | null;
 };
+
+type ResolvedGatewayCoverage = {
+  periodStart: string;
+  periodEnd: string;
+  weekOrdinal: number | null;
+  weekStart?: string | null;
+  periodFinal: boolean | null;
+};
+
+function lastDayOfMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function canonicalCoverageFromParsedPeriod(
+  periodType: GatewayIssuedPremiumPeriod,
+  parsedPeriodStart: string | null,
+): ResolvedGatewayCoverage | null {
+  if (!parsedPeriodStart || !/^\d{4}-\d{2}-\d{2}$/.test(parsedPeriodStart)) return null;
+  const year = Number(parsedPeriodStart.slice(0, 4));
+  const month = Number(parsedPeriodStart.slice(5, 7));
+  if (periodType === "mtd") {
+    return {
+      periodStart: `${year}-${String(month).padStart(2, "0")}-01`,
+      periodEnd: `${year}-${String(month).padStart(2, "0")}-${String(lastDayOfMonth(year, month)).padStart(2, "0")}`,
+      weekOrdinal: null,
+      periodFinal: null,
+    };
+  }
+  if (periodType === "ytd") {
+    return {
+      periodStart: `${year}-01-01`,
+      periodEnd: `${year}-12-31`,
+      weekOrdinal: null,
+      periodFinal: null,
+    };
+  }
+  return null;
+}
+
+export function resolvePersonalGatewayCoverage(args: {
+  periodType: GatewayIssuedPremiumPeriod;
+  parsedPeriodStart: string | null;
+  supplied?: GatewayPersonalIssuedPremiumImportArgs["scorecardCoverage"];
+}): ResolvedGatewayCoverage | null {
+  const supplied = args.supplied ?? null;
+  if (supplied) {
+    return {
+      periodStart: supplied.periodStart,
+      periodEnd: supplied.periodEnd,
+      weekOrdinal: supplied.weekOrdinal ?? null,
+      ...(supplied.weekStart ? { weekStart: supplied.weekStart } : {}),
+      periodFinal: supplied.periodFinal ?? null,
+    };
+  }
+  return canonicalCoverageFromParsedPeriod(args.periodType, args.parsedPeriodStart);
+}
 
 export function selectPersonalGatewayRow(
   rows: ParsedGatewayIssuedPremiumRow[],
@@ -73,11 +139,15 @@ export function selectPersonalGatewayRow(
 
 export function personalGatewayReportSkipReason(
   pullKind: GatewayReportPullKind,
-  reportDate: string,
+  coveredPeriodStart: string | null,
 ): string | null {
-  return pullKind === "first_connect" && reportDate < "2026-01-01"
-    ? "first_connect_before_2026"
-    : null;
+  if (coveredPeriodStart != null && coveredPeriodStart < "2026-01-01") {
+    return "covered_period_before_2026";
+  }
+  if (pullKind === "first_connect" && coveredPeriodStart == null) {
+    return "first_connect_period_unknown";
+  }
+  return null;
 }
 
 export function validatePersonalGatewayReportDate(
@@ -104,12 +174,18 @@ export async function runGatewayPersonalIssuedPremiumImport(
   const service = createServiceRoleClient();
   const { data: jobData, error: jobError } = await service
     .from("gateway_report_pull_job")
-    .select("id, person_id, pull_kind, business_date, status, session_generation")
+    .select("id, person_id, pull_kind, business_date, status, session_generation, claim_token, lease_expires_at")
     .eq("id", args.jobId)
     .maybeSingle();
   if (jobError || !jobData) throw new Error("Gateway report pull job was not found.");
   const job = jobData as PullJobRow;
-  if (job.status !== "running" || Number(job.session_generation) !== args.sessionGeneration) {
+  if (
+    job.status !== "running" ||
+    Number(job.session_generation) !== args.sessionGeneration ||
+    job.claim_token !== args.claimToken ||
+    !job.lease_expires_at ||
+    Date.parse(job.lease_expires_at) <= Date.now()
+  ) {
     throw new Error("Gateway report pull job is no longer active.");
   }
 
@@ -132,7 +208,20 @@ export async function runGatewayPersonalIssuedPremiumImport(
 
   validatePersonalGatewayReportDate(job.pull_kind, job.business_date, parsed.reportDate);
 
-  const skipReason = personalGatewayReportSkipReason(job.pull_kind, parsed.reportDate);
+  const coverage = resolvePersonalGatewayCoverage({
+    periodType: parsed.periodType,
+    parsedPeriodStart: parsed.periodStart,
+    supplied: args.scorecardCoverage,
+  });
+  const skipReason = personalGatewayReportSkipReason(job.pull_kind, coverage?.periodStart ?? null);
+  if (!coverage && !skipReason) {
+    throw new Error("gateway_report_coverage_required");
+  }
+  if (parsed.periodType === "wtd" && coverage && (
+    coverage.weekOrdinal == null || coverage.periodFinal == null
+  )) {
+    throw new Error("gateway_wtd_coverage_required");
+  }
   const samples = {
     targetPersonId: person.id,
     targetNpn: normalizeNpn(person.npn) || null,
@@ -143,6 +232,7 @@ export async function runGatewayPersonalIssuedPremiumImport(
   const { data, error } = await service.rpc("import_gateway_personal_issued_premium", {
     p_job_id: job.id,
     p_session_generation: args.sessionGeneration,
+    p_claim_token: args.claimToken,
     p_period_type: parsed.periodType,
     p_report_date: parsed.reportDate,
     p_period_start: parsed.periodStart,
@@ -153,8 +243,12 @@ export async function runGatewayPersonalIssuedPremiumImport(
     p_unmatched_count: targetUnmatchedCount,
     p_ambiguous_count: match.ambiguousCount,
     p_row: skipReason ? null : match.row,
-    p_summary: { samples },
+    p_summary: { samples, ...(coverage?.weekStart ? { gatewayWeekStart: coverage.weekStart } : {}) },
     p_skip_reason: skipReason,
+    p_scorecard_period_start: coverage?.periodStart ?? null,
+    p_scorecard_period_end: coverage?.periodEnd ?? null,
+    p_gateway_week_ordinal: coverage?.weekOrdinal ?? null,
+    p_gateway_period_final: coverage?.periodFinal ?? null,
   });
   if (error) throw new Error(`Unable to import personal Gateway report: ${error.message}`);
   const rpc = (data ?? {}) as RpcImportResult;
@@ -178,7 +272,11 @@ export async function runGatewayPersonalIssuedPremiumImport(
     skippedCount: parsed.rows.length - (skipReason || status !== "imported" ? 0 : match.row ? 1 : 0),
     verifiedSubmittedCount:
       status === "imported" && match.row && person.npn_status === "submitted" ? 1 : 0,
-    message: skipReason ? "First-connect history before 2026 was intentionally skipped." : undefined,
+    message: skipReason === "covered_period_before_2026"
+      ? "Gateway history before 2026 was intentionally skipped."
+      : skipReason === "first_connect_period_unknown"
+        ? "Gateway history without a verifiable covered period was intentionally skipped."
+        : undefined,
     samples: {
       unmatched: match.reason === "target_npn_not_present"
         ? [{ npn: normalizeNpn(person.npn), producer: "connected_person" }]

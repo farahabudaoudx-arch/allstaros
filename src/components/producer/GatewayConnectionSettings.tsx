@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ export function GatewayConnectionSettings({ state }: { state: GatewayConnectionS
   }
 
   return (
-    <div className="space-y-5">
+    <div data-testid="gateway-connection-settings" className="space-y-5">
       <div className="rounded-xl border border-hairline bg-background/40 p-4">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -84,7 +84,7 @@ export function GatewayConnectionSettings({ state }: { state: GatewayConnectionS
       )}
 
       <p className="text-xs leading-5 text-mute">
-        All Star OS keeps a Gateway session after you sign in so Monday can run without you clicking Run. We do not store your Gateway password or 2FA code. If Gateway itself asks for two-factor during sign-in, complete that Gateway challenge; otherwise there is no extra 2FA step.
+        Once connected, All Star OS can run scheduled Gateway reports automatically. We do not store your Gateway password or verification codes. If Gateway requests verification during sign-in, complete that challenge to finish connecting.
       </p>
     </div>
   );

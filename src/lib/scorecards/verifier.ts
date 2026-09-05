@@ -14,6 +14,22 @@ export type IndependentVerificationProblem = {
   actual: unknown;
 };
 
+function eligibleCardKeys(input: ScorecardRunInput): Set<string> | null {
+  return input.eligibleTargets
+    ? new Set(input.eligibleTargets.map((target) => `${target.cardType}:${target.personId}`))
+    : null;
+}
+
+function cardEligible(
+  input: ScorecardRunInput,
+  explicitEligibility: Set<string> | null,
+  personId: string,
+  cardType: "producer" | "builder",
+): boolean {
+  if (input.target && (input.target.cardType !== cardType || input.target.personId !== personId)) return false;
+  return !explicitEligibility || explicitEligibility.has(`${cardType}:${personId}`);
+}
+
 function descendantsOf(rootId: string, input: ScorecardRunInput) {
   const result = new Set([rootId]);
   const pending = [rootId];
@@ -50,6 +66,60 @@ function sixWeekStart(periodEnd: string) {
   const end = new Date(`${periodEnd}T00:00:00.000Z`);
   end.setUTCDate(end.getUTCDate() - 41);
   return end.toISOString().slice(0, 10);
+}
+
+function gatewayIdentity(report: ScorecardRunInput["gatewayReports"][number]): string {
+  if (
+    report.periodType === "wtd" &&
+    report.scorecardPeriodStart &&
+    Number.isInteger(report.gatewayWeekOrdinal) &&
+    (report.gatewayWeekOrdinal ?? 0) > 0
+  ) {
+    return `coverage:${report.scorecardPeriodStart}:w${report.gatewayWeekOrdinal}`;
+  }
+  return `date:${report.reportDate}`;
+}
+
+function gatewaySortKey(report: ScorecardRunInput["gatewayReports"][number]): string {
+  if (report.scorecardPeriodStart && Number.isInteger(report.gatewayWeekOrdinal)) {
+    return `${report.scorecardPeriodStart}:${String(report.gatewayWeekOrdinal).padStart(2, "0")}:${report.reportDate}`;
+  }
+  return `${report.reportDate}:legacy`;
+}
+
+function gatewayInPeriod(
+  report: ScorecardRunInput["gatewayReports"][number],
+  period: ScorecardRunInput["period"],
+): boolean {
+  if (report.scorecardPeriodStart) {
+    const periodEnd = report.scorecardPeriodEnd ?? report.scorecardPeriodStart;
+    return periodEnd >= period.start && report.scorecardPeriodStart <= period.end;
+  }
+  return report.reportDate >= period.start && report.reportDate <= period.end;
+}
+
+function gatewayMonth(report: ScorecardRunInput["gatewayReports"][number]): string {
+  return (report.scorecardPeriodStart ?? report.reportDate).slice(0, 7);
+}
+
+function gatewayAtOrBefore(report: ScorecardRunInput["gatewayReports"][number], date: string): boolean {
+  return (report.scorecardPeriodStart ?? report.reportDate) <= date;
+}
+
+function activeDirectWindow(report: ScorecardRunInput["gatewayReports"][number], end: string): boolean | null {
+  const start = sixWeekStart(end);
+  if (!report.scorecardPeriodStart) return report.reportDate >= start && report.reportDate <= end;
+  if (report.gatewayWeekStart != null) {
+    const value = report.gatewayWeekStart;
+    const date = new Date(`${value}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(date.getTime()) ||
+        date.toISOString().slice(0, 10) !== value) return null;
+    return value >= start && value <= end;
+  }
+  if (!report.scorecardPeriodEnd) return null;
+  if (report.scorecardPeriodEnd < start || report.scorecardPeriodStart > end) return false;
+  if (report.scorecardPeriodStart >= start && report.scorecardPeriodEnd <= end) return true;
+  return null;
 }
 
 function isoDate(year: number, monthIndex: number, day: number) {
@@ -140,12 +210,12 @@ function producerPayloadForVerification(
 
 function trendFor(
   input: ScorecardRunInput,
-  rows: Array<{ reportDate: string; teamIpCents: number }>,
+  rows: Array<{ reportDate: string; reportMonth?: string; teamIpCents: number }>,
 ): BuilderPeriodMetric["trend"] {
   const buckets = input.period.kind === "monthly"
     ? rows.map((row, index) => ({ reportDate: row.reportDate, teamIpCents: row.teamIpCents, label: `Week ${index + 1}` }))
     : [...rows.reduce((grouped, row) => {
-        const month = row.reportDate.slice(0, 7);
+        const month = row.reportMonth ?? row.reportDate.slice(0, 7);
         grouped.set(month, (grouped.get(month) ?? 0) + row.teamIpCents);
         return grouped;
       }, new Map<string, number>())].map(([month, teamIpCents]) => ({
@@ -176,27 +246,43 @@ export function verifyPreparedScorecardRun(
       actual: input.priorPeriod,
     });
   }
-  const builders = input.people.filter((person) => person.activeAtPeriodEnd && person.builderAtPeriodEnd && (!input.target || (input.target.cardType === "builder" && input.target.personId === person.id)));
+  const explicitEligibility = eligibleCardKeys(input);
+  const builders = input.people.filter((person) =>
+    person.activeAtPeriodEnd &&
+    person.builderAtPeriodEnd &&
+    cardEligible(input, explicitEligibility, person.id, "builder"),
+  );
   const periodReports = input.gatewayReports.filter((report) =>
     report.status === "published" && report.periodType === "wtd" &&
-    report.reportDate >= input.period.start &&
-    report.reportDate <= input.period.end,
-  );
-  const sixReportWindow = [...input.gatewayReports]
-    .filter((report) => report.status === "published" && report.periodType === "wtd" && report.reportDate <= input.period.end)
-    .sort((left, right) => right.reportDate.localeCompare(left.reportDate))
-    .slice(0, 6);
-  const directWindowStart = sixWeekStart(input.period.end);
-  const activeDirectWriterIds = new Set<string>();
+    gatewayInPeriod(report, input.period),
+  ).sort((left, right) => gatewaySortKey(left).localeCompare(gatewaySortKey(right)));
+  const uniqueReports = new Map<string, ScorecardRunInput["gatewayReports"][number]>();
   for (const report of input.gatewayReports) {
-    if (
-      report.status !== "published" ||
-      report.periodType !== "wtd" ||
-      report.reportDate < directWindowStart ||
-      report.reportDate > input.period.end
-    ) continue;
+    if (report.status !== "published" || report.periodType !== "wtd") continue;
+    uniqueReports.set(gatewayIdentity(report), report);
+  }
+  const sixReportWindow = [...uniqueReports.values()]
+    .filter((report) => gatewayAtOrBefore(report, input.period.end))
+    .sort((left, right) => gatewaySortKey(right).localeCompare(gatewaySortKey(left)))
+    .slice(0, 6);
+  const activeDirectWriterIds = new Set<string>();
+  const unresolvedWriterIds = new Set<string>();
+  for (const report of input.gatewayReports) {
+    if (report.status !== "published" || report.periodType !== "wtd") continue;
+    const membership = activeDirectWindow(report, input.period.end);
     for (const row of report.rows) {
-      if (row.personalIpCents > 0) activeDirectWriterIds.add(row.personId);
+      if (row.personalIpCents <= 0) continue;
+      if (membership === true) activeDirectWriterIds.add(row.personId);
+      if (membership === null) unresolvedWriterIds.add(row.personId);
+    }
+  }
+  for (const builder of builders) {
+    for (const person of input.people) {
+      if (person.activeAtPeriodEnd && person.uplineId === builder.id && person.id !== builder.id &&
+          unresolvedWriterIds.has(person.id) && !activeDirectWriterIds.has(person.id)) {
+        problems.push({ cardType: "builder", personId: builder.id, field: "activeDirectCoverage",
+          expected: "provider-sourced week date", actual: person.id });
+      }
     }
   }
   const totals = new Map<string, number>();
@@ -234,16 +320,23 @@ export function verifyPreparedScorecardRun(
       }));
   const representedRankPopulation = rankPopulation.filter((entry) => entry.representedInGateway);
 
+  const eligibleBuilderIds = new Set(builders.map((builder) => builder.id));
+  for (const actual of prepared.builderMetrics) {
+    if (!eligibleBuilderIds.has(actual.personId)) {
+      problems.push({ cardType: "builder", personId: actual.personId, field: "row", expected: 0, actual: 1 });
+    }
+  }
   for (const builder of builders) {
-    const actual = prepared.builderMetrics.find((metric) => metric.personId === builder.id);
-    if (!actual) {
-      problems.push({ cardType: "builder", personId: builder.id, field: "row", expected: "one row", actual: null });
+    const actualRows = prepared.builderMetrics.filter((metric) => metric.personId === builder.id);
+    if (actualRows.length !== 1) {
+      problems.push({ cardType: "builder", personId: builder.id, field: "row", expected: 1, actual: actualRows.length });
       continue;
     }
+    const actual = actualRows[0];
     const team = descendantsOf(builder.id, input);
     const reportRows = periodReports.flatMap((report) => report.rows
       .filter((row) => row.personId === builder.id)
-      .map((row) => ({ reportDate: report.reportDate, ...row })));
+      .map((row) => ({ reportDate: report.reportDate, reportMonth: gatewayMonth(report), ...row })));
     const total = totals.get(builder.id)!;
     const agencyWriterIds = new Set<string>();
     for (const report of sixReportWindow) {
@@ -323,8 +416,17 @@ export function verifyPreparedScorecardRun(
   }
 
   const eligibleProducerIds = new Set(input.people
-    .filter((person) => person.activeAtPeriodEnd && person.producerAtPeriodEnd && (!input.target || (input.target.cardType === "producer" && input.target.personId === person.id)))
+    .filter((person) =>
+      person.activeAtPeriodEnd &&
+      person.producerAtPeriodEnd &&
+      cardEligible(input, explicitEligibility, person.id, "producer"),
+    )
     .map((person) => person.id));
+  for (const actual of prepared.producerMetrics) {
+    if (!eligibleProducerIds.has(actual.personId)) {
+      problems.push({ cardType: "producer", personId: actual.personId, field: "row", expected: 0, actual: 1 });
+    }
+  }
   for (const personId of eligibleProducerIds) {
     const actualRows = prepared.producerMetrics.filter((metric) => metric.personId === personId);
     const expectedRows = input.producerVerificationMetrics.filter((metric) => metric.personId === personId);

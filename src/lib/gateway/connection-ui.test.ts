@@ -31,8 +31,8 @@ describe("Gateway connection UI semantics", () => {
     expect(settings).toContain("Disconnect Gateway");
     expect(settings).toContain("Reconnect Gateway");
     expect(settings).toContain("Connect Gateway");
-    expect(settings).toContain("We do not store your Gateway password or 2FA code");
-    expect(settings).toContain("keeps a Gateway session");
+    expect(settings).toContain("We do not store your Gateway password or verification codes");
+    expect(settings).toContain("run scheduled Gateway reports automatically");
     expect(settings).not.toContain('name="password"');
     expect(settings).not.toContain('name="twoFactorCode"');
   });

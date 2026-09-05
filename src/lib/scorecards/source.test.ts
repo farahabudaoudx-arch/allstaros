@@ -190,9 +190,16 @@ describe("monthly Producer source adapter", () => {
       imports: [{
         id: "import-q3",
         person_id: "producer-1",
+        source_kind: "personal_gateway",
+        pull_kind: "monday",
         period_type: "wtd",
         status: "imported",
-        report_date: "2026-09-21",
+        report_date: "2026-10-02",
+        period_start: "2026-09-21",
+        scorecard_period_start: "2026-09-01",
+        scorecard_period_end: "2026-09-30",
+        gateway_week_ordinal: 4,
+        gateway_period_final: true,
         gateway_label: "Q3 Week",
         source_checksum: "q3-checksum",
         matched_count: 1,
@@ -204,7 +211,13 @@ describe("monthly Producer source adapter", () => {
       premiumRows: [{
         import_id: "import-q3",
         person_id: "producer-1",
-        report_date: "2026-09-21",
+        source_kind: "personal_gateway",
+        report_date: "2026-10-02",
+        period_start: "2026-09-21",
+        scorecard_period_start: "2026-09-01",
+        scorecard_period_end: "2026-09-30",
+        gateway_week_ordinal: 4,
+        gateway_period_final: true,
         gateway_label: "Q3 Week",
         personal_ip_cents: 1_000_000,
         team_ip_cents: 2_000_000,
@@ -224,10 +237,14 @@ describe("monthly Producer source adapter", () => {
       periodEnd: "2026-09-30",
       periodLabel: "Q3 2026",
     });
-    expect(fake.calls).toContainEqual(["gte", "gateway_issued_premium_import", "report_date", "2026-07-01"]);
-    expect(fake.calls).toContainEqual(["lte", "gateway_issued_premium_import", "report_date", "2026-09-30"]);
-    expect(fake.calls).toContainEqual(["gte", "producer_issued_premium", "report_date", "2026-07-01"]);
-    expect(fake.calls).toContainEqual(["lte", "producer_issued_premium", "report_date", "2026-09-30"]);
+    expect(source.reportDates).toContainEqual({
+      reportKey: "coverage:2026-09-01:w4",
+      reportDate: "2026-09-21",
+      label: "Q3 Week",
+    });
+    expect(fake.calls).toContainEqual(["eq", "gateway_issued_premium_import", "source_kind", "personal_gateway"]);
+    expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "source_kind", "personal_gateway"]);
+    expect(fake.calls).not.toContainEqual(["gte", "gateway_issued_premium_import", "report_date", "2026-07-01"]);
   });
 
   it("keeps organization report dates while exposing only the requested producer", () => {
@@ -270,6 +287,27 @@ describe("monthly Producer source adapter", () => {
       { reportDate: "2026-08-07", label: "August Week 1" },
     ]);
     expect(source.producerRows).toEqual([]);
+  });
+
+  it("preserves distinct canonical report keys when two weeks share the same File Date", () => {
+    const source = monthlyProducerSourceFromRows({
+      producerId: "producer-1",
+      period: { start: "2026-08-01", end: "2026-08-31", label: "August 2026" },
+      generatedAt: "2026-09-02T12:00:00.000Z",
+      reportImports: [
+        { report_key: "coverage:2026-08-01:w1", report_date: "2026-09-01", gateway_label: "Week 1" },
+        { report_key: "coverage:2026-08-01:w2", report_date: "2026-09-01", gateway_label: "Week 2" },
+      ],
+      rows: [
+        { person_id: "producer-1", report_key: "coverage:2026-08-01:w1", report_date: "2026-09-01", gateway_label: "Week 1", personal_ip_cents: 100 },
+        { person_id: "producer-1", report_key: "coverage:2026-08-01:w2", report_date: "2026-09-01", gateway_label: "Week 2", personal_ip_cents: 200 },
+      ],
+    });
+
+    expect(createMonthlyProducerPreview(source).weeklyReports).toEqual([
+      { reportDate: "2026-09-01", label: "Week 1", personalIpCents: 100 },
+      { reportDate: "2026-09-01", label: "Week 2", personalIpCents: 200 },
+    ]);
   });
 });
 
@@ -318,9 +356,16 @@ describe("Producer scored metric source wiring", () => {
       imports: [{
         id: "import-1",
         person_id: "producer-1",
+        source_kind: "personal_gateway",
+        pull_kind: "monday",
         period_type: "wtd",
         status: "imported",
         report_date: "2026-08-03",
+        period_start: "2026-08-03",
+        scorecard_period_start: "2026-08-01",
+        scorecard_period_end: "2026-08-31",
+        gateway_week_ordinal: 1,
+        gateway_period_final: false,
         gateway_label: "August Week 1",
         source_checksum: "checksum-1",
         matched_count: 1,
@@ -332,7 +377,13 @@ describe("Producer scored metric source wiring", () => {
       premiumRows: [{
         import_id: "import-1",
         person_id: "producer-1",
+        source_kind: "personal_gateway",
         report_date: "2026-08-03",
+        period_start: "2026-08-03",
+        scorecard_period_start: "2026-08-01",
+        scorecard_period_end: "2026-08-31",
+        gateway_week_ordinal: 1,
+        gateway_period_final: false,
         gateway_label: "August Week 1",
         personal_ip_cents: 1_200_000,
         team_ip_cents: 9_900_000,
@@ -350,13 +401,12 @@ describe("Producer scored metric source wiring", () => {
     expect(fake.calls).toContainEqual([
       "select",
       "producer_issued_premium",
-      "id, import_id, person_id, report_date, gateway_label, personal_ip_cents, team_ip_cents, first_leg_percent",
+      "id, import_id, person_id, source_kind, report_date, period_start, gateway_label, scorecard_period_start, scorecard_period_end, gateway_week_ordinal, gateway_period_final, personal_ip_cents, team_ip_cents, first_leg_percent",
     ]);
     expect(fake.calls).toContainEqual(["eq", "gateway_issued_premium_import", "person_id", "producer-1"]);
     expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "person_id", "producer-1"]);
     expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "period_type", "wtd"]);
-    expect(fake.calls).toContainEqual(["gte", "producer_issued_premium", "report_date", "2026-08-01"]);
-    expect(fake.calls).toContainEqual(["lte", "producer_issued_premium", "report_date", "2026-08-31"]);
+    expect(fake.calls).toContainEqual(["eq", "producer_issued_premium", "source_kind", "personal_gateway"]);
   });
 
   it("turns Producer IP source error objects and rejected queries into controlled errors", async () => {

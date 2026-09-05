@@ -41,6 +41,10 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 type PremiumRow = {
   person_id: string;
+  report_date?: string;
+  period_start?: string | null;
+  scorecard_period_start?: string | null;
+  gateway_week_ordinal?: number | null;
   personal_ip_cents: number;
   team_ip_cents: number;
   first_leg_producer: string | null;
@@ -81,9 +85,10 @@ export async function computeIpLeaderboard(
       supabase
         .from("producer_issued_premium")
         .select("person_id, personal_ip_cents, team_ip_cents")
+        .eq("source_kind", "personal_gateway")
         .eq("period_type", "wtd")
-        .gte("report_date", from)
-        .lte("report_date", to)
+        .gte("period_start", from)
+        .lte("period_start", to)
         .order("id")
         .range(lo, hi),
     );
@@ -103,27 +108,55 @@ export async function computeIpLeaderboard(
       byPerson.set(r.person_id, agg);
     }
   } else {
-    const { data: latest, error: latestError } = await supabase
+    const latestQuery = supabase
       .from("producer_issued_premium")
-      .select("report_date")
+      .select("report_date, scorecard_period_start, gateway_week_ordinal")
+      .eq("source_kind", "personal_gateway")
       .eq("period_type", period)
-      .order("report_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .not("scorecard_period_start", "is", null)
+      .order("scorecard_period_start", { ascending: false });
+    const { data: latest, error: latestError } = period === "wtd"
+      ? await latestQuery
+          .not("gateway_week_ordinal", "is", null)
+          .order("gateway_week_ordinal", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : await latestQuery
+          .order("report_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
     if (latestError) throw new Error(latestError.message);
     if (!latest) return empty;
-    reportDate = latest.report_date as string;
+    const logicalPeriodStart = latest.scorecard_period_start as string;
+    const logicalWeekOrdinal = latest.gateway_week_ordinal == null
+      ? null
+      : Number(latest.gateway_week_ordinal);
 
-    const { data, error } = await supabase
+    let dataQuery = supabase
       .from("producer_issued_premium")
       .select(
-        "person_id, personal_ip_cents, team_ip_cents, first_leg_producer, first_leg_percent, outside_first_leg_cents",
+        "person_id, report_date, scorecard_period_start, gateway_week_ordinal, personal_ip_cents, team_ip_cents, first_leg_producer, first_leg_percent, outside_first_leg_cents",
       )
+      .eq("source_kind", "personal_gateway")
       .eq("period_type", period)
-      .eq("report_date", reportDate);
+      .eq("scorecard_period_start", logicalPeriodStart);
+    if (period === "wtd") dataQuery = dataQuery.eq("gateway_week_ordinal", logicalWeekOrdinal);
+    const { data, error } = await dataQuery.order("report_date", { ascending: true });
     if (error) throw new Error(error.message);
 
+    const latestByPerson = new Map<string, PremiumRow>();
     for (const r of (data ?? []) as PremiumRow[]) {
+      const previous = latestByPerson.get(r.person_id);
+      if (!previous || String(r.report_date ?? "") >= String(previous.report_date ?? "")) {
+        latestByPerson.set(r.person_id, r);
+      }
+    }
+    reportDate = [...latestByPerson.values()]
+      .map((row) => row.report_date ?? null)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+    for (const r of latestByPerson.values()) {
       byPerson.set(r.person_id, {
         person_id: r.person_id,
         full_name: "",

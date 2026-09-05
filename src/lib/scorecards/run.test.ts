@@ -8,7 +8,7 @@ import {
   parsePublishedScorecardSnapshotPayload,
   requirePublishedScorecardSnapshotPayload,
 } from "./published-snapshot";
-import { verifyPublishedScorecardArtifacts } from "./verifier";
+import { verifyPreparedScorecardRun, verifyPublishedScorecardArtifacts } from "./verifier";
 
 function producerPayload(
   personId: string,
@@ -265,6 +265,39 @@ describe("Scorecard run", () => {
     expect(firstAlexRow.teamIpCents).toBe(1_000_000);
 
     const result = prepareScorecardRun(input);
+    expect(result.builderMetrics.find((row) => row.personId === "builder-a")?.teamIpCents).toBe(4_000_000);
+  });
+
+  it("accepts distinct canonical Gateway weeks that share the same File Date without duplicate-person errors", () => {
+    const input = completeRun();
+    input.expectedReportDates = ["2026-08-14", "2026-08-21", "2026-08-28"];
+    input.gatewayReports = input.gatewayReports.map((report) => {
+      if (report.id === "report-aug-07") {
+        return {
+          ...report,
+          reportDate: "2026-08-14",
+          scorecardPeriodStart: "2026-08-01",
+          scorecardPeriodEnd: "2026-08-31",
+          gatewayWeekOrdinal: 1,
+          gatewayPeriodFinal: false,
+        };
+      }
+      if (report.id === "report-aug-14") {
+        return {
+          ...report,
+          scorecardPeriodStart: "2026-08-01",
+          scorecardPeriodEnd: "2026-08-31",
+          gatewayWeekOrdinal: 2,
+          gatewayPeriodFinal: false,
+        };
+      }
+      return report;
+    });
+
+    const result = prepareScorecardRun(input);
+
+    expect(result.status).toBe("ready");
+    expect(result.problems).toEqual([]);
     expect(result.builderMetrics.find((row) => row.personId === "builder-a")?.teamIpCents).toBe(4_000_000);
   });
 
@@ -894,6 +927,440 @@ describe("Scorecard run", () => {
     expect(() => createScorecardArtifacts({ prepared, input })).toThrow(
       "fully validated Scorecard run",
     );
+  });
+
+  it("prepares a Producer-only eligible subset while retaining excluded people in the frozen roster", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(input.people.map((person) => person.id)).toContain("builder-a");
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({ eligibleProducers: 1, eligibleBuilders: 0 });
+    expect(prepared.producerMetrics.map((metric) => metric.personId)).toEqual(["producer-b"]);
+    expect(prepared.builderMetrics).toEqual([]);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("does not let excluded Builder-only fields block an eligible Producer subset", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+    input.gatewayReports = input.gatewayReports.map((report) => ({
+      ...report,
+      rows: report.rows.map((row) => row.personId === "builder-a"
+        ? { ...row, teamIpCents: -1, firstLegPercent: 999 }
+        : row),
+    }));
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.problems).toEqual([]);
+    expect(prepared.producerMetrics.map((metric) => metric.personId)).toEqual(["producer-b"]);
+  });
+
+  it("prepares a Builder-only eligible subset without making excluded Builders verification targets", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "builder-a", cardType: "builder" }];
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+    input.builderProductionSupport = [{
+      personId: "producer-b",
+      current: { dials: 9, contacts: 4, presentations: 3, sales: 2, apCents: 125_000 },
+      prior: { dials: 5, contacts: 3, presentations: 2, sales: 1, apCents: 75_000 },
+    }];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({ eligibleProducers: 0, eligibleBuilders: 1 });
+    expect(prepared.builderMetrics.map((metric) => metric.personId)).toEqual(["builder-a"]);
+    expect(prepared.builderMetrics[0]?.teamRank).toEqual({ rank: 1, population: 1 });
+    expect(prepared.builderMetrics[0]?.recruitingRank).toEqual({ rank: 1, population: 1 });
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("prepares a mixed Producer/Builder eligible subset and verifies only those card targets", () => {
+    const input = completeRun();
+    input.eligibleTargets = [
+      { personId: "producer-b", cardType: "producer" },
+      { personId: "builder-a", cardType: "builder" },
+    ];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+    input.builderProductionSupport = [{
+      personId: "producer-b",
+      current: { dials: 9, contacts: 4, presentations: 3, sales: 2, apCents: 125_000 },
+      prior: { dials: 5, contacts: 3, presentations: 2, sales: 1, apCents: 75_000 },
+    }];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({ eligibleProducers: 1, eligibleBuilders: 1 });
+    expect(prepared.producerMetrics.map((metric) => metric.personId)).toEqual(["producer-b"]);
+    expect(prepared.builderMetrics.map((metric) => metric.personId)).toEqual(["builder-a"]);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("treats an explicit empty eligibleTargets list as an intentional zero-card subset", () => {
+    const input = completeRun();
+    input.eligibleTargets = [];
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({
+      eligibleProducers: 0,
+      eligibleBuilders: 0,
+      producerRows: 0,
+      builderRows: 0,
+    });
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+    expect(createScorecardArtifacts({ prepared, input })).toEqual({ snapshots: [], deliveries: [] });
+  });
+
+  it("intersects manual target scope with eligibleTargets instead of widening either scope", () => {
+    const input = completeRun();
+    input.target = { personId: "builder-a", cardType: "producer" };
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.summary).toMatchObject({ eligibleProducers: 0, eligibleBuilders: 0 });
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("still rejects a corrupted metric inside an otherwise valid eligible subset", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+    const prepared = prepareScorecardRun(input);
+    expect(prepared.status).toBe("ready");
+    if (prepared.status !== "ready") throw new Error("expected ready subset fixture");
+    prepared.producerMetrics[0] = {
+      ...prepared.producerMetrics[0],
+      payload: {
+        ...prepared.producerMetrics[0].payload,
+        preview: {
+          ...prepared.producerMetrics[0].payload.preview,
+          totalIssuedIpCents: 123_456_789,
+        },
+      },
+    };
+
+    const verification = verifyPreparedScorecardRun(input, prepared);
+
+    expect(verification.valid).toBe(false);
+    expect(verification.problems).toContainEqual(expect.objectContaining({
+      cardType: "producer",
+      personId: "producer-b",
+      field: "visiblePayload",
+    }));
+  });
+
+  it("allows scoped publication when the canonical final week exists and earlier reconnect weeks remain holes", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+    input.expectedReportDates = [];
+    input.expectedGatewayWeeks = [{ periodStart: "2026-08-01", weekOrdinal: 4 }];
+    input.gatewayReports = input.gatewayReports
+      .filter((report) => !["report-aug-07", "report-aug-14", "report-aug-21"].includes(report.id))
+      .map((report) => report.id === "report-aug-28"
+        ? {
+            ...report,
+            reportDate: "2026-08-03",
+            scorecardPeriodStart: "2026-08-01",
+            scorecardPeriodEnd: "2026-08-31",
+            gatewayWeekOrdinal: 4,
+            gatewayPeriodFinal: true,
+          }
+        : report);
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.problems).toEqual([]);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("requires the exact scoped final-week identity even when another canonical week has the same File Date", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+    input.expectedReportDates = [];
+    input.expectedGatewayWeeks = [{ periodStart: "2026-08-01", weekOrdinal: 4 }];
+    input.gatewayReports = input.gatewayReports
+      .filter((report) => report.id !== "report-aug-28")
+      .map((report) => report.id === "report-aug-21"
+        ? {
+            ...report,
+            reportDate: "2026-08-03",
+            scorecardPeriodStart: "2026-08-01",
+            scorecardPeriodEnd: "2026-08-31",
+            gatewayWeekOrdinal: 3,
+            gatewayPeriodFinal: false,
+          }
+        : report);
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("blocked");
+    expect(prepared.problems).toContainEqual(expect.objectContaining({ code: "missing_gateway_report" }));
+    expect(prepared.problems.find((problem) => problem.code === "missing_gateway_report")?.message)
+      .toContain("coverage:2026-08-01:w4");
+  });
+
+  it("still validates every present scoped in-period source even when only the final week is required", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    input.producerMetrics = [producerPayload("producer-b")];
+    input.producerVerificationMetrics = [producerPayload("producer-b")];
+    input.expectedReportDates = [];
+    input.expectedGatewayWeeks = [{ periodStart: "2026-08-01", weekOrdinal: 4 }];
+    input.gatewayReports = input.gatewayReports.map((report) => {
+      if (report.id === "report-aug-21") {
+        return {
+          ...report,
+          reportDate: "2026-08-03",
+          scorecardPeriodStart: "2026-08-01",
+          scorecardPeriodEnd: "2026-08-31",
+          gatewayWeekOrdinal: 3,
+          gatewayPeriodFinal: false,
+          sourceChecksum: "",
+        };
+      }
+      if (report.id === "report-aug-28") {
+        return {
+          ...report,
+          reportDate: "2026-08-03",
+          scorecardPeriodStart: "2026-08-01",
+          scorecardPeriodEnd: "2026-08-31",
+          gatewayWeekOrdinal: 4,
+          gatewayPeriodFinal: true,
+        };
+      }
+      return report;
+    });
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("blocked");
+    expect(prepared.problems).toContainEqual(expect.objectContaining({
+      code: "invalid_source_checksum",
+      reportDate: "2026-08-03",
+    }));
+  });
+
+  it("uses the provider-sourced week date for Active Directs instead of a misleading File Date", () => {
+    const input = completeRun();
+    input.eligibleTargets = [{ personId: "builder-a", cardType: "builder" }];
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+    input.builderProductionSupport = [{
+      personId: "producer-b",
+      current: { dials: 9, contacts: 4, presentations: 3, sales: 2, apCents: 125_000 },
+      prior: { dials: 5, contacts: 3, presentations: 2, sales: 1, apCents: 75_000 },
+    }];
+    input.expectedReportDates = [];
+    input.expectedGatewayWeeks = [{ periodStart: "2026-08-01", weekOrdinal: 4 }];
+    input.people.push({
+      id: "canonical-direct",
+      fullName: "Canonical Direct",
+      email: "canonical@example.com",
+      photoUrl: null,
+      uplineId: "builder-a",
+      activeAtPeriodEnd: true,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    const ordinalById = new Map([
+      ["report-aug-07", 1],
+      ["report-aug-14", 2],
+      ["report-aug-21", 3],
+      ["report-aug-28", 4],
+    ]);
+    input.gatewayReports = input.gatewayReports.map((report) => {
+      const ordinal = ordinalById.get(report.id);
+      if (!ordinal) return report;
+      return {
+        ...report,
+        reportDate: ordinal === 1 ? "2026-06-01" : "2026-08-03",
+        scorecardPeriodStart: "2026-08-01",
+        scorecardPeriodEnd: "2026-08-31",
+        gatewayWeekOrdinal: ordinal,
+        gatewayWeekStart: "2026-08-03",
+        gatewayPeriodFinal: ordinal === 4,
+        rows: ordinal === 1
+          ? [...report.rows, { personId: "canonical-direct", personalIpCents: 100_000, teamIpCents: 100_000, firstLegPercent: 10 }]
+          : report.rows,
+      };
+    });
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.builderMetrics[0]?.activeWriters).toBe(2);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("does not count scoped Active Direct business whose File Date is recent but provider week date is outside the six-week window", () => {
+    const input = completeRun();
+    input.people.push({
+      id: "stale-canonical-direct",
+      fullName: "Stale Canonical Direct",
+      email: "stale-canonical@example.com",
+      photoUrl: null,
+      uplineId: "builder-a",
+      activeAtPeriodEnd: true,
+      producerAtPeriodEnd: false,
+      builderAtPeriodEnd: false,
+    });
+    input.gatewayReports.push({
+      id: "scoped-jul-w1-recent-file",
+      gatewayWeekStart: "2026-07-06",
+      periodType: "wtd",
+      reportDate: "2026-08-28",
+      scorecardPeriodStart: "2026-07-01",
+      scorecardPeriodEnd: "2026-07-31",
+      gatewayWeekOrdinal: 1,
+      gatewayPeriodFinal: false,
+      status: "published",
+      sourceChecksum: "scoped-jul-w1-recent-file",
+      unmatchedCount: 0,
+      ambiguousCount: 0,
+      rows: [{
+        personId: "stale-canonical-direct",
+        personalIpCents: 100_000,
+        teamIpCents: 100_000,
+        firstLegPercent: 10,
+      }],
+    });
+
+    const prepared = prepareScorecardRun(input);
+
+    expect(prepared.status).toBe("ready");
+    expect(prepared.builderMetrics.find((metric) => metric.personId === "builder-a")?.activeWriters).toBe(1);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("counts September's fifth Gateway week when its file arrives in October", () => {
+    const input = completeRun();
+    input.period = { kind: "monthly", start: "2026-09-01", end: "2026-09-30", label: "September 2026" };
+    input.priorPeriod = { kind: "monthly", start: "2026-08-01", end: "2026-08-31", label: "August 2026" };
+    input.generatedAt = "2026-10-06T15:00:00Z";
+    input.eligibleTargets = [{ personId: "builder-a", cardType: "builder" }];
+    input.producerMetrics = [];
+    input.producerVerificationMetrics = [];
+    input.expectedReportDates = [];
+    input.expectedGatewayWeeks = [{ periodStart: "2026-09-01", weekOrdinal: 5 }];
+    input.people.push({ id: "late-direct", fullName: "Late Direct", email: "late@example.com", photoUrl: null,
+      uplineId: "builder-a", activeAtPeriodEnd: true, producerAtPeriodEnd: false, builderAtPeriodEnd: false });
+    input.gatewayReports = input.gatewayReports.map((report) => {
+      if (!report.id.startsWith("report-aug")) return { ...report, reportDate: report.reportDate.replace("2026-07", "2026-08") };
+      const ordinal = report.id.endsWith("28") ? 5 : report.id.endsWith("21") ? 3 : report.id.endsWith("14") ? 2 : 1;
+      return { ...report, reportDate: "2026-10-05", scorecardPeriodStart: "2026-09-01", scorecardPeriodEnd: "2026-09-30",
+        gatewayWeekOrdinal: ordinal, gatewayWeekStart: report.reportDate.replace("2026-08", "2026-09"), gatewayPeriodFinal: ordinal === 5,
+        rows: ordinal === 5 ? [...report.rows, { personId: "late-direct", personalIpCents: 100, teamIpCents: 100, firstLegPercent: null }] : report.rows };
+    });
+    const prepared = prepareScorecardRun(input);
+    expect(prepared.problems).toEqual([]);
+    expect(prepared.status).toBe("ready");
+    expect(prepared.builderMetrics[0]?.activeWriters).toBe(2);
+    expect(verifyPreparedScorecardRun(input, prepared)).toEqual({ valid: true, problems: [] });
+  });
+
+  it("blocks an ambiguous boundary only when it can change an eligible Builder's Active Direct count", () => {
+    const input = completeRun();
+    const prepared = prepareScorecardRun(input);
+    input.people.push({ id: "unknown-direct", fullName: "Unknown Direct", email: "unknown@example.com",
+      photoUrl: null, uplineId: "builder-a", activeAtPeriodEnd: true, producerAtPeriodEnd: false, builderAtPeriodEnd: false });
+    input.gatewayReports.push({ id: "boundary-week", periodType: "wtd", reportDate: "2026-08-28",
+      scorecardPeriodStart: "2026-07-01", scorecardPeriodEnd: "2026-07-31", gatewayWeekOrdinal: 5,
+      status: "published", sourceChecksum: "boundary", unmatchedCount: 0, ambiguousCount: 0,
+      rows: [{ personId: "unknown-direct", personalIpCents: 100, teamIpCents: 100, firstLegPercent: null }] });
+    const blocked = prepareScorecardRun(input);
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.problems).toContainEqual(expect.objectContaining({ code: "unresolved_active_direct_week" }));
+    expect(verifyPreparedScorecardRun(input, prepared).problems).toContainEqual(
+      expect.objectContaining({ field: "activeDirectCoverage" }));
+    input.gatewayReports.at(-1)!.gatewayWeekStart = "2026-07-27";
+    const resolved = prepareScorecardRun(input);
+    expect(resolved.status).toBe("ready");
+    expect(resolved.builderMetrics.find((row) => row.personId === "builder-a")?.activeWriters).toBe(2);
+    expect(verifyPreparedScorecardRun(input, resolved).valid).toBe(true);
+    input.gatewayReports.at(-1)!.gatewayWeekStart = null;
+    input.people.at(-1)!.uplineId = "unrelated";
+    expect(prepareScorecardRun(input).status).toBe("ready");
+  });
+
+
+  it("independent verification rejects duplicate and excluded prepared card rows", () => {
+    const producerInput = completeRun();
+    producerInput.eligibleTargets = [{ personId: "producer-b", cardType: "producer" }];
+    producerInput.producerMetrics = [producerPayload("producer-b")];
+    producerInput.producerVerificationMetrics = [producerPayload("producer-b")];
+    const producerPrepared = prepareScorecardRun(producerInput);
+    expect(producerPrepared.status).toBe("ready");
+    producerPrepared.producerMetrics.push(producerPayload("builder-a"));
+    const producerVerification = verifyPreparedScorecardRun(producerInput, producerPrepared);
+    expect(producerVerification.valid).toBe(false);
+    expect(producerVerification.problems).toContainEqual(expect.objectContaining({
+      cardType: "producer",
+      personId: "builder-a",
+      field: "row",
+      expected: 0,
+    }));
+
+    const builderInput = completeRun();
+    builderInput.eligibleTargets = [{ personId: "builder-a", cardType: "builder" }];
+    builderInput.producerMetrics = [];
+    builderInput.producerVerificationMetrics = [];
+    builderInput.builderProductionSupport = [{
+      personId: "producer-b",
+      current: { dials: 9, contacts: 4, presentations: 3, sales: 2, apCents: 125_000 },
+      prior: { dials: 5, contacts: 3, presentations: 2, sales: 1, apCents: 75_000 },
+    }];
+    const builderPrepared = prepareScorecardRun(builderInput);
+    expect(builderPrepared.status).toBe("ready");
+    builderPrepared.builderMetrics.push({ ...builderPrepared.builderMetrics[0] });
+    const builderVerification = verifyPreparedScorecardRun(builderInput, builderPrepared);
+    expect(builderVerification.valid).toBe(false);
+    expect(builderVerification.problems).toContainEqual(expect.objectContaining({
+      cardType: "builder",
+      personId: "builder-a",
+      field: "row",
+      expected: 1,
+      actual: 2,
+    }));
+
+    const excludedBuilderPrepared = prepareScorecardRun(builderInput);
+    const fullPrepared = prepareScorecardRun(completeRun());
+    const excludedBuilderMetric = fullPrepared.builderMetrics.find((metric) => metric.personId === "builder-d");
+    expect(excludedBuilderMetric).toBeDefined();
+    excludedBuilderPrepared.builderMetrics.push({ ...excludedBuilderMetric! });
+    const excludedBuilderVerification = verifyPreparedScorecardRun(builderInput, excludedBuilderPrepared);
+    expect(excludedBuilderVerification.valid).toBe(false);
+    expect(excludedBuilderVerification.problems).toContainEqual(expect.objectContaining({
+      cardType: "builder",
+      personId: "builder-d",
+      field: "row",
+      expected: 0,
+    }));
   });
 
   it("ignores regenerated producer timestamps when deciding whether a correction changed business values", () => {

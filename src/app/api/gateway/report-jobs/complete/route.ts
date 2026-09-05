@@ -27,10 +27,11 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const jobId = text(body?.jobId);
+  const claimToken = text(body?.claimToken);
   const outcome = text(body?.outcome) as Outcome | null;
   const sessionGeneration = Number(body?.sessionGeneration);
   if (
-    !jobId ||
+    !jobId || !claimToken ||
     !outcome ||
     !["succeeded", "failed", "retryable", "needs_reconnect"].includes(outcome) ||
     !Number.isSafeInteger(sessionGeneration) ||
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       const accepted = await completeGatewayReportPullJob({
         jobId,
         sessionGeneration,
+        claimToken,
         summary: body?.summary && typeof body.summary === "object"
           ? body.summary as Record<string, unknown>
           : {},
@@ -56,14 +58,16 @@ export async function POST(request: NextRequest) {
     const status = await failGatewayReportPullJob({
       jobId,
       sessionGeneration,
+      claimToken,
       error: text(body?.error),
       needsReconnect: outcome === "needs_reconnect",
       retryable: outcome === "retryable",
     });
     return NextResponse.json({ ok: status !== "stale", status }, { status: status === "stale" ? 409 : 200 });
   } catch (error) {
+    console.error("[gateway-report-jobs/complete] Failed to complete report job.", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "gateway_report_completion_failed" },
+      { error: "gateway_report_completion_failed" },
       { status: 500 },
     );
   }

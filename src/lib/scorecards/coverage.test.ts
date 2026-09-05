@@ -17,14 +17,23 @@ const role = (person_id: string, is_producer: boolean, is_builder: boolean, stat
 });
 
 const requiredDates = requiredGatewayMondays(period);
+const monthStart = "2026-07-01";
+const monthEnd = "2026-07-31";
 
 function importsFor(personIds: string[], dates = requiredDates): PersonalGatewayImportEvidence[] {
   return personIds.flatMap((personId) => dates.map((date, index) => ({
     id: `${personId}-${date}`,
     person_id: personId,
+    source_kind: "personal_gateway",
+    pull_kind: "monday",
     period_type: "wtd",
     status: "imported",
     report_date: date,
+    period_start: date,
+    scorecard_period_start: monthStart,
+    scorecard_period_end: monthEnd,
+    gateway_week_ordinal: index + 1,
+    gateway_period_final: index === dates.length - 1,
     gateway_label: `Week ${index + 1}`,
     source_checksum: `${personId}-${date}-checksum`,
     matched_count: 1,
@@ -36,10 +45,16 @@ function importsFor(personIds: string[], dates = requiredDates): PersonalGateway
 }
 
 function premiumsFor(personIds: string[], dates = requiredDates): PersonalGatewayPremiumRow[] {
-  return personIds.flatMap((personId) => dates.map((date) => ({
+  return personIds.flatMap((personId) => dates.map((date, index) => ({
     import_id: `${personId}-${date}`,
     person_id: personId,
+    source_kind: "personal_gateway",
     report_date: date,
+    period_start: date,
+    scorecard_period_start: monthStart,
+    scorecard_period_end: monthEnd,
+    gateway_week_ordinal: index + 1,
+    gateway_period_final: index === dates.length - 1,
     personal_ip_cents: 100_000,
     team_ip_cents: 500_000,
     first_leg_percent: 25,
@@ -49,6 +64,7 @@ function premiumsFor(personIds: string[], dates = requiredDates): PersonalGatewa
 const connections = ["producer", "builder", "dual"].map((person_id) => ({
   person_id,
   first_connected_at: "2026-06-30T18:00:00.000Z",
+  status: "connected",
 }));
 
 function report(overrides: Partial<Parameters<typeof summarizeGatewayCoverage>[0]> = {}) {
@@ -65,11 +81,11 @@ function report(overrides: Partial<Parameters<typeof summarizeGatewayCoverage>[0
 }
 
 describe("Gateway Scorecard coverage", () => {
-  it("counts all eligible card scopes as covered only when every exact Monday is personally evidenced", () => {
+  it("counts all eligible card scopes as covered only when every required Gateway week is personally evidenced", () => {
     expect(report()).toMatchObject({ inScope: 2, covered: 2, missing: 0, coveragePercent: 100 });
   });
 
-  it("keeps one missed Monday as a hole even when the final Monday is present", () => {
+  it("keeps one missed Gateway week as a hole even when the final week is present", () => {
     const builderImports = importsFor(["builder"]).filter((row) => row.report_date !== "2026-07-13");
     const builderPremiums = premiumsFor(["builder"]).filter((row) => row.report_date !== "2026-07-13");
     const result = report({
@@ -79,7 +95,7 @@ describe("Gateway Scorecard coverage", () => {
     expect(result).toMatchObject({ inScope: 2, covered: 1, missing: 1, coveragePercent: 50 });
     expect(result.covered + result.missing).toBe(result.inScope);
     expect(result.missingPeople.map((entry) => entry.personId)).toEqual(["builder"]);
-    expect(result.missingPeople[0]).toMatchObject({ finalWeekReady: true, missingReportDates: ["2026-07-13"] });
+    expect(result.missingPeople[0]).toMatchObject({ finalWeekReady: true, missingReportDates: ["2026-07-01:week-2"] });
   });
 
   it("returns zero counts when nobody is eligible", () => {
@@ -97,7 +113,12 @@ describe("Gateway Scorecard coverage", () => {
     });
     expect(result).toMatchObject({ inScope: 1, covered: 0, missing: 1 });
     expect(result.missingPeople[0]?.cardType).toBe("producer");
-    expect(result.missingPeople[0]?.missingReportDates).toEqual(requiredDates);
+    expect(result.missingPeople[0]?.missingReportDates).toEqual([
+      "2026-07-01:week-1",
+      "2026-07-01:week-2",
+      "2026-07-01:week-3",
+      "2026-07-01:week-4",
+    ]);
   });
 
   it("treats the person's own unambiguous target_npn_not_present as verified zero", () => {
@@ -129,7 +150,7 @@ describe("Gateway Scorecard coverage", () => {
     const late = report({
       scope: "producer",
       roles: [role("producer", true, false)],
-      connections: [{ person_id: "producer", first_connected_at: "2026-08-01T12:00:00.000Z" }],
+      connections: [{ person_id: "producer", first_connected_at: "2026-08-01T12:00:00.000Z", status: "connected" }],
       imports: importsFor(["producer"]),
       premiumRows: premiumsFor(["producer"]),
     });

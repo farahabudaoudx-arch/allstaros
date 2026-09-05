@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -11,6 +12,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     // Alternate dist dirs (NEXT_DIST_DIR, e.g. the second local dev server).
     ".next-*/**",
+    ".gitnexus/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
@@ -22,6 +24,9 @@ const eslintConfig = defineConfig([
   // app ships on purpose, and were verified non-breaking. They stay visible
   // without blocking deploys. Revisit (tighten to "error" + fix) post-launch.
   {
+    plugins: {
+      "react-hooks": reactHooks,
+    },
     rules: {
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",

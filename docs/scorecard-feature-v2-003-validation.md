@@ -1,13 +1,13 @@
 # Ticket #003 — Validate Refreshed Cards With Real Data And Shareable Downloads
 
-**Status:** Complete
+**Status:** Partial — UI/export validation complete; real Gateway-data acceptance pending
 **Branch:** `dev`
 **Scope:** Scorecard Feature v2 / Ticket #003
 **Validation date:** 2026-09-03
 
 ## Objective
 
-Validate the refreshed Producer and Builder scorecards against real development Supabase data, verify missing-data behavior, and prove that the shareable PNG export flow remains usable at the supported 9:16 and 16:9 formats. Browser QA was treated as a release gate, not optional evidence.
+Validate the refreshed Producer and Builder scorecards in the development environment, verify missing-data behavior, and prove that the shareable PNG export flow remains usable at the supported 9:16 and 16:9 formats. Browser QA was treated as a release gate, not optional evidence. The visual/export evidence below remains useful, but this review corrects the earlier claim that the development rows constituted known-source real Gateway acceptance data.
 
 No production Gateway / Rent-a-Mac configuration, credentials, 2FA behavior, scrape schedules, or database records were changed.
 
@@ -33,14 +33,16 @@ Updated `src/components/scorecards/ProducerScorecardPreview.tsx`.
 
 `MetricCards` gives the literal `Unavailable` a smaller responsive type treatment with `break-words` and tighter line-height while ordinary numeric values retain their existing styling. This fixes a measured desktop overflow where the value previously had a 226 px scroll width inside a 173 px text box.
 
-## Real-data validation
+## Development fixture validation
 
-### Maya Chen — Producer
+The June Maya Chen dataset is **seeded development data**, not independently sourced Gateway production/member data. `scripts/seed-scorecard-demo.mjs` creates Maya Chen and writes the same June 2026 IP, tracking, lead-spend, team-IP, and related rows used by these snapshots. The script also links its premium rows to development import-audit rows. Therefore the snapshots prove rendering/calculation consistency against the seeded database state, but they do **not** satisfy Ticket #003's real-data acceptance requirement.
+
+### Maya Chen — Producer (seeded fixture)
 
 Published snapshot: `96340979-24e4-4f2d-9eac-b86fc05ceffb`
 Period: June 2026.
 
-Five real imported WTD rows were found:
+Five development WTD rows linked to the seeded fixture were found:
 
 | Report date | Personal IP | Team IP | First Leg |
 | --- | ---: | ---: | ---: |
@@ -59,9 +61,9 @@ Published Producer scorecard:
 - Overall: **5.00 weighted**
 - Activity totals: 1,000 dials, 100 leads, 300 contacts, 75 appointments, 50 presentations, 25 sales.
 
-The published value matches the imported source rows.
+The published value matches the seeded source rows. This is a deterministic fixture-consistency check, not evidence that a real member Gateway file produced the values.
 
-### Maya Chen — Builder / dual-role
+### Maya Chen — Builder / dual-role (seeded fixture)
 
 Published snapshot: `94efc129-ada9-4005-83d6-3aae296aae25`.
 
@@ -76,11 +78,11 @@ Published values:
 
 Prior May Team IP was **$300,000** and June Team IP was **$400,000**, confirming the published **+33.3%** growth calculation.
 
-### James Lee — real missing-history case
+### James Lee — development missing-history case
 
 Published snapshot: `94c34f9c-27b0-4e32-bea3-adbb780d7fef`.
 
-This real snapshot has missing activity history. The browser renders missing metrics as `Unavailable`.
+This development snapshot has missing activity history. The browser renders missing metrics as `Unavailable`. No known-source Gateway file is available in the permitted repository/materials to establish James as real Gateway-data acceptance evidence, so this section is retained only as missing-data UI evidence.
 
 After the UI fix, all four visible `Unavailable` values measured:
 - text `clientWidth = 173 px`
@@ -92,7 +94,7 @@ After the UI fix, all four visible `Unavailable` values measured:
 
 ## Browser / UI / UX validation
 
-Real published snapshots were opened through the local dev-authenticated admin flow.
+Development published snapshots were opened through the local dev-authenticated admin flow.
 
 Viewport tested: **390 × 844**.
 
@@ -186,6 +188,7 @@ Result: **0 findings, 0 scan errors**.
 2. **Builder `?source=live` preview:** the helper uses stale hardcoded dev identity/period data. Real published snapshots were used for acceptance instead.
 3. **Producer preview route:** remains fixture-based, so real-data acceptance was proven through the published snapshot path.
 4. **Producer IP missing-row semantics:** `lifecycle.ts` currently uses `amountByDate.get(report.reportDate) ?? 0`. A missing row and a legitimate zero could be semantically different. This was not changed without direct Gateway evidence because doing so would alter scoring/data semantics beyond a validation ticket.
+5. **Real-data acceptance remains open:** no Producer/Builder Gateway CSV/XLS/XLSX with independently established real-member provenance was found in the permitted repository/materials during the 2026-09-05 review. Seeded Supabase rows and screenshots must not be used to close that acceptance item.
 
 ## Git scope
 
@@ -206,6 +209,6 @@ Explicitly excluded:
 
 ## Final result
 
-**Ticket #003: PASS**
+**Ticket #003: PARTIAL**
 
-The refreshed Producer and Builder scorecards are validated against real dev data, missing-data state is explicit, both observed UI regressions were fixed and independently re-tested, actual shareable exports pass at both supported orientations, the full automated suite passes, typecheck/build/security gates pass, and no production Gateway or database behavior was modified.
+The refreshed Producer and Builder UI, missing-data rendering, and shareable exports were validated in development, and the Maya calculations are internally consistent with the seeded fixture that generated them. **Real-data Producer/Builder acceptance is still pending** until known-source Gateway files for real members can be compared. No production Gateway or Rent-a-Mac behavior is claimed or validated by this document.
