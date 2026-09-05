@@ -25,6 +25,7 @@ export function ScorecardSnapshotDetail({
       <Link href={backHref} className="mb-6 inline-block text-sm font-medium text-accent hover:underline">
         {backLabel}
       </Link>
+      {cardType === "builder" ? <p className="mb-6 text-sm text-subtle">Ratings use the current scoring rules applied to this period&apos;s saved data.</p> : null}
       {cardType === "producer" ? (
         <ProducerScorecardPreview
           preview={(card as ProducerCard).preview}
@@ -50,7 +51,6 @@ export function ScorecardSnapshotDetail({
             },
             metric: card as BuilderScorecardMetric,
           }}
-          frozenScore={published.cardType === "builder" ? published.score : undefined}
         />
       )}
     </main>

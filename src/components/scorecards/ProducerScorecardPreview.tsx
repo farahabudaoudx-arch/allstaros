@@ -1,3 +1,4 @@
+import BackgroundShader from "@/components/ui/background-shader";
 import type {
   MonthlyProducerPreview,
   ProducerOverview,
@@ -13,9 +14,10 @@ import {
   type ProducerStarSummary,
   type StarRating,
 } from "@/lib/scorecards/ratings";
-import { VelarisBackground } from "./VelarisBackground";
 import { ScorecardExportControls } from "./ScorecardExportControls";
 import { ProducerBaseballCard } from "./ProducerBaseballCard";
+import { ScorecardStars } from "./ScorecardStars";
+import { DownloadGlyph } from "./ScorecardExportControls";
 
 export function money(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -111,9 +113,9 @@ export function ProducerScorecardPreview({
           averageRating={starSummary.overall}
           totalRating={null}
           ratings={[
-            { label: "Personal IP", value: ratings.issuedIp },
-            { label: "Tracking", value: ratings.trackingConsistency },
-            { label: "Lead Spend", value: ratings.leadSpend },
+            { label: "Personal IP", value: ratings.issuedIp, metricValue: money(preview.totalIssuedIpCents) },
+            { label: "Tracking", value: ratings.trackingConsistency, metricValue: `${trackingLoggedDays} days` },
+            { label: "Lead Spend", value: ratings.leadSpend, metricValue: money(overview.activity.leadSpendCents) },
           ]}
         />
       </StorySection>
@@ -141,7 +143,6 @@ function producerScorecardAreas(periodKind: ScorecardPeriodKind): StarBandMetric
     {
       label: "Tracking",
       weight: "25%",
-      note: "Mon–Sat logged days only · Sundays never count",
       bands: [
         { stars: 0, label: `0 – ${days(8) - 1} days` },
         { stars: 1, label: `${days(8)} – ${days(12) - 1} days` },
@@ -172,20 +173,18 @@ export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBand
     {
       label: "Growth %",
       weight: "20%",
-      note: "Needs a usable prior-period baseline · zero or negative growth scores 0",
       bands: [
-        { stars: 0, label: "0% or less" },
-        { stars: 1, label: "Under 5%" },
-        { stars: 2, label: "5% – under 10%" },
-        { stars: 3, label: "10% – under 15%" },
-        { stars: 4, label: "15% – under 25%" },
-        { stars: 5, label: "25%+" },
+        { stars: 0, label: "Negative" },
+        { stars: 1, label: "0%–3.99%" },
+        { stars: 2, label: "4%–7.99%" },
+        { stars: 3, label: "8%–11.99%" },
+        { stars: 4, label: "12%–15.99%" },
+        { stars: 5, label: "16%+" },
       ],
     },
     {
       label: "First Leg %",
       weight: "20%",
-      note: "Lower is better",
       bands: [
         { stars: 0, label: "50%+" },
         { stars: 1, label: "40% – under 50%" },
@@ -210,7 +209,6 @@ export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBand
     {
       label: "Avg IP / Active Writer",
       weight: "20%",
-      note: "Uses the same monthly IP bands as Personal IP",
       bands: [
         { stars: 0, label: `Under ${moneyBand(500_000)}` },
         { stars: 1, label: `${moneyBand(500_000)} – under ${moneyBand(1_500_000)}` },
@@ -237,7 +235,7 @@ export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBand
 
 export function StarBandLegend({ metric }: { metric: StarBandMetric }) {
   return (
-    <li className="rounded-xl border border-hairline bg-card px-5 py-5 text-ink">
+    <li className="scorecard-band-panel rounded-xl px-5 py-5 text-ink">
       <div className="flex items-baseline justify-between gap-4">
         <span className="font-semibold">{metric.label}</span>
         {metric.weight ? <span className="text-sm font-medium text-accent">{metric.weight}</span> : null}
@@ -260,40 +258,27 @@ export function StarBandLegend({ metric }: { metric: StarBandMetric }) {
 }
 
 function StarBandRow({ stars }: { stars: StarRating }) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-0.5 text-base leading-none" aria-hidden="true">
-      {Array.from({ length: 5 }, (_, index) => {
-        const filled = index < stars;
-        return (
-          <span
-            key={index}
-            data-star={filled ? "filled" : "hollow"}
-            className={filled ? "text-accent" : "text-white/25"}
-          >
-            {filled ? "★" : "☆"}
-          </span>
-        );
-      })}
-    </span>
-  );
+  return <span className="scorecard-band-stars"><ScorecardStars value={stars} decorative /></span>;
 }
 
 function MetricCards({
   items,
   ariaLabel,
+  layout,
 }: {
   items: Array<{ label: string; starLabel?: string; value: string; rating?: StarRating | null }>;
   ariaLabel: string;
+  layout: "scored" | "unscored";
 }) {
   return (
-    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label={ariaLabel}>
+    <div className={`producer-numbers-grid scorecard-metrics scorecard-metrics--${layout}`} role="list" aria-label={ariaLabel}>
       {items.map((item) => {
         const unavailable = item.value === "Unavailable";
         return (
-          <div key={item.label} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]" role="listitem">
-            <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
-            <p className={`producer-number-card__value mt-3 font-semibold tabular-nums text-ink ${unavailable ? "break-words text-[clamp(1.4rem,2vw,1.75rem)] leading-tight" : "text-[clamp(1.75rem,4vw,2.5rem)] leading-none"}`}>{item.value}</p>
-            {item.rating != null ? <p className="mt-4"><StarScale value={item.rating} label={item.starLabel ?? item.label} /></p> : null}
+          <div key={item.label} className="producer-number-card scorecard-metric" role="listitem">
+            <p className="producer-number-card__label scorecard-metric__label">{item.label}</p>
+            <p className={`producer-number-card__value scorecard-metric__value${unavailable ? " scorecard-metric__value--unavailable" : ""}`}>{item.value}</p>
+            {item.rating != null ? <p className="scorecard-metric__rating"><StarScale value={item.rating} label={item.starLabel ?? item.label} /></p> : null}
           </div>
         );
       })}
@@ -313,6 +298,7 @@ function ProducerScoredMetricsGrid({
   return (
     <MetricCards
       ariaLabel={`${preview.periodLabel} scored producer metrics`}
+      layout="scored"
       items={[
         { label: "IP", starLabel: "Issued Premium", value: money(preview.totalIssuedIpCents), rating: ratings.issuedIp },
         { label: "Lead Spend", value: money(overview.activity.leadSpendCents), rating: ratings.leadSpend },
@@ -332,6 +318,7 @@ function ProducerUnscoredMetricsGrid({
   return (
     <MetricCards
       ariaLabel={`${preview.periodLabel} unscored producer metrics`}
+      layout="unscored"
       items={[
         { label: "AP", starLabel: "Submitted AP", value: overview.submittedApCents == null ? "Unavailable" : money(overview.submittedApCents) },
         { label: "Dials", value: totals?.dials.toLocaleString() ?? "Unavailable" },
@@ -371,22 +358,17 @@ function ScorecardHowItWorks({ periodKind }: { periodKind: ScorecardPeriodKind }
         </summary>
 
         <div id="scorecard-how-it-works-content" className="w-full">
-          <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            Producer ratings use three fixed period-aware performance bands, not organization rank or percentile.
-          </p>
-
           <ul aria-label="Three Producer scorecard areas" className="mt-7 grid gap-4 lg:grid-cols-3">
             {areas.map((area) => (
               <StarBandLegend key={area.label} metric={area} />
             ))}
           </ul>
 
-          <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            <p>Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.</p>
-            <p className="mt-4">Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating.</p>
-            <p className="mt-4">Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars.</p>
-            <p className="mt-6">You can download 9:16 or 16:9 screenshots of each section to post online along with your scorecard.</p>
-            <p className="mt-6 font-semibold text-white">Numbers don&apos;t lie. If you don&apos;t like your score, do something about it.</p>
+          <div className="scorecard-explanation mt-14 max-w-4xl space-y-9 sm:mt-16 sm:space-y-10 text-base leading-7 text-ink sm:text-lg sm:leading-8">
+            <p>We use a weighted score across these metrics with 50% of your overall score being attributed to Personal IP, 25% of your score going to Tracking, and another 25% going to Lead Spend.</p>
+            <p>We also include on here metrics that may be useful for you to see, but aren&apos;t what we use to create your scorecard rating.</p>
+            <p>You can download 9:16 or 16:9 screenshots of each section of the scorecard to post online by clicking the <span className="scorecard-inline-icon" role="img" aria-label="portrait download"><DownloadGlyph format="portrait" /></span> or <span className="scorecard-inline-icon" role="img" aria-label="landscape download"><DownloadGlyph format="landscape" /></span> button in the top right.</p>
+            <p>Something to keep in mind is that numbers don&apos;t lie! If you don&apos;t like your score, it simply means you got some work to do. If you believe we made an error and the numbers aren&apos;t accurate, tap the &quot;Report a Bug&quot; button in the bottom left.</p>
           </div>
         </div>
       </details>
@@ -405,38 +387,7 @@ export function StarScale({
   label: string;
   prominent?: boolean;
 }) {
-  const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1);
-  const integer = Number.isInteger(value);
-  return (
-    <span
-      data-scorecard-stars=""
-      className={`inline-flex items-center gap-0.5 leading-none ${prominent ? "text-2xl sm:text-3xl" : "text-lg"}`}
-      aria-label={`${label}: ${displayValue} out of 5 stars`}
-    >
-      {Array.from({ length: 5 }, (_, index) => {
-        if (integer) {
-          const filled = index < value;
-          return (
-            <span
-              key={index}
-              data-star={filled ? "filled" : "hollow"}
-              className={filled ? "text-accent" : "text-white/25"}
-              aria-hidden="true"
-            >
-              {filled ? "★" : "☆"}
-            </span>
-          );
-        }
-        const fill = Math.max(0, Math.min(1, value - index));
-        return (
-          <span key={index} className="relative inline-block text-white/25" aria-hidden="true">
-            ☆
-            <span className="absolute inset-y-0 left-0 overflow-hidden text-accent" style={{ width: `${fill * 100}%` }}>★</span>
-          </span>
-        );
-      })}
-    </span>
-  );
+  return <ScorecardStars value={value} label={label} prominent={prominent} />;
 }
 
 export function ScorecardHeader({
@@ -461,7 +412,7 @@ export function ScorecardHeader({
   ratingSummary?: string;
 }) {
   return (
-    <VelarisBackground>
+    <BackgroundShader>
       <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
         <Image
           src="/logo.png"
@@ -489,7 +440,7 @@ export function ScorecardHeader({
           </div>
         ) : null}
       </header>
-    </VelarisBackground>
+    </BackgroundShader>
   );
 }
 

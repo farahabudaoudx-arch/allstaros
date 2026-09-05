@@ -66,21 +66,18 @@ describe("Builder Scorecard preview", () => {
     expect(html).not.toContain("Download How You're Scored");
     expect(html).not.toContain("based on two areas the OS helps you track:");
     expect(html).not.toContain('aria-label="Two Builder scorecard areas"');
-    expect(html).toContain("Builder ratings use five fixed performance bands, not organization rank or percentile.");
+    expect(html).toContain("We use a weighted score across these metrics");
     expect(html).toContain('aria-label="Five Builder rating metrics"');
     expect(html).toContain('aria-label="Growth % star bands"');
     expect(html).toContain('aria-label="First Leg % star bands"');
-    expect(html).toContain('aria-label="Active Directs star bands"');
+    expect(html).toContain('aria-label="Active Directs rating chart"');
     expect(html).toContain('aria-label="Avg IP / Active Writer star bands"');
     expect(html).toContain('aria-label="Recruits Licensed star bands"');
-    expect(html).toContain('aria-label="5 stars: 8+"');
+    expect(html).toContain("25+");
     expect(html).toContain('aria-label="5 stars: Under 10%"');
     expect(html).toContain('aria-label="0 stars: 50%+"');
     expect(html).toContain('data-star="hollow"');
     expect(html).toContain('data-star="filled"');
-    expect(html).toContain("Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP\/Active Writer + 20% Recruits Licensed.");
-    expect(html).toContain("Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.");
-    expect(html).toContain("Scored metrics affect your rating. Unscored metrics are still useful team context, but they do not change your stars.");
     expect(html).not.toContain("Bottom 20% of agencies");
     expect(html).not.toContain("Top 20% of agencies");
     expect(html).not.toContain("average all 10 ratings");
@@ -95,9 +92,9 @@ describe("Builder Scorecard preview", () => {
       createElement(BuilderScorecardPreview, { view }),
     );
 
-    expect(html).toContain("Average rating: 3.4 out of 5 stars");
-    expect(html).toContain("17 of 25 total stars");
-    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("Average rating: 3.6 out of 5 stars");
+    expect(html).toContain("18 of 25 total stars");
+    expect(html).toContain("Growth %: 4 out of 5 stars");
     expect(html).toContain("First Leg %: 1 out of 5 stars");
     expect(html).toContain("Active Directs: 5 out of 5 stars");
     expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
@@ -122,7 +119,7 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("July 2026 Builder Scorecard");
     expect(html).toMatch(/>RB<\/span>/);
     expect(html).toContain('aria-label="Flip Ronny Bucica scorecard to the back"');
-    expect(html).toContain("17 of 25 points");
+    expect(html).toContain("18 of 25 points");
     expect(html).toContain("Click To Flip");
   });
 
@@ -133,7 +130,7 @@ describe("Builder Scorecard preview", () => {
 
     expect(html).toContain(">Scored Metrics</h3>");
     expect(html).toContain("+14.4%");
-    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("Growth %: 4 out of 5 stars");
     expect(html).not.toContain("Previous Period Growth");
     expect(html).not.toContain("growth-export-mobile");
     expect(html).not.toContain("growth-export-desktop");
@@ -173,7 +170,7 @@ describe("Builder Scorecard preview", () => {
     expect(html).toContain("Active Directs: 0 out of 5 stars");
     expect(html).toContain("Avg IP / Active Writer: 0 out of 5 stars");
     expect(html).toContain("Recruits Licensed: 0 out of 5 stars");
-    expect(html).not.toContain("17 of 25 total stars");
+    expect(html).not.toContain("18 of 25 total stars");
   });
 
   it("changes only the Active Directs contribution when the corrected direct count changes", () => {
@@ -192,8 +189,8 @@ describe("Builder Scorecard preview", () => {
       createElement(BuilderScorecardPreview, { view: correctedDirectsView }),
     );
 
-    expect(html).toContain("Active Directs: 1 out of 5 stars");
-    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("Active Directs: 0 out of 5 stars");
+    expect(html).toContain("Growth %: 4 out of 5 stars");
     expect(html).toContain("First Leg %: 1 out of 5 stars");
     expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
     expect(html).toContain("Recruits Licensed: 5 out of 5 stars");
@@ -219,12 +216,12 @@ describe("Builder Scorecard preview", () => {
 
     expect(html).toContain("Recruits Licensed: 1 out of 5 stars");
     expect(html).toMatch(/Recruits Licensed<\/p>[\s\S]*?>1<\/p>/);
-    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("Growth %: 4 out of 5 stars");
     expect(html).toContain("First Leg %: 1 out of 5 stars");
     expect(html).toContain("Active Directs: 5 out of 5 stars");
     expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
-    expect(html).toContain("Average rating: 2.6 out of 5 stars");
-    expect(html).toContain("13 of 25 total stars");
+    expect(html).toContain("Average rating: 2.8 out of 5 stars");
+    expect(html).toContain("14 of 25 total stars");
   });
 
   it("scales only Recruits Licensed on a quarterly Builder scorecard", () => {
@@ -242,13 +239,13 @@ describe("Builder Scorecard preview", () => {
     );
 
     expect(html).toContain("Q3 2026");
-    expect(html).toContain("Growth %: 3 out of 5 stars");
+    expect(html).toContain("Growth %: 4 out of 5 stars");
     expect(html).toContain("First Leg %: 1 out of 5 stars");
     expect(html).toContain("Active Directs: 5 out of 5 stars");
     expect(html).toContain("Avg IP / Active Writer: 3 out of 5 stars");
     expect(html).toContain("Recruits Licensed: 4 out of 5 stars");
-    expect(html).toContain("Average rating: 3.2 out of 5 stars");
-    expect(html).toContain("16 of 25 total stars");
+    expect(html).toContain("Average rating: 3.4 out of 5 stars");
+    expect(html).toContain("17 of 25 total stars");
     expect(html).not.toContain("Previous Period Growth");
   });
 
@@ -318,7 +315,7 @@ describe("Builder Scorecard preview", () => {
       createElement(BuilderScorecardPreview, { view }),
     );
 
-    expect(html).toContain("md:w-[calc(33.333%-0.5rem)]");
+    expect(html).toContain("builder-metrics-grid");
     expect(html).toContain('aria-label="Builder scored metrics"');
     expect(html).toContain('aria-label="Builder unscored metrics"');
     expect(html).toMatch(/Scored Metrics[\s\S]*Growth %[\s\S]*First Leg %[\s\S]*Active Directs[\s\S]*Avg IP \/ Active Writer[\s\S]*Recruits Licensed/);

@@ -125,6 +125,8 @@ export function createPublishedBuilderSnapshotPayload(args: {
     metricPayload: builderPublishedMetric(metric),
     score: createBuilderStarSummary({
       growthPercent: metric.growth.percentage,
+      teamIpCents: metric.teamIpCents,
+      currentTeamIpCents: metric.teamIpCents,
       priorPeriodBaseline: metric.growth.priorTeamIpCents,
       firstLegPercent: metric.firstLegPercent,
       activeDirects: metric.activeWriters,

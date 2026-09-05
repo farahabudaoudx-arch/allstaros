@@ -101,11 +101,11 @@ function validBuilderMetric(value: unknown): number | null {
 export function builderGrowthStars(value: unknown, priorPeriodBaseline: unknown): StarRating {
   const growth = typeof value === "number" && Number.isFinite(value) ? value : null;
   const prior = validBuilderMetric(priorPeriodBaseline);
-  if (growth == null || prior == null || prior === 0 || growth <= 0) return 0;
-  if (growth < 5) return 1;
-  if (growth < 10) return 2;
-  if (growth < 15) return 3;
-  if (growth < 25) return 4;
+  if (growth == null || prior == null || prior === 0 || growth < 0) return 0;
+  if (growth < 4) return 1;
+  if (growth < 8) return 2;
+  if (growth < 12) return 3;
+  if (growth < 16) return 4;
   return 5;
 }
 
@@ -120,14 +120,30 @@ export function builderFirstLegStars(value: unknown): StarRating {
   return 0;
 }
 
-export function builderActiveDirectsStars(value: unknown): StarRating {
+// Monthly-equivalent team IP determines the required number of direct writers.
+export const ACTIVE_DIRECT_IP_TIERS = [
+  { maximumCents: 15_000_000, label: "0–150K", firstStar: 1 },
+  { maximumCents: 30_000_000, label: ">150K–300K", firstStar: 5 },
+  { maximumCents: 60_000_000, label: ">300K–600K", firstStar: 9 },
+  { maximumCents: 100_000_000, label: ">600K–1M", firstStar: 13 },
+  { maximumCents: 150_000_000, label: ">1M–1.5M", firstStar: 17 },
+  { maximumCents: Infinity, label: ">1.5M", firstStar: 21 },
+] as const;
+
+export function builderActiveDirectsStars(value: unknown, teamIpCents: unknown, periodKind: ScorecardPeriodKind = "monthly"): StarRating {
   const directs = validBuilderMetric(value);
-  if (directs == null || !Number.isInteger(directs) || directs === 0) return 0;
-  if (directs === 1) return 1;
-  if (directs === 2) return 2;
-  if (directs <= 4) return 3;
-  if (directs <= 7) return 4;
-  return 5;
+  const teamIp = validBuilderMetric(teamIpCents);
+  if (directs == null || !Number.isInteger(directs) || teamIp == null) return 0;
+  const monthlyIp = teamIp / scaleCumulativeThreshold(1, periodKind);
+  const tier = ACTIVE_DIRECT_IP_TIERS.find(tier => monthlyIp <= tier.maximumCents)!;
+  return Math.max(0, Math.min(5, directs - tier.firstStar + 1)) as StarRating;
+}
+
+export function builderGrowthPercent(current: unknown, prior: unknown): number | null {
+  const currentIp = validBuilderMetric(current);
+  const priorIp = validBuilderMetric(prior);
+  if (currentIp == null || priorIp == null || priorIp === 0) return null;
+  return ((currentIp - priorIp) / priorIp) * 100;
 }
 
 export function builderAverageIpPerActiveWriterStars(value: unknown): StarRating {
@@ -165,6 +181,8 @@ export type BuilderStarSummary = {
 export function createBuilderStarSummary(input: {
   growthPercent?: unknown;
   priorPeriodBaseline?: unknown;
+  teamIpCents?: unknown;
+  currentTeamIpCents?: unknown;
   firstLegPercent?: unknown;
   activeDirects?: unknown;
   averageIpPerActiveWriterCents?: unknown;
@@ -173,9 +191,9 @@ export function createBuilderStarSummary(input: {
 }): BuilderStarSummary {
   const periodKind = input.periodKind ?? "monthly";
   const ratings: BuilderStarRatings = {
-    growth: builderGrowthStars(input.growthPercent, input.priorPeriodBaseline),
+    growth: builderGrowthStars(input.currentTeamIpCents === undefined ? input.growthPercent : builderGrowthPercent(input.currentTeamIpCents, input.priorPeriodBaseline), input.priorPeriodBaseline),
     firstLegPercent: builderFirstLegStars(input.firstLegPercent),
-    activeDirects: builderActiveDirectsStars(input.activeDirects),
+    activeDirects: builderActiveDirectsStars(input.activeDirects, input.teamIpCents, periodKind),
     averageIpPerActiveWriter: builderAverageIpPerActiveWriterStars(input.averageIpPerActiveWriterCents),
     recruitsLicensed: builderRecruitsLicensedStars(input.recruitsLicensed, periodKind),
   };

@@ -134,9 +134,9 @@ describe("Producer Scorecard fixed star ratings", () => {
 
 describe("Builder Scorecard fixed star ratings", () => {
   it.each([
-    [-1, 0], [0, 0], [0.001, 1], [4.999, 1], [5, 2], [5.001, 2],
-    [9.999, 2], [10, 3], [10.001, 3], [14.999, 3], [15, 4], [15.001, 4],
-    [24.999, 4], [25, 5], [25.001, 5],
+    [-1, 0], [-0.001, 0], [0, 1], [3.99, 1], [3.999, 1], [4, 2],
+    [7.99, 2], [7.999, 2], [8, 3], [11.99, 3], [11.999, 3], [12, 4],
+    [15.99, 4], [15.999, 4], [16, 5], [25, 5],
   ] as const)("scores Growth %%=%s as %s stars with a usable prior baseline", (value, stars) => {
     expect(builderGrowthStars(value, 100)).toBe(stars);
   });
@@ -173,14 +173,14 @@ describe("Builder Scorecard fixed star ratings", () => {
   );
 
   it.each([
-    [0, 0], [1, 1], [2, 2], [3, 3], [4, 3], [5, 4], [6, 4], [7, 4], [8, 5], [9, 5],
+    [0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 5], [7, 5], [8, 5], [9, 5],
   ] as const)("scores Active Directs=%s as %s stars", (value, stars) => {
-    expect(builderActiveDirectsStars(value)).toBe(stars);
+    expect(builderActiveDirectsStars(value, 0)).toBe(stars);
   });
 
   it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1, 1.5] as const)(
     "treats unusable Active Directs input %s as zero stars",
-    (value) => expect(builderActiveDirectsStars(value)).toBe(0),
+    (value) => expect(builderActiveDirectsStars(value, 0)).toBe(0),
   );
 
   it.each([
@@ -211,7 +211,7 @@ describe("Builder Scorecard fixed star ratings", () => {
   );
 
   it("scores missing and non-finite Builder summary inputs defensively as zero", () => {
-    expect(createBuilderStarSummary({})).toEqual({
+    expect(createBuilderStarSummary({ teamIpCents: 0,})).toEqual({
       ratings: {
         growth: 0,
         firstLegPercent: 0,
@@ -222,7 +222,7 @@ describe("Builder Scorecard fixed star ratings", () => {
       total: 0,
       average: 0,
     });
-    expect(createBuilderStarSummary({
+    expect(createBuilderStarSummary({ teamIpCents: 0,
       growthPercent: Number.POSITIVE_INFINITY,
       priorPeriodBaseline: Number.NaN,
       firstLegPercent: Number.NEGATIVE_INFINITY,
@@ -234,7 +234,7 @@ describe("Builder Scorecard fixed star ratings", () => {
 
   it("weights all five Builder metrics equally at 20% each", () => {
     const base = {
-      growthPercent: 0,
+      growthPercent: -1,
       priorPeriodBaseline: 100,
       firstLegPercent: 50,
       activeDirects: 0,
@@ -242,13 +242,13 @@ describe("Builder Scorecard fixed star ratings", () => {
       recruitsLicensed: 0,
     };
 
-    expect(createBuilderStarSummary({ ...base, growthPercent: 25 }).average).toBe(1);
-    expect(createBuilderStarSummary({ ...base, firstLegPercent: 0 }).average).toBe(1);
-    expect(createBuilderStarSummary({ ...base, activeDirects: 8 }).average).toBe(1);
-    expect(createBuilderStarSummary({ ...base, averageIpPerActiveWriterCents: 4_000_000 }).average).toBe(1);
-    expect(createBuilderStarSummary({ ...base, recruitsLicensed: 6 }).average).toBe(1);
+    expect(createBuilderStarSummary({ teamIpCents: 0, ...base, growthPercent: 25 }).average).toBe(1);
+    expect(createBuilderStarSummary({ teamIpCents: 0, ...base, firstLegPercent: 0 }).average).toBe(1);
+    expect(createBuilderStarSummary({ teamIpCents: 0, ...base, activeDirects: 8 }).average).toBe(1);
+    expect(createBuilderStarSummary({ teamIpCents: 0, ...base, averageIpPerActiveWriterCents: 4_000_000 }).average).toBe(1);
+    expect(createBuilderStarSummary({ teamIpCents: 0, ...base, recruitsLicensed: 6 }).average).toBe(1);
 
-    expect(createBuilderStarSummary({
+    expect(createBuilderStarSummary({ teamIpCents: 0,
       growthPercent: 25,
       priorPeriodBaseline: 100,
       firstLegPercent: 0,
@@ -358,7 +358,7 @@ describe("period-aware cumulative scorecard ratings", () => {
 
   it("does not scale Builder percentage, snapshot, or monthly-normalized metrics", () => {
     for (const kind of ["monthly", "quarterly", "annual"] as const) {
-      expect(createBuilderStarSummary({
+      expect(createBuilderStarSummary({ teamIpCents: 0,
         periodKind: kind,
         growthPercent: 15,
         priorPeriodBaseline: 100,
@@ -369,7 +369,7 @@ describe("period-aware cumulative scorecard ratings", () => {
       }).ratings).toEqual({
         growth: 4,
         firstLegPercent: 3,
-        activeDirects: 4,
+        activeDirects: 5,
         averageIpPerActiveWriter: 2,
         recruitsLicensed: 1,
       });
@@ -383,7 +383,7 @@ describe("period-aware cumulative scorecard ratings", () => {
       trackingLoggedDays: 72,
       leadSpendCents: 3_000_000,
     })).toEqual({ ratings: { issuedIp: 5, trackingConsistency: 5, leadSpend: 5 }, overall: 5 });
-    expect(createBuilderStarSummary({
+    expect(createBuilderStarSummary({ teamIpCents: 0,
       periodKind: "quarterly",
       growthPercent: 25,
       priorPeriodBaseline: 100,

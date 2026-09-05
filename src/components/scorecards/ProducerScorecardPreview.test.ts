@@ -145,7 +145,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain('aria-label="Toggle How You&#x27;re Scored"');
     expect(html).toContain('class="scorecard-guide__chevron');
     expect(html).toContain('aria-label="Three Producer scorecard areas"');
-    expect(html).toContain("Producer ratings use three fixed period-aware performance bands, not organization rank or percentile.");
+    expect(html).toContain("We use a weighted score across these metrics");
     expect(html).toContain('aria-label="Personal IP star bands"');
     expect(html).toContain('aria-label="Tracking star bands"');
     expect(html).toContain('aria-label="Lead Spend star bands"');
@@ -158,10 +158,11 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain('data-star="hollow"');
     expect(html).toContain('data-star="filled"');
     expect(html).not.toContain("0★ &lt; $5k · 1★ $5k–&lt;$15k");
-    expect(html).toContain("Overall rating = 50% Personal IP + 25% Tracking + 25% Lead Spend.");
-    expect(html).toContain("Tracking counts unique logged days from Monday through Saturday. Sunday logs never increase the rating.");
-    expect(html).toContain("Scored metrics affect your rating. Unscored metrics are still useful context, but they do not change your stars.");
-    expect(html).toContain("Numbers don&#x27;t lie. If you don&#x27;t like your score, do something about it.");
+    expect(html).toContain("50% of your overall score being attributed to Personal IP");
+    expect(html).not.toContain("Mon–Sat logged days only · Sundays never count");
+    expect(html).toContain("We also include on here metrics that may be useful for you to see");
+    expect(html).toContain("it simply means you got some work to do");
+    expect(html).toContain("Report a Bug");
     expect(html).not.toContain("Bottom 20% of producers");
     expect(html).not.toContain("Top 20% of producers");
     expect(html).not.toContain("21st–40th percentile");
@@ -278,7 +279,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("Tracking Consistency: 0 out of 5 stars");
     expect(html).toContain("Mon–Sat logged days in this period · Sundays are not scored");
     expect(html.match(/>Unavailable<\/p>/g)).toHaveLength(5);
-    expect(html).toContain("break-words text-[clamp(1.4rem,2vw,1.75rem)] leading-tight");
+    expect(html).toContain("scorecard-metric__value--unavailable");
     expect(html).toContain("relative z-10 mb-5 flex justify-end gap-2 sm:absolute");
     expect(html).not.toContain("Schedule Needed");
     expect(html).not.toContain("set a schedule to measure consistency");

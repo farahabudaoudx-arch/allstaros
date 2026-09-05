@@ -167,7 +167,7 @@ function expectedGrowth(current: number, prior: number | null) {
   if (prior == null) return null;
   if (prior === 0) return current > 0 ? 100 : 0;
   if (current === 0) return -100;
-  return Math.round(((current - prior) / prior) * 1_000) / 10;
+  return ((current - prior) / prior) * 100;
 }
 
 function equals(left: unknown, right: unknown) {
@@ -490,11 +490,11 @@ function independentProducerLeadSpendStars(value: unknown, factor: 1 | 3 | 12) {
 
 function independentBuilderGrowthStars(value: unknown, prior: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-  if (typeof prior !== "number" || !Number.isFinite(prior) || prior <= 0 || value <= 0) return 0;
-  if (value < 5) return 1;
-  if (value < 10) return 2;
-  if (value < 15) return 3;
-  if (value < 25) return 4;
+  if (typeof prior !== "number" || !Number.isFinite(prior) || prior <= 0 || value < 0) return 0;
+  if (value < 4) return 1;
+  if (value < 8) return 2;
+  if (value < 12) return 3;
+  if (value < 16) return 4;
   return 5;
 }
 
@@ -508,13 +508,12 @@ function independentBuilderFirstLegStars(value: unknown) {
   return 0;
 }
 
-function independentBuilderActiveDirectsStars(value: unknown) {
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) return 0;
-  if (value === 1) return 1;
-  if (value === 2) return 2;
-  if (value <= 4) return 3;
-  if (value <= 7) return 4;
-  return 5;
+function independentBuilderActiveDirectsStars(value: unknown, teamIp: number, factor: number) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || !Number.isFinite(teamIp) || teamIp < 0) return 0;
+  const monthly = teamIp / factor;
+  const thresholds = [15_000_000, 30_000_000, 60_000_000, 100_000_000, 150_000_000];
+  const tier = thresholds.filter(limit => monthly > limit).length;
+  return Math.max(0, Math.min(5, value - tier * 4));
 }
 
 function independentBuilderRecruitsStars(value: unknown, factor: 1 | 3 | 12) {
@@ -630,7 +629,7 @@ export function verifyPublishedScorecardArtifacts(
     const ratings = {
       growth: independentBuilderGrowthStars(source.growth.percentage, source.growth.priorTeamIpCents),
       firstLegPercent: independentBuilderFirstLegStars(source.firstLegPercent),
-      activeDirects: independentBuilderActiveDirectsStars(source.activeWriters),
+      activeDirects: independentBuilderActiveDirectsStars(source.activeWriters, source.teamIpCents, factor),
       averageIpPerActiveWriter: independentProducerIpStars(source.averageMonthlyIpPerWriterCents, 1),
       recruitsLicensed: independentBuilderRecruitsStars(source.recruitsAdded, factor),
     };

@@ -268,7 +268,7 @@ function growthPercentage(current: number, prior: number | null) {
   if (prior == null) return null;
   if (prior === 0) return current === 0 ? 0 : 100;
   if (current === 0) return -100;
-  return Math.round(((current - prior) / prior) * 1_000) / 10;
+  return ((current - prior) / prior) * 100;
 }
 
 function competitionRanks(values: Array<{ personId: string; value: number }>) {

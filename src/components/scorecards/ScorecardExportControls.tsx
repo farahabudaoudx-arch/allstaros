@@ -92,7 +92,7 @@ function applyBaseballCardExportLayout(
   }
 }
 
-function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
+export function DownloadGlyph({ format }: { format: ScorecardExportFormat }) {
   const portrait = format === "portrait";
 
   return (
@@ -279,17 +279,18 @@ async function renderSectionPng(
     .scorecard-export-stage .organization-card-label { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
     .scorecard-export-stage .organization-card-value { font-size: ${format === "portrait" ? "34px" : "32px"} !important; }
     .scorecard-export-stage .organization-card-rank { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
-    .scorecard-export-stage .producer-numbers-grid {
-      display: flex !important;
-      flex-wrap: wrap !important;
-      justify-content: center !important;
+    .scorecard-export-stage .scorecard-metrics--scored {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
-    .scorecard-export-stage .producer-number-card {
-      width: ${format === "portrait" ? "calc(50% - 6px)" : "calc(25% - 9px)"} !important;
-      text-align: left !important;
+    .scorecard-export-stage .scorecard-metrics--unscored {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) !important;
     }
-    .scorecard-export-stage .producer-number-card__label { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
-    .scorecard-export-stage .producer-number-card__value { font-size: ${format === "portrait" ? "40px" : "36px"} !important; }
+    .scorecard-export-stage .producer-number-card { width: 100% !important; text-align: left !important; }
+    .scorecard-export-stage .producer-number-card__label { font-size: 26px !important; }
+    .scorecard-export-stage .producer-number-card__value { font-size: 60px !important; }
+    .scorecard-export-stage .scorecard-metrics--unscored .producer-number-card__value { font-size: 44px !important; }
     .scorecard-export-stage .producer-number-card__percentile,
     .scorecard-export-stage .tracking-percentile { font-size: ${format === "portrait" ? "22px" : "20px"} !important; }
     .scorecard-export-stage .activity-story-lines {
@@ -333,28 +334,7 @@ async function renderSectionPng(
     ${sectionId === "scorecard-section-02" ? `
       .scorecard-export-stage .organization-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
     ` : ""}
-    ${isBaseballCardExport ? `
-      .scorecard-export-stage .producer-baseball-card__front > span,
-      .scorecard-export-stage .producer-baseball-card__back > span {
-        margin: ${format === "portrait" ? "12px" : "9px"} !important;
-      }
-      .scorecard-export-stage .producer-baseball-card__front span.absolute.inset-x-0.bottom-0 > img {
-        height: ${format === "portrait" ? "48px" : "38px"} !important;
-      }
-      .scorecard-export-stage .producer-baseball-card__front span.absolute.inset-x-0.bottom-0 > span:nth-of-type(1) {
-        font-size: ${format === "portrait" ? "36px" : "28px"} !important;
-      }
-      .scorecard-export-stage .producer-baseball-card__front span.absolute.inset-x-0.bottom-0 > span:nth-of-type(2) {
-        font-size: ${format === "portrait" ? "18px" : "15px"} !important;
-      }
-      .scorecard-export-stage .producer-baseball-card__back > span > span:nth-child(2) > span:first-child {
-        font-size: ${format === "portrait" ? "82px" : "64px"} !important;
-      }
-      .scorecard-export-stage .producer-baseball-card__back > span > span:nth-child(3) > span {
-        padding-top: ${format === "portrait" ? "14px" : "11px"} !important;
-        padding-bottom: ${format === "portrait" ? "14px" : "11px"} !important;
-      }
-    ` : ""}
+
   `;
   artboard.append(clone);
   if (!isBaseballCardExport) artboard.append(attribution);

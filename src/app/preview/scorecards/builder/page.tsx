@@ -1,3 +1,5 @@
+import mayaFixture from "@/lib/scorecards/fixtures/maya-builder-demo.json";
+import type { BuilderScorecardView } from "@/components/scorecards/BuilderScorecardPreview";
 import { notFound } from "next/navigation";
 import { BuilderScorecardPreview } from "@/components/scorecards/BuilderScorecardPreview";
 import { loadLiveBuilderView } from "../_builder-data";
@@ -13,7 +15,9 @@ export default async function BuilderScorecardVisualPreviewPage({
 
   const params = await searchParams;
   const source = typeof params.source === "string" ? params.source : "fixture";
-  const view = source === "live"
+  const view: BuilderScorecardView = params.member === "maya"
+    ? { member: mayaFixture.member, period: { kind: "monthly", label: mayaFixture.period.label, previousLabel: mayaFixture.period.previous.label }, metric: mayaFixture.metricPayload as BuilderScorecardView["metric"] }
+    : source === "live"
     ? await loadLiveBuilderView()
     : deterministicBuilderScorecardView({
         longName: params.name === "long",

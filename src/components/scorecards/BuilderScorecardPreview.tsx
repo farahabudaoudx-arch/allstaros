@@ -1,3 +1,4 @@
+import { ScorecardStars } from "./ScorecardStars";
 import type { BuilderPeriodMetric, ScorecardPeriodKind } from "@/lib/scorecards/run";
 import type {
   BuilderAgencyPerformance,
@@ -6,6 +7,8 @@ import type {
 } from "@/lib/scorecards/builder-performance";
 import {
   createBuilderStarSummary,
+  ACTIVE_DIRECT_IP_TIERS,
+  builderGrowthPercent,
   type BuilderStarRatings,
   type BuilderStarSummary,
 } from "@/lib/scorecards/ratings";
@@ -17,6 +20,7 @@ import {
   StorySection,
   builderScorecardAreas,
 } from "./ProducerScorecardPreview";
+import { DownloadGlyph } from "./ScorecardExportControls";
 import { ScorecardBaseballCard } from "./ProducerBaseballCard";
 
 export type BuilderScorecardView = {
@@ -71,6 +75,24 @@ const BUILDER_UNSCORED_METRICS: ReadonlyArray<{
   { key: "teamIp", label: "Total Team IP" },
 ];
 
+function ActiveDirectsChart() {
+  const columns = ACTIVE_DIRECT_IP_TIERS.map(tier => tier.label);
+  const rows = [5, 4, 3, 2, 1].map(stars => [
+    `${stars} Star`, ...ACTIVE_DIRECT_IP_TIERS.map(tier => `${tier.firstStar + stars - 1}${stars === 5 ? "+" : ""}`),
+  ]);
+  return (
+    <li className="scorecard-band-panel min-w-0 rounded-xl p-5 sm:p-7">
+      <div className="flex items-center justify-between gap-4"><h4 className="font-semibold text-ink"># Of Active Directs</h4><span className="text-sm text-accent">20%</span></div>
+      <div className="mt-6 overflow-x-auto" tabIndex={0} role="region" aria-label="Active Directs rating chart">
+        <table className="builder-directs-table">
+          <thead><tr><th scope="col"><span className="sr-only">Rating</span></th>{columns.map(column => <th key={column} scope="col"><span className="builder-directs-range">{column}</span><span className="builder-directs-unit">IP</span></th>)}</tr></thead>
+          <tbody>{rows.map(([rating, ...values]) => <tr key={rating}><th scope="row" aria-label={rating}><ScorecardStars value={Number.parseInt(rating, 10)} decorative /></th>{values.map((value, index) => <td key={index}>{value}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
+    </li>
+  );
+}
+
 function BuilderScorecardHowItWorks({ periodKind }: { periodKind: ScorecardPeriodKind }) {
   const areas = builderScorecardAreas(periodKind);
   return (
@@ -99,30 +121,17 @@ function BuilderScorecardHowItWorks({ periodKind }: { periodKind: ScorecardPerio
         </summary>
 
         <div id="builder-scorecard-how-it-works-content" className="w-full">
-          <p className="scorecard-copy mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            Builder ratings use five fixed performance bands, not organization rank or percentile.
-          </p>
-
-          <p className="mt-6 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            Each of these five metrics contributes exactly 20% to your overall Builder rating:
-          </p>
-
-          <ul aria-label="Five Builder rating metrics" className="mt-7 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <ul aria-label="Five Builder rating metrics" className="mt-7 grid grid-cols-1 gap-6">
             {areas.map((area) => (
-              <StarBandLegend key={area.label} metric={area} />
+              area.label === "Active Directs" ? <ActiveDirectsChart key={area.label} /> : <StarBandLegend key={area.label} metric={area} />
             ))}
           </ul>
 
-          <div className="mt-9 max-w-4xl text-base leading-7 text-white sm:text-lg sm:leading-8">
-            <p>Overall rating = 20% Growth + 20% First Leg + 20% Active Directs + 20% Avg IP/Active Writer + 20% Recruits Licensed.</p>
-            <p className="mt-6">Lower First Leg % is better. Missing or unusable rating inputs score 0 stars.</p>
-            <p className="mt-6">Scored metrics affect your rating. Unscored metrics are still useful team context, but they do not change your stars.</p>
-            <p className="mt-6">
-              You can download 9:16 or 16:9 screenshots of each section to post online.
-            </p>
-            <p className="mt-6 font-semibold text-white">
-              If you are not proud to post your numbers online, chances are you should get to work. Numbers don&apos;t lie. If you don&apos;t like your score, do something about it!
-            </p>
+          <div className="mt-14 max-w-4xl space-y-9 text-base leading-7 text-white sm:mt-16 sm:space-y-10 sm:text-lg sm:leading-8">
+            <p>We use a weighted score across these metrics with 20% of your overall score being attributed to your team&apos;s growth percentage, your first leg percentage (Lower is better), your number of active directs, your average issue premium per active writer, and the number of recruits you got licensed during this {periodKind === "monthly" ? "monthly period" : "period"}.</p>
+            <p>We also include on here metrics that may be useful for you to see, but aren&apos;t what we use to create your scorecard rating.</p>
+            <p>You can download 9:16 or 16:9 screenshots of each section of the scorecard to post online by clicking the <span className="scorecard-inline-icon" role="img" aria-label="portrait download"><DownloadGlyph format="portrait" /></span> or <span className="scorecard-inline-icon" role="img" aria-label="landscape download"><DownloadGlyph format="landscape" /></span> button in the top right.</p>
+            <p>Something to keep in mind is that numbers don&apos;t lie! If you don&apos;t like your score, it simply means you got some work to do. If you believe we made an error and the numbers aren&apos;t accurate, tap the &quot;Report a Bug&quot; button in the bottom left.</p>
           </div>
         </div>
       </details>
@@ -151,7 +160,7 @@ function scoredMetricValue(
   key: (typeof BUILDER_SCORED_METRICS)[number]["key"],
   metric: BuilderScorecardMetric,
 ): number | null {
-  if (key === "growth") return metric.growth.percentage;
+  if (key === "growth") return builderGrowthPercent(metric.teamIpCents, metric.growth.priorTeamIpCents);
   if (key === "recruits") return metric.recruitsAdded;
   if (key === "activeWriters") return metric.activeWriters;
   if (key === "firstLegPercent") return metric.firstLegPercent;
@@ -166,16 +175,16 @@ function BuilderScoredMetricsGrid({
   ratings: BuilderStarRatings;
 }) {
   return (
-    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label="Builder scored metrics">
+    <div className="producer-numbers-grid builder-metrics-grid builder-metrics-grid--scored" role="list" aria-label="Builder scored metrics">
       {BUILDER_SCORED_METRICS.map((item) => {
         const rating = ratings[item.ratingKey];
         return (
-          <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 md:w-[calc(33.333%-0.5rem)]" role="listitem">
+          <div key={item.key} className="producer-number-card builder-metric-card rounded-xl border border-hairline bg-card px-5 py-5" role="listitem">
             <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
-            <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">
+            <p className="producer-number-card__value builder-metric-value mt-3 font-semibold leading-none tabular-nums text-ink">
               {metricValue(item.key, scoredMetricValue(item.key, metric))}
             </p>
-            <p className="mt-4"><StarScale value={rating} label={item.ratingLabel} /></p>
+            <p className="builder-metric-stars"><StarScale value={rating} label={item.ratingLabel} /></p>
           </div>
         );
       })}
@@ -189,11 +198,11 @@ function BuilderUnscoredMetricsGrid({
   performance: BuilderAgencyPerformance;
 }) {
   return (
-    <div className="producer-numbers-grid flex flex-wrap justify-center gap-3" role="list" aria-label="Builder unscored metrics">
+    <div className="producer-numbers-grid builder-metrics-grid builder-metrics-grid--unscored" role="list" aria-label="Builder unscored metrics">
       {BUILDER_UNSCORED_METRICS.map((item) => (
-        <div key={item.key} className="producer-number-card w-full shrink-0 rounded-xl border border-hairline bg-card px-5 py-5 md:w-[calc(33.333%-0.5rem)]" role="listitem">
+        <div key={item.key} className="producer-number-card builder-metric-card rounded-xl border border-hairline bg-card px-5 py-5" role="listitem">
           <p className="producer-number-card__label text-sm text-subtle">{item.label}</p>
-          <p className="producer-number-card__value mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-none tabular-nums text-ink">
+          <p className="producer-number-card__value builder-metric-value mt-3 font-semibold leading-none tabular-nums text-ink">
             {metricValue(item.key, performance[item.key].value)}
           </p>
         </div>
@@ -214,6 +223,8 @@ export function BuilderScorecardPreview({
   // #017 scales only cumulative targets; snapshot/rate/monthly-normalized metrics stay fixed.
   const summary = frozenScore ?? createBuilderStarSummary({
     growthPercent: view.metric.growth.percentage,
+      teamIpCents: view.metric.teamIpCents,
+      currentTeamIpCents: view.metric.teamIpCents,
     priorPeriodBaseline: view.metric.growth.priorTeamIpCents,
     firstLegPercent: view.metric.firstLegPercent,
     activeDirects: view.metric.activeWriters,
@@ -260,11 +271,11 @@ export function BuilderScorecardPreview({
           totalRating={summary.total}
           maximumRatingTotal={25}
           ratings={[
-            { label: "Growth %", value: ratings.growth },
-            { label: "First Leg %", value: ratings.firstLegPercent },
-            { label: "Active Directs", value: ratings.activeDirects },
-            { label: "Avg IP / Active Writer", value: ratings.averageIpPerActiveWriter },
-            { label: "Recruits Licensed", value: ratings.recruitsLicensed },
+            { label: "Growth %", value: ratings.growth, metricValue: percent(builderGrowthPercent(view.metric.teamIpCents, view.metric.growth.priorTeamIpCents)) },
+            { label: "First Leg %", value: ratings.firstLegPercent, metricValue: metricValue("firstLegPercent", view.metric.firstLegPercent) },
+            { label: "Active Directs", value: ratings.activeDirects, metricValue: metricValue("activeWriters", view.metric.activeWriters) },
+            { label: "Avg IP / Active Writer", value: ratings.averageIpPerActiveWriter, metricValue: metricValue("averageIpPerWriter", view.metric.averageMonthlyIpPerWriterCents) },
+            { label: "Recruits Licensed", value: ratings.recruitsLicensed, metricValue: metricValue("recruits", view.metric.recruitsAdded) },
           ]}
         />
       </StorySection>
