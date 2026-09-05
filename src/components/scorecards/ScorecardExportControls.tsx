@@ -16,6 +16,38 @@ type ScorecardExportMetadata = {
   periodLabel: string;
 };
 
+// Measure the final export layout, after its fonts load. Currency values must
+// remain intact even when a three-column card is narrower than the live page.
+function fitExportNumbers(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>(
+    ".producer-number-card__value, .organization-card-value, .growth-value",
+  ).forEach((element) => {
+    element.style.setProperty("white-space", "nowrap", "important");
+    element.style.setProperty("min-width", "0", "important");
+    const style = getComputedStyle(element);
+    // Range measurements include the landscape export's scale transform.
+    const scale = element.offsetWidth > 0 ? element.getBoundingClientRect().width / element.offsetWidth : 1;
+    const available = (element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) * scale;
+    if (available <= 0) return;
+
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    let low = 0;
+    let high = parseFloat(style.fontSize);
+    if (range.getBoundingClientRect().width <= available) return;
+
+    // A binary search also handles proportional fonts and letter spacing;
+    // character counts cannot reliably predict the width of a currency value.
+    for (let step = 0; step < 16; step += 1) {
+      const size = (low + high) / 2;
+      element.style.setProperty("font-size", `${size}px`, "important");
+      if (range.getBoundingClientRect().width <= available) low = size;
+      else high = size;
+    }
+    element.style.setProperty("font-size", `${low}px`, "important");
+  });
+}
+
 function applyBaseballCardExportLayout(
   clone: HTMLElement,
   content: HTMLElement,
@@ -345,6 +377,7 @@ async function renderSectionPng(
   try {
     await document.fonts.ready;
     await waitForExportImages(artboard);
+    fitExportNumbers(artboard);
     const blob = await toBlob(artboard, {
       width,
       height,
