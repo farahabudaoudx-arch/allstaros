@@ -149,4 +149,12 @@ export class GatewayBackendClient {
       body: { state, sessionRef },
     });
   }
+
+  failConnect(state, error = "gateway_connect_failed", signal) {
+    return this.request("/api/gateway/connect/fail", {
+      token: this.config.connectToken,
+      signal,
+      body: { state, error },
+    });
+  }
 }

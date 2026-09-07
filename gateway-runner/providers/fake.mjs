@@ -14,9 +14,32 @@ function monthEndFor(day) {
 }
 
 export function createProvider(options = {}) {
+  const env = options.env ?? process.env;
+  const connectDelayMs = Number(env.GATEWAY_RUNNER_FAKE_CONNECT_DELAY_MS ?? options.connectDelayMs ?? 0);
+  const connectFails = env.GATEWAY_RUNNER_FAKE_CONNECT_FAIL === "true" || options.connectFails === true;
+  const delay = (ms, signal) => new Promise((resolve, reject) => {
+    if (!ms) return resolve();
+    if (signal?.aborted) return reject(signal.reason ?? new Error("Aborted"));
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason ?? new Error("Aborted"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
   return {
-    async connectInteractive() {
-      return { session: { id: options.sessionId ?? "fake-session", alive: true }, verificationWasRequired: false };
+    async connectInteractive({ signal, surface } = {}) {
+      try {
+        await surface?.attach({
+          captureFrame: async () => Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+          handleInput: async () => undefined,
+        });
+        await delay(Number.isFinite(connectDelayMs) ? Math.max(0, connectDelayMs) : 0, signal);
+        if (connectFails) throw new Error("Synthetic Gateway connection failure.");
+        return { session: { id: options.sessionId ?? "fake-session", alive: true }, verificationWasRequired: false };
+      } finally {
+        surface?.detach?.();
+      }
     },
     async validateSession(session) {
       return session?.alive !== false;

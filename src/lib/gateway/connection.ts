@@ -1,5 +1,6 @@
-﻿import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { gatewayConnectSignature } from "./connect-auth";
 import {
   EMPTY_GATEWAY_CONNECTION_STATE,
   UNAVAILABLE_GATEWAY_CONNECTION_STATE,
@@ -217,9 +218,23 @@ export function gatewayHostedConnectUrl(args: {
   baseUrl: string;
   state: string;
   callbackUrl: string;
+  expiresAt: string;
+  connectToken: string;
 }) {
+  if (!args.connectToken?.trim()) throw new Error("Gateway hosted connector signing is not configured.");
+  const callbackUrl = new URL(args.callbackUrl).toString();
+  const expiresAt = new Date(args.expiresAt);
+  if (Number.isNaN(expiresAt.getTime())) throw new Error("Gateway hosted connector expiry is invalid.");
+  const signature = gatewayConnectSignature({
+    connectToken: args.connectToken,
+    state: args.state,
+    callbackUrl,
+    expiresAt: expiresAt.toISOString(),
+  });
   const url = new URL(args.baseUrl);
   url.searchParams.set("state", args.state);
-  url.searchParams.set("callback_url", args.callbackUrl);
+  url.searchParams.set("callback_url", callbackUrl);
+  url.searchParams.set("expires_at", expiresAt.toISOString());
+  url.searchParams.set("sig", signature);
   return url.toString();
 }

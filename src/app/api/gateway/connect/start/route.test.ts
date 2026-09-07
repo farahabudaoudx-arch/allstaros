@@ -19,6 +19,7 @@ import { POST } from "./route";
 
 describe("Gateway connection start route", () => {
   const originalHosted = process.env.GATEWAY_HOSTED_CONNECT_URL;
+  const originalConnectToken = process.env.GATEWAY_AGENT_CONNECT_TOKEN;
 
   beforeEach(() => {
     mocks.currentPerson.mockReset();
@@ -36,11 +37,14 @@ describe("Gateway connection start route", () => {
       state: "state-1",
       expiresAt: "2099-01-01T00:00:00.000Z",
     });
+    process.env.GATEWAY_AGENT_CONNECT_TOKEN = "connect-token";
   });
 
   afterEach(() => {
     if (originalHosted === undefined) delete process.env.GATEWAY_HOSTED_CONNECT_URL;
     else process.env.GATEWAY_HOSTED_CONNECT_URL = originalHosted;
+    if (originalConnectToken === undefined) delete process.env.GATEWAY_AGENT_CONNECT_TOKEN;
+    else process.env.GATEWAY_AGENT_CONNECT_TOKEN = originalConnectToken;
     vi.restoreAllMocks();
   });
 
@@ -58,6 +62,8 @@ describe("Gateway connection start route", () => {
       baseUrl: "https://gateway-runner.example.test/connect",
       state: "state-1",
       callbackUrl: "https://app.example.test/api/gateway/connect/callback",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      connectToken: "connect-token",
     });
   });
 

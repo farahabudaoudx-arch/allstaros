@@ -46,10 +46,12 @@ export function loadRunnerConfig(env = process.env) {
     listenHost: env.GATEWAY_RUNNER_HOST?.trim() || "127.0.0.1",
     listenPort: integer(env, "GATEWAY_RUNNER_PORT", 8788, 1, 65535),
     workerConcurrency: integer(env, "GATEWAY_RUNNER_CONCURRENCY", 4, 1, 4),
+    connectConcurrency: integer(env, "GATEWAY_RUNNER_CONNECT_CONCURRENCY", 2, 1, 4),
     leaseSeconds: integer(env, "GATEWAY_RUNNER_LEASE_SECONDS", 900, 60, 3600),
     pollIntervalMs: integer(env, "GATEWAY_RUNNER_POLL_INTERVAL_MS", 10_000, testMode ? 50 : 1_000, 3_600_000),
     requestTimeoutMs: integer(env, "GATEWAY_RUNNER_REQUEST_TIMEOUT_MS", 30_000, 1_000, 300_000),
     providerTimeoutMs: integer(env, "GATEWAY_RUNNER_PROVIDER_TIMEOUT_MS", 120_000, 5_000, 900_000),
+    connectTimeoutMs: integer(env, "GATEWAY_RUNNER_CONNECT_TIMEOUT_MS", 600_000, 60_000, 900_000),
     requestRetries: integer(env, "GATEWAY_RUNNER_REQUEST_RETRIES", 3, 0, 5),
     testMode,
   };

@@ -693,6 +693,61 @@ function validSession(session) {
   return session?.version === 1 && session.storageState && Array.isArray(session.storageState.cookies);
 }
 
+const HOSTED_KEYS = new Set([
+  "Enter",
+  "Tab",
+  "Backspace",
+  "Delete",
+  "Escape",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+]);
+
+function hostedBrowserController(page) {
+  return {
+    async captureFrame() {
+      if (page.isClosed()) throw new GatewayTransientError("Gateway hosted browser page is closed.");
+      return page.screenshot({ type: "jpeg", quality: 72 });
+    },
+    async handleInput(action) {
+      if (!action || typeof action !== "object" || page.isClosed()) throw new Error("Invalid hosted browser input.");
+      if (action.type === "click") {
+        const x = Number(action.x);
+        const y = Number(action.y);
+        const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+        if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > viewport.width || y > viewport.height) {
+          throw new Error("Invalid hosted browser click coordinates.");
+        }
+        await page.mouse.click(x, y);
+        return;
+      }
+      if (action.type === "text") {
+        if (typeof action.text !== "string" || action.text.length < 1 || action.text.length > 2048) {
+          throw new Error("Invalid hosted browser text input.");
+        }
+        await page.keyboard.insertText(action.text);
+        return;
+      }
+      if (action.type === "key") {
+        if (typeof action.key !== "string" || !HOSTED_KEYS.has(action.key)) throw new Error("Invalid hosted browser key input.");
+        await page.keyboard.press(action.key);
+        return;
+      }
+      if (action.type === "scroll") {
+        const deltaY = Number(action.deltaY);
+        if (!Number.isFinite(deltaY)) throw new Error("Invalid hosted browser scroll input.");
+        await page.mouse.wheel(0, Math.max(-1200, Math.min(1200, deltaY)));
+        return;
+      }
+      throw new Error("Unsupported hosted browser input.");
+    },
+  };
+}
+
 export function createProvider(options = {}) {
   const env = options.env ?? process.env;
   const config = providerConfig(env);
@@ -701,23 +756,28 @@ export function createProvider(options = {}) {
     ? withLegacyProfileBrowser(config, signal, action)
     : withBrowser(config, { storageState, headless, signal }, action);
   return {
-    async connectInteractive({ signal } = {}) {
+    async connectInteractive({ signal, surface } = {}) {
       return runBrowser({ headless: false, signal }, async ({ context, page }) => {
-        let verificationWasRequired;
         try {
-          verificationWasRequired = await waitForInteractiveLogin(page, config, signal, credentials);
-        } catch (error) {
-          if (error instanceof GatewaySessionExpiredError || error instanceof GatewayTransientError) throw error;
-          throw new GatewayTransientError("Gateway interactive sign-in failed before session capture.");
+          await surface?.attach(hostedBrowserController(page));
+          let verificationWasRequired;
+          try {
+            verificationWasRequired = await waitForInteractiveLogin(page, config, signal, credentials);
+          } catch (error) {
+            if (error instanceof GatewaySessionExpiredError || error instanceof GatewayTransientError) throw error;
+            throw new GatewayTransientError("Gateway interactive sign-in failed before session capture.");
+          }
+          try {
+            await openGatewayIpReport(page, config);
+          } catch (error) {
+            if (error instanceof GatewaySessionExpiredError || error instanceof GatewayTransientError) throw error;
+            throw new GatewayTransientError("Gateway IP Report verification failed after sign-in.");
+          }
+          const storageState = await context.storageState();
+          return { session: { version: 1, storageState }, verificationWasRequired };
+        } finally {
+          surface?.detach?.();
         }
-        try {
-          await openGatewayIpReport(page, config);
-        } catch (error) {
-          if (error instanceof GatewaySessionExpiredError || error instanceof GatewayTransientError) throw error;
-          throw new GatewayTransientError("Gateway IP Report verification failed after sign-in.");
-        }
-        const storageState = await context.storageState();
-        return { session: { version: 1, storageState }, verificationWasRequired };
       });
     },
 
@@ -790,4 +850,5 @@ export const __test = {
   periodUrl,
   providerConfig,
   workbookToGatewayCsv,
+  hostedBrowserController,
 };

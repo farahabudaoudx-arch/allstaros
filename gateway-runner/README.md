@@ -4,13 +4,13 @@ This directory is the external runner boundary required by Tickets #005/#007. It
 
 ## Production boundary
 
-`server.mjs` exposes `/connect` for the existing `GATEWAY_HOSTED_CONNECT_URL` redirect and runs a bounded report-worker pool. A provider plug-in performs the actual Gateway interaction. The provider is responsible for requesting/handling 2FA **only when Gateway presents a verification challenge** and for returning explicit report coverage metadata from Gateway rather than guessing it from acquisition dates or labels.
+`server.mjs` exposes `/connect` for the existing `GATEWAY_HOSTED_CONNECT_URL` redirect and runs a bounded report-worker pool. `/connect` accepts only the application's short-lived HMAC-signed connection URL, then serves a token-protected hosted viewport that relays screenshots plus bounded keyboard/mouse events to the active Chrome page. A provider plug-in performs the actual Gateway interaction. The provider is responsible for requesting/handling 2FA **only when Gateway presents a verification challenge** and for returning explicit report coverage metadata from Gateway rather than guessing it from acquisition dates or labels.
 
-`providers/gateway.mjs` is the real Mac/Chrome provider derived from the inspected Gateway flow. The production-default path opens an isolated system-Chrome context for each personal connection, waits for the member to complete Gateway sign-in and any Gateway-requested OTP, exchanges that authenticated dashboard session for the IP Report session, then stores only Playwright storage state inside the runner's encrypted session envelope. The included fake provider remains test-only and the runner refuses to load it unless `GATEWAY_RUNNER_TEST_MODE=true`.
+`providers/gateway.mjs` is the real Mac/Chrome provider derived from the inspected Gateway flow. The production-default path opens an isolated system-Chrome context for each personal connection, attaches it to the hosted viewport, waits for the member to complete Gateway sign-in and any Gateway-requested OTP, exchanges that authenticated dashboard session for the IP Report session, then stores only Playwright storage state inside the runner's encrypted session envelope. The included fake provider remains test-only and the runner refuses to load it unless `GATEWAY_RUNNER_TEST_MODE=true`.
 
 The inspected Mac also has an **acceptance-only legacy-profile compatibility mode**. When `GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR` is set explicitly, the provider launches the host's established Chrome profile with a bounded local CDP port and reuses its existing Gateway/Cloudflare browser state for operator-controlled acceptance. Only in that explicit mode may the provider consume the legacy host's `GATEWAY_LOGIN_EMAIL` / `GATEWAY_LOGIN_PASSWORD` environment values for autofill; they are never serialized into the session envelope, logged, or returned to All Star OS. This compatibility path is not the production personal-login design and must not be used to represent multiple members with one global Gateway identity.
 
-The real provider does **not** implement remote browser streaming. Its interactive Chrome window appears on the runner host. That is sufficient for the inspected Rent-a-Mac acceptance host and for an operator-controlled hosted-browser surface, but it is not by itself a finished internet-facing personal-login UX for members on unrelated devices. Do not claim production personal-login acceptance until the chosen hosted-browser surface lets the connecting member actually interact with that Chrome session.
+The runner does not expose the Mac desktop or a general-purpose browser. The hosted surface is scoped to the one signed Gateway connection attempt, requires a per-session bearer token for frame/input/status endpoints, expires with the connection request, and relays only the active Gateway page. Credentials and verification codes are transient input events and are not written to the application database, session envelope, or runner files.
 
 ## Required environment
 
@@ -37,10 +37,12 @@ The provider uses the host's existing Chrome, so install dependencies without do
 Operational tuning:
 
 - `GATEWAY_RUNNER_CONCURRENCY` (default/max `4`)
+- `GATEWAY_RUNNER_CONNECT_CONCURRENCY` (default `2`, max `4`)
 - `GATEWAY_RUNNER_LEASE_SECONDS` (`60..3600`, default `900`)
 - `GATEWAY_RUNNER_POLL_INTERVAL_MS` (default `10000`; production minimum `1000`)
 - `GATEWAY_RUNNER_REQUEST_TIMEOUT_MS` (default `30000`)
 - `GATEWAY_RUNNER_PROVIDER_TIMEOUT_MS` (default `120000`)
+- `GATEWAY_RUNNER_CONNECT_TIMEOUT_MS` (default `600000`, max `900000`)
 - `GATEWAY_RUNNER_REQUEST_RETRIES` (default `3`)
 - `GATEWAY_RUNNER_HOST` / `GATEWAY_RUNNER_PORT`
 

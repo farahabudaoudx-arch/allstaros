@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
   }
 
   const hostedBase = process.env.GATEWAY_HOSTED_CONNECT_URL;
-  if (!hostedBase) {
+  const connectToken = process.env.GATEWAY_AGENT_CONNECT_TOKEN;
+  if (!hostedBase || !connectToken) {
     await failGatewayConnectRequest(attempt.state, "hosted_connector_unavailable");
     const target = new URL("/producer", request.url);
     target.searchParams.set("settings", "gateway");
@@ -37,7 +38,13 @@ export async function POST(request: NextRequest) {
   try {
     const callbackUrl = new URL("/api/gateway/connect/callback", request.url).toString();
     return NextResponse.redirect(
-      gatewayHostedConnectUrl({ baseUrl: hostedBase, state: attempt.state, callbackUrl }),
+      gatewayHostedConnectUrl({
+        baseUrl: hostedBase,
+        state: attempt.state,
+        callbackUrl,
+        expiresAt: attempt.expiresAt,
+        connectToken,
+      }),
       303,
     );
   } catch {
