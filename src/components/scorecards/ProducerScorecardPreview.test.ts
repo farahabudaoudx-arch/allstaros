@@ -179,7 +179,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toContain("average weekly IP");
     expect(html).toMatch(/aria-label="July 2026 scored producer metrics"[\s\S]*?>IP<[\s\S]*?>\$33,767<[\s\S]*?>Lead Spend<[\s\S]*?>\$0</);
     expect(html).toMatch(/aria-label="July 2026 unscored producer metrics"[\s\S]*?>AP<[\s\S]*?>\$30,948<[\s\S]*?>Dials<[\s\S]*?>443<[\s\S]*?>Contacts<[\s\S]*?>38<[\s\S]*?>Presentations<[\s\S]*?>13<[\s\S]*?>Submitted Sales<[\s\S]*?>11/);
-    expect(html).toContain("Mon–Sat logged days in this period · Sundays are not scored");
+    expect(html).toContain("Logged days in this period · all seven weekdays count");
     expect(html).toContain("Personal IP: 4 out of 5 stars");
     expect(html).toContain("Tracking: 3 out of 5 stars");
     expect(html).toContain("2.75 overall");
@@ -277,7 +277,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).toContain("Overall rating: 2 out of 5 stars");
     expect(html).toContain("2.00 weighted score");
     expect(html).toContain("Tracking Consistency: 0 out of 5 stars");
-    expect(html).toContain("Mon–Sat logged days in this period · Sundays are not scored");
+    expect(html).toContain("Logged days in this period · all seven weekdays count");
     expect(html.match(/>Unavailable<\/p>/g)).toHaveLength(5);
     expect(html).toContain("scorecard-metric__value--unavailable");
     expect(html).toContain("relative z-10 mb-5 flex justify-end gap-2 sm:absolute");
@@ -285,7 +285,7 @@ describe("Producer Scorecard preview", () => {
     expect(html).not.toContain("set a schedule to measure consistency");
   });
 
-  it("renders Sunday-only logs as unscored tracking activity", () => {
+  it("renders Sunday logs as ordinary scored tracking activity", () => {
     const preview = createMonthlyProducerPreview({
       producerId: "producer-sunday-only",
       periodStart: "2026-08-01",
@@ -316,9 +316,65 @@ describe("Producer Scorecard preview", () => {
     );
 
     expect(html).toContain("Tracking Consistency: 0 out of 5 stars");
-    expect(html).toContain("August 2: Logged — Sunday not scored");
-    expect(html).toContain("August 9: Logged — Sunday not scored");
+    expect(html).toContain("August 2: Logged");
+    expect(html).toContain("August 9: Logged");
+    expect(html).toContain("August 16: Did Not Log");
     expect(html).toContain("0.75 weighted score");
+  });
+
+  it("counts a qualifying Sunday once and promotes 23 tracked days to the 24-day five-star tier", () => {
+    const preview = createMonthlyProducerPreview({
+      producerId: "producer-sunday-threshold",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      periodLabel: "August 2026",
+      reportDates: [{ reportDate: "2026-08-31", label: "August Month End" }],
+      producerRows: [{ reportDate: "2026-08-31", personalIpCents: 500_000 }],
+      generatedAt: "2026-09-01T12:00:00.000Z",
+    });
+    const nonSundayDates: string[] = [];
+    for (let day = 1; day <= 31 && nonSundayDates.length < 23; day += 1) {
+      const date = `2026-08-${String(day).padStart(2, "0")}`;
+      if (new Date(`${date}T00:00:00Z`).getUTCDay() !== 0) nonSundayDates.push(date);
+    }
+    const activityRow = (entryDate: string) => ({
+      entryDate, leads: 0, dials: 0, contacts: 0, appointments: 0, presentations: 0, sales: 0,
+    });
+    const baseOverview = createProducerOverview({
+      fullName: "Sunday Threshold",
+      photoUrl: null,
+      submittedApCents: null,
+      leadSpendCents: 0,
+      currentIssuedIpCents: 500_000,
+      priorIssuedIpCents: null,
+      rank: { rank: null, population: 0, percentile: 0, movement: null },
+      organizationRanks: protectedFixture.expected.organizationRanks,
+      activityRows: nonSundayDates.map(activityRow),
+      expectedWorkingDates: null,
+    });
+    const withoutSunday = renderToStaticMarkup(createElement(ProducerScorecardPreview, {
+      preview, overview: baseOverview,
+    }));
+    expect(withoutSunday).toContain("Tracking Consistency: 4 out of 5 stars");
+    expect(withoutSunday).toContain("August 2: Did Not Log");
+
+    const withSundayOverview = createProducerOverview({
+      fullName: "Sunday Threshold",
+      photoUrl: null,
+      submittedApCents: null,
+      leadSpendCents: 0,
+      currentIssuedIpCents: 500_000,
+      priorIssuedIpCents: null,
+      rank: { rank: null, population: 0, percentile: 0, movement: null },
+      organizationRanks: protectedFixture.expected.organizationRanks,
+      activityRows: [...nonSundayDates, "2026-08-02", "2026-08-02"].map(activityRow),
+      expectedWorkingDates: null,
+    });
+    const withSunday = renderToStaticMarkup(createElement(ProducerScorecardPreview, {
+      preview, overview: withSundayOverview,
+    }));
+    expect(withSunday).toContain("Tracking Consistency: 5 out of 5 stars");
+    expect(withSunday).toContain("August 2: Logged");
   });
 
   it("uses a frozen published score instead of recalculating stars from the raw payload", () => {

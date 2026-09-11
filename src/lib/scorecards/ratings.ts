@@ -56,7 +56,6 @@ export function countProducerTrackingDays(loggedDates: Iterable<string> | null |
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) continue;
     const date = new Date(`${dateText}T00:00:00Z`);
     if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== dateText) continue;
-    if (date.getUTCDay() === 0) continue;
     counted.add(dateText);
   }
   return counted.size;
@@ -112,11 +111,11 @@ export function builderGrowthStars(value: unknown, priorPeriodBaseline: unknown)
 export function builderFirstLegStars(value: unknown): StarRating {
   const percent = validBuilderMetric(value);
   if (percent == null || percent > 100) return 0;
-  if (percent < 10) return 5;
-  if (percent < 20) return 4;
-  if (percent < 30) return 3;
-  if (percent < 40) return 2;
-  if (percent < 50) return 1;
+  if (percent < 30) return 5;
+  if (percent < 40) return 4;
+  if (percent < 50) return 3;
+  if (percent < 60) return 2;
+  if (percent < 70) return 1;
   return 0;
 }
 
@@ -147,7 +146,13 @@ export function builderGrowthPercent(current: unknown, prior: unknown): number |
 }
 
 export function builderAverageIpPerActiveWriterStars(value: unknown): StarRating {
-  return producerIssuedIpStars(value, "monthly");
+  const cents = validBuilderMetric(value);
+  if (cents == null || cents < 500_000) return 0;
+  if (cents < 750_000) return 1;
+  if (cents < 1_000_000) return 2;
+  if (cents < 1_250_000) return 3;
+  if (cents < 1_500_000) return 4;
+  return 5;
 }
 
 export function builderRecruitsLicensedStars(
@@ -160,7 +165,7 @@ export function builderRecruitsLicensedStars(
   if (recruits < scaleCumulativeThreshold(2, periodKind)) return 1;
   if (recruits < scaleCumulativeThreshold(3, periodKind)) return 2;
   if (recruits < scaleCumulativeThreshold(4, periodKind)) return 3;
-  if (recruits < scaleCumulativeThreshold(6, periodKind)) return 4;
+  if (recruits < scaleCumulativeThreshold(5, periodKind)) return 4;
   return 5;
 }
 

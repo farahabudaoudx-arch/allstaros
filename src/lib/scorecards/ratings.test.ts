@@ -69,16 +69,16 @@ describe("Producer Scorecard fixed star ratings", () => {
     ])).toBe(2);
   });
 
-  it("scores Sunday-only tracking logs as zero days", () => {
+  it("counts Sunday-only tracking logs like every other weekday", () => {
     expect(countProducerTrackingDays([
       "2026-08-02",
       "2026-08-09",
       "2026-08-16",
       "2026-08-23",
-    ])).toBe(0);
+    ])).toBe(4);
   });
 
-  it("ignores Sundays while retaining valid Mon–Sat logs", () => {
+  it("counts Sundays, deduplicates dates, and ignores invalid dates", () => {
     expect(countProducerTrackingDays([
       "2026-08-01",
       "2026-08-02",
@@ -86,7 +86,21 @@ describe("Producer Scorecard fixed star ratings", () => {
       "2026-08-09",
       "2026-08-03",
       "not-a-date",
-    ])).toBe(2);
+    ])).toBe(4);
+  });
+
+  it("moves from 23 tracked days / 4 stars to 24 / 5 stars when a Sunday log is added", () => {
+    const nonSundayDates: string[] = [];
+    for (let day = 1; day <= 31 && nonSundayDates.length < 23; day += 1) {
+      const date = `2026-08-${String(day).padStart(2, "0")}`;
+      if (new Date(`${date}T00:00:00Z`).getUTCDay() !== 0) nonSundayDates.push(date);
+    }
+    expect(countProducerTrackingDays(nonSundayDates)).toBe(23);
+    expect(producerTrackingStars(countProducerTrackingDays(nonSundayDates))).toBe(4);
+
+    const withSunday = [...nonSundayDates, "2026-08-02"];
+    expect(countProducerTrackingDays(withSunday)).toBe(24);
+    expect(producerTrackingStars(countProducerTrackingDays(withSunday))).toBe(5);
   });
 
   it("treats missing tracking-date collections as zero days", () => {
@@ -152,15 +166,15 @@ describe("Builder Scorecard fixed star ratings", () => {
   );
 
   it.each([
-    [0, 5], [9.999, 5], [10, 4], [10.001, 4], [19.999, 4], [20, 3], [20.001, 3],
-    [29.999, 3], [30, 2], [30.001, 2], [39.999, 2], [40, 1], [40.001, 1],
-    [49.999, 1], [50, 0], [50.001, 0], [100, 0],
+    [0, 5], [29.999, 5], [30, 4], [30.001, 4], [39.999, 4], [40, 3], [40.001, 3],
+    [49.999, 3], [50, 2], [50.001, 2], [59.999, 2], [60, 1], [60.001, 1],
+    [69.999, 1], [70, 0], [70.001, 0], [100, 0],
   ] as const)("scores lower-is-better First Leg %%=%s as %s stars", (value, stars) => {
     expect(builderFirstLegStars(value)).toBe(stars);
   });
 
   it("keeps First Leg stars monotonically non-increasing as the percentage rises", () => {
-    const values = [0, 5, 9.999, 10, 15, 19.999, 20, 25, 29.999, 30, 35, 39.999, 40, 45, 49.999, 50, 75, 100];
+    const values = [0, 10, 20, 29.999, 30, 35, 39.999, 40, 45, 49.999, 50, 55, 59.999, 60, 65, 69.999, 70, 85, 100];
     const ratings = values.map(builderFirstLegStars);
     for (let index = 1; index < ratings.length; index += 1) {
       expect(ratings[index]).toBeLessThanOrEqual(ratings[index - 1]);
@@ -185,11 +199,10 @@ describe("Builder Scorecard fixed star ratings", () => {
 
   it.each([
     [0, 0], [499_999, 0], [500_000, 1], [500_001, 1],
-    [999_999, 1], [1_000_000, 1], [1_499_999, 1],
-    [1_500_000, 2], [1_500_001, 2],
-    [1_999_999, 2], [2_000_000, 3], [2_000_001, 3],
-    [2_999_999, 3], [3_000_000, 4], [3_000_001, 4],
-    [3_999_999, 4], [4_000_000, 5], [4_000_001, 5],
+    [749_999, 1], [750_000, 2], [750_001, 2], [999_999, 2],
+    [1_000_000, 3], [1_000_001, 3], [1_249_999, 3],
+    [1_250_000, 4], [1_250_001, 4], [1_499_999, 4],
+    [1_500_000, 5], [1_500_001, 5], [4_000_000, 5],
   ] as const)("scores Avg IP per Active Writer cents=%s as %s stars", (value, stars) => {
     expect(builderAverageIpPerActiveWriterStars(value)).toBe(stars);
   });
@@ -200,7 +213,7 @@ describe("Builder Scorecard fixed star ratings", () => {
   );
 
   it.each([
-    [0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 4], [6, 5], [7, 5],
+    [0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 5], [7, 5],
   ] as const)("scores Recruits Licensed=%s as %s stars", (value, stars) => {
     expect(builderRecruitsLicensedStars(value)).toBe(stars);
   });
@@ -236,7 +249,7 @@ describe("Builder Scorecard fixed star ratings", () => {
     const base = {
       growthPercent: -1,
       priorPeriodBaseline: 100,
-      firstLegPercent: 50,
+      firstLegPercent: 70,
       activeDirects: 0,
       averageIpPerActiveWriterCents: 0,
       recruitsLicensed: 0,
@@ -320,7 +333,7 @@ describe("period-aware cumulative scorecard ratings", () => {
     ["quarterly", 3],
     ["annual", 12],
   ] as const)("scales Recruits Licensed transitions for %s", (kind, factor) => {
-    const transitions = [1, 2, 3, 4, 6] as const;
+    const transitions = [1, 2, 3, 4, 5] as const;
     const stars = [1, 2, 3, 4, 5] as const;
     transitions.forEach((base, index) => {
       const threshold = base * factor;
@@ -368,9 +381,9 @@ describe("period-aware cumulative scorecard ratings", () => {
         recruitsLicensed: kind === "monthly" ? 1 : kind === "quarterly" ? 3 : 12,
       }).ratings).toEqual({
         growth: 4,
-        firstLegPercent: 3,
+        firstLegPercent: 5,
         activeDirects: 5,
-        averageIpPerActiveWriter: 2,
+        averageIpPerActiveWriter: 5,
         recruitsLicensed: 1,
       });
     }

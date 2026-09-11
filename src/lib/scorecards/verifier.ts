@@ -463,7 +463,7 @@ function independentTrackingDays(loggedDates: unknown): number {
   for (const value of loggedDates) {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) continue;
     const date = new Date(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value || date.getUTCDay() === 0) continue;
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) continue;
     counted.add(value);
   }
   return counted.size;
@@ -500,12 +500,21 @@ function independentBuilderGrowthStars(value: unknown, prior: unknown) {
 
 function independentBuilderFirstLegStars(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100) return 0;
-  if (value < 10) return 5;
-  if (value < 20) return 4;
-  if (value < 30) return 3;
-  if (value < 40) return 2;
-  if (value < 50) return 1;
+  if (value < 30) return 5;
+  if (value < 40) return 4;
+  if (value < 50) return 3;
+  if (value < 60) return 2;
+  if (value < 70) return 1;
   return 0;
+}
+
+function independentBuilderAverageIpStars(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 500_000) return 0;
+  if (value < 750_000) return 1;
+  if (value < 1_000_000) return 2;
+  if (value < 1_250_000) return 3;
+  if (value < 1_500_000) return 4;
+  return 5;
 }
 
 function independentBuilderActiveDirectsStars(value: unknown, teamIp: number, factor: number) {
@@ -521,7 +530,7 @@ function independentBuilderRecruitsStars(value: unknown, factor: 1 | 3 | 12) {
   if (value < 2 * factor) return 1;
   if (value < 3 * factor) return 2;
   if (value < 4 * factor) return 3;
-  if (value < 6 * factor) return 4;
+  if (value < 5 * factor) return 4;
   return 5;
 }
 
@@ -630,7 +639,7 @@ export function verifyPublishedScorecardArtifacts(
       growth: independentBuilderGrowthStars(source.growth.percentage, source.growth.priorTeamIpCents),
       firstLegPercent: independentBuilderFirstLegStars(source.firstLegPercent),
       activeDirects: independentBuilderActiveDirectsStars(source.activeWriters, source.teamIpCents, factor),
-      averageIpPerActiveWriter: independentProducerIpStars(source.averageMonthlyIpPerWriterCents, 1),
+      averageIpPerActiveWriter: independentBuilderAverageIpStars(source.averageMonthlyIpPerWriterCents),
       recruitsLicensed: independentBuilderRecruitsStars(source.recruitsAdded, factor),
     };
     const total = Object.values(ratings).reduce((sum, rating) => sum + rating, 0);

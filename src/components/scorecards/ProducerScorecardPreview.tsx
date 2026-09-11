@@ -186,12 +186,12 @@ export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBand
       label: "First Leg %",
       weight: "20%",
       bands: [
-        { stars: 0, label: "50%+" },
-        { stars: 1, label: "40% – under 50%" },
-        { stars: 2, label: "30% – under 40%" },
-        { stars: 3, label: "20% – under 30%" },
-        { stars: 4, label: "10% – under 20%" },
-        { stars: 5, label: "Under 10%" },
+        { stars: 0, label: "70%+" },
+        { stars: 1, label: "60% – under 70%" },
+        { stars: 2, label: "50% – under 60%" },
+        { stars: 3, label: "40% – under 50%" },
+        { stars: 4, label: "30% – under 40%" },
+        { stars: 5, label: "Under 30%" },
       ],
     },
     {
@@ -211,11 +211,11 @@ export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBand
       weight: "20%",
       bands: [
         { stars: 0, label: `Under ${moneyBand(500_000)}` },
-        { stars: 1, label: `${moneyBand(500_000)} – under ${moneyBand(1_500_000)}` },
-        { stars: 2, label: `${moneyBand(1_500_000)} – under ${moneyBand(2_000_000)}` },
-        { stars: 3, label: `${moneyBand(2_000_000)} – under ${moneyBand(3_000_000)}` },
-        { stars: 4, label: `${moneyBand(3_000_000)} – under ${moneyBand(4_000_000)}` },
-        { stars: 5, label: `${moneyBand(4_000_000)}+` },
+        { stars: 1, label: `${moneyBand(500_000)} – under ${moneyBand(750_000)}` },
+        { stars: 2, label: `${moneyBand(750_000)} – under ${moneyBand(1_000_000)}` },
+        { stars: 3, label: `${moneyBand(1_000_000)} – under ${moneyBand(1_250_000)}` },
+        { stars: 4, label: `${moneyBand(1_250_000)} – under ${moneyBand(1_500_000)}` },
+        { stars: 5, label: `${moneyBand(1_500_000)}+` },
       ],
     },
     {
@@ -226,8 +226,8 @@ export function builderScorecardAreas(periodKind: ScorecardPeriodKind): StarBand
         { stars: 1, label: `${recruits(1)} – under ${recruits(2)}` },
         { stars: 2, label: `${recruits(2)} – under ${recruits(3)}` },
         { stars: 3, label: `${recruits(3)} – under ${recruits(4)}` },
-        { stars: 4, label: `${recruits(4)} – under ${recruits(6)}` },
-        { stars: 5, label: `${recruits(6)}+` },
+        { stars: 4, label: `${recruits(4)} – under ${recruits(5)}` },
+        { stars: 5, label: `${recruits(5)}+` },
       ],
     },
   ];
@@ -531,6 +531,22 @@ function calendarDates(periodStart: string, periodEnd: string): Array<string | n
   return dates;
 }
 
+function chicagoDateFromInstant(instantText: string): string | null {
+  const instant = new Date(instantText);
+  if (Number.isNaN(instant.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
 function TrackingConsistencyCalendar({
   preview,
   activity,
@@ -543,9 +559,16 @@ function TrackingConsistencyCalendar({
   scoredLoggedDays: number;
 }) {
   const loggedDates = new Set(activity.loggedDates);
-  const expectedDates = new Set(activity.expectedDates ?? []);
   const dates = calendarDates(preview.periodStart, preview.periodEnd);
   const dayFormatter = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+  const generatedBusinessDate = chicagoDateFromInstant(preview.generatedAt);
+  const scoredThrough = generatedBusinessDate == null
+    ? null
+    : generatedBusinessDate < preview.periodStart
+      ? null
+      : generatedBusinessDate > preview.periodEnd
+        ? preview.periodEnd
+        : generatedBusinessDate;
 
   return (
     <div className="tracking-story max-w-4xl">
@@ -556,7 +579,7 @@ function TrackingConsistencyCalendar({
             <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{scoredLoggedDays}</p>
             <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span>
           </div>
-          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Mon–Sat logged days in this period · Sundays are not scored</p>
+          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Logged days in this period · all seven weekdays count</p>
         </div>
         <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>
@@ -572,11 +595,10 @@ function TrackingConsistencyCalendar({
           {dates.map((date, index) => {
             if (!date) return <div key={`empty-${index}`} className="min-h-16 border-b border-r border-hairline bg-card/30 sm:min-h-20" aria-hidden="true" />;
             const logged = loggedDates.has(date);
-            const sunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
-            const missed = expectedDates.has(date) && !logged;
+            const missed = scoredThrough != null && date <= scoredThrough && !logged;
             const status = logged
-              ? sunday ? "Logged — Sunday not scored" : "Logged"
-              : missed ? "Did Not Log" : "Not Scheduled";
+              ? "Logged"
+              : missed ? "Did Not Log" : "Not Yet Scored";
             return (
               <div
                 key={date}
