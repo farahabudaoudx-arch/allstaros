@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LiveCastControls } from "@/components/producer/leaderboard/LiveCastControls";
 
 export type LiveLeaderboardScope = "team" | "organization";
 
@@ -258,6 +259,12 @@ export function LiveLeaderboardSheet({
               </button>
             )}
           </div>
+
+          <LiveCastControls
+            liveUrl={currentLink?.url ?? null}
+            scopeLabel={scopeLabel(scope)}
+            variant="sheet"
+          />
 
           {feedback ? (
             <div role="status" className={"mt-4 rounded-xl border px-4 py-3 text-sm " + (feedback.kind === "success" ? "border-accent/30 bg-accent/[0.06] text-ink" : "border-neg/30 bg-neg/[0.06] text-neg")}>{feedback.message}</div>

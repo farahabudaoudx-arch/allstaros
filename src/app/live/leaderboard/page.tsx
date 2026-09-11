@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import { LiveCastControls } from "@/components/producer/leaderboard/LiveCastControls";
 import { LiveDealCelebration } from "./LiveDealCelebration";
 import {
   LIVE_CELEBRATION_MS,
@@ -381,6 +382,8 @@ export default function LiveLeaderboardPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#05070a] text-white">
+      <LiveCastControls variant="tv" scopeLabel={snapshot.scope === "team" ? "Team" : "Organization"} />
+
       <button
         type="button"
         onClick={() => void handleSoundControl()}
