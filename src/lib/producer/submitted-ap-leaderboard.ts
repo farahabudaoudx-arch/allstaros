@@ -129,9 +129,10 @@ export async function computeSubmittedApScopedLeaderboards(
 
   const eligibleIds = new Set<string>();
   for (const id of candidateIds) {
-    // Team follows the existing active-roster behavior. Organization mirrors
-    // the service-role Leaderboard visibility, which does not filter person.status.
-    if (opts.scope.kind === "team" && statusById.get(id) !== "active") continue;
+    // Live excludes inactive people for both Team and Organization boards.
+    // The normal Leaderboard's service-role SQL does not apply this roster
+    // filter itself, so Live enforces the product visibility rule here.
+    if (statusById.get(id) !== "active") continue;
     if (isLeaderboardExcluded(id)) continue;
     eligibleIds.add(id);
   }

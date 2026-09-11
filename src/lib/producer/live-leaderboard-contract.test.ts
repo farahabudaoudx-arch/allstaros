@@ -21,6 +21,7 @@ describe("Live Leaderboard security and semantic contracts", () => {
     expect(source).toContain("strictSaleStatus?: boolean");
     expect(source).toContain('query.or("sale_status.eq.sale,sale_status.is.null")');
     expect(source).toContain("strictSaleStatus: true");
-    expect(source).toContain('opts.scope.kind === "team" && statusById.get(id) !== "active"');
+    expect(source).toContain('statusById.get(id) !== "active"');
+    expect(source).not.toContain('opts.scope.kind === "team" && statusById.get(id) !== "active"');
   });
 });
