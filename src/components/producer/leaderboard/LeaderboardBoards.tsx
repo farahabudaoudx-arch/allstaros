@@ -4,6 +4,10 @@ import { useState } from "react";
 import { LeaderboardView } from "@/components/producer/LeaderboardView";
 import { IpLeaderboardView } from "@/components/producer/leaderboard/IpLeaderboardView";
 import { PageHeader } from "@/components/producer/PageHeader";
+import {
+  LiveLeaderboardSheet,
+  type LiveLeaderboardScope,
+} from "@/components/producer/leaderboard/LiveLeaderboardSheet";
 import type { LeaderboardMetric } from "@/lib/producer/metrics";
 
 /**
@@ -29,8 +33,15 @@ const OPTIONS: Array<{ key: string; label: string; selection: Selection }> = [
   { key: "presentations", label: "Presentations", selection: { kind: "activity", metric: "presentations" } },
 ];
 
-export function LeaderboardBoards({ backHref }: { backHref: string }) {
+export function LeaderboardBoards({
+  backHref,
+  defaultLiveScope,
+}: {
+  backHref: string;
+  defaultLiveScope: LiveLeaderboardScope;
+}) {
   const [activeKey, setActiveKey] = useState<string>(OPTIONS[0].key);
+  const [liveOpen, setLiveOpen] = useState(false);
 
   const selection = (OPTIONS.find((o) => o.key === activeKey) ?? OPTIONS[0]).selection;
 
@@ -58,7 +69,22 @@ export function LeaderboardBoards({ backHref }: { backHref: string }) {
 
   return (
     <section>
-      <PageHeader title="Leaderboard" backHref={backHref} />
+      <PageHeader title="Leaderboard" backHref={backHref}>
+        <button
+          type="button"
+          onClick={() => setLiveOpen(true)}
+          className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/[0.08] px-4 py-2 text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/[0.12]"
+        >
+          <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+          Live
+        </button>
+      </PageHeader>
+
+      <LiveLeaderboardSheet
+        open={liveOpen}
+        onClose={() => setLiveOpen(false)}
+        defaultScope={defaultLiveScope}
+      />
 
       <div className="mt-6">
         {selection.kind === "ip" ? (
