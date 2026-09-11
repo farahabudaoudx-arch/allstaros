@@ -1,12 +1,26 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import {
+  EMPTY_LIVE_EVENT_TRACKER,
+  LIVE_LEADERBOARD_POLL_MS,
+  reconcileLiveDealEvents,
+  type LiveEventTracker,
+} from "@/lib/producer/live-leaderboard-events";
+
+type DealEvent = {
+  id: string;
+  display_name: string;
+  submitted_ap_cents: number;
+  occurred_at: string | null;
+};
 
 type Snapshot = {
   scope: "team" | "organization";
   asOf: string;
+  shop_day: string;
   range: { from: string; to: string };
   totals: {
     submitted_ap_cents: number;
@@ -24,6 +38,7 @@ type Snapshot = {
     submitted_ap_cents: number;
     sales_count: number;
   }>;
+  events: DealEvent[];
 };
 
 type State =
@@ -31,6 +46,8 @@ type State =
   | { kind: "dead" }
   | { kind: "error" }
   | { kind: "ready"; snapshot: Snapshot };
+
+type ConnectionState = "connecting" | "live" | "reconnecting";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -44,6 +61,11 @@ function dollars(cents: number) {
 
 export default function LiveLeaderboardPage() {
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [connection, setConnection] = useState<ConnectionState>("connecting");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const eventTrackerRef = useRef<LiveEventTracker>({ ...EMPTY_LIVE_EVENT_TRACKER, seenIds: [] });
+  // #23 consumes this deduped, uncapped queue. #22 owns identity/reconnect/midnight semantics.
+  const pendingDealEventsRef = useRef<DealEvent[]>([]);
 
   useEffect(() => {
     const token = window.location.hash.slice(1);
@@ -52,31 +74,95 @@ export default function LiveLeaderboardPage() {
       return;
     }
 
-    const controller = new AbortController();
-    void fetch("/api/live-leaderboard/snapshot", {
-      method: "GET",
-      headers: { Authorization: "Bearer " + token },
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const payload = (await response.json()) as { ok?: boolean } & Partial<Snapshot>;
+    let stopped = false;
+    let inFlight = false;
+    let timer: number | null = null;
+    let activeController: AbortController | null = null;
+
+    function clearTimer() {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function scheduleNextPoll() {
+      clearTimer();
+      if (stopped) return;
+      timer = window.setTimeout(() => void poll(), LIVE_LEADERBOARD_POLL_MS);
+    }
+
+    async function poll() {
+      if (stopped || inFlight) return;
+      inFlight = true;
+      const controller = new AbortController();
+      activeController = controller;
+      try {
+        const response = await fetch("/api/live-leaderboard/snapshot", {
+          method: "GET",
+          headers: { Authorization: "Bearer " + token },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = (await response.json()) as ({ ok?: boolean } & Partial<Snapshot>);
         if (!response.ok || !payload.ok) {
           if (response.status === 404 || response.status === 410 || response.status === 401) {
+            stopped = true;
+            clearTimer();
             setState({ kind: "dead" });
             return;
           }
-          setState({ kind: "error" });
-          return;
+          throw new Error("live_snapshot_unavailable");
         }
-        setState({ kind: "ready", snapshot: payload as Snapshot });
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setState({ kind: "error" });
-      });
 
-    return () => controller.abort();
+        const snapshot = payload as Snapshot;
+        const reconciled = reconcileLiveDealEvents(
+          eventTrackerRef.current,
+          snapshot.shop_day,
+          snapshot.events,
+        );
+        eventTrackerRef.current = reconciled.tracker;
+        if (reconciled.rolledOver) pendingDealEventsRef.current = [];
+        if (reconciled.newEvents.length > 0) {
+          pendingDealEventsRef.current.push(...reconciled.newEvents);
+        }
+
+        setState({ kind: "ready", snapshot });
+        setConnection("live");
+        setLastUpdatedAt(Date.now());
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setConnection("reconnecting");
+        setState((current) => current.kind === "ready" ? current : { kind: "error" });
+      } finally {
+        inFlight = false;
+        activeController = null;
+        scheduleNextPoll();
+      }
+    }
+
+    function handleOnline() {
+      if (stopped) return;
+      setConnection("reconnecting");
+      clearTimer();
+      if (!inFlight) void poll();
+    }
+
+    function handleOffline() {
+      if (!stopped) setConnection("reconnecting");
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    void poll();
+
+    return () => {
+      stopped = true;
+      clearTimer();
+      activeController?.abort();
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   if (state.kind === "loading") {
@@ -105,8 +191,8 @@ export default function LiveLeaderboardPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#05070a] px-6 text-white">
         <div className="max-w-xl text-center">
-          <h1 className="text-3xl font-semibold sm:text-4xl">Live Leaderboard is temporarily unavailable.</h1>
-          <p className="mt-3 text-white/55">Reload this display to try again.</p>
+          <h1 className="text-3xl font-semibold sm:text-4xl">Connection interrupted.</h1>
+          <p className="mt-3 text-white/55">Reconnecting automatically…</p>
         </div>
       </main>
     );
@@ -119,6 +205,11 @@ export default function LiveLeaderboardPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#05070a] text-white">
+      {connection === "reconnecting" ? (
+        <div role="status" aria-live="polite" className="fixed left-1/2 top-4 z-[120] -translate-x-1/2 rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 shadow-xl backdrop-blur">
+          Connection interrupted · Reconnecting…{lastUpdatedAt ? " Last update " + new Date(lastUpdatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}
+        </div>
+      ) : null}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(197,255,74,0.08),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.05),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-5 sm:px-7 sm:py-7 lg:px-10 xl:px-14">
         <header className="grid gap-5 border-b border-white/10 pb-6 lg:grid-cols-[1fr_auto] lg:items-end">

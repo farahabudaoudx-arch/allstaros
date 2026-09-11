@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { approvedPhotoUrl } from "@/lib/headshots/photo";
+import { dollarsToCents, isSale, saleDay, type ClientSaleFields } from "@/lib/producer/metrics";
 import {
   computeSubmittedApScopedLeaderboards,
   DISCORD_LEADERBOARD_TZ,
@@ -22,9 +23,17 @@ export type LiveLeaderboardCapability = {
 
 type CapabilityRow = LiveLeaderboardCapability & { token_hash: string };
 
+export type LiveLeaderboardDealEvent = {
+  id: string;
+  display_name: string;
+  submitted_ap_cents: number;
+  occurred_at: string | null;
+};
+
 export type LiveLeaderboardSnapshot = {
   scope: LiveLeaderboardScope;
   asOf: string;
+  shop_day: string;
   range: { from: string; to: string };
   totals: {
     submitted_ap_cents: number;
@@ -42,6 +51,7 @@ export type LiveLeaderboardSnapshot = {
     submitted_ap_cents: number;
     sales_count: number;
   }>;
+  events: LiveLeaderboardDealEvent[];
 };
 
 const TOKEN_PREFIX = "ll_";
@@ -205,6 +215,64 @@ async function loadApprovedLivePhotos(
   return photos;
 }
 
+type LiveDealClientRow = ClientSaleFields & {
+  id: string;
+  person_id: string;
+};
+
+function stableLiveDealEventId(capabilityId: string, clientId: string): string {
+  return "lde_" + createHash("sha256")
+    .update(capabilityId + "\0" + clientId)
+    .digest("base64url");
+}
+
+async function loadLiveDealEvents(
+  admin: SupabaseClient,
+  capabilityId: string,
+  daily: SubmittedApLeaderboard,
+): Promise<LiveLeaderboardDealEvent[]> {
+  if (daily.rows.length === 0) return [];
+  const nameByPersonId = new Map(daily.rows.map((row) => [row.person_id, row.full_name]));
+  const personIds = Array.from(nameByPersonId.keys());
+  const events: LiveLeaderboardDealEvent[] = [];
+
+  for (let partIndex = 0; partIndex < personIds.length; partIndex += 100) {
+    const part = personIds.slice(partIndex, partIndex + 100);
+    let offset = 0;
+    while (true) {
+      const { data, error } = await admin
+        .from("clients")
+        .select("id, person_id, annual_premium, sale_status, submit_date, date, created_at")
+        .in("person_id", part)
+        .or("sale_status.eq.sale,sale_status.is.null")
+        .or("submit_date.gte." + daily.from + ",submit_date.is.null")
+        .order("id")
+        .range(offset, offset + 999);
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as LiveDealClientRow[];
+      for (const row of rows) {
+        if (!isSale(row) || saleDay(row, LIVE_LEADERBOARD_TZ) !== daily.from) continue;
+        const displayName = nameByPersonId.get(row.person_id);
+        if (!displayName) continue;
+        events.push({
+          id: stableLiveDealEventId(capabilityId, row.id),
+          display_name: displayName,
+          submitted_ap_cents: dollarsToCents(row.annual_premium),
+          occurred_at: row.created_at,
+        });
+      }
+      if (rows.length < 1000) break;
+      offset += 1000;
+    }
+  }
+
+  events.sort((left, right) => {
+    const timeOrder = (left.occurred_at ?? "").localeCompare(right.occurred_at ?? "");
+    return timeOrder || left.id.localeCompare(right.id);
+  });
+  return events;
+}
+
 export async function buildLiveLeaderboardSnapshot(
   admin: SupabaseClient,
   capability: LiveLeaderboardCapability,
@@ -221,16 +289,17 @@ export async function buildLiveLeaderboardSnapshot(
   if (!daily || !week || !month) throw new Error("missing_live_leaderboard_period");
 
   const today = summarizeSubmittedPeriod(daily);
-  const photos = await loadApprovedLivePhotos(
-    admin,
-    daily.rows.map((row) => row.person_id),
-  );
+  const [photos, events] = await Promise.all([
+    loadApprovedLivePhotos(admin, daily.rows.map((row) => row.person_id)),
+    loadLiveDealEvents(admin, capability.id, daily),
+  ]);
   const averageTicketCents =
     today.deals > 0 ? Math.round(today.submitted_ap_cents / today.deals) : 0;
 
   return {
     scope: capability.scope,
     asOf: new Date().toISOString(),
+    shop_day: daily.to,
     range: today.range,
     totals: {
       submitted_ap_cents: today.submitted_ap_cents,
@@ -248,5 +317,6 @@ export async function buildLiveLeaderboardSnapshot(
       submitted_ap_cents,
       sales_count,
     })),
+    events,
   };
 }

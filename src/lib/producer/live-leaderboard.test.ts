@@ -65,11 +65,28 @@ describe("Live Leaderboard core", () => {
       ],
       error: null,
     });
-    const admin = {
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({ in: inPeople }),
-      }),
-    } as unknown as SupabaseClient;
+    const rangeClients = vi.fn().mockResolvedValue({
+      data: [
+        { id: "client-1", person_id: "person-1", annual_premium: 750, sale_status: "sale", submit_date: "2026-09-09", date: null, created_at: "2026-09-09T14:00:00Z" },
+        { id: "client-2", person_id: "person-1", annual_premium: 500, sale_status: null, submit_date: "2026-09-09", date: null, created_at: "2026-09-09T15:00:00Z" },
+        { id: "client-3", person_id: "person-2", annual_premium: 500, sale_status: "sale", submit_date: "2026-09-09", date: null, created_at: "2026-09-09T16:00:00Z" },
+      ],
+      error: null,
+    });
+    const orderClients = vi.fn().mockReturnValue({ range: rangeClients });
+    const dateOr = vi.fn().mockReturnValue({ order: orderClients });
+    const statusOr = vi.fn().mockReturnValue({ or: dateOr });
+    const inClients = vi.fn().mockReturnValue({ or: statusOr });
+    const from = vi.fn((table: string) => {
+      if (table === "person") {
+        return { select: vi.fn().mockReturnValue({ in: inPeople }) };
+      }
+      if (table === "clients") {
+        return { select: vi.fn().mockReturnValue({ in: inClients }) };
+      }
+      throw new Error("Unexpected table " + table);
+    });
+    const admin = { from } as unknown as SupabaseClient;
 
     const snapshot = await buildLiveLeaderboardSnapshot(admin, {
       id: "cap-1",
@@ -109,6 +126,13 @@ describe("Live Leaderboard core", () => {
     });
     expect(snapshot.rows[1]?.photo_url).toBeNull();
     expect(snapshot.rows[0]).not.toHaveProperty("person_id");
+    expect(snapshot.shop_day).toBe("2026-09-09");
+    expect(snapshot.events).toHaveLength(3);
+    expect(snapshot.events.map((event) => event.display_name)).toEqual(["Sarah", "Sarah", "Alex"]);
+    expect(snapshot.events.map((event) => event.submitted_ap_cents)).toEqual([75000, 50000, 50000]);
+    expect(snapshot.events.every((event) => /^lde_[A-Za-z0-9_-]{43}$/.test(event.id))).toBe(true);
+    expect(snapshot.events.some((event) => event.id.includes("client-"))).toBe(false);
+    expect(from).toHaveBeenCalledWith("clients");
   });
 
   it("builds an empty Organization day safely with zero average ticket", async () => {
@@ -130,6 +154,8 @@ describe("Live Leaderboard core", () => {
       submitted_ap_cents: 0, deals: 0, people: 0, average_ticket_cents: 0,
     });
     expect(snapshot.rows).toEqual([]);
+    expect(snapshot.events).toEqual([]);
+    expect(snapshot.shop_day).toBe("2026-09-09");
   });
 
   it("rotates through the atomic database RPC and returns only the new plaintext token", async () => {
