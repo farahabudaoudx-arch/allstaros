@@ -5,7 +5,7 @@ export default async function AllStarTvPage() {
     <VideoLibraryPage
       libraryKey="all-star-tv"
       collectionName="All Star TV"
-      emptyNote="All Star TV episodes will show up here once they're posted."
+      emptyNote="Agent vlogs will show up here once they're posted."
     />
   );
 }

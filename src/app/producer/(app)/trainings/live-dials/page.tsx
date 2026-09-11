@@ -5,7 +5,7 @@ export default async function LiveDialsPage() {
     <VideoLibraryPage
       libraryKey="live-dials"
       collectionName="Live Dials"
-      emptyNote="Recorded live dial sessions will show up here once they're posted."
+      emptyNote="Recorded live sales calls will show up here once they're posted."
     />
   );
 }

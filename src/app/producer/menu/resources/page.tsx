@@ -10,6 +10,7 @@ const TILES: MenuTile[] = [
   { label: "Carrier Links", hint: "Carrier portal logins", icon: "/menu-icons/resources/carrier-links.png", href: "/producer/resources/portal-links" },
   { label: "Carrier Contacts", hint: "Rep phone and email", icon: "/menu-icons/resources/carrier-contacts.png", href: "/producer/resources/carrier-contacts" },
   { label: "App Guides", hint: "E-app walkthroughs by carrier", icon: "/menu-icons/resources/app-guides.png", href: "https://mytrustedadvisor.wixsite.com/eappguides", external: true },
+  { label: "Merch", hint: "Shop All Star clothing", icon: "/menu-icons/producer/merch.png", href: "https://all-star.clothing/", external: true },
 ];
 
 export default async function ResourcesMenuPage() {

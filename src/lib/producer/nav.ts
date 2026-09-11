@@ -57,29 +57,35 @@ const PERSONAL: NavEntry[] = [
     icon: "/menu-icons/producer/daily-tracker.png",
   },
   {
-    label: "Activity Analytics",
-    href: "/producer/analytics",
-    icon: "/menu-icons/my-numbers/analytics.png",
-  },
-  {
-    label: "Lead Spend",
-    href: "/producer/lead-spend",
-    icon: "/menu-icons/my-numbers/lead-spend-tracker.png",
-  },
-  {
-    label: "Issued Premium",
-    href: "/producer/issued-premium",
-    icon: "/menu-icons/my-numbers/issued-premium-reports.png",
-  },
-  {
-    label: "Clients",
-    href: "/producer/clients",
-    icon: "/menu-icons/producer/clients.png",
-  },
-  {
-    label: "Leaderboard",
-    href: "/producer/leaderboard",
-    icon: "/menu-icons/producer/leaderboard.png",
+    label: "Production",
+    icon: "/menu-icons/producer/production-dark.png",
+    items: [
+      {
+        label: "Activity Analytics",
+        href: "/producer/analytics",
+        icon: "/menu-icons/my-numbers/analytics.png",
+      },
+      {
+        label: "Leads",
+        href: "/producer/lead-spend",
+        icon: "/menu-icons/my-numbers/lead-spend-tracker.png",
+      },
+      {
+        label: "Issued Premium",
+        href: "/producer/issued-premium",
+        icon: "/menu-icons/my-numbers/issued-premium-reports.png",
+      },
+      {
+        label: "Clients",
+        href: "/producer/clients",
+        icon: "/menu-icons/producer/clients.png",
+      },
+      {
+        label: "Leaderboard",
+        href: "/producer/leaderboard",
+        icon: "/menu-icons/producer/leaderboard.png",
+      },
+    ],
   },
   {
     label: "Training",
@@ -94,12 +100,12 @@ const PERSONAL: NavEntry[] = [
         icon: "/menu-icons/training/training-calendar.png",
       },
       {
-        label: "All Star TV",
+        label: "Agent Vlogs",
         href: "/producer/trainings/all-star-tv",
         icon: "/menu-icons/training/all-star-tv.png",
       },
       {
-        label: "Live Dials",
+        label: "Live Calls",
         href: "/producer/trainings/live-dials",
         icon: "/menu-icons/training/live-dials.png",
       },
@@ -152,6 +158,12 @@ const PERSONAL: NavEntry[] = [
         href: "https://mytrustedadvisor.wixsite.com/eappguides",
         external: true,
         icon: "/menu-icons/resources/app-guides.png",
+      },
+      {
+        label: "Merch",
+        href: "https://all-star.clothing/",
+        external: true,
+        icon: "/menu-icons/producer/merch.png",
       },
     ],
   },

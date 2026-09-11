@@ -453,14 +453,14 @@ export const PROGRAMS: Record<ProgramKey, Program> = {
   },
   "all-star-tv": {
     key: "all-star-tv",
-    title: "All Star TV",
+    title: "Agent Vlogs",
     subtitle: "Watch the team in action.",
     filters: [],
     courses: [],
   },
   "live-dials": {
     key: "live-dials",
-    title: "Live Dials",
+    title: "Live Sales Calls",
     subtitle: "Real calls, start to finish, with the outcome unedited.",
     filters: [],
     courses: [],
