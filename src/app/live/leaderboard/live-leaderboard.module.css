@@ -1,0 +1,145 @@
+.celebrationPanel {
+  position: relative;
+  z-index: 10;
+  width: min(90vw, 70rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+  border: 1px solid rgba(91, 209, 255, 0.72);
+  border-radius: clamp(1rem, 2.2vw, 1.8rem);
+  background:
+    linear-gradient(145deg, rgba(8, 28, 43, 0.96), rgba(4, 14, 24, 0.97)),
+    radial-gradient(circle at 50% 15%, rgba(87, 206, 255, 0.14), transparent 45%);
+  box-shadow:
+    0 0 0 1px rgba(122, 222, 255, 0.14) inset,
+    0 0 28px rgba(44, 196, 255, 0.28),
+    0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.panelGlow {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    0 0 34px rgba(55, 200, 255, 0.2) inset,
+    0 -2px 20px rgba(197, 255, 74, 0.08) inset;
+}
+
+.panelContent {
+  position: relative;
+  display: flex;
+  min-height: min(31rem, calc(100dvh - 2.2rem));
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.25rem, 4.8vh, 3rem) clamp(1.1rem, 4vw, 3.5rem);
+}
+
+.celebrationName {
+  font-size: clamp(2.4rem, min(6.6vw, 9.5vh), 6.6rem);
+}
+
+.celebrationNameLong {
+  font-size: clamp(1.75rem, min(4.7vw, 7.1vh), 4.7rem);
+}
+
+.celebrationAmount {
+  font-size: clamp(2.6rem, min(6.5vw, 8.8vh), 6.3rem);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  color: rgb(90 201 255);
+  text-shadow: 0 0 26px rgba(72, 197, 255, 0.18);
+}
+
+.celebrationCarrier,
+.celebrationCarrierLong {
+  max-width: min(48rem, 88vw);
+  overflow-wrap: anywhere;
+  font-weight: 800;
+  line-height: 1.05;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.celebrationCarrier {
+  font-size: clamp(1.5rem, min(3.6vw, 5.5vh), 3.4rem);
+}
+
+.celebrationCarrierLong {
+  font-size: clamp(1rem, min(2.35vw, 3.6vh), 2.15rem);
+}
+
+.moneyParticle {
+  --live-money-drift: 0px;
+  position: absolute;
+  top: -5.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  animation-name: liveMoneyFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+.moneyBill {
+  display: grid;
+  width: clamp(2rem, 3.3vw, 3.4rem);
+  height: clamp(1.15rem, 1.9vw, 1.95rem);
+  place-items: center;
+  border: 1px solid rgba(222, 255, 187, 0.55);
+  border-radius: 0.25rem;
+  background: linear-gradient(135deg, rgba(99, 220, 91, 0.95), rgba(176, 255, 120, 0.95));
+  color: rgba(6, 31, 17, 0.82);
+  font-size: clamp(0.7rem, 1.15vw, 1rem);
+  font-weight: 900;
+  box-shadow: 0 0 16px rgba(130, 255, 101, 0.18);
+}
+
+.moneyCoin {
+  display: grid;
+  width: clamp(1.15rem, 1.8vw, 1.75rem);
+  height: clamp(1.15rem, 1.8vw, 1.75rem);
+  place-items: center;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ffe783, #d49e21);
+  color: #604109;
+  font-size: clamp(0.55rem, 0.8vw, 0.75rem);
+  font-weight: 900;
+  box-shadow: 0 0 14px rgba(255, 210, 77, 0.16);
+}
+
+@keyframes liveMoneyFall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -7vh, 0) rotate(-18deg);
+  }
+  10% {
+    opacity: 0.95;
+  }
+  70% {
+    opacity: 0.86;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--live-money-drift), 112vh, 0) rotate(38deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moneyParticle {
+    display: none;
+  }
+}
+
+@media (max-height: 760px) {
+  .panelContent {
+    min-height: min(26rem, calc(100dvh - 1.5rem));
+    padding-top: clamp(1rem, 3vh, 1.5rem);
+    padding-bottom: clamp(1rem, 3vh, 1.5rem);
+  }
+
+  .celebrationPanel {
+    max-height: calc(100dvh - 1rem);
+  }
+}

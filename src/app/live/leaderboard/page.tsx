@@ -1,8 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import { LiveDealCelebration } from "./LiveDealCelebration";
+import {
+  LIVE_CELEBRATION_MS,
+  LIVE_SOUND_STORAGE_KEY,
+  mergeLiveCelebrationQueue,
+} from "@/lib/producer/live-leaderboard-celebrations";
 import {
   EMPTY_LIVE_EVENT_TRACKER,
   LIVE_LEADERBOARD_POLL_MS,
@@ -14,6 +20,7 @@ type DealEvent = {
   id: string;
   display_name: string;
   submitted_ap_cents: number;
+  carrier: string | null;
   occurred_at: string | null;
 };
 
@@ -59,13 +66,124 @@ function dollars(cents: number) {
   return money.format(cents / 100);
 }
 
+function playLiveGong(context: AudioContext) {
+  const now = context.currentTime;
+  const master = context.createGain();
+  master.gain.setValueAtTime(0.0001, now);
+  master.gain.exponentialRampToValueAtTime(0.72, now + 0.018);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+  master.connect(context.destination);
+
+  [196, 247, 294].forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    oscillator.detune.setValueAtTime(index === 1 ? -7 : index === 2 ? 9 : 0, now);
+    gain.gain.setValueAtTime(0.8 / (index + 1), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.25 + index * 0.08);
+    oscillator.connect(gain);
+    gain.connect(master);
+    oscillator.start(now + index * 0.018);
+    oscillator.stop(now + 2.5);
+  });
+}
+
 export default function LiveLeaderboardPage() {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [activeCelebration, setActiveCelebration] = useState<DealEvent | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const eventTrackerRef = useRef<LiveEventTracker>({ ...EMPTY_LIVE_EVENT_TRACKER, seenIds: [] });
-  // #23 consumes this deduped, uncapped queue. #22 owns identity/reconnect/midnight semantics.
-  const pendingDealEventsRef = useRef<DealEvent[]>([]);
+  const celebrationQueueRef = useRef<DealEvent[]>([]);
+  const activeCelebrationRef = useRef<DealEvent | null>(null);
+  const celebrationTimerRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioUnlockPromiseRef = useRef<Promise<boolean> | null>(null);
+  const audioUnlockedRef = useRef(false);
+  const soundEnabledRef = useRef(true);
+
+  const unlockAudio = useCallback(async () => {
+    if (audioUnlockPromiseRef.current) return audioUnlockPromiseRef.current;
+
+    const attempt = (async () => {
+      try {
+        let context = audioContextRef.current;
+        if (!context || context.state === "closed") {
+          context = new AudioContext();
+          audioContextRef.current = context;
+        }
+        if (context.state === "suspended") await context.resume();
+        const unlocked = context.state === "running";
+        audioUnlockedRef.current = unlocked;
+        setAudioUnlocked(unlocked);
+        return unlocked;
+      } catch {
+        audioUnlockedRef.current = false;
+        setAudioUnlocked(false);
+        return false;
+      }
+    })();
+
+    audioUnlockPromiseRef.current = attempt;
+    try {
+      return await attempt;
+    } finally {
+      if (audioUnlockPromiseRef.current === attempt) audioUnlockPromiseRef.current = null;
+    }
+  }, []);
+
+  function toggleSound() {
+    const next = !soundEnabledRef.current;
+    soundEnabledRef.current = next;
+    setSoundEnabled(next);
+    try {
+      window.localStorage.setItem(LIVE_SOUND_STORAGE_KEY, next ? "on" : "off");
+    } catch {
+      // Storage can be blocked on hardened TV browsers; the in-memory preference still works.
+    }
+  }
+
+  async function handleSoundControl() {
+    const context = audioContextRef.current;
+    if (!audioUnlockedRef.current || !context || context.state !== "running") {
+      await unlockAudio();
+      return;
+    }
+    toggleSound();
+  }
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(LIVE_SOUND_STORAGE_KEY) === "off") {
+        soundEnabledRef.current = false;
+        queueMicrotask(() => setSoundEnabled(false));
+      }
+    } catch {
+      // Keep sound enabled in memory if storage is unavailable.
+    }
+    return () => {
+      const context = audioContextRef.current;
+      audioContextRef.current = null;
+      if (context && context.state !== "closed") void context.close().catch(() => undefined);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleAudioKeyDown(event: KeyboardEvent) {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("button, a, input, select, textarea")) return;
+      const context = audioContextRef.current;
+      if (audioUnlockedRef.current && context?.state === "running") return;
+      if (event.key === "Enter" || event.key === " " || event.code === "NumpadEnter") {
+        void unlockAudio();
+      }
+    }
+    window.addEventListener("keydown", handleAudioKeyDown);
+    return () => window.removeEventListener("keydown", handleAudioKeyDown);
+  }, [unlockAudio]);
 
   useEffect(() => {
     const token = window.location.hash.slice(1);
@@ -79,6 +197,65 @@ export default function LiveLeaderboardPage() {
     let timer: number | null = null;
     let activeController: AbortController | null = null;
 
+    function clearCelebrationTimer() {
+      if (celebrationTimerRef.current !== null) {
+        window.clearTimeout(celebrationTimerRef.current);
+        celebrationTimerRef.current = null;
+      }
+    }
+
+    function clearCelebrations(updateState: boolean) {
+      clearCelebrationTimer();
+      celebrationQueueRef.current = [];
+      activeCelebrationRef.current = null;
+      if (updateState) setActiveCelebration(null);
+    }
+
+    function startNextCelebration() {
+      if (stopped || activeCelebrationRef.current || celebrationQueueRef.current.length === 0) return;
+      const next = celebrationQueueRef.current.shift();
+      if (!next) return;
+      activeCelebrationRef.current = next;
+      setActiveCelebration(next);
+
+      clearCelebrationTimer();
+      celebrationTimerRef.current = window.setTimeout(() => {
+        celebrationTimerRef.current = null;
+        activeCelebrationRef.current = null;
+        setActiveCelebration(null);
+        startNextCelebration();
+      }, LIVE_CELEBRATION_MS);
+
+      const context = audioContextRef.current;
+      if (soundEnabledRef.current && audioUnlockedRef.current) {
+        if (context?.state === "running") {
+          try {
+            playLiveGong(context);
+          } catch {
+            audioUnlockedRef.current = false;
+            setAudioUnlocked(false);
+          }
+        } else {
+          audioUnlockedRef.current = false;
+          setAudioUnlocked(false);
+        }
+      }
+    }
+
+    function queueCelebrations(events: DealEvent[], rolledOver: boolean) {
+      if (rolledOver) {
+        clearCelebrationTimer();
+        celebrationQueueRef.current = [];
+        activeCelebrationRef.current = null;
+        setActiveCelebration(null);
+      }
+      celebrationQueueRef.current = mergeLiveCelebrationQueue(
+        celebrationQueueRef.current,
+        events,
+        rolledOver,
+      );
+      startNextCelebration();
+    }
     function clearTimer() {
       if (timer !== null) {
         window.clearTimeout(timer);
@@ -109,6 +286,7 @@ export default function LiveLeaderboardPage() {
           if (response.status === 404 || response.status === 410 || response.status === 401) {
             stopped = true;
             clearTimer();
+            clearCelebrations(true);
             setState({ kind: "dead" });
             return;
           }
@@ -122,10 +300,7 @@ export default function LiveLeaderboardPage() {
           snapshot.events,
         );
         eventTrackerRef.current = reconciled.tracker;
-        if (reconciled.rolledOver) pendingDealEventsRef.current = [];
-        if (reconciled.newEvents.length > 0) {
-          pendingDealEventsRef.current.push(...reconciled.newEvents);
-        }
+        queueCelebrations(reconciled.newEvents, reconciled.rolledOver);
 
         setState({ kind: "ready", snapshot });
         setConnection("live");
@@ -159,6 +334,7 @@ export default function LiveLeaderboardPage() {
     return () => {
       stopped = true;
       clearTimer();
+      clearCelebrations(false);
       activeController?.abort();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -205,11 +381,44 @@ export default function LiveLeaderboardPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#05070a] text-white">
+      <button
+        type="button"
+        onClick={() => void handleSoundControl()}
+        aria-label={
+          !audioUnlocked
+            ? "Unlock Live Leaderboard sound"
+            : soundEnabled
+              ? "Turn Live Leaderboard sound off"
+              : "Turn Live Leaderboard sound on"
+        }
+        aria-pressed={audioUnlocked ? soundEnabled : undefined}
+        className="fixed right-4 top-4 z-[160] inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-xl backdrop-blur transition hover:border-lime-300/50 hover:bg-black/85 focus:outline-none focus:ring-2 focus:ring-lime-300/60 sm:right-6 sm:top-6"
+      >
+        <span
+          aria-hidden="true"
+          className={
+            "h-2 w-2 rounded-full " +
+            (!audioUnlocked ? "bg-amber-300" : soundEnabled ? "bg-lime-300" : "bg-white/35")
+          }
+        />
+        {!audioUnlocked ? "Sound locked · OK / click" : soundEnabled ? "Sound on" : "Sound off"}
+      </button>
+
       {connection === "reconnecting" ? (
         <div role="status" aria-live="polite" className="fixed left-1/2 top-4 z-[120] -translate-x-1/2 rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 shadow-xl backdrop-blur">
           Connection interrupted · Reconnecting…{lastUpdatedAt ? " Last update " + new Date(lastUpdatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}
         </div>
       ) : null}
+
+      {activeCelebration ? (
+        <LiveDealCelebration
+          event={activeCelebration}
+          amount={dollars(activeCelebration.submitted_ap_cents)}
+          audioUnlocked={audioUnlocked}
+          onUnlockAudio={() => void unlockAudio()}
+        />
+      ) : null}
+
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(197,255,74,0.08),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.05),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-5 sm:px-7 sm:py-7 lg:px-10 xl:px-14">
         <header className="grid gap-5 border-b border-white/10 pb-6 lg:grid-cols-[1fr_auto] lg:items-end">

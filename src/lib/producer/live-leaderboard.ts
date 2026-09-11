@@ -27,6 +27,7 @@ export type LiveLeaderboardDealEvent = {
   id: string;
   display_name: string;
   submitted_ap_cents: number;
+  carrier: string | null;
   occurred_at: string | null;
 };
 
@@ -218,7 +219,16 @@ async function loadApprovedLivePhotos(
 type LiveDealClientRow = ClientSaleFields & {
   id: string;
   person_id: string;
+  quotes: Array<{ carrier?: string | null }> | null;
+  chosen_quote_index: number | null;
 };
+
+function selectedLiveCarrier(row: LiveDealClientRow): string | null {
+  const quotes = Array.isArray(row.quotes) ? row.quotes : [];
+  const index = row.chosen_quote_index ?? 0;
+  const carrier = quotes[index]?.carrier;
+  return typeof carrier === "string" && carrier.trim() ? carrier.trim() : null;
+}
 
 function stableLiveDealEventId(capabilityId: string, clientId: string): string {
   return "lde_" + createHash("sha256")
@@ -242,7 +252,7 @@ async function loadLiveDealEvents(
     while (true) {
       const { data, error } = await admin
         .from("clients")
-        .select("id, person_id, annual_premium, sale_status, submit_date, date, created_at")
+        .select("id, person_id, annual_premium, sale_status, submit_date, date, created_at, quotes, chosen_quote_index")
         .in("person_id", part)
         .or("sale_status.eq.sale,sale_status.is.null")
         .or("submit_date.gte." + daily.from + ",submit_date.is.null")
@@ -258,6 +268,7 @@ async function loadLiveDealEvents(
           id: stableLiveDealEventId(capabilityId, row.id),
           display_name: displayName,
           submitted_ap_cents: dollarsToCents(row.annual_premium),
+          carrier: selectedLiveCarrier(row),
           occurred_at: row.created_at,
         });
       }

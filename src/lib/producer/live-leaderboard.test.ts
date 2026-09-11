@@ -67,9 +67,9 @@ describe("Live Leaderboard core", () => {
     });
     const rangeClients = vi.fn().mockResolvedValue({
       data: [
-        { id: "client-1", person_id: "person-1", annual_premium: 750, sale_status: "sale", submit_date: "2026-09-09", date: null, created_at: "2026-09-09T14:00:00Z" },
-        { id: "client-2", person_id: "person-1", annual_premium: 500, sale_status: null, submit_date: "2026-09-09", date: null, created_at: "2026-09-09T15:00:00Z" },
-        { id: "client-3", person_id: "person-2", annual_premium: 500, sale_status: "sale", submit_date: "2026-09-09", date: null, created_at: "2026-09-09T16:00:00Z" },
+        { id: "client-1", person_id: "person-1", annual_premium: 750, sale_status: "sale", submit_date: "2026-09-09", date: null, created_at: "2026-09-09T14:00:00Z", quotes: [{ carrier: "Unused carrier" }, { carrier: "  Mutual of Omaha  " }], chosen_quote_index: 1 },
+        { id: "client-2", person_id: "person-1", annual_premium: 500, sale_status: null, submit_date: "2026-09-09", date: null, created_at: "2026-09-09T15:00:00Z", quotes: [{ carrier: "Out of range" }], chosen_quote_index: 8 },
+        { id: "client-3", person_id: "person-2", annual_premium: 500, sale_status: "sale", submit_date: "2026-09-09", date: null, created_at: "2026-09-09T16:00:00Z", quotes: [{ carrier: "" }], chosen_quote_index: 0 },
       ],
       error: null,
     });
@@ -130,6 +130,7 @@ describe("Live Leaderboard core", () => {
     expect(snapshot.events).toHaveLength(3);
     expect(snapshot.events.map((event) => event.display_name)).toEqual(["Sarah", "Sarah", "Alex"]);
     expect(snapshot.events.map((event) => event.submitted_ap_cents)).toEqual([75000, 50000, 50000]);
+    expect(snapshot.events.map((event) => event.carrier)).toEqual(["Mutual of Omaha", null, null]);
     expect(snapshot.events.every((event) => /^lde_[A-Za-z0-9_-]{43}$/.test(event.id))).toBe(true);
     expect(snapshot.events.some((event) => event.id.includes("client-"))).toBe(false);
     expect(from).toHaveBeenCalledWith("clients");
