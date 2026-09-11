@@ -5,6 +5,7 @@ import path from "node:path";
 // logic — underwriting build knockouts + carrier-matrix matching, and the AI
 // cost math. Node env; the `@` alias mirrors tsconfig so lib imports resolve.
 export default defineConfig({
+  esbuild: { jsx: "automatic" },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "gateway-runner/**/*.test.mjs"],

@@ -57,6 +57,7 @@ export type RateLimitResult =
 export async function checkAiRateLimit(
   personId: string,
   tool: AiTool,
+  signal?: AbortSignal,
 ): Promise<RateLimitResult> {
   try {
     const admin = createServiceRoleClient();
@@ -65,11 +66,12 @@ export async function checkAiRateLimit(
     const dayStart = new Date().toISOString().slice(0, 10) + "T00:00:00Z";
 
     // Burst: this user's calls across ALL tools in the last minute.
-    const burst = await admin
+    const burstQuery = admin
       .from("ai_usage_log")
       .select("id", { count: "exact", head: true })
       .eq("person_id", personId)
       .gte("created_at", windowStart);
+    const burst = await (signal ? burstQuery.abortSignal(signal) : burstQuery);
     if (burst.error) throw burst.error;
     if ((burst.count ?? 0) >= BURST_LIMIT) {
       return {
@@ -80,12 +82,13 @@ export async function checkAiRateLimit(
     }
 
     // Daily: this user's calls for THIS tool today (UTC).
-    const daily = await admin
+    const dailyQuery = admin
       .from("ai_usage_log")
       .select("id", { count: "exact", head: true })
       .eq("person_id", personId)
       .eq("tool", tool)
       .gte("created_at", dayStart);
+    const daily = await (signal ? dailyQuery.abortSignal(signal) : dailyQuery);
     if (daily.error) throw daily.error;
     if ((daily.count ?? 0) >= DAILY_LIMIT[tool]) {
       return {
@@ -109,10 +112,11 @@ export async function recordAiUsage(args: {
   tool: AiTool;
   model: string;
   usage: Usage;
+  signal?: AbortSignal;
 }): Promise<void> {
   try {
     const admin = createServiceRoleClient();
-    const { error } = await admin.from("ai_usage_log").insert({
+    const query = admin.from("ai_usage_log").insert({
       person_id: args.personId,
       tool: args.tool,
       model: args.model,
@@ -121,6 +125,7 @@ export async function recordAiUsage(args: {
       cache_read_tokens: args.usage.cacheReadTokens ?? 0,
       est_cost_usd: estimateCostUsd(args.model, args.usage),
     });
+    const { error } = await (args.signal ? query.abortSignal(args.signal) : query);
     if (error) throw error;
   } catch (err) {
     console.error("[ai/usage] failed to record usage (ignored):", err);

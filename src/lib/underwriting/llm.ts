@@ -90,6 +90,7 @@ async function structured(opts: {
   toolName: string;
   schema: Record<string, unknown>;
   maxTokens: number;
+  requestOptions?: Anthropic.RequestOptions;
 }): Promise<{ data: Record<string, unknown> | null; usage: Usage }> {
   const res = await client().messages.create({
     model: MODEL,
@@ -104,7 +105,7 @@ async function structured(opts: {
     ],
     tool_choice: { type: "tool", name: opts.toolName },
     messages: opts.messages,
-  });
+  }, opts.requestOptions);
   const block = res.content.find((b) => b.type === "tool_use");
   const data =
     block && block.type === "tool_use"
@@ -274,6 +275,7 @@ export async function analyzeNotes(opts: {
   text: string;
   toolkit: string;
   canonicalConditions: Array<{ condition: string; category: string }>;
+  signal?: AbortSignal;
 }): Promise<{ conditions: string[]; summary: string; noConditionsMentioned: boolean; usage: Usage }> {
   const list = opts.canonicalConditions
     .map((c) => `- ${c.condition} [${c.category}]`)
@@ -297,6 +299,9 @@ export async function analyzeNotes(opts: {
       },
     ],
     messages: [{ role: "user", content: `Client notes:\n${opts.text}` }],
+    // A serverless request cannot afford the SDK default 10-minute timeout
+    // and two retries. The route also supplies its remaining wall-clock budget.
+    requestOptions: { timeout: 18_000, maxRetries: 0, signal: opts.signal },
     toolName: "underwriting_analysis",
     schema: ANALYZE_SCHEMA,
     maxTokens: 1024,

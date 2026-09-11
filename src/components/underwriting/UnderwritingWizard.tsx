@@ -95,7 +95,6 @@ function outcomeStyles(theme: "dark" | "light"): Record<Outcome, OutcomeStyle> {
   return theme === "light" ? OUTCOME_STYLES_LIGHT : OUTCOME_STYLES_DARK;
 }
 
-const DEBOUNCE_MS = 800;
 
 type AnalyzeResponse = {
   ok: true;
@@ -197,15 +196,14 @@ export function UnderwritingWizard({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMeta, setLoadingMeta] = useState(true);
 
-  // Empty string means "don't analyze yet". We only set this once the agent
-  // has actually typed something in the medical-notes textarea — vitals
-  // alone (age/height/weight) aren't enough; the LLM would have nothing to
-  // match against and the recap would falsely show every carrier approving.
-  const [debouncedQuery, setDebouncedQuery] = useState(() => value.trim() ? buildAnalyzerText(vitals, value) : "");
-
-  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  // Results belong to the exact notes, vitals, and toolkit explicitly submitted.
+  // Edits hide outdated results but never start another paid model request.
+  const inputKey = JSON.stringify([toolkit, value.trim(), vitals]);
+  const [completed, setCompleted] = useState<{ key: string; data: AnalyzeResponse } | null>(null);
+  const analysis = completed?.key === inputKey ? completed.data : null;
   const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
+  const analyzeError = failure?.key === inputKey ? failure.message : null;
   const [outcomeFilter, setOutcomeFilter] = useState<Outcome | "All">("All");
 
   const abortRef = useRef<AbortController | null>(null);
@@ -227,14 +225,13 @@ export function UnderwritingWizard({
     if (!el) return;
     const v = el.value;
     if (v !== value) onChange(v);
-    setDebouncedQuery(v.trim() ? buildAnalyzerText(vitals, v) : "");
   };
 
   useEffect(() => {
     let cancelled = false;
     setLoadingMeta(true);
     setLoadError(null);
-    setAnalysis(null);
+    setCompleted(null);
     fetch(`/api/underwriting/conditions?toolkit=${toolkit}`)
       .then(async (r) => {
         const json = await r.json().catch(() => null);
@@ -258,59 +255,44 @@ export function UnderwritingWizard({
     return () => { cancelled = true; };
   }, [toolkit]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDebouncedQuery(value.trim() ? buildAnalyzerText(vitals, value) : "");
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [value, vitals]);
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
-  useEffect(() => {
-    const text = debouncedQuery.trim();
-    if (!text) {
-      setAnalysis(null);
-      setAnalyzeError(null);
-      return;
-    }
-    abortRef.current?.abort();
+  const submitAnalysis = async () => {
+    // Read dictation directly, even if React's polling hasn't caught up yet.
+    const notes = textareaRef.current?.value ?? value;
+    const key = JSON.stringify([toolkit, notes.trim(), vitals]);
+    if (!notes.trim() || loadingMeta || loadError || abortRef.current || completed?.key === key) return;
+    if (notes !== value) onChange(notes);
     const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
+    abortRef.current = ctrl; // Synchronous guard also blocks rapid double clicks.
     setAnalyzing(true);
-    setAnalyzeError(null);
+    setFailure(null);
+    setCompleted(null);
 
-    fetch("/api/underwriting/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, toolkit }),
-      signal: ctrl.signal,
-    })
-      .then(async (r) => {
-        const json = await r.json().catch(() => null);
-        if (!r.ok) throw new Error(json?.error ?? `HTTP ${r.status}`);
-        return json as AnalyzeResponse;
-      })
-      .then((json) => {
-        if (ctrl.signal.aborted) return;
-        setAnalysis(json);
-        if (json.results.length > 0) {
-          // Funnel signal only — counts + toolkit, never the medical notes.
-          track("underwriting_wizard_completed", {
-            toolkit,
-            conditions: json.conditions.length,
-          });
-        }
-      })
-      .catch((e) => {
-        if (e?.name === "AbortError") return;
-        setAnalyzeError(e?.message ?? "analyze failed");
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setAnalyzing(false);
+    try {
+      const response = await fetch("/api/underwriting/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: buildAnalyzerText(vitals, notes), toolkit }),
+        signal: ctrl.signal,
       });
-
-    return () => { ctrl.abort(); };
-  }, [debouncedQuery, toolkit]);
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.ok) throw new Error(json?.error ?? `HTTP ${response.status}`);
+      if (ctrl.signal.aborted) return;
+      setCompleted({ key, data: json as AnalyzeResponse });
+      if (json.results.length > 0) {
+        track("underwriting_wizard_completed", { toolkit, conditions: json.conditions.length });
+      }
+    } catch (error) {
+      if (ctrl.signal.aborted) return;
+      setFailure({ key, message: error instanceof Error ? error.message : "Analysis failed. Please try again." });
+    } finally {
+      if (abortRef.current === ctrl) {
+        abortRef.current = null;
+        setAnalyzing(false);
+      }
+    }
+  };
 
   const aggregated = useMemo<AggregatedCarrier[]>(() => {
     // Per-carrier knockouts applied on top of the health outcome (worst-of):
@@ -431,7 +413,7 @@ export function UnderwritingWizard({
     ? aggregated
     : aggregated.filter((a) => a.outcome === outcomeFilter);
 
-  const showResults = !!debouncedQuery.trim();
+  const showResults = analyzing || !!analysis;
 
   return (
     <div className={compact ? "space-y-3" : "space-y-5 pt-2"}>
@@ -447,7 +429,16 @@ export function UnderwritingWizard({
             return (
               <button
                 key={t.id}
-                onClick={() => { flushPendingText(); setToolkit(t.id); }}
+                type="button"
+                onClick={() => {
+                  flushPendingText();
+                  if (t.id === toolkit) return;
+                  abortRef.current?.abort();
+                  abortRef.current = null;
+                  setAnalyzing(false);
+                  setFailure(null);
+                  setToolkit(t.id);
+                }}
                 title={t.hint}
                 className="px-6 py-2 rounded-lg text-sm font-semibold transition-colors"
                 style={{
@@ -520,6 +511,7 @@ export function UnderwritingWizard({
 
       <textarea
         ref={textareaRef}
+        aria-label="Medical notes"
         className="input w-full"
         placeholder={loadingMeta
           ? "Loading conditions…"
@@ -533,6 +525,21 @@ export function UnderwritingWizard({
         rows={compact ? 3 : 4}
         style={{ padding: "14px 16px", fontSize: compact ? 14 : 16, lineHeight: 1.4, resize: "vertical" }}
       />
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={submitAnalysis}
+          disabled={!value.trim() || loadingMeta || !!loadError || analyzing || !!analysis}
+          className="px-6 py-3 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: "var(--lime)", color: "#0A0A0A" }}
+        >
+          {analyzing ? "Analyzing…" : "Submit"}
+        </button>
+        <span className="text-xs" style={{ color: "var(--ink-3)" }}>
+          {analysis ? "Analysis is up to date." : "Analysis runs only when you submit."}
+        </span>
+      </div>
 
       {loadError && (
         <div
@@ -921,7 +928,7 @@ function EmptyState() {
   return (
     <div className="card p-6 text-sm" style={{ color: "var(--ink-2)" }}>
       <div className="mb-2 text-white font-medium">How this works</div>
-      Type freeform client notes. The wizard reads them clinically (distinguishing diabetes with vs without complications, current vs past cancer, timing of cardiovascular events, etc.) and combines every detected condition into one carrier outlook: green = highest chance of approval, yellow = conditional on timing, orange = will be graded, red = decline.
+      Type your client notes, then click Submit. The wizard reads them clinically (distinguishing diabetes with vs without complications, current vs past cancer, timing of cardiovascular events, etc.) and combines every detected condition into one carrier outlook: green = highest chance of approval, yellow = conditional on timing, orange = will be graded, red = decline.
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { APIConnectionTimeoutError } from "@anthropic-ai/sdk";
+import { analysisDeadline, AnalysisTimeoutError } from "@/lib/underwriting/deadline";
 import { NextResponse } from "next/server";
 import { getCurrentPerson } from "@/lib/auth";
 import { analyzeNotes, UNDERWRITING_MODEL } from "@/lib/underwriting/llm";
@@ -21,80 +23,108 @@ const TOOLKITS: ReadonlySet<Toolkit> = new Set(["FEX", "SIUL", "IUL"]);
 //   4. Look up carrier outcomes for the matched conditions.
 
 export async function POST(req: Request) {
-  const person = await getCurrentPerson();
-  if (!person) {
-    return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
-  }
-
-  const limit = await checkAiRateLimit(person.id, "underwriting_analyze");
-  if (!limit.allowed) {
-    return NextResponse.json(
-      { ok: false, error: limit.reason },
-      {
-        status: 429,
-        headers: limit.retryAfterSeconds
-          ? { "Retry-After": String(limit.retryAfterSeconds) }
-          : undefined,
-      },
-    );
-  }
-
-  const body = await req.json().catch(() => null);
-  if (!body || typeof body.text !== "string") {
-    return NextResponse.json({ ok: false, error: "bad request" }, { status: 400 });
-  }
-
-  const text: string = body.text.slice(0, 8000).trim();
-  if (!text) {
-    return NextResponse.json({ ok: true, conditions: [], summary: "", results: [], noConditionsMentioned: false });
-  }
-  const toolkit: Toolkit = TOOLKITS.has(body.toolkit as Toolkit) ? (body.toolkit as Toolkit) : "FEX";
-
-  // Step 1: canonical condition list for the toolkit (from the in-memory JSON).
-  const canonicalConditions = getConditionsForToolkit(toolkit);
-  if (canonicalConditions.length === 0) {
-    return NextResponse.json({
-      ok: false,
-      stage: "load-conditions",
-      error: "No canonical conditions found for this toolkit.",
-    }, { status: 500 });
-  }
-
-  // Step 2: LLM analysis.
-  let analysis: Awaited<ReturnType<typeof analyzeNotes>>;
+  const run = analysisDeadline(req.signal);
+  let stage = "auth";
   try {
-    analysis = await analyzeNotes({ text, toolkit, canonicalConditions });
-  } catch (e: any) {
-    console.error("[underwriting/analyze] LLM call failed:", e);
-    return NextResponse.json({ ok: false, stage: "llm", error: e?.message ?? "LLM failed" }, { status: 502 });
-  }
+    const person = await run(stage, 5_000, () => getCurrentPerson());
+    if (!person) {
+      return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
+    }
 
-  // Record what the model call spent (best-effort; the model ran, so count it).
-  await recordAiUsage({
-    personId: person.id,
-    tool: "underwriting_analyze",
-    model: UNDERWRITING_MODEL,
-    usage: analysis.usage,
-  });
+    stage = "rate-limit";
+    const limit = await run(stage, 2_000, (signal) =>
+      checkAiRateLimit(person.id, "underwriting_analyze", signal),
+    ).catch((error) => {
+      // Preserve the ledger's existing fail-open behavior for timeouts too.
+      if (error instanceof AnalysisTimeoutError) return { allowed: true } as const;
+      throw error;
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { ok: false, error: limit.reason },
+        {
+          status: 429,
+          headers: limit.retryAfterSeconds
+            ? { "Retry-After": String(limit.retryAfterSeconds) }
+            : undefined,
+        },
+      );
+    }
 
-  if (analysis.conditions.length === 0) {
+    stage = "body";
+    const body = await run(stage, 1_000, () => req.json().catch(() => null));
+    if (!body || typeof body.text !== "string") {
+      return NextResponse.json({ ok: false, error: "bad request" }, { status: 400 });
+    }
+
+    const text: string = body.text.slice(0, 8000).trim();
+    if (!text) {
+      return NextResponse.json({ ok: true, conditions: [], summary: "", results: [], noConditionsMentioned: false });
+    }
+    const toolkit: Toolkit = TOOLKITS.has(body.toolkit as Toolkit) ? (body.toolkit as Toolkit) : "FEX";
+
+    // Step 1: canonical condition list for the toolkit (from the in-memory JSON).
+    const canonicalConditions = getConditionsForToolkit(toolkit);
+    if (canonicalConditions.length === 0) {
+      return NextResponse.json({
+        ok: false,
+        stage: "load-conditions",
+        error: "No canonical conditions found for this toolkit.",
+      }, { status: 500 });
+    }
+
+    // Step 2: LLM analysis.
+    stage = "llm";
+    const analysis = await run(stage, 18_000, (signal) =>
+      analyzeNotes({ text, toolkit, canonicalConditions, signal }),
+    );
+
+    // Accounting must not discard a completed analysis when the ledger is slow.
+    stage = "usage";
+    await run(stage, 1_000, (signal) => recordAiUsage({
+      personId: person.id,
+      tool: "underwriting_analyze",
+      model: UNDERWRITING_MODEL,
+      usage: analysis.usage,
+      signal,
+    })).catch((error) => {
+      if (req.signal.aborted) throw error;
+      console.warn("[underwriting/analyze] usage recording incomplete");
+    });
+
+    if (analysis.conditions.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        conditions: [],
+        summary: analysis.summary || "No specific underwriting conditions detected in the notes.",
+        results: [],
+        noConditionsMentioned: analysis.noConditionsMentioned,
+      });
+    }
+
+    // Step 3: carrier outcomes for the matched conditions.
+    const results = lookupCarrierOutcomes(toolkit, analysis.conditions);
+
     return NextResponse.json({
       ok: true,
-      conditions: [],
-      summary: analysis.summary || "No specific underwriting conditions detected in the notes.",
-      results: [],
+      conditions: analysis.conditions,
+      summary: analysis.summary,
+      results,
       noConditionsMentioned: analysis.noConditionsMentioned,
     });
+  } catch (error) {
+    if (req.signal.aborted) {
+      return NextResponse.json({ ok: false, error: "Request cancelled" }, { status: 499 });
+    }
+    const timedOut = error instanceof AnalysisTimeoutError ||
+      error instanceof APIConnectionTimeoutError;
+    // Do not expose provider errors, notes, or patient details in logs/responses.
+    return NextResponse.json({
+      ok: false,
+      stage,
+      error: timedOut
+        ? "Analysis timed out. Please try again or select conditions manually."
+        : "Analysis is temporarily unavailable. Please try again or select conditions manually.",
+    }, { status: timedOut ? 504 : 502 });
   }
-
-  // Step 3: carrier outcomes for the matched conditions.
-  const results = lookupCarrierOutcomes(toolkit, analysis.conditions);
-
-  return NextResponse.json({
-    ok: true,
-    conditions: analysis.conditions,
-    summary: analysis.summary,
-    results,
-    noConditionsMentioned: analysis.noConditionsMentioned,
-  });
 }
