@@ -63,9 +63,19 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-export async function computeSubmittedApTeamLeaderboards(
+export type SubmittedApLeaderboardScope =
+  | { kind: "team"; ownerPersonId: string }
+  | { kind: "organization" };
+
+export async function computeSubmittedApScopedLeaderboards(
   admin: SupabaseClient,
-  opts: { ownerPersonId: string; periods: DiscordPeriod[]; tz?: string },
+  opts: {
+    scope: SubmittedApLeaderboardScope;
+    periods: DiscordPeriod[];
+    tz?: string;
+    /** Preserve the historical Discord query that excludes null sale_status rows. */
+    strictSaleStatus?: boolean;
+  },
 ): Promise<Map<DiscordPeriod, SubmittedApLeaderboard>> {
   const tz = opts.tz ?? DISCORD_LEADERBOARD_TZ;
   const periods = Array.from(new Set(opts.periods));
@@ -77,9 +87,6 @@ export async function computeSubmittedApTeamLeaderboards(
     ranges.set(period, resolveRange(PERIOD_TO_RANGE_KEY[period], tz));
   }
 
-  // Upline tree from every person row (same pattern as the team-digest cron).
-  // Paged in 1000s so PostgREST's default row cap never silently truncates
-  // the tree on a big org.
   const persons: PersonRow[] = [];
   for (let offset = 0; ; offset += 1000) {
     const peopleRes = await admin
@@ -95,12 +102,12 @@ export async function computeSubmittedApTeamLeaderboards(
 
   const childrenOf = new Map<string, string[]>();
   for (const p of persons) {
-    if (p.upline_id) {
-      const arr = childrenOf.get(p.upline_id) ?? [];
-      arr.push(p.id);
-      childrenOf.set(p.upline_id, arr);
-    }
+    if (!p.upline_id) continue;
+    const arr = childrenOf.get(p.upline_id) ?? [];
+    arr.push(p.id);
+    childrenOf.set(p.upline_id, arr);
   }
+
   function downlineOf(rootId: string): Set<string> {
     const out = new Set<string>();
     const stack = [...(childrenOf.get(rootId) ?? [])];
@@ -108,23 +115,28 @@ export async function computeSubmittedApTeamLeaderboards(
       const id = stack.pop()!;
       if (out.has(id)) continue;
       out.add(id);
-      for (const c of childrenOf.get(id) ?? []) stack.push(c);
+      for (const childId of childrenOf.get(id) ?? []) stack.push(childId);
     }
     return out;
   }
 
   const statusById = new Map(persons.map((p) => [p.id, p.status]));
   const nameById = new Map(persons.map((p) => [p.id, p.full_name ?? "Unknown"]));
+  const candidateIds =
+    opts.scope.kind === "organization"
+      ? persons.map((p) => p.id)
+      : [opts.scope.ownerPersonId, ...downlineOf(opts.scope.ownerPersonId)];
 
-  // The team is the owner plus their full downline, active people only, minus
-  // the internal/test/owner rows that never appear on any board.
-  const teamIds = new Set<string>();
-  for (const id of [opts.ownerPersonId, ...downlineOf(opts.ownerPersonId)]) {
-    if (statusById.get(id) !== "active") continue;
+  const eligibleIds = new Set<string>();
+  for (const id of candidateIds) {
+    // Team follows the existing active-roster behavior. Organization mirrors
+    // the service-role Leaderboard visibility, which does not filter person.status.
+    if (opts.scope.kind === "team" && statusById.get(id) !== "active") continue;
     if (isLeaderboardExcluded(id)) continue;
-    teamIds.add(id);
+    eligibleIds.add(id);
   }
-  if (!teamIds.size) {
+
+  if (!eligibleIds.size) {
     for (const period of periods) {
       const range = ranges.get(period)!;
       result.set(period, { from: range.from, to: range.to, rows: [] });
@@ -132,24 +144,21 @@ export async function computeSubmittedApTeamLeaderboards(
     return result;
   }
 
-  // One clients fetch covering the widest requested range, chunked so .in()
-  // stays sane on big teams. Rows with a null submit_date stay in the fetch
-  // because saleDay falls back to date / created_at; the per-period bucketing
-  // below applies the exact day bounds in JS.
   const widestFrom = Array.from(ranges.values())
     .map((r) => r.from)
     .sort()[0];
-  const ids = Array.from(teamIds);
+  const ids = Array.from(eligibleIds);
   const sales: SaleRow[] = [];
   for (const part of chunk(ids, 100)) {
-    // Paged in 1000s: a hot chunk (or a long range) can exceed PostgREST's
-    // default row cap, which would silently drop sales.
     for (let offset = 0; ; offset += 1000) {
-      const res = await admin
+      let query = admin
         .from("clients")
         .select("person_id, annual_premium, sale_status, submit_date, date, created_at")
-        .in("person_id", part)
-        .eq("sale_status", "sale")
+        .in("person_id", part);
+      query = opts.strictSaleStatus
+        ? query.eq("sale_status", "sale")
+        : query.or("sale_status.eq.sale,sale_status.is.null");
+      const res = await query
         .or(`submit_date.gte.${widestFrom},submit_date.is.null`)
         .order("id")
         .range(offset, offset + 999);
@@ -160,7 +169,6 @@ export async function computeSubmittedApTeamLeaderboards(
     }
   }
 
-  // Manual YTD baselines for the current Chicago year (cents already).
   const baselineByPerson = new Map<string, BaselineRow>();
   if (periods.includes("ytd")) {
     const year = zonedParts(new Date(), tz).y;
@@ -171,65 +179,77 @@ export async function computeSubmittedApTeamLeaderboards(
         .eq("year", year)
         .in("person_id", part);
       if (res.error) throw new Error(res.error.message);
-      for (const b of (res.data ?? []) as BaselineRow[]) baselineByPerson.set(b.person_id, b);
+      for (const baseline of (res.data ?? []) as BaselineRow[]) {
+        baselineByPerson.set(baseline.person_id, baseline);
+      }
     }
   }
 
   for (const period of periods) {
     const range = ranges.get(period)!;
-    const agg = new Map<string, { cents: number; count: number }>();
-    const bump = (pid: string): { cents: number; count: number } => {
-      let a = agg.get(pid);
-      if (!a) {
-        a = { cents: 0, count: 0 };
-        agg.set(pid, a);
+    const aggregate = new Map<string, { cents: number; count: number }>();
+    const bump = (personId: string): { cents: number; count: number } => {
+      let current = aggregate.get(personId);
+      if (!current) {
+        current = { cents: 0, count: 0 };
+        aggregate.set(personId, current);
       }
-      return a;
+      return current;
     };
 
-    // Seed baselines first (ytd only) so baseline-only producers still rank.
     if (period === "ytd") {
-      for (const [pid, b] of baselineByPerson) {
-        if (!teamIds.has(pid)) continue;
-        const a = bump(pid);
-        a.cents += Number(b.submitted_ap_cents ?? 0);
-        a.count += Number(b.sales_count ?? 0);
+      for (const [personId, baseline] of baselineByPerson) {
+        if (!eligibleIds.has(personId)) continue;
+        const current = bump(personId);
+        current.cents += Number(baseline.submitted_ap_cents ?? 0);
+        current.count += Number(baseline.sales_count ?? 0);
       }
     }
 
-    for (const c of sales) {
-      if (!isSale(c)) continue;
-      const day = saleDay(c, tz);
+    for (const sale of sales) {
+      if (!isSale(sale)) continue;
+      const day = saleDay(sale, tz);
       if (!day || day < range.from || day > range.to) continue;
       if (period === "ytd") {
-        const through = baselineByPerson.get(c.person_id)?.baseline_through_date;
-        // Strictly after the through date, so baselined sales never double count.
+        const through = baselineByPerson.get(sale.person_id)?.baseline_through_date;
         if (through && day <= through) continue;
       }
-      const a = bump(c.person_id);
-      a.cents += dollarsToCents(c.annual_premium);
-      a.count += 1;
+      const current = bump(sale.person_id);
+      current.cents += dollarsToCents(sale.annual_premium);
+      current.count += 1;
     }
 
     const rows: SubmittedApLeaderboardRow[] = [];
-    for (const [pid, a] of agg) {
-      if (a.cents === 0 && a.count === 0) continue;
+    for (const [personId, aggregateRow] of aggregate) {
+      if (aggregateRow.cents === 0 && aggregateRow.count === 0) continue;
       rows.push({
-        person_id: pid,
-        full_name: nameById.get(pid) ?? "Unknown",
-        submitted_ap_cents: a.cents,
-        sales_count: a.count,
+        person_id: personId,
+        full_name: nameById.get(personId) ?? "Unknown",
+        submitted_ap_cents: aggregateRow.cents,
+        sales_count: aggregateRow.count,
       });
     }
     rows.sort(
-      (x, y) =>
-        y.submitted_ap_cents - x.submitted_ap_cents ||
-        y.sales_count - x.sales_count ||
-        x.full_name.localeCompare(y.full_name),
+      (left, right) =>
+        right.submitted_ap_cents - left.submitted_ap_cents ||
+        right.sales_count - left.sales_count ||
+        left.full_name.localeCompare(right.full_name),
     );
 
     result.set(period, { from: range.from, to: range.to, rows });
   }
 
   return result;
+}
+
+export async function computeSubmittedApTeamLeaderboards(
+  admin: SupabaseClient,
+  opts: { ownerPersonId: string; periods: DiscordPeriod[]; tz?: string },
+): Promise<Map<DiscordPeriod, SubmittedApLeaderboard>> {
+  return computeSubmittedApScopedLeaderboards(admin, {
+    scope: { kind: "team", ownerPersonId: opts.ownerPersonId },
+    periods: opts.periods,
+    tz: opts.tz,
+    strictSaleStatus: true,
+  });
 }

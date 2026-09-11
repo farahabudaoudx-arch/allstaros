@@ -397,6 +397,8 @@ export type LeaderboardRow = {
   photo_url?: string | null;
   ap_cents: number;
   ip_cents: number;
+  /** Raw counted submitted-business deals from clients.sale_status/date rules. */
+  sale_count: number;
   /** Ranked sales metric: max(tracker_sales, client sale_count). */
   sales: number;
   /** Raw sum of tracker_entry.sales — Team "Policies Sold" uses this. */
@@ -507,6 +509,7 @@ export async function computeLeaderboard(
         full_name: r.full_name ?? "Unknown",
         ap_cents: n(r.ap_cents),
         ip_cents: n(r.ip_cents),
+        sale_count: saleCount,
         sales: Math.max(trackerSales, saleCount),
         tracker_sales: trackerSales,
         policies: n(r.policies),
