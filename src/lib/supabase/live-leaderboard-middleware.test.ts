@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({ getUser: vi.fn() }));
@@ -9,8 +9,14 @@ import { updateSession } from "./middleware";
 
 describe("Supabase middleware Live Leaderboard boundaries", () => {
   beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://test-project.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-anon-key");
     mocks.getUser.mockReset();
     mocks.getUser.mockResolvedValue({ data: { user: null } });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it.each(["/live/leaderboard", "/api/live-leaderboard/snapshot"])("allows unauthenticated Live surface %s", async (pathname) => {
