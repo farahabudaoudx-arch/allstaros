@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { approvedPhotoUrl } from "@/lib/headshots/photo";
 import {
   computeSubmittedApScopedLeaderboards,
   DISCORD_LEADERBOARD_TZ,
+  type SubmittedApLeaderboard,
   type SubmittedApLeaderboardScope,
 } from "@/lib/producer/submitted-ap-leaderboard";
 
@@ -24,9 +26,19 @@ export type LiveLeaderboardSnapshot = {
   scope: LiveLeaderboardScope;
   asOf: string;
   range: { from: string; to: string };
-  totals: { submitted_ap_cents: number; deals: number; people: number };
+  totals: {
+    submitted_ap_cents: number;
+    deals: number;
+    people: number;
+    average_ticket_cents: number;
+  };
+  periods: {
+    week: { range: { from: string; to: string }; submitted_ap_cents: number; deals: number };
+    month: { range: { from: string; to: string }; submitted_ap_cents: number; deals: number };
+  };
   rows: Array<{
     full_name: string;
+    photo_url: string | null;
     submitted_ap_cents: number;
     sales_count: number;
   }>;
@@ -157,6 +169,42 @@ export async function resolveLiveLeaderboardCapability(
   return { status: "active", capability: toCapability(row) };
 }
 
+type LivePhotoRow = {
+  id: string;
+  photo_url: string | null;
+  photo_review_status: string | null;
+};
+
+function summarizeSubmittedPeriod(board: SubmittedApLeaderboard) {
+  return {
+    range: { from: board.from, to: board.to },
+    submitted_ap_cents: board.rows.reduce((sum, row) => sum + row.submitted_ap_cents, 0),
+    deals: board.rows.reduce((sum, row) => sum + row.sales_count, 0),
+  };
+}
+
+async function loadApprovedLivePhotos(
+  admin: SupabaseClient,
+  personIds: string[],
+): Promise<Map<string, string | null>> {
+  const photos = new Map<string, string | null>();
+  const uniqueIds = Array.from(new Set(personIds));
+  for (let index = 0; index < uniqueIds.length; index += 100) {
+    const ids = uniqueIds.slice(index, index + 100);
+    const { data, error } = await admin
+      .from("person")
+      .select("id, photo_url, photo_review_status")
+      .in("id", ids);
+    // Photos are presentation-only: if this lookup fails, keep the accurate board
+    // available and let the Avatar fall back to initials.
+    if (error) continue;
+    for (const row of (data ?? []) as LivePhotoRow[]) {
+      photos.set(row.id, approvedPhotoUrl(row));
+    }
+  }
+  return photos;
+}
+
 export async function buildLiveLeaderboardSnapshot(
   admin: SupabaseClient,
   capability: LiveLeaderboardCapability,
@@ -164,20 +212,39 @@ export async function buildLiveLeaderboardSnapshot(
   // Scope is fixed in the capability. Team membership follows the current recruiting tree.
   const boards = await computeSubmittedApScopedLeaderboards(admin, {
     scope: scopeForComputation(capability),
-    periods: ["daily"],
+    periods: ["daily", "wtd", "mtd"],
     tz: LIVE_LEADERBOARD_TZ,
   });
   const daily = boards.get("daily");
-  if (!daily) throw new Error("missing_daily_live_leaderboard");
-  const submittedApCents = daily.rows.reduce((sum, row) => sum + row.submitted_ap_cents, 0);
-  const deals = daily.rows.reduce((sum, row) => sum + row.sales_count, 0);
+  const week = boards.get("wtd");
+  const month = boards.get("mtd");
+  if (!daily || !week || !month) throw new Error("missing_live_leaderboard_period");
+
+  const today = summarizeSubmittedPeriod(daily);
+  const photos = await loadApprovedLivePhotos(
+    admin,
+    daily.rows.map((row) => row.person_id),
+  );
+  const averageTicketCents =
+    today.deals > 0 ? Math.round(today.submitted_ap_cents / today.deals) : 0;
+
   return {
     scope: capability.scope,
     asOf: new Date().toISOString(),
-    range: { from: daily.from, to: daily.to },
-    totals: { submitted_ap_cents: submittedApCents, deals, people: daily.rows.length },
-    rows: daily.rows.map(({ full_name, submitted_ap_cents, sales_count }) => ({
+    range: today.range,
+    totals: {
+      submitted_ap_cents: today.submitted_ap_cents,
+      deals: today.deals,
+      people: daily.rows.length,
+      average_ticket_cents: averageTicketCents,
+    },
+    periods: {
+      week: summarizeSubmittedPeriod(week),
+      month: summarizeSubmittedPeriod(month),
+    },
+    rows: daily.rows.map(({ person_id, full_name, submitted_ap_cents, sales_count }) => ({
       full_name,
+      photo_url: photos.get(person_id) ?? null,
       submitted_ap_cents,
       sales_count,
     })),

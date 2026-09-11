@@ -29,19 +29,49 @@ describe("Live Leaderboard core", () => {
     expect(hashLiveLeaderboardToken(tokenA)).toBe(hashLiveLeaderboardToken(tokenA));
   });
 
-  it("builds a Team snapshot from the current owner tree without exposing internal person ids", async () => {
-    mocks.compute.mockResolvedValue(new Map([[
-      "daily",
-      {
+  it("builds Team today plus scoped week/month totals and approved-photo fallbacks", async () => {
+    mocks.compute.mockResolvedValue(new Map([
+      ["daily", {
         from: "2026-09-09",
         to: "2026-09-09",
         rows: [
           { person_id: "person-1", full_name: "Sarah", submitted_ap_cents: 125000, sales_count: 2 },
           { person_id: "person-2", full_name: "Alex", submitted_ap_cents: 50000, sales_count: 1 },
         ],
-      },
-    ]]));
-    const snapshot = await buildLiveLeaderboardSnapshot({} as SupabaseClient, {
+      }],
+      ["wtd", {
+        from: "2026-09-07",
+        to: "2026-09-09",
+        rows: [
+          { person_id: "person-1", full_name: "Sarah", submitted_ap_cents: 225000, sales_count: 3 },
+          { person_id: "person-3", full_name: "Jordan", submitted_ap_cents: 75000, sales_count: 1 },
+        ],
+      }],
+      ["mtd", {
+        from: "2026-09-01",
+        to: "2026-09-09",
+        rows: [
+          { person_id: "person-1", full_name: "Sarah", submitted_ap_cents: 325000, sales_count: 4 },
+          { person_id: "person-2", full_name: "Alex", submitted_ap_cents: 50000, sales_count: 1 },
+          { person_id: "person-3", full_name: "Jordan", submitted_ap_cents: 125000, sales_count: 2 },
+        ],
+      }],
+    ]));
+
+    const inPeople = vi.fn().mockResolvedValue({
+      data: [
+        { id: "person-1", photo_url: "https://img.test/sarah.jpg", photo_review_status: "approved" },
+        { id: "person-2", photo_url: "https://img.test/alex.jpg", photo_review_status: "pending" },
+      ],
+      error: null,
+    });
+    const admin = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ in: inPeople }),
+      }),
+    } as unknown as SupabaseClient;
+
+    const snapshot = await buildLiveLeaderboardSnapshot(admin, {
       id: "cap-1",
       creator_person_id: "owner-1",
       scope: "team",
@@ -49,27 +79,57 @@ describe("Live Leaderboard core", () => {
       revoked_at: null,
       rotated_from_id: null,
     });
-    expect(mocks.compute).toHaveBeenCalledWith({}, expect.objectContaining({
+
+    expect(mocks.compute).toHaveBeenCalledWith(admin, expect.objectContaining({
       scope: { kind: "team", ownerPersonId: "owner-1" },
-      periods: ["daily"],
+      periods: ["daily", "wtd", "mtd"],
     }));
-    expect(snapshot.totals).toEqual({ submitted_ap_cents: 175000, deals: 3, people: 2 });
-    expect(snapshot.rows[0]).toEqual({ full_name: "Sarah", submitted_ap_cents: 125000, sales_count: 2 });
+    expect(inPeople).toHaveBeenCalledWith("id", ["person-1", "person-2"]);
+    expect(snapshot.totals).toEqual({
+      submitted_ap_cents: 175000,
+      deals: 3,
+      people: 2,
+      average_ticket_cents: 58333,
+    });
+    expect(snapshot.periods.week).toEqual({
+      range: { from: "2026-09-07", to: "2026-09-09" },
+      submitted_ap_cents: 300000,
+      deals: 4,
+    });
+    expect(snapshot.periods.month).toEqual({
+      range: { from: "2026-09-01", to: "2026-09-09" },
+      submitted_ap_cents: 500000,
+      deals: 7,
+    });
+    expect(snapshot.rows[0]).toEqual({
+      full_name: "Sarah",
+      photo_url: "https://img.test/sarah.jpg",
+      submitted_ap_cents: 125000,
+      sales_count: 2,
+    });
+    expect(snapshot.rows[1]?.photo_url).toBeNull();
     expect(snapshot.rows[0]).not.toHaveProperty("person_id");
   });
 
-  it("builds Organization scope without pinning an owner", async () => {
-    mocks.compute.mockResolvedValue(new Map([[
-      "daily",
-      { from: "2026-09-09", to: "2026-09-09", rows: [] },
-    ]]));
-    await buildLiveLeaderboardSnapshot({} as SupabaseClient, {
+  it("builds an empty Organization day safely with zero average ticket", async () => {
+    mocks.compute.mockResolvedValue(new Map([
+      ["daily", { from: "2026-09-09", to: "2026-09-09", rows: [] }],
+      ["wtd", { from: "2026-09-07", to: "2026-09-09", rows: [] }],
+      ["mtd", { from: "2026-09-01", to: "2026-09-09", rows: [] }],
+    ]));
+    const admin = {} as SupabaseClient;
+    const snapshot = await buildLiveLeaderboardSnapshot(admin, {
       id: "cap-org", creator_person_id: "creator-1", scope: "organization",
       created_at: "2026-09-09T00:00:00Z", revoked_at: null, rotated_from_id: null,
     });
-    expect(mocks.compute).toHaveBeenCalledWith({}, expect.objectContaining({
+    expect(mocks.compute).toHaveBeenCalledWith(admin, expect.objectContaining({
       scope: { kind: "organization" },
+      periods: ["daily", "wtd", "mtd"],
     }));
+    expect(snapshot.totals).toEqual({
+      submitted_ap_cents: 0, deals: 0, people: 0, average_ticket_cents: 0,
+    });
+    expect(snapshot.rows).toEqual([]);
   });
 
   it("rotates through the atomic database RPC and returns only the new plaintext token", async () => {
