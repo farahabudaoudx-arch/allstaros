@@ -5,6 +5,11 @@ type Section = { name: string; description: string; href: string };
 
 const SECTIONS: Section[] = [
   {
+    name: "OS Assembly Line",
+    description: "Create customer builds, track intake, service access, purchased work, and readiness.",
+    href: "/admin/os-builds",
+  },
+  {
     name: "Builders",
     description: "Manage builders, their downline, bulk add + invite a team.",
     href: "/admin/people/builders",

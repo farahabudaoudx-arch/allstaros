@@ -11,6 +11,7 @@ import { PageTransition } from "@/components/PageTransition";
 function buildNav(isSuperAdmin: boolean): NavItem[] {
   const nav: NavItem[] = [
     { label: "Dashboard", href: "/admin" },
+    { label: "OS Assembly Line", href: "/admin/os-builds" },
     {
       label: "People",
       children: [
