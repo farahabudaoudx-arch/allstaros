@@ -11,6 +11,7 @@ import {
   fallbackRow,
   footerRow,
   escapeHtml,
+  BRAND,
 } from "./_layout";
 
 export function passwordResetEmail(params: {
@@ -22,7 +23,7 @@ export function passwordResetEmail(params: {
   const heading = firstName
     ? `Reset your password, ${escapeHtml(firstName)}.`
     : "Reset your password.";
-  const subject = "Reset your All Star password";
+  const subject = `Reset your ${BRAND.SHORT_NAME} password`;
 
   const html = shell({
     subject,
@@ -30,7 +31,7 @@ export function passwordResetEmail(params: {
     rows: [
       headingRow(heading),
       paragraphRow(
-        "We got a request to reset the password on your All Star account. Tap below to choose a new one.",
+        `We got a request to reset the password on your ${escapeHtml(BRAND.SHORT_NAME)} account. Tap below to choose a new one.`,
       ),
       buttonRow("Reset my password", resetUrl),
       fallbackRow(resetUrl),
@@ -43,14 +44,14 @@ export function passwordResetEmail(params: {
   const text = [
     firstName ? `Reset your password, ${firstName}.` : "Reset your password.",
     "",
-    "We got a request to reset the password on your All Star account. Use the link below to choose a new one.",
+    `We got a request to reset the password on your ${BRAND.SHORT_NAME} account. Use the link below to choose a new one.`,
     "",
     "Reset my password:",
     resetUrl,
     "",
     "For your security, this link can only be used once and expires after a while. If you didn't request a password reset, you can safely ignore this email — your password won't change.",
     "",
-    "© All Star Life Group",
+    `© ${BRAND.ORGANIZATION_NAME}`,
   ].join("\n");
 
   return { subject, html, text };

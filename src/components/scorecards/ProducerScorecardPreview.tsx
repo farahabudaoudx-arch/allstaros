@@ -5,7 +5,6 @@ import type {
 } from "@/lib/scorecards/lifecycle";
 import { scaleCumulativeThreshold } from "@/lib/scorecards/period";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
-import Image from "next/image";
 import { Avatar } from "@/components/Avatar";
 import type { ReactNode } from "react";
 import {
@@ -18,6 +17,8 @@ import { ScorecardExportControls } from "./ScorecardExportControls";
 import { ProducerBaseballCard } from "./ProducerBaseballCard";
 import { ScorecardStars } from "./ScorecardStars";
 import { DownloadGlyph } from "./ScorecardExportControls";
+import { installationTimezone } from "@/lib/installation/runtime";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 export function money(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -414,14 +415,7 @@ export function ScorecardHeader({
   return (
     <BackgroundShader>
       <header className="border-b border-white/10 px-5 pb-7 pt-8 text-center sm:px-7 sm:pb-8 sm:pt-10">
-        <Image
-          src="/logo.png"
-          alt="All Star"
-          width={160}
-          height={90}
-          priority
-          className="mx-auto mb-6 h-10 w-auto opacity-90 sm:h-12"
-        />
+        <InstallationLogo className="mx-auto mb-6 h-10 w-auto opacity-90 sm:h-12" />
         <Avatar
           name={memberName}
           photoUrl={photoUrl}
@@ -535,7 +529,7 @@ function chicagoDateFromInstant(instantText: string): string | null {
   const instant = new Date(instantText);
   if (Number.isNaN(instant.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
+    timeZone: installationTimezone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

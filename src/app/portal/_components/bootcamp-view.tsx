@@ -4,8 +4,6 @@ import {
   recordCheckIn,
 } from "@/lib/actions/portal";
 import {
-  BOOTCAMP_POLICY_GATE,
-  BOOTCAMP_WINDOW_DAYS,
   MILESTONE_KINDS,
   type CheckIn,
   type Milestone,
@@ -29,12 +27,16 @@ export default function BootcampView({
   policies,
   checkIns,
   latestCheckIn,
+  graduationPolicyCount,
+  graduationWindowDays,
 }: {
   recruit: Recruit;
   milestones: Milestone[];
   policies: PolicySubmission[];
   checkIns: CheckIn[];
   latestCheckIn: CheckIn | null;
+  graduationPolicyCount: number;
+  graduationWindowDays: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const startedAt = recruit.bootcamp_started_at ?? today;
@@ -43,19 +45,19 @@ export default function BootcampView({
   const dayNumber = Math.max(
     1,
     Math.min(
-      BOOTCAMP_WINDOW_DAYS,
+      graduationWindowDays,
       Math.floor(
         (todayDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000),
       ) + 1,
     ),
   );
-  const daysRemaining = Math.max(0, BOOTCAMP_WINDOW_DAYS - dayNumber + 1);
+  const daysRemaining = Math.max(0, graduationWindowDays - dayNumber + 1);
 
   const submissionsInWindow = policies.filter(
     (p) =>
       p.submitted_at >= startedAt &&
       new Date(p.submitted_at).getTime() <
-        startDate.getTime() + BOOTCAMP_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+        startDate.getTime() + graduationWindowDays * 24 * 60 * 60 * 1000,
   ).length;
 
   const milestoneSet = new Set(milestones.map((m) => m.kind));
@@ -64,22 +66,22 @@ export default function BootcampView({
   return (
     <div className="space-y-6">
       <Card
-        title={`Day ${dayNumber} of ${BOOTCAMP_WINDOW_DAYS}`}
-        subtitle={`${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining. ${BOOTCAMP_POLICY_GATE} submitted policies graduates you.`}
+        title={`Day ${dayNumber} of ${graduationWindowDays}`}
+        subtitle={`${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining. ${graduationPolicyCount} submitted policies graduates you.`}
       >
         <div className="space-y-3">
           <div className="h-3 w-full overflow-hidden rounded-full bg-card-hi">
             <div
               className="h-full bg-pos transition-all"
               style={{
-                width: `${Math.min(100, (submissionsInWindow / BOOTCAMP_POLICY_GATE) * 100)}%`,
+                width: `${Math.min(100, (submissionsInWindow / graduationPolicyCount) * 100)}%`,
               }}
             />
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-subtle">Policies submitted</span>
             <span className="font-semibold tabular-nums text-ink">
-              {submissionsInWindow} / {BOOTCAMP_POLICY_GATE}
+              {submissionsInWindow} / {graduationPolicyCount}
             </span>
           </div>
         </div>
@@ -115,7 +117,7 @@ export default function BootcampView({
 
       <Card
         title="Log a submitted policy"
-        subtitle="Submitted counts, not issued. The 8-in-28 gate runs off this list."
+        subtitle={`Submitted counts, not issued. The ${graduationPolicyCount}-in-${graduationWindowDays} gate runs off this list.`}
       >
         <form
           action={addPolicySubmission}

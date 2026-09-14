@@ -7,14 +7,13 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/admin/audit";
 import { sendEmail } from "@/lib/email";
 import { headshotRejectedEmail } from "@/lib/emails/headshot-rejected";
+import { getAppUrl } from "@/lib/site-url";
 
 const BACK = "/admin/headshots";
 
-// Where a rejected person goes to fix it: Settings → Account Details (which holds
-// the profile photo). Hardcoded to the production host (like the other email
-// templates) so the link is correct no matter where the action runs.
-const SETTINGS_PHOTO_URL =
-  "https://app.allstarlifegroup.com/producer?settings=account";
+// Where a rejected person goes to fix it: Settings → Account Details. The host
+// is installation-specific and comes from the deployment URL contract.
+const SETTINGS_PHOTO_URL = `${getAppUrl()}/producer?settings=account`;
 
 function done(query: string): never {
   revalidatePath(BACK);

@@ -14,6 +14,7 @@ import {
   type NavLink,
   type NavSection,
 } from "@/lib/producer/nav";
+import type { InstallationBrand } from "@/lib/installation/types";
 
 /** Which groups the reader has opened. A NEW key on purpose: the old one
  *  stored the inverse (which groups were collapsed), so reusing it would read
@@ -43,6 +44,7 @@ export function AppSidebar({
   desktopOpen,
   onToggleDesktop,
   animated,
+  brand,
 }: {
   isBuilder: boolean;
   mobileOpen: boolean;
@@ -52,6 +54,7 @@ export function AppSidebar({
   /** False for the first paint, so a remembered "collapsed" doesn't play the
    *  slide-out animation on every page load. */
   animated: boolean;
+  brand?: InstallationBrand;
 }) {
   const pathname = usePathname() ?? "";
   const sections = useMemo(() => producerNav(isBuilder), [isBuilder]);
@@ -133,13 +136,11 @@ export function AppSidebar({
             rail around it narrows, so nothing reflows mid-slide. */}
         <div className="flex min-h-0 w-60 flex-1 flex-col">
           <div className="flex items-center justify-between gap-2 px-5 pt-8">
-            <Link href="/producer" aria-label="All Star OS home">
-              <Image
-                src="/logo.png"
-                alt="All Star OS"
-                width={120}
-                height={68}
-                priority
+            <Link href="/producer" aria-label={`${brand?.productName ?? "All Star OS"} home`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={brand?.logoUrl ?? "/logo.png"}
+                alt={brand?.productName ?? "All Star OS"}
                 className="app-logo h-9 w-auto"
               />
             </Link>
@@ -171,14 +172,13 @@ export function AppSidebar({
           <div className="flex items-center justify-between gap-2 px-5 pt-6">
             <Link
               href="/producer"
-              aria-label="All Star OS home"
+              aria-label={`${brand?.productName ?? "All Star OS"} home`}
               onClick={onCloseMobile}
             >
-              <Image
-                src="/logo.png"
-                alt="All Star OS"
-                width={120}
-                height={68}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={brand?.logoUrl ?? "/logo.png"}
+                alt={brand?.productName ?? "All Star OS"}
                 className="app-logo h-8 w-auto"
               />
             </Link>

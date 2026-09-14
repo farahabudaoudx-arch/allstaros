@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useActionState, useState } from "react";
 import { Input, Button } from "@/components/ui";
 import { updatePasswordAction, type UpdatePasswordState } from "../actions";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 const initialState: UpdatePasswordState = { ok: true };
 
@@ -39,14 +39,7 @@ export default function ResetConfirmPage() {
     <div className="flex min-h-dvh flex-1 items-center justify-center px-6 py-24">
       <div className="w-full max-w-md rounded-2xl border border-hairline bg-card p-10">
         <div className="mb-8 text-center">
-          <Image
-            src="/logo.png"
-            alt="All Star OS"
-            width={140}
-            height={79}
-            priority
-            className="mx-auto h-10 w-auto"
-          />
+          <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
           <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">
             Choose a new password
           </h1>

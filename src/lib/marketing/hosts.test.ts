@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { isMarketingHostname, requestHostname } from "./hosts";
 
 describe("marketing hostname routing", () => {
+  const originalHosts = process.env.MARKETING_HOSTS;
+
+  afterEach(() => {
+    if (originalHosts === undefined) delete process.env.MARKETING_HOSTS;
+    else process.env.MARKETING_HOSTS = originalHosts;
+  });
+
   it.each([
     "allstarlifegroup.com",
     "www.allstarlifegroup.com",
@@ -18,5 +25,11 @@ describe("marketing hostname routing", () => {
     expect(requestHostname("WWW.ALLSTARLIFEGROUP.COM:3003", "localhost")).toBe(
       "www.allstarlifegroup.com",
     );
+  });
+
+  it("uses installation-specific marketing hosts when configured", () => {
+    process.env.MARKETING_HOSTS = "agency.example.com,www.agency.example.com";
+    expect(isMarketingHostname("agency.example.com")).toBe(true);
+    expect(isMarketingHostname("allstarlifegroup.com")).toBe(false);
   });
 });

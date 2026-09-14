@@ -4,6 +4,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeLeaderboard, type LeaderboardMetric, type RangeKey } from "@/lib/producer/metrics";
 import { safeTz } from "@/lib/producer/time";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 const METRICS: LeaderboardMetric[] = [
   "ap_cents",
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rangeKey = (url.searchParams.get("range") ?? "mtd") as RangeKey;
-  const tz = safeTz(url.searchParams.get("tz"));
+  const tz = safeTz(url.searchParams.get("tz"), installationTimezone());
   const metricParam = url.searchParams.get("metric") as LeaderboardMetric | null;
   const metric = metricParam && METRICS.includes(metricParam) ? metricParam : "ap_cents";
 

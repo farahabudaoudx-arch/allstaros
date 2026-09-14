@@ -23,10 +23,17 @@ export type FlagItem = {
   href: string;
 };
 
-// Recruit thresholds (whole days).
-const EXAM_UNSCHEDULED_DAYS = 3; // licensing recruit with no exam date yet
-const NO_CHECKIN_DAYS = 2; // never checked in, this long after signup
-const CHECKIN_LAPSED_DAYS = 2; // last check-in older than this
+export type RecruitFlagPolicy = {
+  examUnscheduledDays: number;
+  noCheckinDays: number;
+  checkinLapsedDays: number;
+};
+
+const DEFAULT_RECRUIT_FLAG_POLICY: RecruitFlagPolicy = {
+  examUnscheduledDays: 3,
+  noCheckinDays: 2,
+  checkinLapsedDays: 2,
+};
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -112,6 +119,7 @@ type ProjectionRow = {
 export async function computeTeamFlags(
   supabase: SupabaseClient,
   meId: string,
+  policy: RecruitFlagPolicy = DEFAULT_RECRUIT_FLAG_POLICY,
 ): Promise<FlagItem[]> {
   const today = new Date();
   const flags: FlagItem[] = [];
@@ -146,7 +154,7 @@ export async function computeTeamFlags(
     const sinceSignup = daysBetween(today, startOfUtcDay(r.created_at));
 
     // Exam not scheduled — only while licensing.
-    if (r.phase === "licensing" && !r.exam_date && sinceSignup >= EXAM_UNSCHEDULED_DAYS) {
+    if (r.phase === "licensing" && !r.exam_date && sinceSignup >= policy.examUnscheduledDays) {
       flags.push({
         id: `exam-${r.id}`,
         personName: name,
@@ -162,7 +170,7 @@ export async function computeTeamFlags(
     if (r.phase !== "graduated") {
       const last = lastCheckIn.get(r.id);
       if (!last) {
-        if (sinceSignup >= NO_CHECKIN_DAYS) {
+        if (sinceSignup >= policy.noCheckinDays) {
           flags.push({
             id: `checkin-${r.id}`,
             personName: name,
@@ -175,7 +183,7 @@ export async function computeTeamFlags(
         }
       } else {
         const days = daysBetween(today, startOfUtcDay(last));
-        if (days >= CHECKIN_LAPSED_DAYS) {
+        if (days >= policy.checkinLapsedDays) {
           flags.push({
             id: `checkin-${r.id}`,
             personName: name,

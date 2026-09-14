@@ -3,6 +3,8 @@ import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { NpnRequestModal } from "./_components/npn-request-modal";
 import { HeadshotGateModal } from "./_components/headshot-gate-modal";
 import { isBehindHeadshotWall } from "@/lib/headshots/wall";
+import { getInstallationBrand } from "@/lib/installation/config";
+import { InstallationBrandProvider } from "@/lib/installation/brand-context";
 
 /**
  * Thin shell for everything under /producer. Only the auth guard and the two
@@ -21,9 +23,10 @@ export default async function ProducerLayout({
   // Additive roles: builders keep producer access; pure recruits don't.
   // Admins may open producer routes to preview generated Scorecards.
   if (!canAccessProducerApp(person)) redirect("/portal");
+  const brand = await getInstallationBrand();
 
   return (
-    <>
+    <InstallationBrandProvider brand={brand}>
       {children}
       {/* Show the NPN popup to producers/builders who still have no NPN on file.
           Admins previewing Scorecards skip it. Answering flips npn_status off
@@ -42,6 +45,6 @@ export default async function ProducerLayout({
           person.photo_review_status === "rejected" ? person.photo_rejection_reason : null
         }
       />
-    </>
+    </InstallationBrandProvider>
   );
 }

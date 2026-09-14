@@ -15,6 +15,7 @@ import {
 } from "@/components/producer/menu/HomeNumbers";
 import { loadGatewayConnectionState } from "@/lib/gateway/connection";
 import { gatewayConnectionNotice } from "@/lib/gateway/connection-types";
+import { getInstallationConfig } from "@/lib/installation/config";
 
 /** "1 deal" / "2 deals". The copy is written around a blank, so the noun has
  *  to agree with whatever number lands in it. */
@@ -41,6 +42,16 @@ export default async function ProducerHome({
   if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
+  const installation = await getInstallationConfig();
+  const brand = {
+    organizationName: installation.organizationName,
+    shortName: installation.shortName,
+    productName: installation.productName,
+    brandPrimaryColor: installation.brandPrimaryColor,
+    brandAccentColor: installation.brandAccentColor,
+    logoUrl: installation.logoUrl,
+    faviconUrl: installation.faviconUrl,
+  };
 
   // Development-only visual QA. ?preview=<name> renders a member's scoreboard
   // through the service role without changing the signed-in identity.
@@ -89,6 +100,7 @@ export default async function ProducerHome({
       subjectId,
       downline,
       gatewayConnection.connected,
+      installation.timezone,
     );
     lines = [
       { before: "You have issued", value: gatewayMoney(n.ipCents), after: "IP" },
@@ -109,7 +121,12 @@ export default async function ProducerHome({
       { before: "Your team has issued", value: gatewayMoney(n.teamIpCents), after: "IP" },
     ];
   } else {
-    const n = await producerYtd(supabase, subjectId, gatewayConnection.connected);
+    const n = await producerYtd(
+      supabase,
+      subjectId,
+      gatewayConnection.connected,
+      installation.timezone,
+    );
     lines = [
       {
         before: "You have made",
@@ -140,6 +157,7 @@ export default async function ProducerHome({
       unreadChat={unreadChat}
       previewOf={subject?.full_name}
       gatewayNotice={gatewayConnectionNotice(gatewayConnection)}
+      brand={brand}
     />
   );
 }

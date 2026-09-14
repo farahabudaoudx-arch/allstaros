@@ -1,4 +1,4 @@
-import { buttonRow, escapeHtml, fallbackRow, footerRow, headingRow, paragraphRow, shell } from "./_layout";
+import { BRAND, buttonRow, escapeHtml, fallbackRow, footerRow, headingRow, paragraphRow, shell } from "./_layout";
 import { scorecardPeriodFromStart, type ScorecardPeriod } from "@/lib/scorecards/period";
 
 export type ScorecardReadyDeliveryType = "producer_email" | "builder_email";
@@ -59,7 +59,7 @@ export function scorecardReadyEmail({
         paragraphRow(body),
         buttonRow("View My Scorecards", ctaUrl),
         fallbackRow(ctaUrl),
-        footerRow("Your published Scorecards remain available through your normal All Star account access."),
+        footerRow(`Your published Scorecards remain available through your normal ${escapeHtml(BRAND.SHORT_NAME)} account access.`),
       ].join("\n"),
     }),
     text: [
@@ -70,7 +70,7 @@ export function scorecardReadyEmail({
       "View My Scorecards:",
       ctaUrl,
       "",
-      "Your published Scorecards remain available through your normal All Star account access.",
+      `Your published Scorecards remain available through your normal ${BRAND.SHORT_NAME} account access.`,
     ].join("\n"),
   };
 }

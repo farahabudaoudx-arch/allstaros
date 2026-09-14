@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 const BACK = "/admin/schedule";
 
@@ -61,7 +62,7 @@ function readFields(formData: FormData): Fields | string {
     event_date,
     start_time: String(formData.get("start_time") ?? "").trim() || "08:30",
     end_time: String(formData.get("end_time") ?? "").trim() || "09:00",
-    timezone: String(formData.get("timezone") ?? "").trim() || "America/Chicago",
+    timezone: String(formData.get("timezone") ?? "").trim() || installationTimezone(),
     zoom_url: String(formData.get("zoom_url") ?? "").trim() || null,
     sort_order: Number.isFinite(sortRaw) ? Math.round(sortRaw) : 0,
   };

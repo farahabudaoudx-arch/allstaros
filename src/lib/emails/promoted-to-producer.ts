@@ -12,6 +12,7 @@ import {
   buttonRow,
   footerRow,
   escapeHtml,
+  BRAND,
 } from "./_layout";
 
 export function promotedToProducerEmail(params: {
@@ -47,7 +48,7 @@ export function promotedToProducerEmail(params: {
     `Open your producer dashboard: ${dashboardUrl}`,
     "",
     "Welcome to the team.",
-    "© All Star Life Group",
+    `© ${BRAND.ORGANIZATION_NAME}`,
   ].join("\n");
 
   return { subject, html, text };

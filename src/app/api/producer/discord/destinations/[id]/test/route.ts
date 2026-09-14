@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isDiscordWebhook } from "@/lib/actions/discord";
 import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { PRODUCER_API_ERROR_COPY } from "@/lib/producer/error-copy";
+import { getInstallationConfig } from "@/lib/installation/config";
 
 // POST /api/producer/discord/destinations/[id]/test
 // Send a test message to an owned destination's webhook. The stored URL never
@@ -17,6 +18,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
 
   try {
+    const installation = await getInstallationConfig();
     const admin = createServiceRoleClient();
     const { data, error } = await admin
       .from("notification_destinations")
@@ -39,7 +41,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          content: "Test message from All Star OS",
+          content: `Test message from ${installation.productName}`,
           allowed_mentions: { parse: [] },
         }),
       });

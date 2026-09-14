@@ -12,31 +12,31 @@
 //
 // Brand palette is inlined below. Typeface is Helvetica throughout.
 
+import { getEmailBrand } from "@/lib/installation/email-brand";
+
 // ── Brand palette (dark theme) ────────────────────────────────────────────────
 const BG = "#050505"; // page background
 const CARD = "#0d0d0d"; // email card
 const HAIRLINE = "#1f1f1f"; // dividers / card border
-const GOLD = "#f6c945"; // accent: button + top rule
-const GOLD_SOFT = "#c9a235"; // accent: eyebrow + links
 const INK = "#f5f5f5"; // primary text
 const SUBTLE = "#9a9a9a"; // body text
 const MUTE = "#6a6a6a"; // fine print
 
 const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 
-// Absolute URL — email clients can't resolve relative paths.
-const LOGO_URL = "https://app.allstarlifegroup.com/logo.png";
-
 export function welcomeEmail(params: {
   firstName?: string; // recruit's first name; may be undefined → generic greeting
   setupUrl: string; // the one-time setup link; primary CTA button href
 }): { subject: string; html: string; text: string } {
   const { firstName, setupUrl } = params;
+  const brand = getEmailBrand();
+  const GOLD = brand.accentColor;
+  const GOLD_SOFT = brand.accentSoftColor;
 
   const greeting = firstName
-    ? `Welcome to All Star, ${firstName}.`
-    : "Welcome to All Star.";
-  const subject = "You're invited to All Star — set up your account";
+    ? `Welcome to ${brand.shortName}, ${firstName}.`
+    : `Welcome to ${brand.shortName}.`;
+  const subject = `You're invited to ${brand.shortName} — set up your account`;
 
   const html = `<!doctype html>
 <html lang="en">
@@ -50,7 +50,7 @@ export function welcomeEmail(params: {
   <body style="margin:0;padding:0;background-color:${BG};">
     <!-- Preheader: shows in the inbox preview, hidden in the body. -->
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${BG};font-size:1px;line-height:1px;">
-      You've been invited to All Star — tap to set up your account.
+      You've been invited to ${brand.shortName} — tap to set up your account.
     </div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${BG};">
       <tr>
@@ -63,9 +63,9 @@ export function welcomeEmail(params: {
             <!-- Logo + eyebrow -->
             <tr>
               <td style="padding:36px 40px 0 40px;" align="left">
-                <img src="${LOGO_URL}" alt="All Star Life Group" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
+                <img src="${brand.logoUrl}" alt="${brand.organizationName}" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
                 <div style="margin-top:18px;font-family:${FONT};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${GOLD_SOFT};">
-                  All Star Life Group
+                  ${brand.organizationName}
                 </div>
               </td>
             </tr>
@@ -77,7 +77,7 @@ export function welcomeEmail(params: {
                   ${greeting}
                 </h1>
                 <p style="margin:18px 0 0 0;font-family:${FONT};font-size:16px;line-height:1.6;color:${SUBTLE};">
-                  You've been invited to join the All Star team. This link sets up your account — enter a few details, choose a password, and you're in.
+                  You've been invited to join the ${brand.shortName} team. This link sets up your account — enter a few details, choose a password, and you're in.
                 </p>
                 <p style="margin:14px 0 0 0;font-family:${FONT};font-size:16px;line-height:1.6;color:${SUBTLE};">
                   It takes about a minute. One tap to get started.
@@ -127,7 +127,7 @@ export function welcomeEmail(params: {
                   For your security, this link can only be used once and expires after a while. If you weren't expecting this invitation, you can safely ignore this email.
                 </p>
                 <p style="margin:12px 0 0 0;font-family:${FONT};font-size:11px;letter-spacing:0.05em;color:${MUTE};">
-                  © All Star Life Group
+                  © ${brand.organizationName}
                 </p>
               </td>
             </tr>
@@ -142,14 +142,14 @@ export function welcomeEmail(params: {
   const text = [
     greeting,
     "",
-    "You've been invited to join the All Star team. This link sets up your account — enter a few details, choose a password, and you're in.",
+    `You've been invited to join the ${brand.shortName} team. This link sets up your account — enter a few details, choose a password, and you're in.`,
     "",
     "Set up my account:",
     setupUrl,
     "",
     "For your security, this link can only be used once and expires after a while. If you weren't expecting this invitation, you can safely ignore this email.",
     "",
-    "© All Star Life Group",
+    `© ${brand.organizationName}`,
   ].join("\n");
 
   return { subject, html, text };

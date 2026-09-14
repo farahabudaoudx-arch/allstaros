@@ -13,7 +13,11 @@ import {
   BUILD_STATUS_META,
 } from "@/lib/underwriting/build-chart";
 import { assessAllProducts, type RatedAssessment } from "@/lib/underwriting/iul-rated";
-import { portalUrlForCarrier } from "@/lib/carrier-portals";
+import {
+  CARRIER_PORTALS,
+  portalUrlForCarrier,
+  type CarrierPortal,
+} from "@/lib/carrier-portals";
 import { useTheme } from "@/lib/use-theme";
 import { track } from "@/lib/analytics";
 
@@ -163,6 +167,7 @@ export type UnderwritingWizardProps = {
   compact?: boolean;
   // Fires every time the wizard finishes an analysis pass.
   onAnalysisResult?: (snapshot: WizardAnalysisSnapshot) => void;
+  carrierPortals?: readonly CarrierPortal[];
 };
 
 // Build the analyzer payload from vitals + free notes. Empty vitals are
@@ -190,6 +195,7 @@ export function UnderwritingWizard({
   heading,
   compact = false,
   onAnalysisResult,
+  carrierPortals = CARRIER_PORTALS,
 }: UnderwritingWizardProps) {
   const [toolkit, setToolkit] = useState<Toolkit>(defaultToolkit);
   const [carriersByToolkit, setCarriersByToolkit] = useState<Record<Toolkit, string[]>>({ FEX: [], SIUL: [], IUL: [] });
@@ -564,7 +570,11 @@ export function UnderwritingWizard({
             {analysis.summary && (
               <SummaryCard summary={analysis.summary} conditions={analysis.conditions} />
             )}
-            <RatedOutlook assessments={ratedAssessments} conditionCount={analysis.conditions.length} />
+            <RatedOutlook
+              assessments={ratedAssessments}
+              conditionCount={analysis.conditions.length}
+              carrierPortals={carrierPortals}
+            />
           </>
         ) : (
         <>
@@ -623,7 +633,13 @@ export function UnderwritingWizard({
 
               <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {filteredCarriers.map((c) => (
-                  <CarrierTile key={c.carrier} carrier={c.carrier} outcome={c.outcome} perCondition={c.perCondition} />
+                  <CarrierTile
+                    key={c.carrier}
+                    carrier={c.carrier}
+                    outcome={c.outcome}
+                    perCondition={c.perCondition}
+                    carrierPortals={carrierPortals}
+                  />
                 ))}
               </div>
               {filteredCarriers.length === 0 && (
@@ -989,9 +1005,11 @@ function classOutcome(idx: number): Outcome {
 function RatedOutlook({
   assessments,
   conditionCount,
+  carrierPortals,
 }: {
   assessments: RatedAssessment[];
   conditionCount: number;
+  carrierPortals: readonly CarrierPortal[];
 }) {
   if (assessments.length === 0) return null;
   const issuable = assessments.filter((a) => !a.declined).length;
@@ -1026,7 +1044,7 @@ function RatedOutlook({
 
       <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
         {assessments.map((a) => (
-          <RatedTile key={a.productId} a={a} />
+          <RatedTile key={a.productId} a={a} carrierPortals={carrierPortals} />
         ))}
       </div>
     </section>
@@ -1057,10 +1075,16 @@ function RatedChip({
   );
 }
 
-function RatedTile({ a }: { a: RatedAssessment }) {
+function RatedTile({
+  a,
+  carrierPortals,
+}: {
+  a: RatedAssessment;
+  carrierPortals: readonly CarrierPortal[];
+}) {
   const theme = useTheme();
   const s = outcomeStyles(theme)[classOutcome(a.classIndex)];
-  const portalUrl = portalUrlForCarrier(a.carrier);
+  const portalUrl = portalUrlForCarrier(a.carrier, carrierPortals);
 
   const inner = (
     <>
@@ -1123,11 +1147,12 @@ function RatedTile({ a }: { a: RatedAssessment }) {
 }
 
 function CarrierTile({
-  carrier, outcome, perCondition,
+  carrier, outcome, perCondition, carrierPortals,
 }: {
   carrier: string;
   outcome: Outcome;
   perCondition: AggregatedCarrier["perCondition"];
+  carrierPortals: readonly CarrierPortal[];
 }) {
   const theme = useTheme();
   const palette = outcomeStyles(theme);
@@ -1136,7 +1161,7 @@ function CarrierTile({
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const tileRef = useRef<HTMLElement | null>(null);
   const hasDetail = perCondition.length > 0;
-  const portalUrl = portalUrlForCarrier(carrier);
+  const portalUrl = portalUrlForCarrier(carrier, carrierPortals);
 
   const TIP_W = 384;
   // Measure the tile and place the card as a viewport-fixed overlay, clamped on

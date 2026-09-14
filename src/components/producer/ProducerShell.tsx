@@ -3,6 +3,7 @@ import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { menuChrome } from "@/lib/producer/menu";
 import { AppChrome } from "@/components/producer/AppChrome";
 import { PageTransition } from "@/components/PageTransition";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 /**
  * The producer frame: sidebar, logo, avatar, bug report, chat.
@@ -26,9 +27,10 @@ export async function ProducerShell({
   if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
+  const brand = await getInstallationBrand();
 
   return (
-    <AppChrome person={menuPerson} chatHref={chatHref} unreadChat={unreadChat}>
+    <AppChrome person={menuPerson} chatHref={chatHref} unreadChat={unreadChat} brand={brand}>
       <PageTransition className="flex min-h-full min-w-0 flex-1 flex-col">
         {children}
       </PageTransition>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useTransition } from "react";
 import { signUpViaReferral } from "@/lib/actions/recruit-signup";
 import { finishDemoFlowForm } from "@/lib/actions/portal";
@@ -8,6 +7,7 @@ import { US_STATES } from "@/lib/us-states";
 import { HeroVideo } from "@/components/HeroVideo";
 import { HERO_VIDEO_URL } from "@/lib/storage-url";
 import { track } from "@/lib/analytics";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 type Form = {
   firstName: string;
@@ -113,14 +113,7 @@ export function JoinWizard({
       <div className="relative z-[2] w-full max-w-md">
         {/* Brand + sponsor */}
         <div className="mb-6 text-center">
-          <Image
-            src="/logo.png"
-            alt="All Star Life Group"
-            width={160}
-            height={90}
-            priority
-            className="app-logo mx-auto h-9 w-auto"
-          />
+          <InstallationLogo className="app-logo mx-auto h-9 w-auto" />
           {!done ? (
             <p className="mt-3 text-sm text-subtle">
               You were invited by{" "}

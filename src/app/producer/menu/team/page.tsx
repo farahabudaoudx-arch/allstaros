@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { menuChrome } from "@/lib/producer/menu";
 import { MenuScreen, type MenuTile } from "@/components/producer/menu/MenuScreen";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 const TILES: MenuTile[] = [
   { label: "Add Team Member", hint: "Invite by email", icon: "/menu-icons/team/add-team-member.png", addPeople: { title: "Add Team Member", role: "producer" } },
@@ -16,6 +17,7 @@ export default async function TeamMenuPage() {
   if (!person.is_builder) redirect("/producer");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
+  const brand = await getInstallationBrand();
 
   return (
     <MenuScreen
@@ -25,6 +27,7 @@ export default async function TeamMenuPage() {
       tiles={TILES}
       chatHref={chatHref}
       unreadChat={unreadChat}
+      brand={brand}
       columns={2}
     />
   );

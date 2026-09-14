@@ -3,6 +3,7 @@
 import { getCurrentPerson } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { bugReportEmail } from "@/lib/emails/bug-report";
+import { installationSupportEmail } from "@/lib/installation/runtime";
 
 export type ReportBugResult = { ok: true } | { ok: false; error: string };
 
@@ -10,7 +11,7 @@ export type ReportBugResult = { ok: true } | { ok: false; error: string };
 // in the environment (Vercel / .env.local) to redirect the inbox. Falls back to
 // Nicholas so it works out of the box.
 function getBugInbox(): string {
-  return process.env.BUG_REPORT_TO?.trim() || "nicholasverge@gmail.com";
+  return installationSupportEmail();
 }
 
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB

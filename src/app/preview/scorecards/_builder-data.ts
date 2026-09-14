@@ -12,6 +12,7 @@ import { isInSixWeekWindow } from "@/lib/scorecards/active-directs";
 import { licensedRecruitPersonIds } from "@/lib/scorecards/licensed-recruits";
 import protectedFixture from "@/lib/scorecards/fixtures/protected-producer-july-2026.json";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 const builderViewIdentity = {
   member: {
@@ -151,6 +152,7 @@ async function guardedSource<T>(label: string, request: PromiseLike<T>): Promise
 }
 
 async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> {
+  const timezone = installationTimezone();
   const service = createServiceRoleClient();
   const builderId = "ce7623c3-838e-4a3c-9750-583a05e6f7b2";
   const [
@@ -210,14 +212,14 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       .limit(50),
     computeLeaderboard(service, {
       rangeKey: "custom",
-      tz: "America/Chicago",
+      tz: timezone,
       from: protectedFixture.period.start,
       to: protectedFixture.period.end,
       metric: "ap_cents",
     }),
     computeLeaderboard(service, {
       rangeKey: "custom",
-      tz: "America/Chicago",
+      tz: timezone,
       from: "2026-06-01",
       to: "2026-06-30",
       metric: "ap_cents",

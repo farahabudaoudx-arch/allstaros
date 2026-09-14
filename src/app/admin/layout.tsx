@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { Sidebar, type NavItem } from "@/components/Sidebar";
 import { PageTransition } from "@/components/PageTransition";
+import { getInstallationBrand } from "@/lib/installation/config";
+import { InstallationBrandProvider } from "@/lib/installation/brand-context";
 
 /**
  * Admin navigation. Routes that land in later phases are marked `locked` so the
@@ -72,17 +74,21 @@ export default async function AdminLayout({
   if (!person.is_admin && !person.is_super_admin) {
     redirect(person.is_producer || person.is_builder ? "/producer" : "/portal");
   }
+  const brand = await getInstallationBrand();
 
   return (
-    <div className="flex min-h-full flex-1">
-      <Sidebar
-        items={buildNav(person.is_super_admin)}
-        tag={person.is_super_admin ? "Super Admin" : "Admin"}
-        userName={person.full_name}
-      />
-      <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
-        {children}
-      </PageTransition>
-    </div>
+    <InstallationBrandProvider brand={brand}>
+      <div className="flex min-h-full flex-1">
+        <Sidebar
+          items={buildNav(person.is_super_admin)}
+          tag={person.is_super_admin ? "Super Admin" : "Admin"}
+          userName={person.full_name}
+          brand={brand}
+        />
+        <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+          {children}
+        </PageTransition>
+      </div>
+    </InstallationBrandProvider>
   );
 }

@@ -4,6 +4,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeCalendar } from "@/lib/producer/metrics";
 import { safeTz } from "@/lib/producer/time";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 const ISO_YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   if (!ym || !ISO_YEAR_MONTH.test(ym)) {
     return NextResponse.json({ ok: false, error: "bad month (expected YYYY-MM)" }, { status: 400 });
   }
-  const tz = safeTz(url.searchParams.get("tz"));
+  const tz = safeTz(url.searchParams.get("tz"), installationTimezone());
   // Optional downline producer id (RLS-scoped, same as the metrics route).
   const targetPersonId = url.searchParams.get("personId") || person.id;
 

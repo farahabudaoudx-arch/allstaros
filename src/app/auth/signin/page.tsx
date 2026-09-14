@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -6,6 +5,8 @@ import { DEV_LOGIN_ENABLED } from "@/lib/devLogin";
 import { HeroVideo } from "@/components/HeroVideo";
 import { HERO_VIDEO_URL } from "@/lib/storage-url";
 import SignInButton from "./signin-button";
+import { InstallationLogo } from "@/components/InstallationLogo";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 type SearchParams = Promise<{ next?: string; error?: string }>;
 
@@ -15,6 +16,7 @@ export default async function SignInPage({
   searchParams: SearchParams;
 }) {
   const supabase = await createClient();
+  const brand = await getInstallationBrand();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -40,16 +42,9 @@ export default async function SignInPage({
       <div aria-hidden className="absolute inset-0 z-[1] bg-background/75" />
       <div className="relative z-[2] w-full max-w-md rounded-2xl border border-hairline bg-card p-10">
         <div className="mb-8 text-center">
-          <Image
-            src="/logo.png"
-            alt="All Star OS"
-            width={140}
-            height={79}
-            priority
-            className="mx-auto h-10 w-auto"
-          />
+          <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
           <p className="mt-6 text-xs uppercase tracking-[0.18em] text-mute">
-            All Star OS
+            {brand.productName}
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">
             Sign in to continue

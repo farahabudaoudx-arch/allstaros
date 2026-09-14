@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { LiveCastControls } from "@/components/producer/leaderboard/LiveCastControls";
@@ -16,6 +15,8 @@ import {
   reconcileLiveDealEvents,
   type LiveEventTracker,
 } from "@/lib/producer/live-leaderboard-events";
+import { InstallationLogo } from "@/components/InstallationLogo";
+import { useInstallationBrand } from "@/lib/installation/brand-context";
 
 type DealEvent = {
   id: string;
@@ -91,6 +92,7 @@ function playLiveGong(context: AudioContext) {
 }
 
 export default function LiveLeaderboardPage() {
+  const brand = useInstallationBrand();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
@@ -346,7 +348,7 @@ export default function LiveLeaderboardPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#05070a] px-6 text-white">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/40">All Star OS Live</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/40">{brand.productName} Live</p>
           <p className="mt-4 text-2xl font-semibold text-white/80">Loading leaderboard…</p>
         </div>
       </main>
@@ -357,7 +359,7 @@ export default function LiveLeaderboardPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#05070a] px-6 text-white">
         <div className="max-w-xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/45">All Star OS Live</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/45">{brand.productName} Live</p>
           <h1 className="mt-4 text-4xl font-semibold sm:text-5xl">Ask for a new link.</h1>
         </div>
       </main>
@@ -376,7 +378,7 @@ export default function LiveLeaderboardPage() {
   }
 
   const { snapshot } = state;
-  const title = snapshot.scope === "team" ? "Team Today" : "All Star Today";
+  const title = snapshot.scope === "team" ? "Team Today" : `${brand.shortName} Today`;
   const podiumRows = snapshot.rows.slice(0, 3);
   const rankedRows = snapshot.rows.slice(3);
 
@@ -427,10 +429,10 @@ export default function LiveLeaderboardPage() {
         <header className="grid gap-5 border-b border-white/10 pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="flex items-center gap-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5">
-              <Image src="/logo.png" alt="All Star Life Group" width={120} height={68} priority className="h-auto w-20 sm:w-24 lg:w-28" />
+              <InstallationLogo className="h-auto w-20 sm:w-24 lg:w-28" />
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/40 sm:text-xs">All Star Life Group · Live</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/40 sm:text-xs">{brand.organizationName} · Live</p>
               <h1 className="mt-1 text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">{title}</h1>
             </div>
           </div>

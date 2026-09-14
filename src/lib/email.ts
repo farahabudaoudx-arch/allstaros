@@ -16,6 +16,7 @@
 // Resend as the custom SMTP provider in Supabase → Authentication → SMTP.
 
 import { Resend } from "resend";
+import { installationReplyToEmail } from "@/lib/installation/runtime";
 
 let client: Resend | null = null;
 
@@ -49,7 +50,7 @@ function getFrom(): string {
 // real, monitored inbox instead. Override per-send with `replyTo`, or globally
 // via the RESEND_REPLY_TO env var.
 function getReplyTo(): string {
-  return process.env.RESEND_REPLY_TO || "nicholasverge@gmail.com";
+  return installationReplyToEmail();
 }
 
 export type EmailAttachment = {

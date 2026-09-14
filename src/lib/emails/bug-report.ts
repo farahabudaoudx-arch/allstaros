@@ -70,12 +70,12 @@ export function bugReportEmail(params: {
     rows: [
       headingRow("New bug report"),
       paragraphRow(
-        "Someone flagged a problem from inside All Star OS. The details are below — just reply to this email to reach them.",
+        `Someone flagged a problem from inside ${escapeHtml(B.PRODUCT_NAME)}. The details are below — just reply to this email to reach them.`,
       ),
       customRow(messageCard),
       customRow(metaTable),
       footerRow(
-        "You're getting this because you're the bug-report recipient for All Star OS. Change the inbox by setting BUG_REPORT_TO in the environment.",
+        `You're getting this because you're the bug-report recipient for ${escapeHtml(B.PRODUCT_NAME)}. Change the inbox by setting BUG_REPORT_TO in the environment.`,
       ),
     ].join("\n"),
   });
@@ -91,7 +91,7 @@ export function bugReportEmail(params: {
     "",
     "Reply to this email to reach the reporter.",
     "",
-    "© All Star Life Group",
+    `© ${B.ORGANIZATION_NAME}`,
   ].join("\n");
 
   return { subject, html, text };

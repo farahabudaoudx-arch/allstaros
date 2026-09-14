@@ -5,6 +5,8 @@ import { Sidebar, type NavItem } from "@/components/Sidebar";
 import { PageTransition } from "@/components/PageTransition";
 import { portalFeaturesUnlocked } from "@/lib/portal/access";
 import type { Recruit } from "@/lib/db/types";
+import { getInstallationBrand } from "@/lib/installation/config";
+import { InstallationBrandProvider } from "@/lib/installation/brand-context";
 
 export default async function PortalLayout({
   children,
@@ -26,6 +28,7 @@ export default async function PortalLayout({
   if (!recruitRow) redirect("/onboarding/pending");
 
   const locked = !portalFeaturesUnlocked(recruitRow as Recruit);
+  const brand = await getInstallationBrand();
 
   const nav: NavItem[] = [
     { label: "License", href: "/portal" },
@@ -36,11 +39,13 @@ export default async function PortalLayout({
   ];
 
   return (
-    <div className="flex min-h-full flex-1">
-      <Sidebar items={nav} tag="Recruit" userName={person.full_name} />
-      <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
-        {children}
-      </PageTransition>
-    </div>
+    <InstallationBrandProvider brand={brand}>
+      <div className="flex min-h-full flex-1">
+        <Sidebar items={nav} tag="Recruit" userName={person.full_name} brand={brand} />
+        <PageTransition className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+          {children}
+        </PageTransition>
+      </div>
+    </InstallationBrandProvider>
   );
 }

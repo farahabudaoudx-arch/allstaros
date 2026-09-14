@@ -20,6 +20,9 @@ import {
   type PersonalGatewayPremiumRow,
 } from "./gateway-completeness";
 import { previousEquivalentPeriod, type ScorecardPeriod } from "./period";
+import { installationTimezone } from "@/lib/installation/runtime";
+
+const SCORECARD_TZ = installationTimezone();
 
 type GatewayWeekRow = {
   person_id: string;
@@ -37,7 +40,7 @@ type GatewayWeekImport = {
 
 function datePartsInChicago(now: Date): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
+    timeZone: SCORECARD_TZ,
     year: "numeric",
     month: "numeric",
   }).formatToParts(now);
@@ -62,7 +65,7 @@ function dayOfInstantInChicago(value: string | null | undefined): string | null 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
+    timeZone: SCORECARD_TZ,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -325,7 +328,7 @@ export async function loadProducerLeadSpendCents(
   try {
     const analytics = await computeAnalytics(supabase, producerId, {
       rangeKey: "custom",
-      tz: "America/Chicago",
+      tz: SCORECARD_TZ,
       from: period.start,
       to: period.end,
     });
@@ -464,7 +467,7 @@ export async function loadProducerOverviewForPeriod(
   let submittedApAvailable = true;
   let priorSubmittedApAvailable = true;
   for (const client of clientRows) {
-    const day = saleDay(client, "America/Chicago");
+    const day = saleDay(client, SCORECARD_TZ);
     if (isSale(client) && day && day >= period.start && day <= period.end) {
       if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) {
         submittedApAvailable = false;
@@ -491,7 +494,7 @@ export async function loadProducerOverviewForPeriod(
   const organizationApTotals = new Map([...activeIds].map((id) => [id, 0]));
   for (const client of organizationClientRows) {
     if (!activeIds.has(client.person_id)) continue;
-    const day = saleDay(client, "America/Chicago");
+    const day = saleDay(client, SCORECARD_TZ);
     if (!isSale(client) || !day || day < period.start || day > period.end) continue;
     if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) continue;
     organizationApTotals.set(
@@ -701,7 +704,7 @@ export async function loadManualProducerOverviewForPeriod(
   let submittedApAvailable = true;
   let priorSubmittedApAvailable = true;
   for (const client of clientRows) {
-    const day = saleDay(client, "America/Chicago");
+    const day = saleDay(client, SCORECARD_TZ);
     if (isSale(client) && day && day >= period.start && day <= period.end) {
       if (typeof client.annual_premium !== "number" || !Number.isFinite(client.annual_premium)) {
         submittedApAvailable = false;

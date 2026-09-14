@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AppChrome } from "@/components/producer/AppChrome";
 import { PageTransition } from "@/components/PageTransition";
 import { type MenuPerson } from "./MenuSettingsDrawer";
+import type { InstallationBrand } from "@/lib/installation/types";
 
 /** One "You have made 1,204 dials" line: the sentence with its number set
  *  apart, so the figure is what the eye lands on. */
@@ -39,6 +40,7 @@ export function HomeNumbers({
   unreadChat,
   previewOf,
   gatewayNotice,
+  brand,
 }: {
   person: MenuPerson;
   greetingName: string;
@@ -49,6 +51,7 @@ export function HomeNumbers({
    * mistaken for the signed-in member's data during visual QA. */
   previewOf?: string;
   gatewayNotice?: string | null;
+  brand?: InstallationBrand;
 }) {
   // Computed after mount so the server and client agree on the markup; the
   // server has no idea what time it is where the reader is.
@@ -60,6 +63,7 @@ export function HomeNumbers({
       person={person}
       chatHref={chatHref}
       unreadChat={unreadChat}
+      brand={brand}
       alwaysOpenRail
     >
       <PageTransition className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-10 md:px-10">

@@ -9,6 +9,7 @@ import {
   type ClientSaleFields,
 } from "@/lib/producer/metrics";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 /**
  * The year-to-date lines on the producer/builder home screen.
@@ -33,10 +34,6 @@ import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
  * Team figures run through the AUTHED client, so RLS scopes them to the
  * viewer's own downline exactly like /api/producer/team does.
  */
-
-/** The org's operating timezone. The window is year-to-date, so this only
- *  matters within a few hours of New Year's. */
-const TZ = "America/Chicago";
 
 /** PostgREST .in() lists go on the query string; ~100 UUIDs stays under typical
  *  URL limits. Larger downlines (scale seed / big builders) must be chunked or
@@ -67,9 +64,10 @@ export type ProducerNumbers = {
 async function gatewayYtd(
   supabase: SupabaseClient,
   personId: string,
+  tz: string,
 ): Promise<{ personalCents: number; teamCents: number } | null> {
   const year = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
+    timeZone: tz,
     year: "numeric",
   }).format(new Date());
   const { data } = await supabase
@@ -219,10 +217,11 @@ export type BuilderNumbers = {
 async function teamSubmittedApCents(
   supabase: SupabaseClient,
   teamIds: Set<string>,
+  tz: string,
 ): Promise<number> {
   const ids = [...teamIds];
   if (!ids.length) return 0;
-  const { from, to } = resolveRange("ytd", TZ);
+  const { from, to } = resolveRange("ytd", tz);
 
   const rowChunks = await Promise.all(
     chunk(ids, IN_FILTER_CHUNK).map((part) =>
@@ -240,7 +239,7 @@ async function teamSubmittedApCents(
   let cents = 0;
   for (const c of rowChunks.flat()) {
     if (!isSale(c)) continue;
-    const day = saleDay(c, TZ);
+    const day = saleDay(c, tz);
     if (!day || day < from || day > to) continue;
     cents += dollarsToCents(c.annual_premium);
   }
@@ -251,10 +250,11 @@ export async function producerYtd(
   supabase: SupabaseClient,
   personId: string,
   gatewayConnected: boolean,
+  tz = installationTimezone(),
 ): Promise<ProducerNumbers> {
   const [{ totals }, gateway] = await Promise.all([
-    computeAnalytics(supabase, personId, { rangeKey: "ytd", tz: TZ }),
-    gatewayConnected ? gatewayYtd(supabase, personId) : Promise.resolve(null),
+    computeAnalytics(supabase, personId, { rangeKey: "ytd", tz }),
+    gatewayConnected ? gatewayYtd(supabase, personId, tz) : Promise.resolve(null),
   ]);
   return {
     dials: totals.dials,
@@ -344,9 +344,10 @@ export async function builderYtd(
   /** Pre-resolved downline, for callers reading past RLS (see downlineIds). */
   explicit: Downline | undefined,
   gatewayConnected: boolean,
+  tz = installationTimezone(),
 ): Promise<BuilderNumbers> {
   const [gateway, rosterRes, pipeline] = await Promise.all([
-    gatewayConnected ? gatewayYtd(supabase, personId) : Promise.resolve(null),
+    gatewayConnected ? gatewayYtd(supabase, personId, tz) : Promise.resolve(null),
     // Licensed people the viewer can see. RLS already clips this to their
     // downline; the exclusion list drops internal/test rows so the count
     // matches the leaderboards.
@@ -389,7 +390,7 @@ export async function builderYtd(
       : Promise.resolve<number | null>(null),
     // Submitted AP has no Gateway equivalent ? Gateway only reports what
     // issued ? so it stays a sum over the team's own submissions.
-    teamSubmittedApCents(supabase, teamIds),
+    teamSubmittedApCents(supabase, teamIds, tz),
   ]);
 
   return {

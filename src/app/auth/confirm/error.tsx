@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect } from "react";
 import { AUTH_DEPLOYMENT_SKEW_COPY } from "@/lib/auth-error-copy";
 import { isDeploymentStale } from "@/lib/deployment-skew";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 /** Recovery UI when confirm Server Actions fail (often post-deploy skew). */
 export default function ConfirmError({
@@ -28,14 +28,7 @@ export default function ConfirmError({
   return (
     <div className="flex min-h-dvh flex-1 items-center justify-center px-6 py-24">
       <div className="w-full max-w-md rounded-2xl border border-hairline bg-card p-10 text-center">
-        <Image
-          src="/logo.png"
-          alt="All Star OS"
-          width={140}
-          height={79}
-          priority
-          className="mx-auto h-10 w-auto"
-        />
+        <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
         <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">Please refresh and try again</h1>
         <p className="mt-3 text-sm text-mute">
           {skewish ? AUTH_DEPLOYMENT_SKEW_COPY : "Something went wrong on this page. Please try again."}

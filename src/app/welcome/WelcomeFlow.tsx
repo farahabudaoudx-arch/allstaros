@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { SetupForm } from "./SetupForm";
 import { HeadshotUpload } from "@/components/producer/HeadshotUpload";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 /**
  * The invited-account setup flow. Step one collects name/phone/state/password
@@ -43,14 +43,7 @@ export function WelcomeFlow({
   return (
     <div className="w-full max-w-md rounded-2xl border border-hairline bg-card p-10">
       <div className="mb-8 text-center">
-        <Image
-          src="/logo.png"
-          alt="All Star OS"
-          width={140}
-          height={79}
-          priority
-          className="mx-auto h-10 w-auto"
-        />
+        <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
         <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">
           Set up your account
         </h1>

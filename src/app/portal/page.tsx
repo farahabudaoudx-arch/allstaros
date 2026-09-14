@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import LicensingView from "./_components/licensing-view";
+import { getInstallationConfig } from "@/lib/installation/config";
+import { effectiveLicensingSettings } from "@/lib/installation/licensing";
 import OnboardingView from "./_components/onboarding-view";
 import BootcampView from "./_components/bootcamp-view";
 import GraduatedView from "./_components/graduated-view";
@@ -60,12 +62,18 @@ export default async function PortalPage({
   const admin = createServiceRoleClient();
   const { data: uplineRow } = await admin
     .from("person")
-    .select("full_name, admin_email")
+    .select("full_name, admin_email, xcel_code")
     .eq("id", recruit.builder_id)
     .maybeSingle();
-  const upline = uplineRow as { full_name: string; admin_email: string | null } | null;
+  const upline = uplineRow as {
+    full_name: string;
+    admin_email: string | null;
+    xcel_code: string | null;
+  } | null;
   const uplineName = upline?.full_name ?? null;
   const adminEmail = upline?.admin_email ?? null;
+  const installation = await getInstallationConfig();
+  const licensing = effectiveLicensingSettings(installation, upline?.xcel_code);
 
   // The 5 licensing how-to videos from the Bunny "tutorials" library.
   const licensingVideos = await getLicensingVideos();
@@ -159,7 +167,13 @@ export default async function PortalPage({
         </div>
       ) : null}
       {recruit.phase === "licensing" ? (
-        <LicensingView recruit={recruit} uplineName={uplineName} adminEmail={adminEmail} videos={licensingVideos} />
+        <LicensingView
+          recruit={recruit}
+          uplineName={uplineName}
+          adminEmail={adminEmail}
+          videos={licensingVideos}
+          licensing={licensing}
+        />
       ) : recruit.phase === "onboarding" ? (
         <OnboardingView
           recruit={recruit}
@@ -174,6 +188,8 @@ export default async function PortalPage({
           policies={policies}
           checkIns={checkIns}
           latestCheckIn={latestCheckIn}
+          graduationPolicyCount={installation.graduationPolicyCount}
+          graduationWindowDays={installation.graduationWindowDays}
         />
       ) : recruit.phase === "graduated" ? (
         <GraduatedView recruit={recruit} />

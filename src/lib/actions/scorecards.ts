@@ -11,10 +11,11 @@ import {
   generateScorecardCorrection as generateScorecardCorrectionService,
 } from "@/lib/scorecards/manual";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 function chicagoToday() {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
+    timeZone: installationTimezone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

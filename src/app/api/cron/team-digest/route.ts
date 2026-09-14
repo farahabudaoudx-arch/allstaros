@@ -20,17 +20,18 @@ import { getAppUrl } from "@/lib/site-url";
 import { sendEmail } from "@/lib/email";
 import { teamDigestEmail, type DigestRecruit } from "@/lib/emails/team-digest";
 import { phaseLabel } from "@/lib/pipeline/labels";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const TZ = "America/Chicago";
+const TZ = installationTimezone();
 
 function money(cents: number): string {
   return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 }
 
-/** Yesterday's date (YYYY-MM-DD) in Central time. */
+/** Yesterday's date (YYYY-MM-DD) in the installation's operating timezone. */
 function centralYesterday(): string {
   const todayCentral = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
   const [y, m, d] = todayCentral.split("-").map(Number);

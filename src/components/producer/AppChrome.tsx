@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { BugReportModal } from "@/components/BugReportModal";
@@ -17,6 +16,7 @@ import {
 } from "./menu/MenuSettingsDrawer";
 
 import { GatewayConnectPrompt } from "@/app/producer/_components/gateway-connect-prompt";
+import type { InstallationBrand } from "@/lib/installation/types";
 const RAIL_KEY = "producer.nav.rail";
 
 const SETTINGS_SECTIONS: SettingsSectionKey[] = [
@@ -50,6 +50,7 @@ export function AppChrome({
   chatHref,
   unreadChat,
   alwaysOpenRail = false,
+  brand,
   children,
 }: {
   person: MenuPerson;
@@ -59,6 +60,7 @@ export function AppChrome({
    *  home screen: it's where you get your bearings, so the nav should be
    *  in front of you. Collapsing it there still works and still sticks. */
   alwaysOpenRail?: boolean;
+  brand?: InstallationBrand;
   children: ReactNode;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -140,6 +142,7 @@ export function AppChrome({
         desktopOpen={railOpen}
         onToggleDesktop={toggleRail}
         animated={railAnimated}
+        brand={brand}
       />
 
       <div className="relative flex min-w-0 flex-1 flex-col">
@@ -148,13 +151,11 @@ export function AppChrome({
           {/* The toggle normally lives in the sidebar's own top-right corner;
               it reappears here once the rail is gone, so there's a way back. */}
           {railOpen ? null : <SidebarToggle expanded={false} onClick={toggleRail} />}
-          <Link href="/producer" aria-label="All Star OS home" className="md:hidden">
-            <Image
-              src="/logo.png"
-              alt="All Star OS"
-              width={120}
-              height={68}
-              priority
+          <Link href="/producer" aria-label={`${brand?.productName ?? "All Star OS"} home`} className="md:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={brand?.logoUrl ?? "/logo.png"}
+              alt={brand?.productName ?? "All Star OS"}
               className="app-logo h-9 w-auto"
             />
           </Link>

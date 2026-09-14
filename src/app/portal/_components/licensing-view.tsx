@@ -20,13 +20,13 @@ import {
 import { SubmitButton } from "./submit-button";
 import { CopyButton } from "./copy-button";
 
-// External links. Videos now come from the Bunny "tutorials" library (passed
-// in via the `videos` prop), not hardcoded placeholders.
-const XCEL_LOGIN_URL = "https://www.xcelsolutions.com/";
-const XCEL_REQUIREMENTS_URL =
-  "https://www.xcelsolutions.com/insurance-license/requirements";
-const XCEL_CODE = "FFLALLSTAR-NGBNCR";
-const SIRCON_URL = "https://www.sircon.com";
+export type LicensingInstallationSettings = {
+  providerName: string;
+  code: string;
+  loginUrl: string;
+  requirementsUrl: string;
+  applicationUrl: string;
+};
 
 // Renders a step's video player, or nothing if that video isn't in Bunny yet.
 // autoplay=false so videos never fire on load; border:0 + no container border
@@ -66,6 +66,7 @@ export default function LicensingView({
   uplineName,
   adminEmail,
   videos,
+  licensing,
   justUnlocked,
 }: {
   recruit: Recruit;
@@ -76,6 +77,7 @@ export default function LicensingView({
   adminEmail?: string | null;
   // The 5 licensing how-to videos from the Bunny "tutorials" library.
   videos: LicensingVideos;
+  licensing: LicensingInstallationSettings;
   // The `ok` flash from the action that just ran, so the newly-unlocked step
   // can animate from blurred → clear on this load.
   justUnlocked?: string;
@@ -281,19 +283,19 @@ export default function LicensingView({
                   Your enrollment code
                 </p>
                 <p className="mt-1 truncate text-lg font-semibold tracking-[0.08em] text-ink">
-                  {XCEL_CODE}
+                  {licensing.code}
                 </p>
               </div>
-              <CopyButton value={XCEL_CODE} />
+              <CopyButton value={licensing.code} />
             </div>
 
             <a
-              href={XCEL_LOGIN_URL}
+              href={licensing.loginUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={buttonClass("secondary")}
             >
-              Open Xcel Solutions →
+              Open {licensing.providerName} →
             </a>
             {step03 === "active" ? (
               <form action={markStudyingForm}>
@@ -317,7 +319,7 @@ export default function LicensingView({
             {step04 === "active" ? (
               <>
                 <a
-                  href={SIRCON_URL}
+                  href={licensing.applicationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={buttonClass("secondary")}
@@ -325,7 +327,7 @@ export default function LicensingView({
                   Apply for your license on Sircon →
                 </a>
                 <a
-                  href={XCEL_REQUIREMENTS_URL}
+                  href={licensing.requirementsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={buttonClass("secondary")}

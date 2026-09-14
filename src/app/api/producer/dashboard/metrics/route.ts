@@ -4,6 +4,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeDashboard, type RangeKey } from "@/lib/producer/metrics";
 import { safeTz } from "@/lib/producer/time";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 // GET /api/producer/dashboard/metrics?range=mtd&tz=America/Chicago
 //   (or range=custom&from=YYYY-MM-DD&to=YYYY-MM-DD)
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rangeKey = (url.searchParams.get("range") ?? "mtd") as RangeKey;
-  const tz = safeTz(url.searchParams.get("tz"));
+  const tz = safeTz(url.searchParams.get("tz"), installationTimezone());
 
   try {
     // Dev-only QA: force the generic load-error path without breaking Postgres.

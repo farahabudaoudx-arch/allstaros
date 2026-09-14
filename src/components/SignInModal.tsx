@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui";
 import SignInButton from "@/app/auth/signin/signin-button";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 /**
  * Landing-page sign-in. Instead of navigating to /auth/signin, the magic-link
@@ -95,13 +95,7 @@ export function SignInModal({
               </button>
 
               <div className="mb-8 text-center">
-                <Image
-                  src="/logo.png"
-                  alt="All Star Life Group"
-                  width={140}
-                  height={79}
-                  className="app-logo mx-auto h-10 w-auto"
-                />
+                <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
                 <h2 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">
                   Sign in to continue
                 </h2>

@@ -9,6 +9,7 @@ import {
   type RangeKey,
 } from "@/lib/producer/metrics";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 // Team-scoped, submitted-AP-only leaderboards for Discord. Counts
 // clients.annual_premium (dollars, converted to cents) where sale_status =
@@ -17,7 +18,7 @@ import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 // cents) are added on top of app sales dated strictly after the baseline's
 // through date, and apply ONLY to the ytd period.
 
-export const DISCORD_LEADERBOARD_TZ = "America/Chicago";
+export const DISCORD_LEADERBOARD_TZ = installationTimezone();
 
 export type DiscordPeriod = "daily" | "wtd" | "mtd" | "ytd";
 

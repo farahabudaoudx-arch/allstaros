@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 export type NavItem = { label: string; href: string };
 
@@ -34,14 +34,7 @@ export function TopBar({
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-10">
         <div className="flex items-center gap-6">
           <Link href={items[0]?.href ?? "/"} className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="All Star OS"
-              width={120}
-              height={68}
-              priority
-              className="app-logo h-9 w-auto"
-            />
+            <InstallationLogo className="app-logo h-9 w-auto" />
             {tag ? (
               <span className="hidden text-[10px] uppercase tracking-[0.18em] text-mute sm:inline">
                 {tag}

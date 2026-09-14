@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isMarketingHostname, requestHostname } from "@/lib/marketing/hosts";
+import { backupAppOrigin, flaggedAppHost } from "@/lib/installation/routing";
 
-const FLAGGED_APP_HOST = "app.allstarlifegroup.com";
-const BACKUP_APP_ORIGIN = "https://all-star-agency.vercel.app";
 const MARKETING_ROUTE_PREFIX = "/marketing-site";
 
 export async function proxy(request: NextRequest) {
@@ -43,8 +42,10 @@ export async function proxy(request: NextRequest) {
   // Keep the custom domain out of the request path while reputation vendors
   // review its classification. Preserve the requested route and query so an
   // existing /producer or deep link continues to work on the Vercel domain.
-  if (requestHost === FLAGGED_APP_HOST) {
-    const destination = new URL(request.nextUrl.pathname, BACKUP_APP_ORIGIN);
+  const flaggedHost = flaggedAppHost();
+  const backupOrigin = backupAppOrigin();
+  if (flaggedHost && backupOrigin && requestHost === flaggedHost) {
+    const destination = new URL(request.nextUrl.pathname, backupOrigin);
     destination.search = request.nextUrl.search;
 
     // This is deliberately temporary: browsers should not cache the fallback

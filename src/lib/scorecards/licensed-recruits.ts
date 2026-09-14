@@ -1,3 +1,5 @@
+import { installationTimezone } from "@/lib/installation/runtime";
+
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export type LicensedRecruitCandidate = {
@@ -12,7 +14,7 @@ function chicagoDateOfInstant(value: unknown): string | null {
   const instant = new Date(value);
   if (Number.isNaN(instant.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
+    timeZone: installationTimezone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

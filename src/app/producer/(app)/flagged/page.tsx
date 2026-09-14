@@ -4,6 +4,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { computeTeamFlags, type FlagCategory, type FlagItem } from "@/lib/producer/flags";
 import { PageHeader } from "@/components/producer/PageHeader";
+import { getInstallationConfig } from "@/lib/installation/config";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,12 @@ export default async function FlaggedPage() {
   if (!person.is_builder) redirect("/producer");
 
   const supabase = await createClient();
-  const flags = await computeTeamFlags(supabase, person.id);
+  const installation = await getInstallationConfig();
+  const flags = await computeTeamFlags(supabase, person.id, {
+    examUnscheduledDays: installation.stallExamUnscheduledDays,
+    noCheckinDays: installation.stallNoCheckinDays,
+    checkinLapsedDays: installation.stallCheckinLapsedDays,
+  });
 
   const groups = CATEGORY_ORDER.map((cat) => ({
     cat,

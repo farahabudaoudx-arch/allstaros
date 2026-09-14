@@ -5,6 +5,7 @@ import type {
   ScorecardRunInput,
 } from "./run";
 import { parsePublishedScorecardSnapshotPayload } from "./published-snapshot";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 export type IndependentVerificationProblem = {
   cardType: "producer" | "builder";
@@ -50,7 +51,7 @@ function localDate(value: unknown): string | null {
   const instant = new Date(value);
   if (Number.isNaN(instant.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
+    timeZone: installationTimezone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

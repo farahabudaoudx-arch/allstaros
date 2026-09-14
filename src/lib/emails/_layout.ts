@@ -8,19 +8,26 @@
 //
 // Typeface is Helvetica throughout; palette matches the app.
 
+import { getEmailBrand } from "@/lib/installation/email-brand";
+
+const EMAIL_BRAND = getEmailBrand();
+
 // ── Brand palette (dark theme) ────────────────────────────────────────────────
 export const BRAND = {
   BG: "#050505",
   CARD: "#0d0d0d",
   HAIRLINE: "#1f1f1f",
-  GOLD: "#f6c945",
-  GOLD_SOFT: "#c9a235",
+  GOLD: EMAIL_BRAND.accentColor,
+  GOLD_SOFT: EMAIL_BRAND.accentSoftColor,
   INK: "#f5f5f5",
   SUBTLE: "#9a9a9a",
   MUTE: "#6a6a6a",
   FONT: "'Helvetica Neue',Helvetica,Arial,sans-serif",
-  LOGO_URL: "https://app.allstarlifegroup.com/logo.png",
-} as const;
+  LOGO_URL: EMAIL_BRAND.logoUrl,
+  ORGANIZATION_NAME: EMAIL_BRAND.organizationName,
+  SHORT_NAME: EMAIL_BRAND.shortName,
+  PRODUCT_NAME: EMAIL_BRAND.productName,
+};
 
 const B = BRAND;
 
@@ -97,7 +104,7 @@ export function footerRow(footnote: string): string {
   <tr>
     <td style="padding:24px 40px 36px 40px;">
       <p style="margin:0;font-family:${B.FONT};font-size:12px;line-height:1.6;color:${B.MUTE};">${footnote}</p>
-      <p style="margin:12px 0 0 0;font-family:${B.FONT};font-size:11px;letter-spacing:0.05em;color:${B.MUTE};">© All Star Life Group</p>
+      <p style="margin:12px 0 0 0;font-family:${B.FONT};font-size:11px;letter-spacing:0.05em;color:${B.MUTE};">© ${escapeHtml(B.ORGANIZATION_NAME)}</p>
     </td>
   </tr>`;
 }
@@ -130,8 +137,8 @@ export function shell({
             <tr><td style="height:3px;background-color:${B.GOLD};line-height:3px;font-size:3px;">&nbsp;</td></tr>
             <tr>
               <td style="padding:36px 40px 0 40px;" align="left">
-                <img src="${B.LOGO_URL}" alt="All Star Life Group" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
-                <div style="margin-top:18px;font-family:${B.FONT};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${B.GOLD_SOFT};">All Star Life Group</div>
+                <img src="${escapeHtml(B.LOGO_URL)}" alt="${escapeHtml(B.ORGANIZATION_NAME)}" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
+                <div style="margin-top:18px;font-family:${B.FONT};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${B.GOLD_SOFT};">${escapeHtml(B.ORGANIZATION_NAME)}</div>
               </td>
             </tr>
             ${rows}

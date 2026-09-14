@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BugReportModal } from "@/components/BugReportModal";
+import type { InstallationBrand } from "@/lib/installation/types";
 
 export type NavItem = {
   label: string;
@@ -244,10 +244,12 @@ export function Sidebar({
   items,
   tag,
   userName,
+  brand,
 }: {
   items: NavItem[];
   tag?: string;
   userName?: string;
+  brand?: InstallationBrand;
 }) {
   const pathname = usePathname() ?? "";
   const initial = userName?.trim()?.[0]?.toUpperCase() ?? "A";
@@ -286,18 +288,18 @@ export function Sidebar({
     setOpen((o) => ({ ...o, [label]: !o[label] }));
   }
 
-  const brand = (
+  const brandLink = (
     <Link
       href={items[0]?.href ?? "/"}
       className="flex items-center gap-3 overflow-hidden"
       onClick={() => setMobileOpen(false)}
     >
-      <Image
-        src="/logo.png"
-        alt="All Star OS"
-        width={120}
-        height={68}
-        priority
+      {/* Dynamic customer logos can live on the customer's own storage domain,
+          so a plain image avoids baking provider hostnames into next.config. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={brand?.logoUrl ?? "/logo.png"}
+        alt={brand?.productName ?? "All Star OS"}
         className="app-logo h-9 w-auto shrink-0"
       />
       {tag ? (
@@ -312,7 +314,7 @@ export function Sidebar({
     <>
       {/* Desktop rail (md and up) */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-hairline bg-card/30 md:flex">
-        <div className="flex items-center justify-between gap-2 px-4 py-4">{brand}</div>
+        <div className="flex items-center justify-between gap-2 px-4 py-4">{brandLink}</div>
         <NavBody
           items={items}
           active={active}
@@ -325,7 +327,7 @@ export function Sidebar({
 
       {/* Mobile top bar (below md) */}
       <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-hairline bg-background/80 px-4 backdrop-blur-md md:hidden">
-        {brand}
+        {brandLink}
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
@@ -358,7 +360,7 @@ export function Sidebar({
           style={{ transitionTimingFunction: "var(--ease-drawer)" }}
         >
           <div className="flex items-center justify-between gap-2 px-4 py-4">
-            {brand}
+            {brandLink}
             <button
               type="button"
               onClick={() => setMobileOpen(false)}

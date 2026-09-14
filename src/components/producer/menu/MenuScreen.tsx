@@ -8,6 +8,7 @@ import { AddPeopleModal } from "@/components/producer/AddPerson";
 import { PageTransition } from "@/components/PageTransition";
 import { type MenuPerson } from "./MenuSettingsDrawer";
 import type { MenuTile } from "@/lib/producer/menu";
+import type { InstallationBrand } from "@/lib/installation/types";
 
 export type { MenuTile };
 
@@ -32,6 +33,7 @@ export function MenuScreen({
   tiles,
   chatHref,
   unreadChat,
+  brand,
   columns = 3,
 }: {
   person: MenuPerson;
@@ -43,6 +45,7 @@ export function MenuScreen({
   tiles: MenuTile[];
   chatHref: string;
   unreadChat: boolean;
+  brand?: InstallationBrand;
   /** Tile grid column count at sm+ (mobile is always 2). Defaults to 3. */
   columns?: 2 | 3;
 }) {
@@ -57,7 +60,7 @@ export function MenuScreen({
   }, [greetingName]);
 
   return (
-    <AppChrome person={person} chatHref={chatHref} unreadChat={unreadChat}>
+    <AppChrome person={person} chatHref={chatHref} unreadChat={unreadChat} brand={brand}>
       <PageTransition className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-5 py-10 md:px-10">
         <main>
           {greetingName ? (

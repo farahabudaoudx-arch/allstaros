@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { menuChrome, PRODUCER_MENU_TILES } from "@/lib/producer/menu";
 import { MenuScreen } from "@/components/producer/menu/MenuScreen";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 /** A builder's own producer-style menu — the same 6 tiles a pure producer
  *  sees at the root, reached one level down via the "Personal" tile. */
@@ -11,6 +12,7 @@ export default async function PersonalMenuPage() {
   if (!person.is_builder) redirect("/producer");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
+  const brand = await getInstallationBrand();
 
   return (
     <MenuScreen
@@ -20,6 +22,7 @@ export default async function PersonalMenuPage() {
       tiles={PRODUCER_MENU_TILES}
       chatHref={chatHref}
       unreadChat={unreadChat}
+      brand={brand}
     />
   );
 }

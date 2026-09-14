@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { menuChrome } from "@/lib/producer/menu";
 import { MenuScreen, type MenuTile } from "@/components/producer/menu/MenuScreen";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 const TILES: MenuTile[] = [
   { label: "All Star Sidekick", hint: "AI assistant", icon: "/menu-icons/resources/sidekick.png", href: "/allstar-ai" },
@@ -19,6 +20,7 @@ export default async function ResourcesMenuPage() {
   if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
+  const brand = await getInstallationBrand();
 
   return (
     <MenuScreen
@@ -28,6 +30,7 @@ export default async function ResourcesMenuPage() {
       tiles={TILES}
       chatHref={chatHref}
       unreadChat={unreadChat}
+      brand={brand}
     />
   );
 }

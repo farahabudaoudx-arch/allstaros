@@ -1,7 +1,7 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { buttonClass } from "@/components/ui";
 import { DEV_ACCOUNTS, devLoginAuthorized } from "@/lib/devLogin";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 type SearchParams = Promise<{ error?: string; key?: string }>;
 
@@ -21,14 +21,7 @@ export default async function DevLoginPage({
     <div className="flex flex-1 items-center justify-center px-6 py-24">
       <div className="w-full max-w-md rounded-2xl border border-hairline bg-card p-10">
         <div className="mb-8 text-center">
-          <Image
-            src="/logo.png"
-            alt="All Star OS"
-            width={140}
-            height={79}
-            priority
-            className="mx-auto h-10 w-auto"
-          />
+          <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
           <p className="mt-6 text-xs uppercase tracking-[0.18em] text-mute">
             Dev sign-in
           </p>

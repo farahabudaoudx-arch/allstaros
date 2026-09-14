@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { ScorecardStars } from "./ScorecardStars";
 import { initialsFor } from "@/lib/headshots/initials";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 export type ScorecardCardRating = {
   label: string;
@@ -55,7 +55,7 @@ export function ScorecardBaseballCard({
             </span>
             <span className="scorecard-collectible__front-shade" />
             <span className="scorecard-collectible__front-top">
-              <Image src="/logo.png" alt="All Star" width={160} height={90} className="scorecard-collectible__logo" />
+              <InstallationLogo className="scorecard-collectible__logo" />
               <span className="scorecard-collectible__edition">{scorecardType}<br />Scorecard</span>
             </span>
             <span className="scorecard-collectible__identity">
@@ -71,7 +71,7 @@ export function ScorecardBaseballCard({
           <span aria-hidden={!flipped} className="producer-baseball-card__back scorecard-collectible__face scorecard-collectible__back">
             <span className="scorecard-collectible__back-content">
               <span className="scorecard-collectible__back-top">
-                <Image src="/logo.png" alt="All Star" width={130} height={74} className="scorecard-collectible__logo" />
+                <InstallationLogo className="scorecard-collectible__logo" />
                 <span className="scorecard-collectible__edition">{periodLabel}<br />{scorecardType} Scorecard</span>
               </span>
               <span className="scorecard-collectible__score-block">

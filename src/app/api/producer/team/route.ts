@@ -5,6 +5,7 @@ import { producerLoadErrorResponse } from "@/lib/producer/api-error";
 import { computeLeaderboard, type RangeKey } from "@/lib/producer/metrics";
 import { isLeaderboardExcluded } from "@/lib/producer/leaderboardExclusions";
 import { safeTz } from "@/lib/producer/time";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 // GET /api/producer/team?range=mtd&tz=America/Chicago
 //   (or range=custom&from=YYYY-MM-DD&to=YYYY-MM-DD)
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rangeKey = (url.searchParams.get("range") ?? "mtd") as RangeKey;
-  const tz = safeTz(url.searchParams.get("tz"));
+  const tz = safeTz(url.searchParams.get("tz"), installationTimezone());
 
   try {
     const supabase = await createClient();

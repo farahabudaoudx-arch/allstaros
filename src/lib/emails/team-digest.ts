@@ -151,7 +151,7 @@ export function teamDigestEmail(params: TeamDigestParams): {
 
     buttonRow("Open dashboard", dashboardUrl),
     footerRow(
-      "You're receiving this daily because you lead a team on All Star. Recruits are flagged automatically; every decision stays yours.",
+      `You're receiving this daily because you lead a team on ${escapeHtml(B.SHORT_NAME)}. Recruits are flagged automatically; every decision stays yours.`,
     ),
   ].join("\n");
 
@@ -192,8 +192,8 @@ export function teamDigestEmail(params: TeamDigestParams): {
     "",
     `Open dashboard: ${dashboardUrl}`,
     "",
-    "You're receiving this daily because you lead a team on All Star.",
-    "© All Star Life Group",
+    `You're receiving this daily because you lead a team on ${B.SHORT_NAME}.`,
+    `© ${B.ORGANIZATION_NAME}`,
   ].join("\n");
 
   return { subject, html, text };

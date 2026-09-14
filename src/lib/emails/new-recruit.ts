@@ -11,6 +11,7 @@ import {
   buttonRow,
   footerRow,
   escapeHtml,
+  BRAND,
 } from "./_layout";
 
 export function newRecruitEmail(params: {
@@ -38,7 +39,7 @@ export function newRecruitEmail(params: {
       ),
       buttonRow(`View ${safeName}`, recruitUrl),
       footerRow(
-        "You're receiving this because you're their builder on the All Star pipeline.",
+        `You're receiving this because you're their builder on the ${escapeHtml(BRAND.SHORT_NAME)} pipeline.`,
       ),
     ].join("\n"),
   });
@@ -51,8 +52,8 @@ export function newRecruitEmail(params: {
     `View ${recruitName}:`,
     recruitUrl,
     "",
-    "You're receiving this because you're their builder on the All Star pipeline.",
-    "© All Star Life Group",
+    `You're receiving this because you're their builder on the ${BRAND.SHORT_NAME} pipeline.`,
+    `© ${BRAND.ORGANIZATION_NAME}`,
   ].join("\n");
 
   return { subject, html, text };

@@ -1,11 +1,17 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/auth";
 import { ClientForm } from "@/components/producer/clients/ClientForm";
 import type { Client } from "@/lib/clients/types";
+import { getInstallationConfig } from "@/lib/installation/config";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Edit Client · All Star OS" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const installation = await getInstallationConfig();
+  return { title: `Edit Client · ${installation.productName}` };
+}
 
 export default async function EditClientPage({
   params,

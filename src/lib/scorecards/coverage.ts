@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScorecardPeriod } from "./period";
+import { installationTimezone } from "@/lib/installation/runtime";
 import {
-  chicagoDateOfInstant,
   gatewayPeriodRequirements,
   summarizePersonalGatewayEvidence,
   type PersonalGatewayImportEvidence,
@@ -69,12 +69,30 @@ function timezoneOffsetMs(date: Date, timeZone: string): number {
   return renderedAsUtc - date.getTime();
 }
 
+function installationDateOfInstant(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: installationTimezone(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const valueOf = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? null;
+  const year = valueOf("year");
+  const month = valueOf("month");
+  const day = valueOf("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
 function chicagoPeriodEndCutoff(periodEnd: string): string {
   const [year, month, day] = periodEnd.split("-").map(Number);
   const nextLocalMidnight = Date.UTC(year, month - 1, day + 1, 0, 0, 0);
   let instant = nextLocalMidnight;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    instant = nextLocalMidnight - timezoneOffsetMs(new Date(instant), "America/Chicago");
+    instant = nextLocalMidnight - timezoneOffsetMs(new Date(instant), installationTimezone());
   }
   return new Date(instant - 1).toISOString();
 }
@@ -122,7 +140,7 @@ export function summarizeGatewayCoverage(input: {
     const person = peopleById.get(role.person_id);
     if (!person) continue;
     const connection = connectionsByPerson.get(role.person_id);
-    const firstConnectedDate = chicagoDateOfInstant(connection?.first_connected_at);
+    const firstConnectedDate = installationDateOfInstant(connection?.first_connected_at);
     const connectedByPeriodEnd = firstConnectedDate != null && firstConnectedDate <= input.period.end;
     const currentlyConnected = connection?.status === "connected";
     const personEvidence = evidence.byPerson.get(role.person_id) ?? {

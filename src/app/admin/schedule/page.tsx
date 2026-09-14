@@ -6,6 +6,7 @@ import {
   adminUpdateScheduleEvent,
   adminDeleteScheduleEvent,
 } from "@/lib/actions/admin/schedule";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 const FLASH: Record<string, string> = {
   created: "Event added.",
@@ -21,6 +22,7 @@ export default async function AdminSchedulePage({
   await requireAdmin();
   const flash = await searchParams;
   const supabase = await createClient();
+  const defaultTimezone = installationTimezone();
 
   const { data } = await supabase
     .from("training_schedule")
@@ -60,7 +62,7 @@ export default async function AdminSchedulePage({
       <section className="mt-8 rounded-2xl border border-hairline bg-card p-5">
         <h2 className="text-lg font-semibold text-ink">Add event</h2>
         <form action={adminCreateScheduleEvent} className="mt-4">
-          <EventFields />
+          <EventFields defaultTimezone={defaultTimezone} />
           <button
             type="submit"
             className="mt-4 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-black transition hover:opacity-90"
@@ -83,7 +85,7 @@ export default async function AdminSchedulePage({
             >
               <form action={adminUpdateScheduleEvent}>
                 <input type="hidden" name="id" value={e.id} />
-                <EventFields row={e} />
+                <EventFields row={e} defaultTimezone={defaultTimezone} />
                 <div className="mt-4 flex items-center gap-2">
                   <button
                     type="submit"
@@ -113,7 +115,13 @@ export default async function AdminSchedulePage({
   );
 }
 
-function EventFields({ row }: { row?: ScheduleRow }) {
+function EventFields({
+  row,
+  defaultTimezone,
+}: {
+  row?: ScheduleRow;
+  defaultTimezone: string;
+}) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Field name="title" label="Title" defaultValue={row?.title ?? ""} />
@@ -167,7 +175,7 @@ function EventFields({ row }: { row?: ScheduleRow }) {
       <Field
         name="timezone"
         label="Timezone"
-        defaultValue={row?.timezone ?? "America/Chicago"}
+        defaultValue={row?.timezone ?? defaultTimezone}
       />
     </div>
   );

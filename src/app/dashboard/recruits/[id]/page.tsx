@@ -3,8 +3,6 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { phaseLabel, phaseStepLabel } from "@/lib/pipeline/labels";
 import {
-  BOOTCAMP_POLICY_GATE,
-  BOOTCAMP_WINDOW_DAYS,
   type CheckIn,
   type LessonCompletion,
   type Message,
@@ -18,6 +16,7 @@ import { Card, Badge, Button } from "@/components/ui";
 import BuilderActions from "./_components/builder-actions";
 import RemoveForm from "./_components/remove-form";
 import { promoteToProducerForm } from "@/lib/actions/promotions";
+import { getInstallationConfig } from "@/lib/installation/config";
 
 type RecruitWithPerson = Recruit & {
   person: Pick<Person, "id" | "full_name" | "email" | "status" | "is_producer">;
@@ -30,6 +29,7 @@ export default async function RecruitDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
+  const installation = await getInstallationConfig();
   const { id } = await params;
   const supabase = await createClient();
 
@@ -305,8 +305,8 @@ export default async function RecruitDetailPage({
               Bootcamp progress
             </h2>
             <p className="mt-1 text-sm text-subtle">
-              {policies.length} / {BOOTCAMP_POLICY_GATE} submitted in the{" "}
-              {BOOTCAMP_WINDOW_DAYS}-day window.
+              {policies.length} / {installation.graduationPolicyCount} submitted in the{" "}
+              {installation.graduationWindowDays}-day window.
             </p>
             <ul className="mt-2 list-disc pl-5 text-sm text-subtle marker:text-mute">
               {policies.slice(0, 8).map((p) => (

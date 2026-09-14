@@ -3,6 +3,8 @@ import { resolveBuilderByCode } from "@/lib/referral";
 import { getCurrentPerson } from "@/lib/auth";
 import { devAccountByRole } from "@/lib/devLogin";
 import { JoinWizard } from "./JoinWizard";
+import { getInstallationBrand } from "@/lib/installation/config";
+import { InstallationBrandProvider } from "@/lib/installation/brand-context";
 
 export default async function JoinPage({
   params,
@@ -23,8 +25,11 @@ export default async function JoinPage({
   // site. A real visitor signing up never sees demo mode.
   const person = demo === "1" ? await getCurrentPerson() : null;
   const isDemo = person?.email === devAccountByRole("recruit")?.email;
+  const brand = await getInstallationBrand();
 
   return (
-    <JoinWizard code={code} builderName={builder.full_name} demo={isDemo} />
+    <InstallationBrandProvider brand={brand}>
+      <JoinWizard code={code} builderName={builder.full_name} demo={isDemo} />
+    </InstallationBrandProvider>
   );
 }

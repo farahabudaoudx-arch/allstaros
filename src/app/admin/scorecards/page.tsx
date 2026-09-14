@@ -11,12 +11,13 @@ import { loadManualTargetContext } from "@/lib/scorecards/manual";
 import { recentClosedScorecardPeriods, scorecardPeriodFromStart, type ScorecardPeriod } from "@/lib/scorecards/period";
 import type { ScorecardPeriodKind } from "@/lib/scorecards/run";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 export const dynamic = "force-dynamic";
 
 function chicagoToday() {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
+    timeZone: installationTimezone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

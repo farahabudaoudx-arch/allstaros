@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth";
 import { ClientForm } from "@/components/producer/clients/ClientForm";
+import { getInstallationConfig } from "@/lib/installation/config";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "New Client · All Star OS" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const installation = await getInstallationConfig();
+  return { title: `New Client · ${installation.productName}` };
+}
 
 export default async function NewClientPage() {
   const person = await getCurrentPerson();

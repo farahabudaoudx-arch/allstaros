@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Input, Button } from "@/components/ui";
 import { requestPasswordReset } from "./actions";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 export default function ResetPage() {
   const [email, setEmail] = useState("");
@@ -33,14 +33,7 @@ export default function ResetPage() {
     <div className="flex min-h-dvh flex-1 items-center justify-center px-6 py-24">
       <div className="w-full max-w-md rounded-2xl border border-hairline bg-card p-10">
         <div className="mb-8 text-center">
-          <Image
-            src="/logo.png"
-            alt="All Star OS"
-            width={140}
-            height={79}
-            priority
-            className="mx-auto h-10 w-auto"
-          />
+          <InstallationLogo className="app-logo mx-auto h-10 w-auto" />
           <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">
             Reset your password
           </h1>

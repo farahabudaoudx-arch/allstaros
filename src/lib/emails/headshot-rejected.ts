@@ -7,18 +7,17 @@
 // sendEmail() helper — it does not send anything itself. Table-based HTML with
 // inline styles so it renders across Gmail, Apple Mail, and Outlook.
 
+import { getEmailBrand } from "@/lib/installation/email-brand";
+
 // ── Brand palette (dark theme) ────────────────────────────────────────────────
 const BG = "#050505";
 const CARD = "#0d0d0d";
 const HAIRLINE = "#1f1f1f";
-const GOLD = "#f6c945";
-const GOLD_SOFT = "#c9a235";
 const INK = "#f5f5f5";
 const SUBTLE = "#9a9a9a";
 const MUTE = "#6a6a6a";
 
 const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
-const LOGO_URL = "https://app.allstarlifegroup.com/logo.png";
 
 /** Escape the admin's free-text message so it can't break the HTML, then keep
  * their line breaks. */
@@ -38,9 +37,12 @@ export function headshotRejectedEmail(params: {
   settingsUrl: string;
 }): { subject: string; html: string; text: string } {
   const { firstName, message, settingsUrl } = params;
+  const brand = getEmailBrand();
+  const GOLD = brand.accentColor;
+  const GOLD_SOFT = brand.accentSoftColor;
 
   const greeting = firstName ? `Hi ${firstName},` : "Hi,";
-  const subject = "Your All Star headshot needs another look";
+  const subject = `Your ${brand.shortName} headshot needs another look`;
   const messageHtml = escapeHtml(message).replace(/\n/g, "<br />");
 
   const html = `<!doctype html>
@@ -65,7 +67,7 @@ export function headshotRejectedEmail(params: {
 
             <tr>
               <td style="padding:36px 40px 0 40px;" align="left">
-                <img src="${LOGO_URL}" alt="All Star Life Group" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
+                <img src="${brand.logoUrl}" alt="${brand.organizationName}" height="34" style="height:34px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
                 <div style="margin-top:18px;font-family:${FONT};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${GOLD_SOFT};">
                   Headshot review
                 </div>
@@ -143,7 +145,7 @@ export function headshotRejectedEmail(params: {
                   Questions? Just reply to this email and it reaches a real person.
                 </p>
                 <p style="margin:12px 0 0 0;font-family:${FONT};font-size:11px;letter-spacing:0.05em;color:${MUTE};">
-                  © All Star Life Group
+                  © ${brand.organizationName}
                 </p>
               </td>
             </tr>
@@ -167,7 +169,7 @@ export function headshotRejectedEmail(params: {
     "",
     "Questions? Just reply to this email and it reaches a real person.",
     "",
-    "© All Star Life Group",
+    `© ${brand.organizationName}`,
   ].join("\n");
 
   return { subject, html, text };

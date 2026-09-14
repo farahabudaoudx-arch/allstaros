@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { canAccessProducerApp, getCurrentPerson } from "@/lib/auth";
 import { menuChrome } from "@/lib/producer/menu";
 import { MenuScreen, type MenuTile } from "@/components/producer/menu/MenuScreen";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 const TILES: MenuTile[] = [
   { label: "Activity", hint: "Your production", icon: "/menu-icons/my-numbers/analytics.png", href: "/producer/analytics" },
@@ -15,6 +16,7 @@ export default async function MyNumbersMenuPage() {
   if (!canAccessProducerApp(person)) redirect("/portal");
 
   const { menuPerson, chatHref, unreadChat } = await menuChrome(person);
+  const brand = await getInstallationBrand();
 
   return (
     <MenuScreen
@@ -24,6 +26,7 @@ export default async function MyNumbersMenuPage() {
       tiles={TILES}
       chatHref={chatHref}
       unreadChat={unreadChat}
+      brand={brand}
     />
   );
 }

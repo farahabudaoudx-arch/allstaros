@@ -3,8 +3,9 @@ import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { computeLeaderboard, type RangeKey } from "@/lib/producer/metrics";
 import { money, num } from "@/lib/producer/format";
+import { installationTimezone } from "@/lib/installation/runtime";
 
-const TZ = "America/Chicago";
+const TZ = installationTimezone();
 
 type MetricKey =
   | "ap_cents"

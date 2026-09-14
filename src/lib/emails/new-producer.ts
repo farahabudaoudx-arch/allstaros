@@ -11,6 +11,7 @@ import {
   buttonRow,
   footerRow,
   escapeHtml,
+  BRAND,
 } from "./_layout";
 
 export function newProducerEmail(params: {
@@ -35,7 +36,7 @@ export function newProducerEmail(params: {
       ),
       buttonRow(`View ${safe}`, producerUrl),
       footerRow(
-        "You're receiving this because you're their builder on the All Star team.",
+        `You're receiving this because you're their builder on the ${escapeHtml(BRAND.SHORT_NAME)} team.`,
       ),
     ].join("\n"),
   });
@@ -47,8 +48,8 @@ export function newProducerEmail(params: {
     "",
     `View ${producerName}: ${producerUrl}`,
     "",
-    "You're receiving this because you're their builder on the All Star team.",
-    "© All Star Life Group",
+    `You're receiving this because you're their builder on the ${BRAND.SHORT_NAME} team.`,
+    `© ${BRAND.ORGANIZATION_NAME}`,
   ].join("\n");
 
   return { subject, html, text };

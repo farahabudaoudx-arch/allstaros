@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import { buttonClass } from "@/components/ui";
 import { submitNpn, declineNpn } from "@/lib/actions/npn";
+import { InstallationLogo } from "@/components/InstallationLogo";
 
 type View = "form" | "done" | "noNpn";
 
@@ -92,13 +92,7 @@ export function NpnRequestModal({ initialOpen }: { initialOpen: boolean }) {
             exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", duration: 0.35, bounce: 0.2 }}
           >
-            <Image
-              src="/logo.png"
-              alt="All Star Life Group"
-              width={140}
-              height={79}
-              className="app-logo mx-auto mb-6 h-8 w-auto"
-            />
+            <InstallationLogo className="app-logo mx-auto mb-6 h-8 w-auto" />
 
             {/* Success */}
             {view === "done" ? (

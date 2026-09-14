@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { installationTimezone } from "@/lib/installation/runtime";
 
 /** A DB row from training_schedule. */
 export type ScheduleRow = {
@@ -50,7 +51,7 @@ function hhmm(t: string): string {
   return (t ?? "").slice(0, 5);
 }
 
-export function rowToEvent(row: ScheduleRow): ScheduleEvent {
+export function rowToEvent(row: ScheduleRow, fallbackTimezone = installationTimezone()): ScheduleEvent {
   const { day, date } = formatDay(row.event_date);
   return {
     slug: row.slug,
@@ -64,7 +65,7 @@ export function rowToEvent(row: ScheduleRow): ScheduleEvent {
     host: row.host,
     initials: row.initials,
     image: row.image ?? "",
-    timeZone: row.timezone || "America/Chicago",
+    timeZone: row.timezone || fallbackTimezone,
     zoomUrl: row.zoom_url || DEFAULT_ZOOM,
   };
 }
@@ -73,13 +74,14 @@ export function rowToEvent(row: ScheduleRow): ScheduleEvent {
  * Upcoming training events for the producer dashboard, in display order.
  * Only events from today onward are shown, so past weeks' trainings drop off
  * automatically — admins just add the new week's events in /admin/schedule.
- * "Today" is computed in the app's timezone (America/Chicago).
+ * "Today" is computed in the installation's configured operating timezone.
  */
 export async function getScheduleEvents(): Promise<ScheduleEvent[]> {
   const supabase = await createClient();
+  const timezone = installationTimezone();
   // en-CA formats as YYYY-MM-DD, matching the date column.
   const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Chicago",
+    timeZone: timezone,
   }).format(new Date());
   const { data } = await supabase
     .from("training_schedule")
@@ -89,5 +91,5 @@ export async function getScheduleEvents(): Promise<ScheduleEvent[]> {
     .gte("event_date", today)
     .order("sort_order", { ascending: true })
     .order("event_date", { ascending: true });
-  return ((data ?? []) as ScheduleRow[]).map(rowToEvent);
+  return ((data ?? []) as ScheduleRow[]).map((row) => rowToEvent(row, timezone));
 }
