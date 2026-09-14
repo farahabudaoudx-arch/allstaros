@@ -14,6 +14,11 @@ import type {
 import { verifySupabaseProjectAccess, verifyVercelProjectAccess } from "@/lib/whitelabel/provider-verification";
 import { verifyResendSenderAccess } from "@/lib/whitelabel/email-verification";
 import {
+  verifyAnthropicAccess,
+  verifyBunnyVideoAccess,
+  type BunnyLibraryInput,
+} from "@/lib/whitelabel/content-service-verification";
+import {
   CHECK_MIGRATION_SQL,
   CLEAN_CUSTOMER_DATA_SQL,
   CLEAN_CUSTOMER_MIGRATIONS,
@@ -46,7 +51,7 @@ import type {
 const BUILD_SELECT =
   "id, agency_name, product_name, short_name, primary_contact_name, primary_contact_email, initial_admin_name, initial_admin_email, domain, timezone, payment_status, standard_scope_confirmed, maintenance_status, notes, brand_primary_color, brand_accent_color, logo_path, favicon_path, support_email, reply_to_email, email_from, licensing_provider_name, licensing_code, licensing_login_url, licensing_requirements_url, licensing_application_url, graduation_policy_count, graduation_window_days, stall_persisted_lapse_days, stall_exam_unscheduled_days, stall_no_checkin_days, stall_checkin_lapsed_days, created_by, updated_by, created_at, updated_at";
 const SERVICE_SELECT =
-  "id, build_id, service_kind, required, status, account_label, provider_name, account_ref, project_ref, login_email, billing_url, next_action, verification_method, credential_secret_id, verified_by, status_updated_at, last_checked_at, created_at, updated_at";
+  "id, build_id, service_kind, required, status, account_label, provider_name, account_ref, project_ref, login_email, billing_url, next_action, verification_method, credential_secret_id, configuration, verified_by, status_updated_at, last_checked_at, created_at, updated_at";
 const ADDITION_SELECT =
   "id, build_id, addition_type, name, delivery_requirements, timeline_notes, status, created_at, updated_at";
 const CARRIER_SELECT =
@@ -125,7 +130,10 @@ async function loadSetup(buildId: string): Promise<Setup> {
   };
 }
 
-async function providerCredential(buildId: string, kind: "vercel" | "supabase" | "email"): Promise<string> {
+async function providerCredential(
+  buildId: string,
+  kind: "vercel" | "supabase" | "email" | "ai" | "video",
+): Promise<string> {
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("get_whitelabel_service_credential", {
     p_build_id: buildId,
@@ -133,6 +141,39 @@ async function providerCredential(buildId: string, kind: "vercel" | "supabase" |
   });
   if (error || typeof data !== "string" || !data) throw new Error(`${kind} authorization is unavailable. Re-run the provider access check.`);
   return data;
+}
+
+function bunnyLibrariesFromService(
+  video: WhitelabelServiceConnection,
+  secretPayload: string,
+): BunnyLibraryInput[] {
+  let keys: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(secretPayload) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      keys = Object.fromEntries(
+        Object.entries(parsed as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+      );
+    }
+  } catch {
+    throw new Error("Stored Bunny authorization is invalid. Re-run the video provider check.");
+  }
+  const libraries = video.configuration?.libraries;
+  const config = libraries && typeof libraries === "object" && !Array.isArray(libraries)
+    ? (libraries as Record<string, unknown>)
+    : {};
+  return (["recruiting", "live", "tutorials"] as const).map((key) => {
+    const value = config[key];
+    const row = value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+    return {
+      key,
+      libraryId: typeof row.libraryId === "string" ? row.libraryId : "",
+      apiKey: keys[key] ?? "",
+      cdnHostname: typeof row.cdnHostname === "string" ? row.cdnHostname : null,
+    };
+  });
 }
 
 async function generatedSecret(buildId: string, kind: "cron_secret" | "initial_admin_invite_url"): Promise<string | null> {
@@ -214,28 +255,42 @@ async function executeValidate(ctx: StepContext): Promise<StepExecutionOutcome> 
 async function executeProviderCheck(ctx: StepContext): Promise<StepExecutionOutcome> {
   const vercel = service(ctx, "vercel");
   const supabase = service(ctx, "supabase");
+  const video = service(ctx, "video");
   if (!vercel.account_ref || !vercel.project_ref || !supabase.project_ref) {
     return { kind: "blocked", message: "Vercel or Supabase project references are incomplete." };
   }
-  const [vercelToken, supabaseToken, emailToken] = await Promise.all([
+  const [vercelToken, supabaseToken, emailToken, aiToken] = await Promise.all([
     providerCredential(ctx.build.id, "vercel"),
     providerCredential(ctx.build.id, "supabase"),
     providerCredential(ctx.build.id, "email"),
+    providerCredential(ctx.build.id, "ai"),
   ]);
-  const [vercelResult, supabaseResult, emailResult] = await Promise.all([
+  const [vercelResult, supabaseResult, emailResult, aiResult] = await Promise.all([
     verifyVercelProjectAccess({ accessToken: vercelToken, accountRef: vercel.account_ref, projectRef: vercel.project_ref }),
     verifySupabaseProjectAccess({ accessToken: supabaseToken, accountRef: supabase.account_ref, projectRef: supabase.project_ref }),
     verifyResendSenderAccess({ accessToken: emailToken, emailFrom: ctx.build.email_from }),
+    verifyAnthropicAccess(aiToken),
   ]);
   if (!vercelResult.ok) return { kind: "blocked", message: vercelResult.error };
   if (!supabaseResult.ok) return { kind: "blocked", message: supabaseResult.error };
   if (!emailResult.ok) return { kind: "blocked", message: emailResult.error };
+  if (!aiResult.ok) return { kind: "blocked", message: aiResult.error };
+
+  let videoProvider: string | null = null;
+  if (video.status === "verified") {
+    const videoSecret = await providerCredential(ctx.build.id, "video");
+    const videoResult = await verifyBunnyVideoAccess(bunnyLibrariesFromService(video, videoSecret));
+    if (!videoResult.ok) return { kind: "blocked", message: videoResult.error };
+    videoProvider = videoResult.providerName;
+  }
   return {
     kind: "succeeded",
     safeResult: {
       vercelProjectRef: vercelResult.projectRef,
       supabaseProjectRef: supabaseResult.projectRef,
       emailDomain: emailResult.accountLabel,
+      aiProvider: aiResult.providerName,
+      videoProvider,
     },
   };
 }
@@ -376,6 +431,28 @@ async function executeInstallationConfig(ctx: StepContext): Promise<StepExecutio
       ),
     ],
   });
+  const aiService = service(ctx, "ai");
+  const videoService = service(ctx, "video");
+  await runSupabaseSql({
+    token,
+    projectRef: supabase.project_ref,
+    query: `delete from public.installation_service_binding where service_kind in ('ai','video');
+      insert into public.installation_service_binding (service_kind, provider_key, status, account_ref, configuration, last_checked_at)
+      values
+        ('ai', $1, 'configured', $2, $3::jsonb, $4::timestamptz),
+        ('video', $5, $6, $7, $8::jsonb, $9::timestamptz)`,
+    parameters: [
+      aiService.provider_name.trim().toLowerCase() === "anthropic" ? "anthropic" : aiService.provider_name.trim().toLowerCase(),
+      aiService.account_ref,
+      JSON.stringify(aiService.configuration ?? {}),
+      aiService.last_checked_at,
+      videoService.provider_name.trim().toLowerCase() === "bunny" ? "bunny" : (videoService.provider_name.trim().toLowerCase() || "bunny"),
+      videoService.status === "verified" ? "configured" : videoService.status === "not_required" ? "not_required" : "missing",
+      videoService.account_ref,
+      JSON.stringify(videoService.configuration ?? {}),
+      videoService.last_checked_at,
+    ],
+  });
   await updateSupabaseAuthConfig({ token, projectRef: supabase.project_ref, siteUrl: publicAppUrl(ctx.build) });
   return {
     kind: "succeeded",
@@ -389,10 +466,13 @@ async function executeEnvironment(ctx: StepContext): Promise<StepExecutionOutcom
   if (!vercel.account_ref || !vercel.project_ref || !supabase.project_ref) {
     return { kind: "blocked", message: "Vercel or Supabase references are missing." };
   }
-  const [vercelToken, supabaseToken, emailToken] = await Promise.all([
+  const ai = service(ctx, "ai");
+  const video = service(ctx, "video");
+  const [vercelToken, supabaseToken, emailToken, aiToken] = await Promise.all([
     providerCredential(ctx.build.id, "vercel"),
     providerCredential(ctx.build.id, "supabase"),
     providerCredential(ctx.build.id, "email"),
+    providerCredential(ctx.build.id, "ai"),
   ]);
   const keys = await getSupabaseProjectKeys({ token: supabaseToken, projectRef: supabase.project_ref });
   let cronSecret = await generatedSecret(ctx.build.id, "cron_secret");
@@ -401,11 +481,7 @@ async function executeEnvironment(ctx: StepContext): Promise<StepExecutionOutcom
     await saveGeneratedSecret(ctx.build.id, "cron_secret", cronSecret);
   }
   const logoUrl = `https://${supabase.project_ref}.supabase.co/storage/v1/object/public/installation-assets/branding/logo`;
-  await upsertVercelEnvironment({
-    token: vercelToken,
-    teamId: vercel.account_ref,
-    projectRef: vercel.project_ref,
-    values: [
+  const values = [
       { key: "NEXT_PUBLIC_APP_URL", value: publicAppUrl(ctx.build) },
       { key: "NEXT_PUBLIC_SUPABASE_URL", value: customerProjectUrl(supabase.project_ref) },
       { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", value: keys.publishableKey },
@@ -414,6 +490,12 @@ async function executeEnvironment(ctx: StepContext): Promise<StepExecutionOutcom
       { key: "RESEND_API_KEY", value: emailToken, sensitive: true },
       { key: "RESEND_FROM", value: ctx.build.email_from },
       { key: "RESEND_REPLY_TO", value: ctx.build.reply_to_email },
+      { key: "ANTHROPIC_API_KEY", value: aiToken, sensitive: true },
+      { key: "INSTALLATION_AI_PROVIDER", value: ai.provider_name.trim().toLowerCase() === "anthropic" ? "anthropic" : ai.provider_name.trim().toLowerCase() },
+      { key: "INSTALLATION_COACH_MODE", value: "standard" },
+      { key: "INSTALLATION_VIDEO_COLLECTION_AGENT_VLOGS", value: "Agent Vlogs" },
+      { key: "INSTALLATION_VIDEO_COLLECTION_LIVE_DIALS", value: "Live Dials" },
+      { key: "INSTALLATION_VIDEO_COLLECTION_CASE_STUDIES", value: "Case Studies" },
       { key: "INSTALLATION_ORGANIZATION_NAME", value: ctx.build.agency_name },
       { key: "INSTALLATION_SHORT_NAME", value: ctx.build.short_name },
       { key: "INSTALLATION_PRODUCT_NAME", value: ctx.build.product_name },
@@ -426,7 +508,25 @@ async function executeEnvironment(ctx: StepContext): Promise<StepExecutionOutcom
       { key: "BUG_REPORT_TO", value: ctx.build.support_email },
       { key: "MARKETING_HOSTS", value: "marketing.invalid" },
       { key: "FLAGGED_APP_HOST", value: "" },
-    ],
+  ];
+  if (video.status === "verified") {
+    const videoSecret = await providerCredential(ctx.build.id, "video");
+    const libraries = bunnyLibrariesFromService(video, videoSecret);
+    const byKey = new Map(libraries.map((library) => [library.key, library]));
+    values.push({ key: "INSTALLATION_VIDEO_PROVIDER", value: "bunny" });
+    for (const [key, prefix] of [["recruiting", "BUNNY_RECRUITING"], ["live", "BUNNY_LIVE"], ["tutorials", "BUNNY_TUTORIALS"]] as const) {
+      const library = byKey.get(key);
+      if (!library?.libraryId || !library.apiKey) continue;
+      values.push({ key: `${prefix}_LIBRARY_ID`, value: library.libraryId });
+      values.push({ key: `${prefix}_API_KEY`, value: library.apiKey, sensitive: true });
+      if (library.cdnHostname) values.push({ key: `${prefix}_CDN_HOSTNAME`, value: library.cdnHostname });
+    }
+  }
+  await upsertVercelEnvironment({
+    token: vercelToken,
+    teamId: vercel.account_ref,
+    projectRef: vercel.project_ref,
+    values,
   });
   return { kind: "succeeded", safeResult: { envConfigured: true, projectRef: vercel.project_ref } };
 }

@@ -86,6 +86,7 @@ export type WhitelabelServiceConnection = {
   next_action: string | null;
   verification_method: "manual" | "provider_api";
   credential_secret_id: string | null;
+  configuration: Record<string, unknown>;
   verified_by: string | null;
   status_updated_at: string;
   last_checked_at: string | null;

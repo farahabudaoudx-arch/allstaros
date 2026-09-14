@@ -1,11 +1,13 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { getInstallationConfig } from "@/lib/installation/config";
+import {
+  DEFAULT_STANDARD_COACH_MODEL,
+  generateStandardCoachResponse,
+} from "@/lib/services/ai/generation";
 import type { Usage } from "@/lib/ai/usage";
 
-// Answers come from Haiku (fast/cheap), matching the in-portal help assistant.
-const MODEL = "claude-haiku-4-5-20251001";
 // Exported so the API route can attribute usage to the right model.
-export const SIDEKICK_MODEL = MODEL;
+export const SIDEKICK_MODEL = DEFAULT_STANDARD_COACH_MODEL;
 const EMBED_MODEL = "text-embedding-3-small";
 
 // Retrieval tuning.
@@ -13,31 +15,33 @@ const MATCH_COUNT = 12; // pull this many question-vectors before dedupe
 const MIN_SIMILARITY = 0.3; // drop anything less related than this
 const MAX_CHUNKS = 6; // distinct answers handed to Claude
 
-const SYSTEM_PROMPT = `You are All Star Sidekick — the team's knowledge assistant for life-insurance agents and recruits. You're trained on All Star's own training library: sales, objection handling, scripts, recruiting, onboarding/licensing, products, mindset, and the state licensing-exam material.
+function standardSystemPrompt(shortName: string): string {
+  return `You are ${shortName} Sidekick — the installation's included standard AI coach for life-insurance agents and recruits.
 
-You answer using ONLY the CONTEXT provided below (excerpts retrieved for this question). Rules:
-- Ground every claim in the CONTEXT. Do not invent numbers, scripts, carriers, or tactics that aren't there.
-- If the CONTEXT doesn't actually cover the question, say so plainly and suggest they rephrase or ask their builder — do not guess.
-- Be direct and practical. Use short paragraphs or tight bullets, whatever fits the question.
-- When the context gives a script or specific numbers, quote them concretely.
-- You are not giving licensed compliance/regulatory advice; for that, defer to a human.
+This is the STANDARD coach profile. It is not trained on this customer's uploaded training library and must never claim that it is. Be direct and practical. Use short paragraphs or tight bullets. Do not invent carrier rules, organization-specific quotas, compensation values, or internal policies. When a question depends on a company-specific rule you were not given, say so and direct the user to their builder/admin.
 
-PRODUCT SCOPE (firm business rule — overrides the CONTEXT, no exceptions):
-All Star agents sell WHOLE LIFE and INDEXED UNIVERSAL LIFE (IUL), plus certain riders. All Star does NOT sell term life, standalone universal life, or annuities — and a MEC (Modified Endowment Contract) is a tax pitfall to avoid, not a product to sell.
+You are not giving licensed compliance/regulatory advice; for that, defer to a qualified human.
+
+PRODUCT SCOPE (firm standard-profile rule):
+The standard methodology focuses on WHOLE LIFE and INDEXED UNIVERSAL LIFE (IUL), plus certain riders. Do not coach the user to sell term life, standalone universal life, or annuities. A MEC (Modified Endowment Contract) is a tax pitfall to avoid, not a product to sell.
 - NEVER suggest, recommend, or coach an agent to sell term life — not as a default, not as a fallback, not as a "last resort," not "to save the sale," not for price-sensitive clients, not in any situation whatsoever. There is no exception.
-- Some older training excerpts in the CONTEXT say to sell a term policy in certain cases. That guidance is OUT OF SCOPE — ignore it completely and do not repeat it, even to caveat it. This rule wins over any conflicting excerpt.
-- When an agent asks whether to sell term, universal life, or annuities, the answer is simply no — All Star sells whole life and IUL. Then redirect them to how to position or close whole life / IUL instead (e.g. for a price-sensitive client, how to frame permanent coverage or adjust face amount — never term).
+- When an agent asks whether to sell term, universal life, or annuities, redirect them to how to position or close whole life / IUL instead.
 - You MAY still explain how term, universal life, annuities, MECs, group life, etc. work when asked, because agents must learn them to PASS THE STATE EXAM — but frame it strictly as exam/product knowledge, never as something to sell.
 
-CLOSE ON THIS CALL — NEVER SCHEDULE A FOLLOW-UP (firm rule, overrides the CONTEXT):
-All Star's method is to close on the SAME call. NEVER tell an agent to schedule a follow-up appointment, a callback, or "a time to talk later" — callbacks almost never convert, so the answer to "should I set a follow-up?" is no. If a retrieved excerpt suggests setting a later appointment, do not repeat that advice. Getting the decision-maker (e.g. a spouse) onto the CURRENT call right now is fine; scheduling a later call is not. For "I need to talk to my spouse / wife / family" objections, the play is Agree, Ask, Assume: agree they should talk to them, ASK whether they need to discuss WHICH option to go with or WHETHER they need coverage at all (to surface the real objection), then ASSUME the sale and start them on the bronze / bare-minimum option so they have coverage in place today.
+CLOSE ON THIS CALL — NEVER SCHEDULE A FOLLOW-UP:
+The standard profile coaches toward resolving the decision on the SAME call. Do not tell an agent to schedule a follow-up appointment or callback as the sales strategy. Getting a decision-maker onto the current call is fine.
 
-Speak in second person ("you"). No preamble, no "based on the context" throat-clearing — just answer.`;
+Speak in second person ("you"). No preamble — just answer.`;
+}
 
-// Swapped in for the CONTEXT block when library retrieval is unavailable (e.g.
-// no OpenAI embeddings key) so the assistant still answers on Claude alone
-// instead of refusing for lack of context.
-const NO_CONTEXT_NOTE = `No training-library excerpts were retrieved for this question (library search is unavailable right now). For THIS turn, override the "answer using ONLY the CONTEXT" rule: answer from your own general knowledge of insurance sales, scripts, objection handling, recruiting, onboarding/licensing, and licensing-exam material. Keep it practical and concrete. The PRODUCT SCOPE rule still applies in full, with no exceptions. If something is a very All-Star-specific detail you genuinely can't know, say so briefly and point them to their builder.`;
+function customSystemPrompt(shortName: string, chunks: MatchRow[]): string {
+  return `${standardSystemPrompt(shortName)}
+
+CUSTOM COACH MODE: answer using ONLY the customer-provided CONTEXT below. Ground every organization-specific claim in it. If the context does not cover the question, say so plainly instead of guessing.
+
+CONTEXT:
+${chunks.map((chunk, index) => `[${index + 1}] (${chunk.topic})\n${chunk.answer}`).join("\n\n")}`;
+}
 
 export type CoachSource = {
   chunk_id: number;
@@ -47,7 +51,7 @@ export type CoachSource = {
 };
 
 export type CoachResult =
-  | { ok: true; answer: string; sources: CoachSource[]; underwriting?: boolean; usage?: Usage }
+  | { ok: true; answer: string; sources: CoachSource[]; underwriting?: boolean; usage?: Usage; model?: string }
   | { ok: false; error: string };
 
 type MatchRow = {
@@ -127,77 +131,54 @@ export type CoachInput = {
 };
 
 export async function askCoach(input: CoachInput): Promise<CoachResult> {
-  // The answer comes from Claude Haiku — that's the only hard requirement.
-  // OpenAI is used only for the optional training-library retrieval below; a
-  // missing OPENAI_API_KEY must NOT take the whole assistant down.
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { ok: false, error: "ANTHROPIC_API_KEY is not set on the server." };
-  }
-
   // Medical-underwriting questions go to the Underwriting Wizard, not the KB.
   // Short-circuit before any retrieval/generation — no model call needed.
   if (isUnderwritingQuestion(input.question)) {
     return { ok: true, answer: UNDERWRITING_REDIRECT, sources: [], underwriting: true };
   }
 
-  // Best-effort RAG: it needs OpenAI embeddings. If the key is missing or the
-  // lookup errors, fall back to Claude answering from its own knowledge.
+  const installation = await getInstallationConfig();
+  const customMode = process.env.INSTALLATION_COACH_MODE?.trim().toLowerCase() === "custom";
+
   let chunks: MatchRow[] = [];
-  if (process.env.OPENAI_API_KEY) {
+  if (customMode) {
+    if (!process.env.OPENAI_API_KEY) {
+      return { ok: false, error: "Custom AI retrieval is not configured for this installation." };
+    }
     try {
       chunks = await retrieve(input.question);
-    } catch (err) {
-      console.error("[coach] retrieval failed; answering without library context:", err);
+    } catch {
+      return { ok: false, error: "Custom AI retrieval is unavailable. The coach will not answer as if it were grounded in customer materials." };
+    }
+    if (chunks.length === 0) {
+      return { ok: false, error: "The custom coach could not find relevant customer material for that question." };
     }
   }
 
-  const hasContext = chunks.length > 0;
-  const contextBlock = hasContext
-    ? {
-        type: "text" as const,
-        text:
-          "CONTEXT:\n" +
-          chunks.map((c, i) => `[${i + 1}] (${c.topic})\n${c.answer}`).join("\n\n"),
-      }
-    : { type: "text" as const, text: NO_CONTEXT_NOTE };
+  const generated = await generateStandardCoachResponse({
+    system: customMode
+      ? customSystemPrompt(installation.shortName, chunks)
+      : standardSystemPrompt(installation.shortName),
+    messages: [
+      ...input.history,
+      { role: "user", content: input.question },
+    ],
+  });
+  if (!generated.ok) return generated;
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-  try {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-        contextBlock,
-      ],
-      messages: [
-        ...input.history.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content: input.question },
-      ],
-    });
-
-    const answer = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
-
-    const sources: CoachSource[] = chunks.map((c) => ({
-      chunk_id: c.chunk_id,
-      topic: c.topic,
-      cluster: c.cluster,
-      similarity: c.similarity,
-    }));
-
-    const usage: Usage = {
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
-    };
-
-    return { ok: true, answer: answer || "(empty response)", sources, usage };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "generation failed" };
-  }
+  const sources: CoachSource[] = customMode
+    ? chunks.map((chunk) => ({
+        chunk_id: chunk.chunk_id,
+        topic: chunk.topic,
+        cluster: chunk.cluster,
+        similarity: chunk.similarity,
+      }))
+    : [];
+  return {
+    ok: true,
+    answer: generated.text,
+    sources,
+    usage: generated.usage,
+    model: generated.model,
+  };
 }

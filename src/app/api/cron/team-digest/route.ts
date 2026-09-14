@@ -8,8 +8,8 @@
 // and scope each builder's totals to their own downline IN CODE, computed from
 // the upline_id tree. One org-wide pass, summed per builder — cheap at our size.
 //
-// Auth: Vercel sends `Authorization: Bearer <CRON_SECRET>`. For manual testing,
-// pass `?key=<CRON_SECRET>`. Modifiers (also require the key/secret):
+// Auth: Vercel sends `Authorization: Bearer <CRON_SECRET>`. Modifiers still
+// require that bearer token; the secret is never accepted in a query string:
 //   ?only=<email>  → send only to the builder whose email matches (dry run)
 //   ?dry=1         → compute + return the summary but DON'T send anything
 
@@ -21,6 +21,7 @@ import { sendEmail } from "@/lib/email";
 import { teamDigestEmail, type DigestRecruit } from "@/lib/emails/team-digest";
 import { phaseLabel } from "@/lib/pipeline/labels";
 import { installationTimezone } from "@/lib/installation/runtime";
+import { authorizeCronRequest } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -41,12 +42,9 @@ function centralYesterday(): string {
 }
 
 export async function GET(request: NextRequest) {
-  const expected = process.env.CRON_SECRET;
-  const auth = request.headers.get("authorization");
-  const key = request.nextUrl.searchParams.get("key");
-  const authorized = !expected || auth === `Bearer ${expected}` || key === expected;
-  if (!authorized) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const authorization = authorizeCronRequest(request);
+  if (!authorization.ok) {
+    return NextResponse.json({ error: authorization.error }, { status: authorization.status });
   }
 
   const only = request.nextUrl.searchParams.get("only")?.trim().toLowerCase() || null;

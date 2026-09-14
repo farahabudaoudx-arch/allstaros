@@ -15,7 +15,7 @@ const BUILD_SELECT =
   "id, agency_name, product_name, short_name, primary_contact_name, primary_contact_email, initial_admin_name, initial_admin_email, domain, timezone, payment_status, standard_scope_confirmed, maintenance_status, notes, brand_primary_color, brand_accent_color, logo_path, favicon_path, support_email, reply_to_email, email_from, licensing_provider_name, licensing_code, licensing_login_url, licensing_requirements_url, licensing_application_url, graduation_policy_count, graduation_window_days, stall_persisted_lapse_days, stall_exam_unscheduled_days, stall_no_checkin_days, stall_checkin_lapsed_days, created_by, updated_by, created_at, updated_at";
 
 const SERVICE_SELECT =
-  "id, build_id, service_kind, required, status, account_label, provider_name, account_ref, project_ref, login_email, billing_url, next_action, verification_method, credential_secret_id, verified_by, status_updated_at, last_checked_at, created_at, updated_at";
+  "id, build_id, service_kind, required, status, account_label, provider_name, account_ref, project_ref, login_email, billing_url, next_action, verification_method, credential_secret_id, configuration, verified_by, status_updated_at, last_checked_at, created_at, updated_at";
 
 const ADDITION_SELECT =
   "id, build_id, addition_type, name, delivery_requirements, timeline_notes, status, created_at, updated_at";

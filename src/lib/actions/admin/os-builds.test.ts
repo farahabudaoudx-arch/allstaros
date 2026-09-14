@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   verifyVercelProjectAccess: vi.fn(),
   verifySupabaseProjectAccess: vi.fn(),
+  verifyAnthropicAccess: vi.fn(),
+  verifyBunnyVideoAccess: vi.fn(),
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
@@ -24,11 +26,16 @@ vi.mock("@/lib/whitelabel/provider-verification", () => ({
   verifyVercelProjectAccess: mocks.verifyVercelProjectAccess,
   verifySupabaseProjectAccess: mocks.verifySupabaseProjectAccess,
 }));
+vi.mock("@/lib/whitelabel/content-service-verification", () => ({
+  verifyAnthropicAccess: mocks.verifyAnthropicAccess,
+  verifyBunnyVideoAccess: mocks.verifyBunnyVideoAccess,
+}));
 
 import {
   adminDeleteOsBuildAddition,
   adminSaveOsBuildService,
   adminUpdateOsBuildAddition,
+  adminVerifyOsBuildAiAccess,
   adminVerifyOsBuildProviderAccess,
 } from "./os-builds";
 
@@ -106,6 +113,14 @@ beforeEach(() => {
     projectRef: "prj_acme",
     projectName: "acme-os",
     billingUrl: "https://vercel.com/acme-agency/~/usage",
+  });
+  mocks.verifyAnthropicAccess.mockResolvedValue({
+    ok: true,
+    providerName: "Anthropic",
+    accountRef: "anthropic",
+    accountLabel: "Anthropic API",
+    billingUrl: "https://console.anthropic.com/settings/billing",
+    configuration: { provider: "anthropic" },
   });
 });
 
@@ -231,6 +246,58 @@ describe("Whitelabel OS build admin action boundary", () => {
     expect(eqCalls).toContainEqual(["build_id", BUILD_ID]);
     expect(eqCalls).toContainEqual(["service_kind", "vercel"]);
     expect(JSON.stringify(mocks.writeAudit.mock.calls)).not.toContain("temporary-provider-credential");
+  });
+
+  it("keeps the standard AI credential in Vault while persisting only safe adapter metadata", async () => {
+    const eqCalls: EqCall[] = [];
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const chain = {
+      error: null,
+      eq: vi.fn((column: string, value: string) => {
+        eqCalls.push([column, value]);
+        return chain;
+      }),
+      select: vi.fn(() => chain),
+      maybeSingle: vi.fn(async () => ({ data: { id: "ai-service" }, error: null })),
+    };
+    const admin = {
+      rpc: vi.fn(async () => ({ data: "vault-ai-secret-id", error: null })),
+      from: vi.fn((table: string) => {
+        if (table !== "whitelabel_service_connection") throw new Error(`unexpected table ${table}`);
+        return {
+          select: vi.fn(() => chain),
+          update: vi.fn((payload: Record<string, unknown>) => {
+            updatePayloads.push(payload);
+            return chain;
+          }),
+        };
+      }),
+    };
+    mocks.createServiceRoleClient.mockReturnValue(admin);
+
+    const form = new FormData();
+    form.set("build_id", BUILD_ID);
+    form.set("access_token", "customer-anthropic-secret");
+
+    await expect(adminVerifyOsBuildAiAccess(form)).rejects.toThrow(/REDIRECT:/);
+    expect(mocks.verifyAnthropicAccess).toHaveBeenCalledWith("customer-anthropic-secret");
+    expect(admin.rpc).toHaveBeenCalledWith("store_whitelabel_service_credential", {
+      p_build_id: BUILD_ID,
+      p_service_kind: "ai",
+      p_secret: "customer-anthropic-secret",
+    });
+    expect(updatePayloads).toHaveLength(1);
+    expect(updatePayloads[0]).toMatchObject({
+      status: "verified",
+      provider_name: "Anthropic",
+      account_ref: "anthropic",
+      configuration: { provider: "anthropic" },
+      verification_method: "provider_api",
+    });
+    expect(JSON.stringify(updatePayloads[0])).not.toContain("customer-anthropic-secret");
+    expect(JSON.stringify(mocks.writeAudit.mock.calls)).not.toContain("customer-anthropic-secret");
+    expect(eqCalls).toContainEqual(["build_id", BUILD_ID]);
+    expect(eqCalls).toContainEqual(["service_kind", "ai"]);
   });
 
   it("does not report a stale or foreign addition id as successfully deleted", async () => {

@@ -12,7 +12,7 @@ import { SubmitButton } from "./_components/submit-button";
 import { phaseLabel } from "@/lib/pipeline/labels";
 import { devAccountByRole } from "@/lib/devLogin";
 import { resetLicensingForm, showFullFlowForm } from "@/lib/actions/portal";
-import { getLicensingVideos } from "@/lib/bunny";
+import { getInstallationLicensingVideos } from "@/lib/services/video/registry";
 import { UnlockCelebration } from "./_components/unlock-celebration";
 import type {
   CheckIn,
@@ -76,7 +76,7 @@ export default async function PortalPage({
   const licensing = effectiveLicensingSettings(installation, upline?.xcel_code);
 
   // The 5 licensing how-to videos from the Bunny "tutorials" library.
-  const licensingVideos = await getLicensingVideos();
+  const licensingVideos = await getInstallationLicensingVideos();
 
   const today = new Date().toISOString().slice(0, 10);
 

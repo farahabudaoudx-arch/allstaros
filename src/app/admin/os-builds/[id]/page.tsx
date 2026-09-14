@@ -15,8 +15,10 @@ import {
   adminUpdateOsBuildCarrier,
   adminUploadOsBuildFavicon,
   adminUploadOsBuildLogo,
+  adminVerifyOsBuildAiAccess,
   adminVerifyOsBuildEmailAccess,
   adminVerifyOsBuildProviderAccess,
+  adminVerifyOsBuildVideoAccess,
 } from "@/lib/actions/admin/os-builds";
 import {
   ADDITION_TYPE_LABELS,
@@ -322,7 +324,7 @@ function ServiceCard({
   service: WhitelabelServiceConnection;
 }) {
   const catalog = SERVICE_CATALOG[service.service_kind];
-  const apiVerifiedProvider = service.service_kind === "vercel" || service.service_kind === "supabase" || service.service_kind === "email";
+  const apiVerifiedProvider = service.service_kind === "vercel" || service.service_kind === "supabase" || service.service_kind === "email" || service.service_kind === "ai" || service.service_kind === "video";
   const editableStatus = apiVerifiedProvider && service.status === "verified" ? "provided" : service.status;
 
   return (
@@ -502,6 +504,46 @@ function ServiceCard({
               <Input id={`${service.id}-resend-credential`} name="access_token" type="password" autoComplete="off" required />
             </Field>
             <Button type="submit" className="mt-4">Check Resend access</Button>
+          </form>
+        </div>
+      ) : null}
+      {service.service_kind === "ai" ? (
+        <div className="mt-5 rounded-xl border border-accent/25 bg-accent/[0.04] p-4">
+          <h4 className="text-sm font-semibold text-ink">Verify standard AI coach service</h4>
+          <p className="mt-1 text-xs text-subtle">
+            The standard adapter currently supports Anthropic. A different provider is a separately delivered replacement adapter, not a manual “verified” label.
+          </p>
+          <form action={adminVerifyOsBuildAiAccess} className="mt-4">
+            <input type="hidden" name="build_id" value={buildId} />
+            <Field label="Anthropic temporary API key" htmlFor={`${service.id}-anthropic-key`}>
+              <Input id={`${service.id}-anthropic-key`} name="access_token" type="password" autoComplete="off" required />
+            </Field>
+            <Button type="submit" className="mt-4">Verify Anthropic access</Button>
+          </form>
+        </div>
+      ) : null}
+      {service.service_kind === "video" ? (
+        <div className="mt-5 rounded-xl border border-accent/25 bg-accent/[0.04] p-4">
+          <h4 className="text-sm font-semibold text-ink">Verify Bunny Stream libraries</h4>
+          <p className="mt-1 text-xs text-subtle">
+            Primary training is required to connect Bunny. Live-training and licensing-tutorial libraries are optional; leave both ID and key blank when unused.
+          </p>
+          <form action={adminVerifyOsBuildVideoAccess} className="mt-4 grid gap-4">
+            <input type="hidden" name="build_id" value={buildId} />
+            {(["recruiting", "live", "tutorials"] as const).map((key) => (
+              <div key={key} className="grid gap-3 rounded-xl border border-hairline bg-card-hi p-3 md:grid-cols-3">
+                <Field label={`${key} library ID`} htmlFor={`${service.id}-${key}-library`}>
+                  <Input id={`${service.id}-${key}-library`} name={`${key}_library_id`} inputMode="numeric" required={key === "recruiting"} />
+                </Field>
+                <Field label={`${key} library API key`} htmlFor={`${service.id}-${key}-key`}>
+                  <Input id={`${service.id}-${key}-key`} name={`${key}_api_key`} type="password" autoComplete="off" required={key === "recruiting"} />
+                </Field>
+                <Field label="CDN hostname (optional)" htmlFor={`${service.id}-${key}-cdn`}>
+                  <Input id={`${service.id}-${key}-cdn`} name={`${key}_cdn_hostname`} placeholder="vz-...b-cdn.net" />
+                </Field>
+              </div>
+            ))}
+            <Button type="submit">Verify Bunny access</Button>
           </form>
         </div>
       ) : null}

@@ -1,7 +1,8 @@
 import { CoursePlatform } from "@/components/producer/CoursePlatform";
 import { PageHeader } from "@/components/producer/PageHeader";
 import { getProgram } from "@/lib/producer/trainings";
-import { listBunnyVideos, liveTrainingProgram } from "@/lib/bunny";
+import { liveTrainingProgram } from "@/lib/bunny";
+import { listInstallationVideos } from "@/lib/services/video/registry";
 import {
   getLibraryContent,
   programFromDbRows,
@@ -21,7 +22,8 @@ export default async function PreviousLiveTrainingsPage() {
     );
   }
 
-  const videos = await listBunnyVideos("live");
+  const videoResult = await listInstallationVideos("live");
+  const videos = videoResult.status === "ready" ? videoResult.data : [];
   if (videos.length > 0) {
     return (
       <CoursePlatform
@@ -45,8 +47,9 @@ export default async function PreviousLiveTrainingsPage() {
           Nothing here yet
         </p>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-subtle">
-          Recordings of past live trainings will show up here once they&apos;re
-          posted.
+          {videoResult.status === "ready"
+            ? "Recordings of past live trainings will show up here once they're posted."
+            : videoResult.message}
         </p>
       </div>
     </main>

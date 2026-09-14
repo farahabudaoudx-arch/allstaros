@@ -7,7 +7,7 @@ import { getInstallationBrand } from "@/lib/installation/config";
 const TILES: MenuTile[] = [
   { label: "Training Calendar", hint: "This week's live calls", icon: "/menu-icons/training/training-calendar.png", href: "/producer/trainings/upcoming" },
   { label: "Previous Trainings", hint: "Catch up on past calls", icon: "/menu-icons/training/previous-trainings.png", href: "/producer/trainings/live" },
-  { label: "Bootcamp", hint: "Coming soon", icon: "/menu-icons/training/bootcamp.png", locked: true },
+  { label: "Bootcamp", hint: "Structured onboarding library", icon: "/menu-icons/training/bootcamp.png", href: "/producer/trainings/bootcamp" },
 ];
 
 export default async function TrainingMenuPage() {

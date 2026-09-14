@@ -350,7 +350,10 @@ function byFilenameOrder(a: BunnyVideo, b: BunnyVideo): number {
   return oi !== 0 ? oi : a.title.localeCompare(b.title);
 }
 
-export function bunnyTrainingProgram(videos: BunnyVideo[]): Program {
+export function bunnyTrainingProgram(
+  videos: BunnyVideo[],
+  title = "Training",
+): Program {
   // The case studies are the most recent uploads (by Bunny upload time).
   const caseStudyGuids = new Set(
     [...videos]
@@ -390,7 +393,7 @@ export function bunnyTrainingProgram(videos: BunnyVideo[]): Program {
 
   return {
     key: "launchpad",
-    title: "All Star Training",
+    title,
     subtitle: "Watch the full training series, in order.",
     filters: [],
     sections: [

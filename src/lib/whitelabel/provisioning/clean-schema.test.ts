@@ -18,6 +18,7 @@ describe("clean customer schema manifest", () => {
     }
     expect(new Set(CLEAN_CUSTOMER_MIGRATIONS).size).toBe(CLEAN_CUSTOMER_MIGRATIONS.length);
     expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260914002000_installation_config.sql");
+    expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260914004000_whitelabel_content_services.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260601000300_producer_sales_seed.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260601000400_producer_leaderboard_seed.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260914001000_whitelabel_intake.sql");

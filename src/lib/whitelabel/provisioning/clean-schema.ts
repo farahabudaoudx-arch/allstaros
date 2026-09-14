@@ -63,6 +63,7 @@ export const CLEAN_CUSTOMER_MIGRATIONS = [
   "20260904000600_scorecard_auto_publish.sql",
   "20260909000100_live_leaderboard_capabilities.sql",
   "20260914002000_installation_config.sql",
+  "20260914004000_whitelabel_content_services.sql",
 ] as const;
 
 export const CLEANUP_MIGRATION_KEY = "__whitelabel_clean_customer_data_v1__";

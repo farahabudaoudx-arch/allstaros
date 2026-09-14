@@ -7,11 +7,13 @@ import {
 } from "@/lib/producer/training-content";
 import {
   collectionProgram,
-  findBunnyCollectionId,
-  isBunnyConfigured,
-  listBunnyVideos,
+  type BunnyVideo,
   type BunnyApp,
 } from "@/lib/bunny";
+import {
+  findInstallationVideoCollection,
+  listInstallationVideos,
+} from "@/lib/services/video/registry";
 
 /**
  * A video library that lives in one Bunny collection — All Star TV, Live Dials,
@@ -52,10 +54,16 @@ export async function VideoLibraryPage({
     );
   }
 
-  const collectionId = isBunnyConfigured(app)
-    ? await findBunnyCollectionId(collectionName, app)
-    : null;
-  const videos = collectionId ? await listBunnyVideos(app, collectionId) : [];
+  const collection = await findInstallationVideoCollection(collectionName, app);
+  let videos: BunnyVideo[] = [];
+  let providerMessage: string | null = null;
+  if (collection.status === "ready" && collection.data) {
+    const result = await listInstallationVideos(app, collection.data);
+    if (result.status === "ready") videos = result.data;
+    else providerMessage = result.message;
+  } else if (collection.status !== "ready") {
+    providerMessage = collection.message;
+  }
 
   if (videos.length > 0) {
     return (
@@ -75,7 +83,7 @@ export async function VideoLibraryPage({
           Nothing here yet
         </p>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-subtle">
-          {emptyNote}
+          {providerMessage ?? emptyNote}
         </p>
       </div>
     </main>

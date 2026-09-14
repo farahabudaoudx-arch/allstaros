@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/producer/PageHeader";
+import { getInstallationBrand } from "@/lib/installation/config";
 
 type Resource = {
   name: string;
@@ -8,28 +9,6 @@ type Resource = {
   icon: React.ComponentType<{ className?: string }>;
   external?: boolean;
 };
-
-const AI_TOOLS: Resource[] = [
-  {
-    name: "All Star Sidekick",
-    description: "AI assistant trained on all things life insurance.",
-    href: "/allstar-ai",
-    icon: RobotIcon,
-  },
-  {
-    name: "Underwriting Wizard",
-    description: "Match clients to the right carrier.",
-    href: "/underwriting",
-    icon: WandIcon,
-  },
-  {
-    name: "Orion AI",
-    description: "CRM dialer that sets appointments for you.",
-    href: "https://www.orionaisolutions.ai/",
-    icon: PhoneIcon,
-    external: true,
-  },
-];
 
 const USEFUL_LINKS: Resource[] = [
   {
@@ -93,7 +72,31 @@ function ResourceCard({ r }: { r: Resource }) {
   );
 }
 
-export default function ProducerResourcesPage() {
+export default async function ProducerResourcesPage() {
+  const brand = await getInstallationBrand();
+  const aiTools: Resource[] = [
+    {
+      name: `${brand.shortName} Sidekick`,
+      description: "Included standard AI coach for life-insurance sales and licensing support.",
+      href: "/allstar-ai",
+      icon: RobotIcon,
+    },
+    {
+      name: "Underwriting Wizard",
+      description: "Match clients to the right carrier.",
+      href: "/underwriting",
+      icon: WandIcon,
+    },
+    ...(brand.shortName === "All Star"
+      ? [{
+          name: "Orion AI",
+          description: "CRM dialer that sets appointments for you.",
+          href: "https://www.orionaisolutions.ai/",
+          icon: PhoneIcon,
+          external: true,
+        } satisfies Resource]
+      : []),
+  ];
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
       <PageHeader title="Resources" backHref="/producer/menu/resources" />
@@ -101,7 +104,7 @@ export default function ProducerResourcesPage() {
       <section className="mt-10">
         <h2 className="text-lg font-semibold tracking-[-0.015em] text-ink">AI Tools</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {AI_TOOLS.map((r) => (
+          {aiTools.map((r) => (
             <ResourceCard key={r.name} r={r} />
           ))}
         </div>
@@ -181,7 +184,7 @@ function MousePointerIcon({ className }: { className?: string }) {
   );
 }
 
-// All Star Sidekick — robot (lucide: bot)
+// Sidekick — robot (lucide: bot)
 function RobotIcon({ className }: { className?: string }) {
   return (
     <svg {...iconProps(className)}>

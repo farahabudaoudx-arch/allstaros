@@ -69,7 +69,7 @@ function service(
           : kind === "email"
             ? "Resend"
             : kind === "ai"
-              ? "OpenAI"
+              ? "Anthropic"
               : "",
     account_ref: kind === "video" ? null : `${kind}-account-123`,
     project_ref: kind === "vercel" || kind === "supabase" ? `${kind}-project-123` : null,
@@ -77,11 +77,12 @@ function service(
     billing_url: null,
     next_action: null,
     verification_method:
-      kind === "vercel" || kind === "supabase" || kind === "email" ? "provider_api" : "manual",
+      kind === "vercel" || kind === "supabase" || kind === "email" || kind === "ai" ? "provider_api" : "manual",
     credential_secret_id:
-      kind === "vercel" || kind === "supabase" || kind === "email"
+      kind === "vercel" || kind === "supabase" || kind === "email" || kind === "ai"
         ? "55555555-5555-4555-8555-555555555555"
         : null,
+    configuration: {},
     verified_by: kind === "video" ? null : "admin-1",
     status_updated_at: "2026-09-14T00:00:00Z",
     last_checked_at: kind === "video" ? null : "2026-09-14T00:00:00Z",
@@ -192,6 +193,37 @@ describe("Whitelabel build readiness", () => {
     const result = getBuildReadiness(build(), services, []);
     expect(result.ready).toBe(false);
     expect(result.missing.some((issue) => issue.key === "service:email:verification-evidence")).toBe(true);
+  });
+
+  it("requires API/Vault evidence for the included AI coach", () => {
+    const services = completeServices().map((row) =>
+      row.service_kind === "ai"
+        ? { ...row, verification_method: "manual" as const, credential_secret_id: null }
+        : row,
+    );
+    const result = getBuildReadiness(build(), services, []);
+    expect(result.ready).toBe(false);
+    expect(result.missing.some((issue) => issue.key === "service:ai:verification-evidence")).toBe(true);
+  });
+
+  it("requires API/Vault evidence when hosted video is required for the build", () => {
+    const services = completeServices().map((row) =>
+      row.service_kind === "video"
+        ? {
+            ...row,
+            required: true,
+            status: "verified" as const,
+            provider_name: "Bunny",
+            account_ref: "123",
+            verification_method: "manual" as const,
+            credential_secret_id: null,
+            last_checked_at: "2026-09-14T00:00:00Z",
+          }
+        : row,
+    );
+    const result = getBuildReadiness(build(), services, []);
+    expect(result.ready).toBe(false);
+    expect(result.missing.some((issue) => issue.key === "service:video:verification-evidence")).toBe(true);
   });
 
   it("requires delivery requirements for each purchased addition", () => {

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button, Card } from "@/components/ui";
+import { useInstallationBrand } from "@/lib/installation/brand-context";
 
 type Source = { chunk_id: number; topic: string; cluster: string; similarity: number };
 type Msg = {
@@ -30,6 +31,8 @@ const SUGGESTIONS = [
 ];
 
 export function AllStarChat() {
+  const brand = useInstallationBrand();
+  const coachName = `${brand.shortName} Sidekick`;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,9 +90,10 @@ export function AllStarChat() {
         {messages.length === 0 && (
           <Card className="p-5">
             <p className="text-sm text-subtle">
-              Ask anything covered in the All Star training library — objection
-              handling, dial targets, scripts, recruiting, products, mindset, and
-              more. Answers come straight from the team&apos;s own training material.
+              Ask the included standard AI coach about sales conversations,
+              objections, recruiting, products, licensing, and more. Customer
+              training uploads are not treated as custom AI training unless that
+              separate customization has been configured.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
@@ -182,7 +186,7 @@ export function AllStarChat() {
             }
           }}
           rows={2}
-          placeholder="Ask All Star AI…  (Enter to send, Shift+Enter for a new line)"
+          placeholder={`Ask ${coachName}…  (Enter to send, Shift+Enter for a new line)`}
           className="w-full resize-none rounded-xl border border-hairline bg-card-hi px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-mute focus:border-accent"
         />
         <Button type="submit" variant="primary" disabled={loading || !input.trim()}>

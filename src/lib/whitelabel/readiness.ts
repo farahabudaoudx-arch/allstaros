@@ -107,6 +107,10 @@ export function getBuildReadiness(
         (service.provider_name.toLowerCase() !== "resend" ||
           service.verification_method !== "provider_api" ||
           !service.credential_secret_id ||
+          !service.last_checked_at)) ||
+      ((service.service_kind === "ai" || service.service_kind === "video") &&
+        (service.verification_method !== "provider_api" ||
+          !service.credential_secret_id ||
           !service.last_checked_at));
     if (missingVerifiedReference) {
       issues.push({

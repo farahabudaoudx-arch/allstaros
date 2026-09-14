@@ -12,6 +12,11 @@ import {
 } from "@/lib/whitelabel/provider-verification";
 import { verifyResendSenderAccess } from "@/lib/whitelabel/email-verification";
 import {
+  verifyAnthropicAccess,
+  verifyBunnyVideoAccess,
+  type BunnyLibraryInput,
+} from "@/lib/whitelabel/content-service-verification";
+import {
   additionStatusValue,
   additionTypeValue,
   assertNoSecretLikeValue,
@@ -228,7 +233,7 @@ export async function adminSaveOsBuildService(formData: FormData) {
     if (required && status === "not_required") {
       throw new Error("A required service cannot be marked not required.");
     }
-    if ((serviceKind === "vercel" || serviceKind === "supabase" || serviceKind === "email") && status === "verified") {
+    if ((serviceKind === "vercel" || serviceKind === "supabase" || serviceKind === "email" || serviceKind === "ai" || serviceKind === "video") && status === "verified") {
       throw new Error(`Use the ${SERVICE_CATALOG[serviceKind].label} access check below to set verified status.`);
     }
     if (status === "verified" && !accountRef) {
@@ -452,6 +457,162 @@ export async function adminVerifyOsBuildProviderAccess(formData: FormData) {
       projectRef: result.projectRef,
     },
   });
+  revalidateBuild(buildId);
+  actionDone(path, "service-verified");
+}
+
+export async function adminVerifyOsBuildAiAccess(formData: FormData) {
+  const person = await requireAdmin(LIST_PATH);
+  const buildId = requiredBuildId(formData);
+  const path = buildPath(buildId);
+  let apiKey: string;
+  try {
+    apiKey = requiredText(formData.get("access_token"), "Anthropic API key", 4096);
+  } catch (error) {
+    actionError(path, errorMessage(error));
+  }
+
+  const admin = createServiceRoleClient();
+  const { data: service, error: serviceError } = await admin
+    .from("whitelabel_service_connection")
+    .select("id")
+    .eq("build_id", buildId)
+    .eq("service_kind", "ai")
+    .maybeSingle();
+  if (serviceError || !service) actionError(path, "AI service connection not found for this build.");
+
+  const checkedAt = new Date().toISOString();
+  const result = await verifyAnthropicAccess(apiKey);
+  if (!result.ok) {
+    await admin
+      .from("whitelabel_service_connection")
+      .update({
+        status: "failed",
+        provider_name: "Anthropic",
+        verification_method: "provider_api",
+        verified_by: null,
+        status_updated_at: checkedAt,
+        last_checked_at: checkedAt,
+        next_action: result.error,
+      })
+      .eq("build_id", buildId)
+      .eq("service_kind", "ai");
+    revalidateBuild(buildId);
+    actionError(path, result.error);
+  }
+
+  const vaultResult = await admin.rpc("store_whitelabel_service_credential", {
+    p_build_id: buildId,
+    p_service_kind: "ai",
+    p_secret: apiKey,
+  });
+  if (vaultResult.error) actionError(path, "Secure AI authorization could not be saved. Retry before continuing.");
+
+  const { error } = await admin
+    .from("whitelabel_service_connection")
+    .update({
+      status: "verified",
+      provider_name: result.providerName,
+      account_label: result.accountLabel,
+      account_ref: result.accountRef,
+      billing_url: result.billingUrl,
+      configuration: result.configuration,
+      verification_method: "provider_api",
+      verified_by: person.id,
+      status_updated_at: checkedAt,
+      last_checked_at: checkedAt,
+      next_action: null,
+    })
+    .eq("build_id", buildId)
+    .eq("service_kind", "ai");
+  if (error) actionError(path, "AI access was verified, but the build record could not be updated.");
+
+  await writeAudit({ actorId: person.id, action: "whitelabel.service.verify", detail: { buildId, serviceKind: "ai", provider: result.providerName } });
+  revalidateBuild(buildId);
+  actionDone(path, "service-verified");
+}
+
+function bunnyLibraryInput(
+  formData: FormData,
+  key: BunnyLibraryInput["key"],
+): BunnyLibraryInput {
+  return {
+    key,
+    libraryId: String(formData.get(`${key}_library_id`) ?? "").trim(),
+    apiKey: String(formData.get(`${key}_api_key`) ?? "").trim(),
+    cdnHostname: String(formData.get(`${key}_cdn_hostname`) ?? "").trim() || null,
+  };
+}
+
+export async function adminVerifyOsBuildVideoAccess(formData: FormData) {
+  const person = await requireAdmin(LIST_PATH);
+  const buildId = requiredBuildId(formData);
+  const path = buildPath(buildId);
+  const libraries = (["recruiting", "live", "tutorials"] as const).map((key) => bunnyLibraryInput(formData, key));
+
+  const admin = createServiceRoleClient();
+  const { data: service, error: serviceError } = await admin
+    .from("whitelabel_service_connection")
+    .select("id")
+    .eq("build_id", buildId)
+    .eq("service_kind", "video")
+    .maybeSingle();
+  if (serviceError || !service) actionError(path, "Video service connection not found for this build.");
+
+  const checkedAt = new Date().toISOString();
+  const result = await verifyBunnyVideoAccess(libraries);
+  if (!result.ok) {
+    await admin
+      .from("whitelabel_service_connection")
+      .update({
+        status: "failed",
+        provider_name: "Bunny",
+        verification_method: "provider_api",
+        verified_by: null,
+        status_updated_at: checkedAt,
+        last_checked_at: checkedAt,
+        next_action: result.error,
+      })
+      .eq("build_id", buildId)
+      .eq("service_kind", "video");
+    revalidateBuild(buildId);
+    actionError(path, result.error);
+  }
+
+  const secretPayload = JSON.stringify(
+    Object.fromEntries(
+      libraries
+        .filter((item) => item.libraryId && item.apiKey)
+        .map((item) => [item.key, item.apiKey]),
+    ),
+  );
+  const vaultResult = await admin.rpc("store_whitelabel_service_credential", {
+    p_build_id: buildId,
+    p_service_kind: "video",
+    p_secret: secretPayload,
+  });
+  if (vaultResult.error) actionError(path, "Secure video authorization could not be saved. Retry before continuing.");
+
+  const { error } = await admin
+    .from("whitelabel_service_connection")
+    .update({
+      status: "verified",
+      provider_name: result.providerName,
+      account_label: result.accountLabel,
+      account_ref: result.accountRef,
+      billing_url: result.billingUrl,
+      configuration: result.configuration,
+      verification_method: "provider_api",
+      verified_by: person.id,
+      status_updated_at: checkedAt,
+      last_checked_at: checkedAt,
+      next_action: null,
+    })
+    .eq("build_id", buildId)
+    .eq("service_kind", "video");
+  if (error) actionError(path, "Video access was verified, but the build record could not be updated.");
+
+  await writeAudit({ actorId: person.id, action: "whitelabel.service.verify", detail: { buildId, serviceKind: "video", provider: result.providerName } });
   revalidateBuild(buildId);
   actionDone(path, "service-verified");
 }

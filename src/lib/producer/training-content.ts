@@ -17,20 +17,28 @@ export type TrainingContentRow = {
 };
 
 /** Libraries backed by training_content + a flat-list program page. */
-export type ContentLibrary = "bootcamp" | "accelerator" | "uplevel";
-export const CONTENT_LIBRARIES: ContentLibrary[] = [
-  "bootcamp",
-  "accelerator",
-  "uplevel",
-];
-// The admin UI also lists recruit + live for completeness (managed elsewhere).
 export const ALL_LIBRARIES = [
-  "bootcamp",
-  "accelerator",
-  "uplevel",
   "recruit",
   "live",
+  "bootcamp",
+  "accelerator",
+  "uplevel",
+  "all-star-tv",
+  "live-dials",
+  "case-studies",
 ] as const;
+export type ContentLibrary = (typeof ALL_LIBRARIES)[number];
+
+export const LIBRARY_LABELS: Record<ContentLibrary, string> = {
+  recruit: "Recruit Launch Pad",
+  live: "Previous Live Trainings",
+  bootcamp: "Bootcamp",
+  accelerator: "Accelerator",
+  uplevel: "Uplevel",
+  "all-star-tv": "Agent Vlogs",
+  "live-dials": "Live Sales Calls",
+  "case-studies": "Case Studies",
+};
 
 const TONES: Tone[] = ["coral", "gold", "green", "sky", "violet", "rose"];
 
@@ -83,10 +91,12 @@ export async function getLibraryContent(
 }
 
 /**
- * Resolve a program-page's program: DB-backed flat list when the library has
- * content, otherwise the existing hardcoded catalog (so pages never go empty).
+ * Resolve a program-page's program from customer-local content only. An empty
+ * library stays empty; it never falls back to the All Star placeholder catalog.
  */
-export async function resolveProgram(key: ContentLibrary): Promise<Program> {
+export async function resolveProgram(
+  key: Extract<ContentLibrary, "bootcamp" | "accelerator" | "uplevel">,
+): Promise<Program> {
   const rows = await getLibraryContent(key);
-  return rows.length > 0 ? programFromDbRows(key, rows) : getProgram(key);
+  return programFromDbRows(key, rows);
 }

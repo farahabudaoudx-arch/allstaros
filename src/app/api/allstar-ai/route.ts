@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     await recordAiUsage({
       personId: person.id,
       tool: "sidekick",
-      model: SIDEKICK_MODEL,
+      model: result.model ?? SIDEKICK_MODEL,
       usage: result.usage,
     });
   }
