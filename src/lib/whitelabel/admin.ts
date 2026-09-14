@@ -18,7 +18,7 @@ const SERVICE_SELECT =
   "id, build_id, service_kind, required, status, account_label, provider_name, account_ref, project_ref, login_email, billing_url, next_action, verification_method, credential_secret_id, configuration, verified_by, status_updated_at, last_checked_at, created_at, updated_at";
 
 const ADDITION_SELECT =
-  "id, build_id, addition_type, name, delivery_requirements, timeline_notes, status, created_at, updated_at";
+  "id, build_id, addition_type, name, delivery_requirements, timeline_notes, status, delivery_phase, created_at, updated_at";
 const CARRIER_SELECT =
   "id, build_id, company_key, display_name, portal_url, sort_order, show_in_resources, created_at, updated_at";
 

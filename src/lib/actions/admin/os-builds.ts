@@ -21,6 +21,7 @@ import {
   additionTypeValue,
   assertNoSecretLikeValue,
   colorValue,
+  deliveryPhaseValue,
   emailValue,
   emailFromValue,
   integerRangeValue,
@@ -630,6 +631,7 @@ function readAdditionFields(formData: FormData) {
     delivery_requirements: deliveryRequirements,
     timeline_notes: timelineNotes,
     status: additionStatusValue(formData.get("status")),
+    delivery_phase: deliveryPhaseValue(formData.get("delivery_phase") ?? "launch"),
   };
 }
 

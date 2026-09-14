@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   return NextResponse.json(
-    { sha: process.env.VERCEL_GIT_COMMIT_SHA ?? "dev" },
+    {
+      sha: process.env.VERCEL_GIT_COMMIT_SHA ?? "dev",
+      schemaRelease: process.env.INSTALLATION_SCHEMA_RELEASE ?? null,
+    },
     { headers: { "cache-control": "no-store" } },
   );
 }

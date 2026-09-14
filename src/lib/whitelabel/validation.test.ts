@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertNoSecretLikeValue,
   colorValue,
+  deliveryPhaseValue,
   emailFromValue,
   httpsUrlValue,
   integerRangeValue,
@@ -11,6 +12,12 @@ import {
 } from "./validation";
 
 describe("Whitelabel intake secret policy", () => {
+  it("rejects unknown purchased-work delivery phases", () => {
+    expect(deliveryPhaseValue("launch")).toBe("launch");
+    expect(deliveryPhaseValue("post_handoff")).toBe("post_handoff");
+    expect(() => deliveryPhaseValue("later")).toThrow(/Delivery phase is invalid/);
+  });
+
   it.each([
     "Bearer abcdefghijklmnopqrstuvwxyz123456",
     "api_key=abcdefghijklmnop123456",

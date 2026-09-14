@@ -1,12 +1,14 @@
 import {
   ADDITION_STATUSES,
   ADDITION_TYPES,
+  DELIVERY_PHASES,
   MAINTENANCE_STATUSES,
   PAYMENT_STATUSES,
   SERVICE_KINDS,
   SERVICE_STATUSES,
   type AdditionStatus,
   type AdditionType,
+  type DeliveryPhase,
   type MaintenanceStatus,
   type PaymentStatus,
   type ServiceKind,
@@ -203,4 +205,8 @@ export function additionTypeValue(value: FormDataEntryValue | null): AdditionTyp
 
 export function additionStatusValue(value: FormDataEntryValue | null): AdditionStatus {
   return enumValue(value, ADDITION_STATUSES, "Addition status");
+}
+
+export function deliveryPhaseValue(value: FormDataEntryValue | null): DeliveryPhase {
+  return enumValue(value, DELIVERY_PHASES, "Delivery phase");
 }

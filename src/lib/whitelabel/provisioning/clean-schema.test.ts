@@ -10,6 +10,7 @@ import {
   CLEANUP_MIGRATION_KEY,
   migrationMarkerSql,
 } from "./clean-schema";
+import { CURRENT_CUSTOMER_SCHEMA_RELEASE } from "../verification";
 
 describe("clean customer schema manifest", () => {
   it("contains only real migrations and excludes sample/control-plane migrations", () => {
@@ -24,6 +25,12 @@ describe("clean customer schema manifest", () => {
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260914001000_whitelabel_intake.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260914003000_whitelabel_provisioning.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS.filter((name) => name.includes("gateway"))).toEqual([]);
+  });
+
+  it("keeps the live version schema marker pinned to the final customer migration", () => {
+    expect(CURRENT_CUSTOMER_SCHEMA_RELEASE).toBe(
+      CLEAN_CUSTOMER_MIGRATIONS.at(-1)?.replace(/\.sql$/, ""),
+    );
   });
 
   it("puts the migration and its marker in one transaction", () => {

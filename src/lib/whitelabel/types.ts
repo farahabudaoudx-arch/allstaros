@@ -32,6 +32,9 @@ export type AdditionType = (typeof ADDITION_TYPES)[number];
 export const ADDITION_STATUSES = ["planned", "in_progress", "blocked", "ready"] as const;
 export type AdditionStatus = (typeof ADDITION_STATUSES)[number];
 
+export const DELIVERY_PHASES = ["launch", "post_handoff"] as const;
+export type DeliveryPhase = (typeof DELIVERY_PHASES)[number];
+
 export type WhitelabelBuild = {
   id: string;
   agency_name: string;
@@ -102,6 +105,7 @@ export type WhitelabelBuildAddition = {
   delivery_requirements: string;
   timeline_notes: string | null;
   status: AdditionStatus;
+  delivery_phase: DeliveryPhase;
   created_at: string;
   updated_at: string;
 };

@@ -235,6 +235,7 @@ describe("Whitelabel build readiness", () => {
       delivery_requirements: "",
       timeline_notes: null,
       status: "planned",
+      delivery_phase: "launch",
       created_at: "2026-09-14T00:00:00Z",
       updated_at: "2026-09-14T00:00:00Z",
     };
@@ -257,6 +258,7 @@ describe("Whitelabel build readiness", () => {
       delivery_requirements: "",
       timeline_notes: null,
       status: "blocked",
+      delivery_phase: "launch",
       created_at: "2026-09-14T00:00:00Z",
       updated_at: "2026-09-14T00:00:00Z",
     };

@@ -89,7 +89,11 @@ export default async function OsBuildDetailPage({
           </h1>
           <p className="mt-2 text-sm text-subtle">{build.product_name}</p>
         </div>
-        <LinkButton href="/admin/os-builds">All builds</LinkButton>
+        <div className="flex flex-wrap gap-2">
+          <LinkButton href={`/admin/os-builds/${build.id}/verification`}>Verification</LinkButton>
+          <LinkButton href={`/admin/os-builds/${build.id}/handoff`}>Handoff</LinkButton>
+          <LinkButton href="/admin/os-builds">All builds</LinkButton>
+        </div>
       </div>
 
       {flash.ok ? (
@@ -576,6 +580,17 @@ function AdditionFields({ addition }: { addition?: WhitelabelBuildAddition }) {
           {(["planned", "in_progress", "blocked", "ready"] as AdditionStatus[]).map((status) => (
             <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
           ))}
+        </select>
+      </Field>
+      <Field label="Delivery phase" htmlFor={addition ? `${addition.id}-phase` : "delivery_phase"}>
+        <select
+          id={addition ? `${addition.id}-phase` : "delivery_phase"}
+          name="delivery_phase"
+          className={selectClass}
+          defaultValue={addition?.delivery_phase ?? "launch"}
+        >
+          <option value="launch">Launch — must be complete before handoff</option>
+          <option value="post_handoff">Post-handoff — agreed later delivery</option>
         </select>
       </Field>
       <Field label="Addition name" htmlFor={addition ? `${addition.id}-name` : "addition_name"} className="md:col-span-2">

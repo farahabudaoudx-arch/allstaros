@@ -13,6 +13,7 @@ import type {
 } from "@/lib/whitelabel/types";
 import { verifySupabaseProjectAccess, verifyVercelProjectAccess } from "@/lib/whitelabel/provider-verification";
 import { verifyResendSenderAccess } from "@/lib/whitelabel/email-verification";
+import { CURRENT_CUSTOMER_SCHEMA_RELEASE } from "@/lib/whitelabel/verification";
 import {
   verifyAnthropicAccess,
   verifyBunnyVideoAccess,
@@ -53,7 +54,7 @@ const BUILD_SELECT =
 const SERVICE_SELECT =
   "id, build_id, service_kind, required, status, account_label, provider_name, account_ref, project_ref, login_email, billing_url, next_action, verification_method, credential_secret_id, configuration, verified_by, status_updated_at, last_checked_at, created_at, updated_at";
 const ADDITION_SELECT =
-  "id, build_id, addition_type, name, delivery_requirements, timeline_notes, status, created_at, updated_at";
+  "id, build_id, addition_type, name, delivery_requirements, timeline_notes, status, delivery_phase, created_at, updated_at";
 const CARRIER_SELECT =
   "id, build_id, company_key, display_name, portal_url, sort_order, show_in_resources, created_at, updated_at";
 
@@ -505,6 +506,7 @@ async function executeEnvironment(ctx: StepContext): Promise<StepExecutionOutcom
       { key: "INSTALLATION_SUPPORT_EMAIL", value: ctx.build.support_email },
       { key: "INSTALLATION_REPLY_TO_EMAIL", value: ctx.build.reply_to_email },
       { key: "INSTALLATION_TIMEZONE", value: ctx.build.timezone },
+      { key: "INSTALLATION_SCHEMA_RELEASE", value: CURRENT_CUSTOMER_SCHEMA_RELEASE },
       { key: "BUG_REPORT_TO", value: ctx.build.support_email },
       { key: "MARKETING_HOSTS", value: "marketing.invalid" },
       { key: "FLAGGED_APP_HOST", value: "" },
