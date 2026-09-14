@@ -2,7 +2,7 @@
 
 ## Intake, Accounts, Scope, and Readiness
 
-**Commit:** `f780369` — `feat: add whitelabel assembly line intake`  
+**Commit:** `f780369` — `feat: add whitelabel assembly line intake`
 **Control-plane migration:** `supabase/migrations/20260914001000_whitelabel_intake.sql`
 
 ## الهدف
@@ -211,4 +211,3 @@
 - لم يتم نسخ All Star production DB.
 - لم يتم تطبيق migration على production ضمن تنفيذ هذا المشروع.
 - لم يتم بناء update/maintenance lifecycle؛ هذا ضمن Ticket 6.
-

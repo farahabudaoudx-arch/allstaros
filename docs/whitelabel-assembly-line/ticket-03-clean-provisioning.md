@@ -2,7 +2,7 @@
 
 ## Resumable Clean Provisioning
 
-**Commit:** `c77dcee` (`c77dceea2d5b6ef8545fc83353247106e74d0146`) — `feat(whitelabel): add resumable clean provisioning`  
+**Commit:** `c77dcee` (`c77dceea2d5b6ef8545fc83353247106e74d0146`) — `feat(whitelabel): add resumable clean provisioning`
 **Control-plane migration:** `supabase/migrations/20260914003000_whitelabel_provisioning.sql`
 
 ## الهدف

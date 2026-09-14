@@ -2,7 +2,7 @@
 
 ## Customer Content and Service Provider Isolation
 
-**Commit:** `1247f2c` (`1247f2c2bbbbbb49223fe117f6006877390ab76a`) — `feat(whitelabel): isolate content and service providers`  
+**Commit:** `1247f2c` (`1247f2c2bbbbbb49223fe117f6006877390ab76a`) — `feat(whitelabel): isolate content and service providers`
 **Customer migration:** `supabase/migrations/20260914004000_whitelabel_content_services.sql`
 
 ## الهدف
@@ -188,4 +188,3 @@ Missing/invalid authorization يفشل fail-closed، وهو أيضًا جزء م
 - custom provider adapters غير المشتراة لم يتم اختراعها تلقائيًا؛ يوجد boundary واضح لها فقط.
 - shared maintenance/webinar lifecycle ليس ضمن Ticket 4؛ تم التحقق منه فقط كمتطلب في Ticket 5 عند اختيار maintenance.
 - لم يتم deploy أو migration apply لعميل production أثناء تطوير الـ branch.
-

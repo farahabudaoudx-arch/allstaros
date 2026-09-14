@@ -2,7 +2,7 @@
 
 ## Installation Configuration and Branding Abstraction
 
-**Commit:** `7b34e12` — `feat(whitelabel): add installation configuration`  
+**Commit:** `7b34e12` — `feat(whitelabel): add installation configuration`
 **Customer migration:** `supabase/migrations/20260914002000_installation_config.sql`
 
 ## الهدف
@@ -172,4 +172,3 @@
 - لم يتم عزل training/video/AI content؛ هذا Ticket 4.
 - لم يتم handoff/verification lifecycle؛ هذا Ticket 5.
 - migration لم يتم تطبيقها على production أثناء تنفيذ الـ Whitelabel branch.
-

@@ -2,7 +2,7 @@
 
 ## Verification, Secure Handoff, and Review/Defect Windows
 
-**Commit:** `01845c9` (`01845c9c73208c3633dd449476ca0921040b7042`) — `feat(whitelabel): add verification and handoff`  
+**Commit:** `01845c9` (`01845c9c73208c3633dd449476ca0921040b7042`) — `feat(whitelabel): add verification and handoff`
 **Control-plane migration:** `supabase/migrations/20260914005000_whitelabel_verification_handoff.sql`
 
 ## الهدف
@@ -382,4 +382,3 @@ Full-repository suite أعطت 1043 tests PASS و3 failures قديمة خارج 
 - لا يوجد production migration apply ضمن تسليم هذا الفرع.
 - لا يوجد customer live provisioning حقيقي تم تشغيله كاختبار end-to-end، لأن ذلك يتطلب حسابات ومشاريع فعلية وتطبيق migrations/deployment.
 - installed-version/update-history/maintenance-entitlement/rollout/recovery lifecycle هو نطاق Ticket 6.
-
