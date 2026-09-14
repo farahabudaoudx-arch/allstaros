@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
   // Version skew guard for rolling deploys: stale pages hard-navigate to a new
   // deployment instead of submitting server actions from the previous build.
   deploymentId,
+  // Ticket 3's provisioning action reads the approved migration allowlist at
+  // runtime. Trace those SQL files into the server bundle for Vercel builds.
+  outputFileTracingIncludes: {
+    "/admin/os-builds/**": ["./supabase/migrations/*.sql"],
+  },
   // Client + server Sentry.init must share preview/production labels. VERCEL_ENV
   // is not a NEXT_PUBLIC_ var, so stamp it at build time.
   env: {

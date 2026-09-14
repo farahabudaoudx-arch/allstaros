@@ -10,18 +10,22 @@ import {
   verifySupabaseProjectAccess,
   verifyVercelProjectAccess,
 } from "@/lib/whitelabel/provider-verification";
+import { verifyResendSenderAccess } from "@/lib/whitelabel/email-verification";
 import {
   additionStatusValue,
   additionTypeValue,
   assertNoSecretLikeValue,
   colorValue,
   emailValue,
+  emailFromValue,
+  integerRangeValue,
   isUuid,
   maintenanceStatusValue,
   normalizeDomain,
   optionalText,
   paymentStatusValue,
   providerBillingUrlValue,
+  requiredHttpsUrlValue,
   requiredText,
   safeReference,
   serviceKindValue,
@@ -87,6 +91,7 @@ function readBuildFields(formData: FormData) {
   return {
     agency_name: agencyName,
     product_name: productName,
+    short_name: requiredText(formData.get("short_name"), "Short organization name", 80),
     primary_contact_name: primaryContactName,
     primary_contact_email: primaryContactEmail ?? "",
     initial_admin_name: initialAdminName,
@@ -98,6 +103,20 @@ function readBuildFields(formData: FormData) {
     maintenance_status: maintenanceStatusValue(formData.get("maintenance_status")),
     brand_primary_color: colorValue(formData.get("brand_primary_color"), "Primary brand color"),
     brand_accent_color: colorValue(formData.get("brand_accent_color"), "Accent brand color"),
+    support_email: emailValue(formData.get("support_email"), "Support email", true)!,
+    reply_to_email: emailValue(formData.get("reply_to_email"), "Reply-to email", true)!,
+    email_from: emailFromValue(formData.get("email_from")),
+    licensing_provider_name: requiredText(formData.get("licensing_provider_name"), "Licensing provider", 160),
+    licensing_code: requiredText(formData.get("licensing_code"), "Licensing code", 300),
+    licensing_login_url: requiredHttpsUrlValue(formData.get("licensing_login_url"), "Licensing login URL"),
+    licensing_requirements_url: requiredHttpsUrlValue(formData.get("licensing_requirements_url"), "Licensing requirements URL"),
+    licensing_application_url: requiredHttpsUrlValue(formData.get("licensing_application_url"), "Licensing application URL"),
+    graduation_policy_count: integerRangeValue(formData.get("graduation_policy_count"), "Graduation policy count", 1, 1000),
+    graduation_window_days: integerRangeValue(formData.get("graduation_window_days"), "Graduation window", 1, 3650),
+    stall_persisted_lapse_days: integerRangeValue(formData.get("stall_persisted_lapse_days"), "Persisted stall threshold", 1, 365),
+    stall_exam_unscheduled_days: integerRangeValue(formData.get("stall_exam_unscheduled_days"), "Exam-unscheduled threshold", 1, 365),
+    stall_no_checkin_days: integerRangeValue(formData.get("stall_no_checkin_days"), "No-check-in threshold", 1, 365),
+    stall_checkin_lapsed_days: integerRangeValue(formData.get("stall_checkin_lapsed_days"), "Check-in lapse threshold", 1, 365),
     notes,
   };
 }
@@ -209,7 +228,7 @@ export async function adminSaveOsBuildService(formData: FormData) {
     if (required && status === "not_required") {
       throw new Error("A required service cannot be marked not required.");
     }
-    if ((serviceKind === "vercel" || serviceKind === "supabase") && status === "verified") {
+    if ((serviceKind === "vercel" || serviceKind === "supabase" || serviceKind === "email") && status === "verified") {
       throw new Error(`Use the ${SERVICE_CATALOG[serviceKind].label} access check below to set verified status.`);
     }
     if (status === "verified" && !accountRef) {
@@ -255,6 +274,75 @@ export async function adminSaveOsBuildService(formData: FormData) {
   });
   revalidateBuild(buildId);
   actionDone(path, "service-saved");
+}
+
+export async function adminVerifyOsBuildEmailAccess(formData: FormData) {
+  const person = await requireAdmin(LIST_PATH);
+  const buildId = requiredBuildId(formData);
+  const path = buildPath(buildId);
+  let accessToken: string;
+  try {
+    accessToken = requiredText(formData.get("access_token"), "Resend API key", 4096);
+  } catch (error) {
+    actionError(path, errorMessage(error));
+  }
+
+  const admin = createServiceRoleClient();
+  const [{ data: build, error: buildError }, { data: service, error: serviceError }] = await Promise.all([
+    admin.from("whitelabel_build").select("email_from").eq("id", buildId).maybeSingle(),
+    admin.from("whitelabel_service_connection").select("id").eq("build_id", buildId).eq("service_kind", "email").maybeSingle(),
+  ]);
+  if (buildError || !build) actionError(LIST_PATH, "OS build not found.");
+  if (serviceError || !service) actionError(path, "Email service connection not found for this build.");
+
+  const checkedAt = new Date().toISOString();
+  const result = await verifyResendSenderAccess({ accessToken, emailFrom: String(build.email_from ?? "") });
+  if (!result.ok) {
+    await admin
+      .from("whitelabel_service_connection")
+      .update({
+        status: "failed",
+        provider_name: "Resend",
+        verification_method: "provider_api",
+        verified_by: null,
+        status_updated_at: checkedAt,
+        last_checked_at: checkedAt,
+        next_action: result.error,
+      })
+      .eq("build_id", buildId)
+      .eq("service_kind", "email");
+    revalidateBuild(buildId);
+    actionError(path, result.error);
+  }
+
+  const vaultResult = await admin.rpc("store_whitelabel_service_credential", {
+    p_build_id: buildId,
+    p_service_kind: "email",
+    p_secret: accessToken,
+  });
+  if (vaultResult.error) actionError(path, "Secure email authorization could not be saved. Retry before continuing.");
+
+  const { error } = await admin
+    .from("whitelabel_service_connection")
+    .update({
+      status: "verified",
+      provider_name: result.providerName,
+      account_label: result.accountLabel,
+      account_ref: result.accountRef,
+      billing_url: result.billingUrl,
+      verification_method: "provider_api",
+      verified_by: person.id,
+      status_updated_at: checkedAt,
+      last_checked_at: checkedAt,
+      next_action: null,
+    })
+    .eq("build_id", buildId)
+    .eq("service_kind", "email");
+  if (error) actionError(path, "Email access was verified, but the build record could not be updated.");
+
+  await writeAudit({ actorId: person.id, action: "whitelabel.service.verify", detail: { buildId, serviceKind: "email", accountRef: result.accountRef } });
+  revalidateBuild(buildId);
+  actionDone(path, "service-verified");
 }
 
 export async function adminVerifyOsBuildProviderAccess(formData: FormData) {
@@ -553,4 +641,87 @@ export async function adminUploadOsBuildFavicon(formData: FormData) {
   });
   revalidateBuild(buildId);
   actionDone(path, "favicon-saved");
+}
+
+function carrierFields(formData: FormData) {
+  const companyKey = requiredText(formData.get("company_key"), "Carrier company key", 160).toLowerCase();
+  const displayName = requiredText(formData.get("display_name"), "Carrier display name", 160);
+  const portalUrl = requiredHttpsUrlValue(formData.get("portal_url"), "Carrier portal URL");
+  const sortOrder = integerRangeValue(formData.get("sort_order") ?? "0", "Carrier sort order", 0, 10000);
+  assertNoSecretLikeValue(companyKey, "Carrier company key");
+  assertNoSecretLikeValue(displayName, "Carrier display name");
+  assertNoSecretLikeValue(portalUrl, "Carrier portal URL");
+  return {
+    company_key: companyKey,
+    display_name: displayName,
+    portal_url: portalUrl,
+    sort_order: sortOrder,
+    show_in_resources: formData.get("show_in_resources") === "on",
+  };
+}
+
+export async function adminAddOsBuildCarrier(formData: FormData) {
+  const person = await requireAdmin(LIST_PATH);
+  const buildId = requiredBuildId(formData);
+  const path = buildPath(buildId);
+  let fields: ReturnType<typeof carrierFields>;
+  try {
+    fields = carrierFields(formData);
+  } catch (error) {
+    actionError(path, errorMessage(error));
+  }
+  const admin = createServiceRoleClient();
+  const { error } = await admin.from("whitelabel_build_carrier_link").insert({ build_id: buildId, ...fields });
+  if (error) actionError(path, "Could not add that carrier. Confirm it is not already configured for this build.");
+  await writeAudit({ actorId: person.id, action: "whitelabel.carrier.add", detail: { buildId, companyKey: fields.company_key } });
+  revalidateBuild(buildId);
+  actionDone(path, "carrier-added");
+}
+
+export async function adminUpdateOsBuildCarrier(formData: FormData) {
+  const person = await requireAdmin(LIST_PATH);
+  const buildId = requiredBuildId(formData);
+  const path = buildPath(buildId);
+  const carrierId = String(formData.get("carrier_id") ?? "").trim();
+  if (!isUuid(carrierId)) actionError(path, "Invalid carrier row.");
+  let fields: ReturnType<typeof carrierFields>;
+  try {
+    fields = carrierFields(formData);
+  } catch (error) {
+    actionError(path, errorMessage(error));
+  }
+  const admin = createServiceRoleClient();
+  const { data, error } = await admin
+    .from("whitelabel_build_carrier_link")
+    .update(fields)
+    .eq("id", carrierId)
+    .eq("build_id", buildId)
+    .select("id")
+    .maybeSingle();
+  if (error) actionError(path, "Could not save the carrier configuration.");
+  if (!data) actionError(path, "Carrier row not found for this build.");
+  await writeAudit({ actorId: person.id, action: "whitelabel.carrier.update", detail: { buildId, carrierId } });
+  revalidateBuild(buildId);
+  actionDone(path, "carrier-saved");
+}
+
+export async function adminDeleteOsBuildCarrier(formData: FormData) {
+  const person = await requireAdmin(LIST_PATH);
+  const buildId = requiredBuildId(formData);
+  const path = buildPath(buildId);
+  const carrierId = String(formData.get("carrier_id") ?? "").trim();
+  if (!isUuid(carrierId)) actionError(path, "Invalid carrier row.");
+  const admin = createServiceRoleClient();
+  const { data, error } = await admin
+    .from("whitelabel_build_carrier_link")
+    .delete()
+    .eq("id", carrierId)
+    .eq("build_id", buildId)
+    .select("id")
+    .maybeSingle();
+  if (error) actionError(path, "Could not remove the carrier configuration.");
+  if (!data) actionError(path, "Carrier row not found for this build.");
+  await writeAudit({ actorId: person.id, action: "whitelabel.carrier.delete", detail: { buildId, carrierId } });
+  revalidateBuild(buildId);
+  actionDone(path, "carrier-deleted");
 }

@@ -27,6 +27,12 @@ export function getBuildReadiness(
   if (!build.initial_admin_email.trim()) {
     issues.push(missing("initial_admin_email", "Initial admin email", "intake"));
   }
+  if (!build.initial_admin_name.trim()) {
+    issues.push(missing("initial_admin_name", "Initial admin name", "intake"));
+  }
+  if (!build.short_name.trim()) {
+    issues.push(missing("short_name", "Short organization name", "intake"));
+  }
   if (!build.domain.trim()) {
     issues.push(missing("domain", "Customer domain", "intake"));
   }
@@ -41,6 +47,18 @@ export function getBuildReadiness(
   }
   if (!build.favicon_path) {
     issues.push(missing("favicon_path", "Favicon", "intake"));
+  }
+  for (const [key, label, value] of [
+    ["support_email", "Support email", build.support_email],
+    ["reply_to_email", "Reply-to email", build.reply_to_email],
+    ["email_from", "Email sender identity", build.email_from],
+    ["licensing_provider_name", "Licensing provider", build.licensing_provider_name],
+    ["licensing_code", "Licensing code", build.licensing_code],
+    ["licensing_login_url", "Licensing login URL", build.licensing_login_url],
+    ["licensing_requirements_url", "Licensing requirements URL", build.licensing_requirements_url],
+    ["licensing_application_url", "Licensing application URL", build.licensing_application_url],
+  ] as const) {
+    if (!value.trim()) issues.push(missing(key, label, "intake"));
   }
   if (!build.standard_scope_confirmed) {
     issues.push(missing("standard_scope_confirmed", "Standard scope confirmation", "scope"));
@@ -82,6 +100,11 @@ export function getBuildReadiness(
       !service.account_ref?.trim() ||
       ((service.service_kind === "vercel" || service.service_kind === "supabase") &&
         (!service.project_ref?.trim() ||
+          service.verification_method !== "provider_api" ||
+          !service.credential_secret_id ||
+          !service.last_checked_at)) ||
+      (service.service_kind === "email" &&
+        (service.provider_name.toLowerCase() !== "resend" ||
           service.verification_method !== "provider_api" ||
           !service.credential_secret_id ||
           !service.last_checked_at));

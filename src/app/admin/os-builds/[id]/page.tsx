@@ -2,15 +2,20 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { BuildIntakeFields } from "@/components/admin/os-builds/BuildIntakeFields";
 import { ReadinessPanel } from "@/components/admin/os-builds/ReadinessPanel";
+import { ProvisioningPanel } from "@/components/admin/os-builds/ProvisioningPanel";
 import { Badge, Button, Card, Field, Input, LinkButton, PageShell, Textarea } from "@/components/ui";
 import {
   adminAddOsBuildAddition,
+  adminAddOsBuildCarrier,
+  adminDeleteOsBuildCarrier,
   adminDeleteOsBuildAddition,
   adminSaveOsBuild,
   adminSaveOsBuildService,
   adminUpdateOsBuildAddition,
+  adminUpdateOsBuildCarrier,
   adminUploadOsBuildFavicon,
   adminUploadOsBuildLogo,
+  adminVerifyOsBuildEmailAccess,
   adminVerifyOsBuildProviderAccess,
 } from "@/lib/actions/admin/os-builds";
 import {
@@ -19,11 +24,13 @@ import {
   SERVICE_STATUS_LABELS,
 } from "@/lib/whitelabel/catalog";
 import { loadOsBuildForAdmin } from "@/lib/whitelabel/admin";
+import { loadProvisioningForAdmin } from "@/lib/whitelabel/provisioning/admin";
 import type {
   AdditionStatus,
   AdditionType,
   ServiceStatus,
   WhitelabelBuildAddition,
+  WhitelabelBuildCarrierLink,
   WhitelabelServiceConnection,
 } from "@/lib/whitelabel/types";
 
@@ -37,6 +44,11 @@ const FLASH: Record<string, string> = {
   "addition-deleted": "Purchased work removed.",
   "logo-saved": "Brand logo saved.",
   "favicon-saved": "Favicon saved.",
+  "carrier-added": "Carrier portal added.",
+  "carrier-saved": "Carrier portal saved.",
+  "carrier-deleted": "Carrier portal removed.",
+  "provisioning-started": "Clean provisioning run created.",
+  "provisioning-advanced": "Provisioning step processed. Review the current state below.",
 };
 
 const selectClass =
@@ -59,7 +71,10 @@ export default async function OsBuildDetailPage({
 }) {
   const { id } = await params;
   const flash = await searchParams;
-  const build = await loadOsBuildForAdmin(id);
+  const [build, provisioning] = await Promise.all([
+    loadOsBuildForAdmin(id),
+    loadProvisioningForAdmin(id),
+  ]);
   if (!build) notFound();
 
   return (
@@ -89,6 +104,12 @@ export default async function OsBuildDetailPage({
       <div className="mt-8">
         <ReadinessPanel readiness={build.readiness} />
       </div>
+      <ProvisioningPanel
+        buildId={build.id}
+        ready={build.readiness.ready}
+        sourceSha={process.env.WHITELABEL_SOURCE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? ""}
+        view={provisioning}
+      />
 
       <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
@@ -191,6 +212,31 @@ export default async function OsBuildDetailPage({
 
       <section className="mt-10">
         <div>
+          <h2 className="text-2xl font-semibold text-ink">Supported carriers & portals</h2>
+          <p className="mt-1 max-w-3xl text-sm text-subtle">
+            Configure only the customer&apos;s supported carrier portal links. This does not add underwriting rules for a carrier.
+          </p>
+        </div>
+        <Card className="mt-4">
+          <h3 className="text-lg font-semibold text-ink">Add carrier portal</h3>
+          <form action={adminAddOsBuildCarrier} className="mt-4">
+            <input type="hidden" name="build_id" value={build.id} />
+            <CarrierFields />
+            <Button type="submit" variant="primary" className="mt-4">Add carrier</Button>
+          </form>
+        </Card>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          {build.carriers.map((carrier) => (
+            <CarrierCard key={carrier.id} buildId={build.id} carrier={carrier} />
+          ))}
+          {build.carriers.length === 0 ? (
+            <p className="text-sm text-mute">No customer carrier portals configured. The clean installation will not inherit All Star carrier links.</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <div>
           <h2 className="text-2xl font-semibold text-ink">Purchased additions</h2>
           <p className="mt-1 max-w-3xl text-sm text-subtle">
             Keep separately priced imports, provider replacements, custom AI, websites, SMS, and other custom work attached to this build&apos;s delivery checklist.
@@ -219,6 +265,55 @@ export default async function OsBuildDetailPage({
   );
 }
 
+function CarrierFields({ carrier }: { carrier?: WhitelabelBuildCarrierLink }) {
+  const prefix = carrier?.id ?? "new-carrier";
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <Field label="Carrier key" htmlFor={`${prefix}-company-key`} hint="Stable matching key, for example mutual of omaha.">
+        <Input id={`${prefix}-company-key`} name="company_key" defaultValue={carrier?.company_key ?? ""} required />
+      </Field>
+      <Field label="Display name" htmlFor={`${prefix}-display-name`}>
+        <Input id={`${prefix}-display-name`} name="display_name" defaultValue={carrier?.display_name ?? ""} required />
+      </Field>
+      <Field label="Portal URL" htmlFor={`${prefix}-portal-url`} className="md:col-span-2">
+        <Input id={`${prefix}-portal-url`} name="portal_url" type="url" defaultValue={carrier?.portal_url ?? ""} required />
+      </Field>
+      <Field label="Sort order" htmlFor={`${prefix}-sort-order`}>
+        <Input id={`${prefix}-sort-order`} name="sort_order" type="number" min={0} max={10000} defaultValue={carrier?.sort_order ?? 0} required />
+      </Field>
+      <label className="flex items-center gap-3 rounded-xl border border-hairline bg-card-hi px-4 py-3">
+        <input type="checkbox" name="show_in_resources" defaultChecked={carrier?.show_in_resources ?? true} className="h-4 w-4 accent-[var(--accent)]" />
+        <span className="text-sm text-ink">Show in Resources</span>
+      </label>
+    </div>
+  );
+}
+
+function CarrierCard({ buildId, carrier }: { buildId: string; carrier: WhitelabelBuildCarrierLink }) {
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-ink">{carrier.display_name}</h3>
+          <p className="mt-0.5 text-xs text-mute">{carrier.company_key}</p>
+        </div>
+        <Badge tone={carrier.show_in_resources ? "pos" : "default"}>{carrier.show_in_resources ? "Visible" : "Hidden"}</Badge>
+      </div>
+      <form action={adminUpdateOsBuildCarrier}>
+        <input type="hidden" name="build_id" value={buildId} />
+        <input type="hidden" name="carrier_id" value={carrier.id} />
+        <CarrierFields carrier={carrier} />
+        <Button type="submit" className="mt-4">Save carrier</Button>
+      </form>
+      <form action={adminDeleteOsBuildCarrier} className="mt-2">
+        <input type="hidden" name="build_id" value={buildId} />
+        <input type="hidden" name="carrier_id" value={carrier.id} />
+        <Button type="submit" variant="danger">Remove carrier</Button>
+      </form>
+    </Card>
+  );
+}
+
 function ServiceCard({
   buildId,
   service,
@@ -227,7 +322,7 @@ function ServiceCard({
   service: WhitelabelServiceConnection;
 }) {
   const catalog = SERVICE_CATALOG[service.service_kind];
-  const apiVerifiedProvider = service.service_kind === "vercel" || service.service_kind === "supabase";
+  const apiVerifiedProvider = service.service_kind === "vercel" || service.service_kind === "supabase" || service.service_kind === "email";
   const editableStatus = apiVerifiedProvider && service.status === "verified" ? "provided" : service.status;
 
   return (
@@ -387,6 +482,26 @@ function ServiceCard({
                 </span>
               ) : null}
             </div>
+          </form>
+        </div>
+      ) : null}
+      {service.service_kind === "email" ? (
+        <div className="mt-5 rounded-xl border border-accent/25 bg-accent/[0.04] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-semibold text-ink">Verify Resend sender access</h4>
+              <p className="mt-1 max-w-xl text-xs text-subtle">
+                The temporary API key is used to confirm the customer sender domain, then stored only in the encrypted Vault for provisioning.
+              </p>
+            </div>
+            {service.verification_method === "provider_api" && service.last_checked_at ? <Badge tone="pos">API checked</Badge> : null}
+          </div>
+          <form action={adminVerifyOsBuildEmailAccess} className="mt-4">
+            <input type="hidden" name="build_id" value={buildId} />
+            <Field label="Resend temporary API key" htmlFor={`${service.id}-resend-credential`}>
+              <Input id={`${service.id}-resend-credential`} name="access_token" type="password" autoComplete="off" required />
+            </Field>
+            <Button type="submit" className="mt-4">Check Resend access</Button>
           </form>
         </div>
       ) : null}

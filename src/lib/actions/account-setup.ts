@@ -89,7 +89,7 @@ export async function completeAccountSetup(
       .from("person")
       .update({ full_name: fullName, phone })
       .eq("auth_user_id", user.id)
-      .select("id, is_producer, is_builder")
+      .select("id, is_producer, is_builder, is_admin, is_super_admin")
       .maybeSingle();
     if (personErr) {
       return { ok: false, error: personErr.message };
@@ -116,7 +116,8 @@ export async function completeAccountSetup(
       }
     }
 
-    if (person) {
+    const adminOnly = Boolean(person?.is_admin || person?.is_super_admin) && !person?.is_producer && !person?.is_builder;
+    if (person && !adminOnly) {
       const { error: recruitErr } = await admin
         .from("recruit")
         .update({ phone, state })
@@ -129,7 +130,7 @@ export async function completeAccountSetup(
       await notifyNewRecruit(person.id);
     }
 
-    return { ok: true, next: "/portal" };
+    return { ok: true, next: adminOnly ? "/admin" : "/portal" };
   } catch (err) {
     // Real, persistent failures are signal; capture them so we can see the
     // actual cause instead of the form's generic "something went wrong".

@@ -13,6 +13,9 @@ export function BuildIntakeFields({ build }: { build?: Partial<WhitelabelBuild> 
       <Field label="Product display name" htmlFor="product_name">
         <Input id="product_name" name="product_name" defaultValue={build?.product_name ?? ""} required />
       </Field>
+      <Field label="Short organization name" htmlFor="short_name" hint="Used in compact UI and notifications.">
+        <Input id="short_name" name="short_name" defaultValue={build?.short_name ?? ""} required />
+      </Field>
       <Field label="Primary contact name" htmlFor="primary_contact_name">
         <Input
           id="primary_contact_name"
@@ -65,6 +68,48 @@ export function BuildIntakeFields({ build }: { build?: Partial<WhitelabelBuild> 
           defaultValue={build?.brand_accent_color ?? ""}
           placeholder="#38BDF8"
         />
+      </Field>
+      <Field label="Support email" htmlFor="support_email">
+        <Input id="support_email" name="support_email" type="email" defaultValue={build?.support_email ?? ""} required />
+      </Field>
+      <Field label="Reply-to email" htmlFor="reply_to_email">
+        <Input id="reply_to_email" name="reply_to_email" type="email" defaultValue={build?.reply_to_email ?? ""} required />
+      </Field>
+      <Field label="Sender identity" htmlFor="email_from" hint={'Verified sender, e.g. "Acme Life <notifications@acme.com>".'}>
+        <Input id="email_from" name="email_from" defaultValue={build?.email_from ?? ""} required />
+      </Field>
+      <Field label="Licensing provider" htmlFor="licensing_provider_name">
+        <Input id="licensing_provider_name" name="licensing_provider_name" defaultValue={build?.licensing_provider_name ?? ""} required />
+      </Field>
+      <Field label="Licensing / agency code" htmlFor="licensing_code">
+        <Input id="licensing_code" name="licensing_code" defaultValue={build?.licensing_code ?? ""} required />
+      </Field>
+      <Field label="Licensing login URL" htmlFor="licensing_login_url">
+        <Input id="licensing_login_url" name="licensing_login_url" type="url" defaultValue={build?.licensing_login_url ?? ""} required />
+      </Field>
+      <Field label="Licensing requirements URL" htmlFor="licensing_requirements_url">
+        <Input id="licensing_requirements_url" name="licensing_requirements_url" type="url" defaultValue={build?.licensing_requirements_url ?? ""} required />
+      </Field>
+      <Field label="Licensing application URL" htmlFor="licensing_application_url">
+        <Input id="licensing_application_url" name="licensing_application_url" type="url" defaultValue={build?.licensing_application_url ?? ""} required />
+      </Field>
+      <Field label="Graduation policy count" htmlFor="graduation_policy_count">
+        <Input id="graduation_policy_count" name="graduation_policy_count" type="number" min={1} max={1000} defaultValue={build?.graduation_policy_count ?? 8} required />
+      </Field>
+      <Field label="Graduation window (days)" htmlFor="graduation_window_days">
+        <Input id="graduation_window_days" name="graduation_window_days" type="number" min={1} max={3650} defaultValue={build?.graduation_window_days ?? 28} required />
+      </Field>
+      <Field label="Persisted stall threshold (days)" htmlFor="stall_persisted_lapse_days">
+        <Input id="stall_persisted_lapse_days" name="stall_persisted_lapse_days" type="number" min={1} max={365} defaultValue={build?.stall_persisted_lapse_days ?? 3} required />
+      </Field>
+      <Field label="Exam-unscheduled threshold (days)" htmlFor="stall_exam_unscheduled_days">
+        <Input id="stall_exam_unscheduled_days" name="stall_exam_unscheduled_days" type="number" min={1} max={365} defaultValue={build?.stall_exam_unscheduled_days ?? 3} required />
+      </Field>
+      <Field label="No-check-in threshold (days)" htmlFor="stall_no_checkin_days">
+        <Input id="stall_no_checkin_days" name="stall_no_checkin_days" type="number" min={1} max={365} defaultValue={build?.stall_no_checkin_days ?? 2} required />
+      </Field>
+      <Field label="Check-in lapse threshold (days)" htmlFor="stall_checkin_lapsed_days">
+        <Input id="stall_checkin_lapsed_days" name="stall_checkin_lapsed_days" type="number" min={1} max={365} defaultValue={build?.stall_checkin_lapsed_days ?? 2} required />
       </Field>
       <Field label="Payment status" htmlFor="payment_status">
         <select

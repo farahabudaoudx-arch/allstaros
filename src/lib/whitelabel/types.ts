@@ -36,6 +36,7 @@ export type WhitelabelBuild = {
   id: string;
   agency_name: string;
   product_name: string;
+  short_name: string;
   primary_contact_name: string;
   primary_contact_email: string;
   initial_admin_name: string;
@@ -50,6 +51,20 @@ export type WhitelabelBuild = {
   brand_accent_color: string;
   logo_path: string | null;
   favicon_path: string | null;
+  support_email: string;
+  reply_to_email: string;
+  email_from: string;
+  licensing_provider_name: string;
+  licensing_code: string;
+  licensing_login_url: string;
+  licensing_requirements_url: string;
+  licensing_application_url: string;
+  graduation_policy_count: number;
+  graduation_window_days: number;
+  stall_persisted_lapse_days: number;
+  stall_exam_unscheduled_days: number;
+  stall_no_checkin_days: number;
+  stall_checkin_lapsed_days: number;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -90,6 +105,18 @@ export type WhitelabelBuildAddition = {
   updated_at: string;
 };
 
+export type WhitelabelBuildCarrierLink = {
+  id: string;
+  build_id: string;
+  company_key: string;
+  display_name: string;
+  portal_url: string;
+  sort_order: number;
+  show_in_resources: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ReadinessIssue = {
   key: string;
   label: string;
@@ -105,6 +132,7 @@ export type BuildReadiness = {
 export type WhitelabelBuildWithSetup = WhitelabelBuild & {
   services: WhitelabelServiceConnection[];
   additions: WhitelabelBuildAddition[];
+  carriers: WhitelabelBuildCarrierLink[];
   readiness: BuildReadiness;
   logoUrl?: string | null;
   faviconUrl?: string | null;

@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   assertNoSecretLikeValue,
   colorValue,
+  emailFromValue,
   httpsUrlValue,
+  integerRangeValue,
   providerBillingUrlValue,
+  requiredHttpsUrlValue,
   safeReference,
 } from "./validation";
 
@@ -66,5 +69,16 @@ describe("Whitelabel intake secret policy", () => {
     const invalid = new FormData();
     invalid.set("color", "blue");
     expect(() => colorValue(invalid.get("color"), "Brand color")).toThrow(/6-digit hex/i);
+  });
+
+  it("validates sender identities, required HTTPS URLs, and bounded integers", () => {
+    expect(emailFromValue("Acme Life <Notifications@Acme.test>")).toBe(
+      "Acme Life <notifications@acme.test>",
+    );
+    expect(requiredHttpsUrlValue("https://portal.acme.test/path", "URL")).toBe(
+      "https://portal.acme.test/path",
+    );
+    expect(integerRangeValue("28", "Days", 1, 365)).toBe(28);
+    expect(() => integerRangeValue("1.5", "Days", 1, 365)).toThrow(/whole number/i);
   });
 });

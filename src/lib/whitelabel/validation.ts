@@ -60,6 +60,17 @@ export function emailValue(
   return text;
 }
 
+export function emailFromValue(value: FormDataEntryValue | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw.length > 320) throw new Error("Sender identity is required.");
+  const bracket = raw.match(/^([^<>]{1,120})\s*<([^<>]+)>$/);
+  const address = bracket ? bracket[2].trim().toLowerCase() : raw.toLowerCase();
+  if (!EMAIL_RE.test(address)) {
+    throw new Error('Sender identity must be an email or "Name <email@example.com>".');
+  }
+  return bracket ? `${bracket[1].trim()} <${address}>` : address;
+}
+
 export function normalizeDomain(value: FormDataEntryValue | null): string {
   const raw = String(value ?? "").trim();
   if (!raw) return "";
@@ -107,6 +118,27 @@ export function httpsUrlValue(value: FormDataEntryValue | null, label: string): 
   } catch {
     throw new Error(`${label} must be a valid HTTPS URL without embedded credentials.`);
   }
+}
+
+export function requiredHttpsUrlValue(value: FormDataEntryValue | null, label: string): string {
+  const normalized = httpsUrlValue(value, label);
+  if (!normalized) throw new Error(`${label} is required.`);
+  return normalized;
+}
+
+export function integerRangeValue(
+  value: FormDataEntryValue | null,
+  label: string,
+  min: number,
+  max: number,
+): number {
+  const raw = String(value ?? "").trim();
+  if (!/^\d+$/.test(raw)) throw new Error(`${label} must be a whole number.`);
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${label} must be between ${min} and ${max}.`);
+  }
+  return parsed;
 }
 
 export function providerBillingUrlValue(

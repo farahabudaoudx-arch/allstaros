@@ -13,6 +13,7 @@ function build(overrides: Partial<WhitelabelBuild> = {}): WhitelabelBuild {
     id: BUILD_ID,
     agency_name: "Acme Life",
     product_name: "Acme OS",
+    short_name: "Acme",
     primary_contact_name: "Alex Owner",
     primary_contact_email: "owner@acme.test",
     initial_admin_name: "Jamie Admin",
@@ -27,6 +28,20 @@ function build(overrides: Partial<WhitelabelBuild> = {}): WhitelabelBuild {
     brand_accent_color: "#38BDF8",
     logo_path: `${BUILD_ID}/logo`,
     favicon_path: `${BUILD_ID}/favicon`,
+    support_email: "support@acme.test",
+    reply_to_email: "support@acme.test",
+    email_from: "Acme Life <notifications@acme.test>",
+    licensing_provider_name: "Acme Licensing",
+    licensing_code: "ACME-123",
+    licensing_login_url: "https://licensing.acme.test/login",
+    licensing_requirements_url: "https://licensing.acme.test/requirements",
+    licensing_application_url: "https://licensing.acme.test/apply",
+    graduation_policy_count: 8,
+    graduation_window_days: 28,
+    stall_persisted_lapse_days: 3,
+    stall_exam_unscheduled_days: 3,
+    stall_no_checkin_days: 2,
+    stall_checkin_lapsed_days: 2,
     created_by: null,
     updated_by: null,
     created_at: "2026-09-14T00:00:00Z",
@@ -61,9 +76,10 @@ function service(
     login_email: null,
     billing_url: null,
     next_action: null,
-    verification_method: kind === "vercel" || kind === "supabase" ? "provider_api" : "manual",
+    verification_method:
+      kind === "vercel" || kind === "supabase" || kind === "email" ? "provider_api" : "manual",
     credential_secret_id:
-      kind === "vercel" || kind === "supabase"
+      kind === "vercel" || kind === "supabase" || kind === "email"
         ? "55555555-5555-4555-8555-555555555555"
         : null,
     verified_by: kind === "video" ? null : "admin-1",
@@ -165,6 +181,17 @@ describe("Whitelabel build readiness", () => {
     const result = getBuildReadiness(build(), services, []);
     expect(result.ready).toBe(false);
     expect(result.missing.some((issue) => issue.key === "service:vercel:verification-evidence")).toBe(true);
+  });
+
+  it("requires provider-verified Resend evidence for the required email service", () => {
+    const services = completeServices().map((row) =>
+      row.service_kind === "email"
+        ? { ...row, verification_method: "manual" as const, credential_secret_id: null }
+        : row,
+    );
+    const result = getBuildReadiness(build(), services, []);
+    expect(result.ready).toBe(false);
+    expect(result.missing.some((issue) => issue.key === "service:email:verification-evidence")).toBe(true);
   });
 
   it("requires delivery requirements for each purchased addition", () => {
