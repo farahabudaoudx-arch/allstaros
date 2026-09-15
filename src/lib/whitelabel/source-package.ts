@@ -5,12 +5,14 @@ const MAX_UNCOMPRESSED_BYTES = 350 * 1024 * 1024;
 
 const CONTROL_PLANE_PREFIXES = [
   "src/app/admin/os-builds/",
+  "src/app/admin/os-updates/",
   "src/components/admin/os-builds/",
   "src/lib/whitelabel/",
 ] as const;
 
 const CONTROL_PLANE_FILES = new Set([
   "src/lib/actions/admin/os-builds.ts",
+  "src/lib/actions/admin/os-updates.ts",
   "src/lib/actions/admin/os-provisioning.ts",
   "src/lib/actions/admin/os-verification.ts",
 ]);
@@ -110,7 +112,12 @@ export function inspectSourcePackageZip(bytes: Uint8Array): SourcePackageManifes
   if (JSON.stringify(migrationEntries) !== JSON.stringify(declared)) {
     throw new Error("Source package database migrations do not match the manifest.");
   }
-  if (migrationEntries.some((name) => /gateway/i.test(name) || /2026091400(?:10|30|50)00/.test(name))) {
+  if (
+    migrationEntries.some(
+      (name) => /gateway/i.test(name)
+        || /whitelabel_(?:intake|provisioning|verification_handoff|updates_independent_operation)/i.test(name),
+    )
+  ) {
     throw new Error("Source package contains a control-plane or Gateway migration.");
   }
   return manifest;

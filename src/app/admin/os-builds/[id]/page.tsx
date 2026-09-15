@@ -92,6 +92,7 @@ export default async function OsBuildDetailPage({
         <div className="flex flex-wrap gap-2">
           <LinkButton href={`/admin/os-builds/${build.id}/verification`}>Verification</LinkButton>
           <LinkButton href={`/admin/os-builds/${build.id}/handoff`}>Handoff</LinkButton>
+          <LinkButton href={`/admin/os-builds/${build.id}/operations`}>Operations</LinkButton>
           <LinkButton href="/admin/os-builds">All builds</LinkButton>
         </div>
       </div>

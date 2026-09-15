@@ -34,8 +34,8 @@ try {
   const entries = unzipSync(readFileSync(rawArchive));
   const migrationSet = new Set(customerMigrations);
   const filtered = {};
-  const forbiddenPrefix = ["src/app/admin/os-builds/", "src/components/admin/os-builds/", "src/lib/whitelabel/"];
-  const forbiddenFile = new Set(["src/lib/actions/admin/os-builds.ts", "src/lib/actions/admin/os-provisioning.ts", "src/lib/actions/admin/os-verification.ts"]);
+  const forbiddenPrefix = ["src/app/admin/os-builds/", "src/app/admin/os-updates/", "src/components/admin/os-builds/", "src/lib/whitelabel/"];
+  const forbiddenFile = new Set(["src/lib/actions/admin/os-builds.ts", "src/lib/actions/admin/os-updates.ts", "src/lib/actions/admin/os-provisioning.ts", "src/lib/actions/admin/os-verification.ts"]);
   const highConfidenceSecretPatterns = [
     /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
     /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\b/,
@@ -86,7 +86,7 @@ try {
   };
   filtered["WHITELABEL_SOURCE_MANIFEST.json"] = strToU8(JSON.stringify(manifest, null, 2) + "\n");
   filtered["CUSTOMER_DATABASE_SETUP.md"] = strToU8(
-    `# Customer database setup\n\nApply the migrations listed in WHITELABEL_SOURCE_MANIFEST.json in order, then perform the clean-customer data reset before creating the initial admin. Assembly Line and Gateway migrations are intentionally excluded.\n`,
+    `# Customer database setup\n\n## First installation only\n\nApply the migrations listed in WHITELABEL_SOURCE_MANIFEST.json in order, then perform the clean-customer data reset before creating the initial admin. The clean reset is destructive and must never be used for maintenance updates.\n\n## Managed updates\n\nApply only the missing customer migrations through the incremental update workflow. Preserve the existing installation configuration, content, service connections, and business records. Assembly Line and Gateway migrations are intentionally excluded.\n`,
   );
   const zipBytes = zipSync(filtered, { level: 6 });
   writeFileSync(output, zipBytes);

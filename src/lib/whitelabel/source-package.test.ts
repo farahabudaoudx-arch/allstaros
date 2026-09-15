@@ -25,6 +25,8 @@ describe("source package handoff gate", () => {
     expect(sourcePackagePathAllowed("src/app/page.tsx")).toBe(true);
     expect(sourcePackagePathAllowed(".env.production")).toBe(false);
     expect(sourcePackagePathAllowed("src/app/admin/os-builds/[id]/page.tsx")).toBe(false);
+    expect(sourcePackagePathAllowed("src/app/admin/os-updates/page.tsx")).toBe(false);
+    expect(sourcePackagePathAllowed("src/lib/actions/admin/os-updates.ts")).toBe(false);
     expect(sourcePackagePathAllowed("src/lib/whitelabel/provisioning/orchestrator.ts")).toBe(false);
     expect(sourcePackagePathAllowed("node_modules/pkg/index.js")).toBe(false);
     expect(sourcePackagePathAllowed(".agents/release-checklist.md")).toBe(false);
@@ -40,6 +42,8 @@ describe("source package handoff gate", () => {
   it("rejects control-plane/Gateway migrations and literal credentials", () => {
     const badMigration = packageBytes({ "supabase/migrations/20260914005000_whitelabel_verification_handoff.sql": strToU8("select 1;") });
     expect(() => inspectSourcePackageZip(badMigration)).toThrow(/migrations do not match|control-plane/i);
+    const ticketSixMigration = packageBytes({ "supabase/migrations/20260915001000_whitelabel_updates_independent_operation.sql": strToU8("select 1;") });
+    expect(() => inspectSourcePackageZip(ticketSixMigration)).toThrow(/migrations do not match|control-plane/i);
     const secret = packageBytes({ "notes.txt": strToU8("Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456") });
     expect(() => inspectSourcePackageZip(secret)).toThrow(/secret scan/i);
     const genericSecret = packageBytes({ "config.ts": strToU8('const apiKey = "abcdefghijklmnopqrstuvwx";') });

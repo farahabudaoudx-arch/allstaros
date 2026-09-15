@@ -44,6 +44,7 @@ export default async function OsBuildHandoffPage({
         </div>
         <div className="flex gap-2">
           <LinkButton href={`/admin/os-builds/${id}/verification`}>Verification</LinkButton>
+          <LinkButton href={`/admin/os-builds/${id}/operations`}>Operations</LinkButton>
           <LinkButton href={`/admin/os-builds/${id}`}>Build</LinkButton>
         </div>
       </div>
