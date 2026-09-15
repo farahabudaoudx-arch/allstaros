@@ -8,7 +8,7 @@ const sql = [
   "20260904000400_gateway_report_pull_queue_limits.sql",
   "20260904000500_gateway_report_pull_fencing.sql",
   "20260905000100_gateway_runner_hardening.sql",
-].map((name) => readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8")).join("\n");
+].map((name) => readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8").replace(/\r\n/g, "\n")).join("\n");
 
 function functionBody(name: string) {
   const replaceStart = sql.lastIndexOf(`create or replace function public.${name}`);

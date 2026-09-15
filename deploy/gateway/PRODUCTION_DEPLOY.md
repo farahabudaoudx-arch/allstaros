@@ -4,9 +4,9 @@ This package is for updating the existing live All Star OS deployment. It does n
 
 ## What is already in the application
 
-The current tree contains the Gateway connection routes, encrypted external runner, real Mac/Chrome provider, durable report queue, first-connect/current pulls, reminder cron, report-pull cron, automatic Scorecard publishing cron, and the required hardening migration `20260905000100_gateway_runner_hardening.sql`.
+The current tree contains the Gateway connection routes, encrypted external runner, per-person HTTP-only `curl_cffi` authentication/report acquisition, durable report queue, immutable raw-XLSX evidence, first-connect/current pulls, reminder cron, report-pull cron, automatic Scorecard publishing cron, and the required Gateway migrations through `20260914000100_gateway_report_pull_artifacts.sql`.
 
-The application stores only an opaque runner `sessionRef`. Gateway browser state remains encrypted on the Mac runner host. Gateway passwords and verification codes are not application data.
+The application stores only an opaque runner `sessionRef`. Per-member Gateway HTTP session state remains encrypted on the Mac runner host. Gateway passwords and verification codes are transient Connect inputs and are not application or runner-session data.
 
 ## One-time production provisioning
 
@@ -16,7 +16,9 @@ Apply all pending repository migrations to the existing production Supabase proj
 
 `supabase/migrations/20260905000100_gateway_runner_hardening.sql`
 
-After migration, run `deploy/gateway/verify-production-schema.sql` in the production SQL editor. `latest_migration` must be at least `20260905000100` and every boolean in the result must be `true`.
+`supabase/migrations/20260914000100_gateway_report_pull_artifacts.sql`
+
+After migration, run `deploy/gateway/verify-production-schema.sql` in the production SQL editor. `latest_migration` must be at least `20260914000100` and every boolean in the result must be `true`.
 
 ### 2. Existing Vercel project
 
@@ -52,30 +54,31 @@ The stable hostname origin becomes `GATEWAY_RUNNER_PUBLIC_URL`; the Vercel value
 The Mac must have:
 
 - Node.js/npm compatible with the application lockfile
-- Google Chrome at the configured path
+- Python 3 for the isolated `curl_cffi` Gateway adapter
 - `cloudflared`
-- a logged-in macOS GUI user session (required because interactive Gateway connection launches Chrome)
+- a dedicated non-root macOS account for the Gateway runtime; the service itself is installed in the system LaunchDaemon domain and must not depend on an interactive keychain
+- the exact Supabase project HTTPS origin in `GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN`; the runner refuses raw-XLSX signed uploads to any other origin
 - the current repository checkout
 
 Create a real runner env file from `deploy/gateway/runner.env.example`, use absolute paths, then run once:
 
 ```bash
-bash deploy/gateway/install-macos.sh /absolute/path/to/runner.env
+sudo ALLSTAR_GATEWAY_SERVICE_USER=<mac-user> bash deploy/gateway/install-macos.sh /absolute/path/to/runner.env
 ```
 
 The installer:
 
 - validates production configuration and rejects test/legacy credentials;
-- installs runtime dependencies without downloading Playwright browsers;
+- installs the Node runtime dependencies plus the isolated Python HTTP adapter;
 - creates the private encrypted-session directory;
-- installs a user LaunchAgent for the Gateway runner;
-- installs a user LaunchAgent for the Cloudflare tunnel;
+- installs a system LaunchDaemon for the Gateway runner, executing as the dedicated non-root runtime account;
+- installs a system LaunchDaemon for the Cloudflare tunnel;
 - configures both to restart automatically;
 - verifies local `/health` and the public tunnel `/health`.
 
-The production runner serves a token-protected hosted Gateway viewport through the stable tunnel. The member clicks the remote Gateway page and types into the hosted keyboard relay; those input events are forwarded to the active Chrome page and are not persisted. The signed `/connect` URL expires with the one-time application connection request, and the runner refuses unsigned/tampered requests before launching Chrome.
+The production runner serves a token-protected Connect form through the stable tunnel. The member submits Gateway credentials directly to that short-lived runner session; if Gateway requires OTP or initial 2FA setup, the same surface prompts only for the required next value. The runner sends those values to Gateway over HTTPS using `curl_cffi`, discards passwords/OTP values after each step, and persists only the resulting encrypted per-member HTTP session state. The signed `/connect` URL expires with the one-time application connection request, and the runner refuses unsigned/tampered requests before accepting credentials.
 
-Logs are written under `~/Library/Logs/AllStarOSGateway/`.
+Logs are written under `/Library/Logs/AllStarOSGateway/`. Runtime secrets must be readable by the daemon account without an interactive login/keychain and must remain outside Git.
 
 ## Updating the already-live installation
 
@@ -87,16 +90,20 @@ For a normal release, the developer does not change Gateway business logic or ha
 4. Run:
 
 ```bash
-bash deploy/gateway/update-macos.sh /absolute/path/to/runner.env
+sudo bash deploy/gateway/update-macos.sh /absolute/path/to/runner.env
 ```
 
-The updater runs the runner production preflight, installs exactly the lockfile dependencies, restarts the existing runner/tunnel LaunchAgents, and fails if the local runner does not return healthy.
+The updater runs the runner production preflight, installs exactly the Node lockfile dependencies plus the pinned HTTP-adapter Python requirements, restarts the existing runner/tunnel LaunchDaemons, and fails if the local runner does not return healthy.
 
 ## Production safety rules
 
 Do not set any of these on the production Mac:
 
 - `GATEWAY_RUNNER_TEST_MODE=true`
+- `GATEWAY_RUNNER_GATEWAY_CHROME_PATH`
+- `GATEWAY_RUNNER_GATEWAY_HEADLESS`
+- `GATEWAY_RUNNER_GATEWAY_CONNECT_HEADLESS`
+- `GATEWAY_RUNNER_GATEWAY_BROWSER_FALLBACK_ENABLED`
 - `GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR`
 - `GATEWAY_LOGIN_EMAIL`
 - `GATEWAY_LOGIN_PASSWORD`

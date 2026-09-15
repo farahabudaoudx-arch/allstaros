@@ -1,5 +1,7 @@
 # Gateway / Scorecard production readiness — 2026-09-05
 
+> Historical validation record. Its Chrome/hosted-browser deployment notes are superseded by the current HTTP-only runner in `docs/gateway-production-handoff.md`; keep the dated test evidence below as historical evidence only.
+
 This change includes the accumulated application, runner, Gateway provider, and Scorecard corrections intended for the production deployment path. The web application no longer contains a Gateway hosted-login mock route; production Connect always targets the configured hosted runner.
 
 ## Behavior

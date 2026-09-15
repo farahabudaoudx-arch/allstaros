@@ -55,3 +55,7 @@ supabase/.temp/
 *.tsbuildinfo
 next-env.d.ts
 scripts/.os2-launch-queued.json
+
+# python
+__pycache__/
+*.py[cod]

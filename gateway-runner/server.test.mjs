@@ -49,7 +49,13 @@ async function fakeBackend({ failCallback = false } = {}) {
   return { calls, baseUrl: new URL(`http://127.0.0.1:${port}/`) };
 }
 
-async function startHarness({ failCallback = false, failProvider = false, connectDelayMs = 50 } = {}) {
+async function startHarness({
+  failCallback = false,
+  failProvider = false,
+  connectDelayMs = 50,
+  requirePrompt = false,
+  requireOtp = false,
+} = {}) {
   const backend = await fakeBackend({ failCallback });
   const sessionDir = await mkdtemp(join(tmpdir(), "allstar-gateway-server-"));
   cleanup.push(() => rm(sessionDir, { recursive: true, force: true }));
@@ -61,6 +67,7 @@ async function startHarness({ failCallback = false, failProvider = false, connec
     GATEWAY_RUNNER_ALLOWED_CALLBACK_ORIGINS: backend.baseUrl.origin,
     GATEWAY_AGENT_CONNECT_TOKEN: "connect-token",
     GATEWAY_AGENT_REPORT_TOKEN: "report-token",
+    GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN: "https://storage.example.test",
     GATEWAY_RUNNER_SESSION_KEY: sessionKey.toString("base64"),
     GATEWAY_RUNNER_SESSION_DIR: sessionDir,
     GATEWAY_RUNNER_PROVIDER_MODULE: providerModule,
@@ -74,6 +81,8 @@ async function startHarness({ failCallback = false, failProvider = false, connec
     GATEWAY_RUNNER_REQUEST_RETRIES: "0",
     GATEWAY_RUNNER_FAKE_CONNECT_DELAY_MS: String(connectDelayMs),
     GATEWAY_RUNNER_FAKE_CONNECT_FAIL: failProvider ? "true" : "false",
+    GATEWAY_RUNNER_FAKE_CONNECT_PROMPT: requirePrompt ? "true" : "false",
+    GATEWAY_RUNNER_FAKE_CONNECT_OTP: requireOtp ? "true" : "false",
   });
   cleanup.push(() => runner.close());
   return { backend, runnerPort, sessionDir, sessionKey };
@@ -97,6 +106,33 @@ function signedConnectUrl(runnerPort, callback, state) {
 }
 
 describe("Gateway runner connect server", () => {
+  it("revokes an encrypted session only through the connect-token control endpoint", async () => {
+    const { runnerPort, sessionDir, sessionKey } = await startHarness();
+    const store = new EncryptedSessionStore({ dir: sessionDir, key: sessionKey });
+    const sessionRef = await store.create({ cookie: "revoked-cookie" });
+    const endpoint = `http://127.0.0.1:${runnerPort}/control/session/revoke`;
+
+    const unauthorized = await fetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionRef }),
+    });
+    expect(unauthorized.status).toBe(403);
+    await expect(store.get(sessionRef)).resolves.toEqual({ cookie: "revoked-cookie" });
+
+    const revoked = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer connect-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ sessionRef }),
+    });
+    expect(revoked.status).toBe(200);
+    expect(await revoked.json()).toEqual({ ok: true });
+    await expect(store.get(sessionRef)).resolves.toBeNull();
+  });
+
   it("stores provider session material encrypted and callbacks only an opaque sessionRef", async () => {
     const { backend, runnerPort, sessionDir, sessionKey } = await startHarness();
     const callback = new URL("/api/gateway/connect/callback", backend.baseUrl);
@@ -104,7 +140,7 @@ describe("Gateway runner connect server", () => {
 
     const response = await fetch(connectUrl);
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain("secure hosted browser");
+    expect(await response.text()).toContain("secure Gateway runner session");
     await expect.poll(() => backend.calls.some((call) => call.path === "/api/gateway/connect/callback")).toBe(true);
     const callbackCall = backend.calls.find((call) => call.path === "/api/gateway/connect/callback");
     expect(callbackCall.authorization).toBe("Bearer connect-token");
@@ -116,7 +152,12 @@ describe("Gateway runner connect server", () => {
     const raw = await readFile(join(sessionDir, files[0]), "utf8");
     expect(raw).not.toContain("fake-session");
     const store = new EncryptedSessionStore({ dir: sessionDir, key: sessionKey });
-    expect(await store.get(callbackCall.body.sessionRef)).toEqual({ id: "fake-session", alive: true });
+    expect(await store.get(callbackCall.body.sessionRef)).toEqual({
+      version: 2,
+      sessionState: { version: 1, cookies: [] },
+      id: "fake-session",
+      alive: true,
+    });
   });
 
   it("deletes the encrypted session if the application callback fails", async () => {
@@ -131,7 +172,7 @@ describe("Gateway runner connect server", () => {
     expect(await readdir(sessionDir)).toEqual([]);
   });
 
-  it("rejects unsigned connect URLs before opening a hosted browser", async () => {
+  it("rejects unsigned connect URLs before opening a hosted sign-in session", async () => {
     const { backend, runnerPort } = await startHarness();
     const callback = new URL("/api/gateway/connect/callback", backend.baseUrl);
     const connectUrl = new URL(`http://127.0.0.1:${runnerPort}/connect`);
@@ -143,8 +184,8 @@ describe("Gateway runner connect server", () => {
     expect(backend.calls.some((call) => call.path === "/api/gateway/connect/callback")).toBe(false);
   });
 
-  it("exposes a token-protected hosted viewport while Gateway login is active", async () => {
-    const { backend, runnerPort } = await startHarness({ connectDelayMs: 1000 });
+  it("accepts credentials and OTP only through the token-protected same-origin prompt surface", async () => {
+    const { backend, runnerPort } = await startHarness({ requirePrompt: true, requireOtp: true, connectDelayMs: 0 });
     const callback = new URL("/api/gateway/connect/callback", backend.baseUrl);
     const response = await fetch(signedConnectUrl(runnerPort, callback, "state-surface"));
     const html = await response.text();
@@ -155,17 +196,38 @@ describe("Gateway runner connect server", () => {
     const base = `http://127.0.0.1:${runnerPort}/connect/session/${sessionId}`;
     const headers = { authorization: `Bearer ${token}` };
 
-    await expect.poll(async () => (await (await fetch(`${base}/status`, { headers })).json()).status).toBe("interactive");
-    const frame = await fetch(`${base}/frame`, { headers });
-    expect(frame.status).toBe(200);
-    expect(frame.headers.get("content-type")).toBe("image/jpeg");
-    const input = await fetch(`${base}/input`, {
+    expect((await fetch(`${base}/status`)).status).toBe(404);
+    let status;
+    await expect.poll(async () => {
+      status = await (await fetch(`${base}/status`, { headers })).json();
+      return status.prompt?.kind;
+    }).toBe("credentials");
+    const credentials = await fetch(`${base}/prompt`, {
       method: "POST",
       headers: { ...headers, "content-type": "application/json" },
-      body: JSON.stringify({ type: "text", text: "user@example.com" }),
+      body: JSON.stringify({
+        promptId: status.prompt.id,
+        email: "private-user@example.invalid",
+        password: "private-password-marker",
+      }),
     });
-    expect(input.status).toBe(200);
-    expect((await fetch(`${base}/status`)).status).toBe(404);
+    expect(credentials.status).toBe(200);
+
+    await expect.poll(async () => {
+      status = await (await fetch(`${base}/status`, { headers })).json();
+      return status.prompt?.kind;
+    }).toBe("otp");
+    const otp = await fetch(`${base}/prompt`, {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ promptId: status.prompt.id, value: "654321" }),
+    });
+    expect(otp.status).toBe(200);
+    await expect.poll(() => backend.calls.some((call) => call.path === "/api/gateway/connect/callback")).toBe(true);
+    const backendPayloads = JSON.stringify(backend.calls);
+    expect(backendPayloads).not.toContain("private-user@example.invalid");
+    expect(backendPayloads).not.toContain("private-password-marker");
+    expect(backendPayloads).not.toContain("654321");
   });
 
   it("reports provider connection failure back to the application instead of leaving the request pending", async () => {

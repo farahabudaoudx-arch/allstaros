@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { assertAllowedCallback, loadRunnerConfig } from "./config.mjs";
 import { GatewayBackendClient, GatewayBackendError } from "./backend-client.mjs";
@@ -14,6 +15,7 @@ function baseConfig(overrides = {}) {
     callbackOrigins: new Set(["https://app.example.test"]),
     connectToken: "connect-token",
     reportToken: "report-token",
+    artifactUploadOrigin: "https://storage.example.test",
     sessionKey: Buffer.alloc(32, 7),
     sessionDir: "unused",
     providerModule: "unused",
@@ -36,7 +38,7 @@ function report(periodType, coverage, reportDate = "2026-02-23") {
     reportDate,
     csvText: "File Date,Producer\n2/23/2026,Acceptance",
     sourceFileName: `${periodType}-${reportDate}.csv`,
-    coverage,
+    coverage: { gatewayReportDate: reportDate, ...coverage },
   };
 }
 
@@ -66,6 +68,7 @@ function job(overrides = {}) {
 function fakeBackend(overrides = {}) {
   return {
     renew: vi.fn(async () => ({ ok: true })),
+    persistArtifact: vi.fn(async () => ({ status: "stored" })),
     importReport: vi.fn(async () => ({ status: "imported" })),
     complete: vi.fn(async (_job, outcome) => ({ status: outcome === "succeeded" ? "succeeded" : outcome })),
     claim: vi.fn(async () => null),
@@ -90,6 +93,7 @@ describe("Gateway runner contract", () => {
       GATEWAY_RUNNER_ALLOWED_CALLBACK_ORIGINS: "https://app.example.test",
       GATEWAY_AGENT_CONNECT_TOKEN: "connect",
       GATEWAY_AGENT_REPORT_TOKEN: "report",
+      GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN: "https://storage.example.test",
       GATEWAY_RUNNER_SESSION_KEY: Buffer.alloc(32, 1).toString("base64"),
       GATEWAY_RUNNER_SESSION_DIR: "sessions",
       GATEWAY_RUNNER_PROVIDER_MODULE: "./gateway-runner/providers/fake.mjs",
@@ -97,6 +101,12 @@ describe("Gateway runner contract", () => {
     expect(() => loadRunnerConfig(env)).toThrow("only allowed");
     expect(loadRunnerConfig({ ...env, GATEWAY_RUNNER_TEST_MODE: "true", GATEWAY_RUNNER_POLL_INTERVAL_MS: "50" }).testMode)
       .toBe(true);
+    expect(() => loadRunnerConfig({
+      ...env,
+      GATEWAY_RUNNER_TEST_MODE: "true",
+      GATEWAY_RUNNER_POLL_INTERVAL_MS: "50",
+      GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN: "http://storage.example.test",
+    })).toThrow("must be an HTTPS origin");
   });
 
   it("encrypts session material at rest and deletes it on revoke", async () => {
@@ -164,6 +174,220 @@ describe("Gateway runner contract", () => {
     }
   });
 
+  it("commits successful current periods and requeues only the missing retryable period", async () => {
+    const calls = [];
+    const backend = fakeBackend({
+      persistArtifact: vi.fn(async (_job, reportValue) => { calls.push(`persist:${reportValue.periodType}`); }),
+      importReport: vi.fn(async (_job, reportValue) => { calls.push(`import:${reportValue.periodType}`); }),
+      complete: vi.fn(async (_job, outcome) => ({ status: outcome === "retryable" ? "queued" : outcome })),
+    });
+    const current = trio().slice(0, 2).map((item) => ({
+      ...item,
+      artifact: { providerType: "http", rawXlsxBase64: "canonical-evidence" },
+    }));
+    const provider = {
+      validateSession: vi.fn(async () => true),
+      pullCurrentReports: vi.fn(async () => ({
+        reports: current,
+        failures: [{ periodType: "ytd", errorCode: "transport_failure", retryable: true }],
+      })),
+    };
+    const sessions = { get: vi.fn(async () => ({ id: "provider-session" })), delete: vi.fn() };
+    const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
+
+    await expect(engine.runClaimedJob(job())).resolves.toMatchObject({
+      status: "queued",
+      reports: 2,
+      failedPeriods: ["ytd"],
+    });
+    expect(calls).toEqual(["persist:wtd", "import:wtd", "persist:mtd", "import:mtd"]);
+    expect(backend.complete).toHaveBeenCalledWith(
+      expect.anything(),
+      "retryable",
+      expect.objectContaining({ error: "gateway_partial_report_retry" }),
+      expect.any(AbortSignal),
+    );
+    expect(sessions.delete).not.toHaveBeenCalled();
+  });
+
+  it("commits successful first-connect history and retries the same job when one historical artifact fails", async () => {
+    const backend = fakeBackend({
+      complete: vi.fn(async (_job, outcome) => ({ status: outcome === "retryable" ? "queued" : outcome })),
+    });
+    const historical = report("wtd", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      weekStart: "2026-02-23",
+      weekOrdinal: 4,
+      periodFinal: true,
+    });
+    const provider = {
+      validateSession: vi.fn(async () => true),
+      listHistoricalReports: vi.fn(async () => ({
+        reports: [historical],
+        failures: [{ periodType: "mtd", errorCode: "transport_failure", retryable: true }],
+      })),
+    };
+    const sessions = { get: vi.fn(async () => ({})), delete: vi.fn() };
+    const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
+
+    await expect(engine.runClaimedJob(job({ pullKind: "first_connect" }))).resolves.toMatchObject({
+      status: "queued",
+      reports: 1,
+      failedPeriods: ["mtd"],
+    });
+    expect(backend.importReport).toHaveBeenCalledTimes(1);
+    expect(backend.complete).toHaveBeenCalledWith(
+      expect.anything(),
+      "retryable",
+      expect.objectContaining({ error: "gateway_partial_report_retry" }),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("commits successful first-connect history before fencing a later-page session expiry", async () => {
+    const backend = fakeBackend({
+      complete: vi.fn(async (_job, outcome) => ({ status: outcome })),
+    });
+    const historical = report("wtd", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      gatewayReportDate: "2026-02-20",
+      weekStart: "2026-02-16",
+      weekOrdinal: 3,
+      periodFinal: false,
+    });
+    historical.artifact = { providerType: "http", rawXlsxBase64: "canonical-evidence" };
+    const provider = {
+      validateSession: vi.fn(async () => true),
+      listHistoricalReports: vi.fn(async () => ({
+        reports: [historical],
+        failures: [{
+          periodType: "historical",
+          errorCode: "authentication_failed",
+          retryable: false,
+          needsReconnect: true,
+        }],
+      })),
+    };
+    const sessions = { get: vi.fn(async () => ({})), delete: vi.fn(async () => undefined) };
+    const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
+
+    await expect(engine.runClaimedJob(job({ pullKind: "first_connect" }))).resolves.toMatchObject({
+      status: "needs_reconnect",
+      reports: 1,
+      failedPeriods: ["historical"],
+    });
+    expect(backend.persistArtifact).toHaveBeenCalledTimes(1);
+    expect(backend.importReport).toHaveBeenCalledTimes(1);
+    expect(sessions.delete).toHaveBeenCalledWith("session-1");
+    expect(backend.complete).toHaveBeenCalledWith(
+      expect.anything(),
+      "needs_reconnect",
+      expect.objectContaining({ error: "gateway_session_expired" }),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("preserves multiple WTD, MTD, and YTD snapshots inside one first-connect claim", async () => {
+    const acquisitionDate = "2026-03-02";
+    const history = [
+      report("wtd", {
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        gatewayReportDate: "2026-01-10",
+        weekStart: "2026-01-05",
+        weekOrdinal: 2,
+        periodFinal: false,
+      }, acquisitionDate),
+      report("wtd", {
+        periodStart: "2026-02-01",
+        periodEnd: "2026-02-28",
+        gatewayReportDate: "2026-02-20",
+        weekStart: "2026-02-16",
+        weekOrdinal: 3,
+        periodFinal: false,
+      }, acquisitionDate),
+      report("mtd", {
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        gatewayReportDate: "2026-01-31",
+      }, acquisitionDate),
+      report("mtd", {
+        periodStart: "2026-02-01",
+        periodEnd: "2026-02-28",
+        gatewayReportDate: "2026-02-28",
+      }, acquisitionDate),
+      report("ytd", {
+        periodStart: "2026-01-01",
+        periodEnd: "2026-12-31",
+        gatewayReportDate: "2026-01-31",
+      }, acquisitionDate),
+      report("ytd", {
+        periodStart: "2026-01-01",
+        periodEnd: "2026-12-31",
+        gatewayReportDate: "2026-02-28",
+      }, acquisitionDate),
+    ];
+    const backend = fakeBackend();
+    const provider = {
+      validateSession: vi.fn(async () => true),
+      listHistoricalReports: vi.fn(async () => ({ reports: history, failures: [] })),
+    };
+    const sessions = { get: vi.fn(async () => ({})), delete: vi.fn() };
+    const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
+
+    await expect(engine.runClaimedJob(job({ pullKind: "first_connect", businessDate: acquisitionDate })))
+      .resolves.toMatchObject({ status: "succeeded", reports: 6 });
+    expect(backend.importReport.mock.calls.map(([, item]) => [item.periodType, item.coverage.gatewayReportDate])).toEqual([
+      ["wtd", "2026-01-10"],
+      ["wtd", "2026-02-20"],
+      ["mtd", "2026-01-31"],
+      ["mtd", "2026-02-28"],
+      ["ytd", "2026-01-31"],
+      ["ytd", "2026-02-28"],
+    ]);
+  });
+
+  it("keeps per-person sessions isolated when a partial pull discovers that one session expired", async () => {
+    const backend = fakeBackend({
+      complete: vi.fn(async (_job, outcome) => ({ status: outcome })),
+    });
+    const sessionsByRef = new Map([
+      ["session-a", { person: "a" }],
+      ["session-b", { person: "b" }],
+    ]);
+    const sessions = {
+      get: vi.fn(async (ref) => sessionsByRef.get(ref) ?? null),
+      delete: vi.fn(async (ref) => { sessionsByRef.delete(ref); }),
+    };
+    const provider = {
+      validateSession: vi.fn(async () => true),
+      pullCurrentReports: vi.fn(async (session) => session.person === "a"
+        ? {
+            reports: trio().slice(0, 2),
+            failures: [{
+              periodType: "ytd",
+              errorCode: "authentication_failed",
+              retryable: false,
+              needsReconnect: true,
+            }],
+          }
+        : trio()),
+    };
+    const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
+
+    await expect(engine.runClaimedJob(job({ personId: "person-a", sessionRef: "session-a" })))
+      .resolves.toMatchObject({ status: "needs_reconnect", reports: 2 });
+    expect(sessions.delete).toHaveBeenCalledTimes(1);
+    expect(sessions.delete).toHaveBeenCalledWith("session-a");
+    expect(await sessions.get("session-b")).toEqual({ person: "b" });
+
+    await expect(engine.runClaimedJob(job({ id: "job-b", personId: "person-b", sessionRef: "session-b", claimToken: "claim-b" })))
+      .resolves.toMatchObject({ status: "succeeded", reports: 3 });
+    expect(sessions.delete).toHaveBeenCalledTimes(1);
+  });
+
   it("requires explicit WTD coverage even during first-connect history", async () => {
     const backend = fakeBackend();
     const historical = report("wtd", null, "2026-02-23");
@@ -197,6 +421,66 @@ describe("Gateway runner contract", () => {
     const sessions = { get: vi.fn(async () => ({})), delete: vi.fn() };
     const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
     await expect(engine.runClaimedJob(job())).resolves.toEqual({ status: "stale" });
+    expect(backend.complete).not.toHaveBeenCalled();
+  });
+
+  it("does not misclassify a non-fencing 409 artifact conflict as a stale claim", async () => {
+    const backend = fakeBackend({
+      importReport: vi.fn(async (_claimed, imported) => {
+        if (imported.periodType === "wtd") {
+          throw new GatewayBackendError("artifact conflict", {
+            status: 409,
+            code: "gateway_report_artifact_conflict",
+          });
+        }
+        return { status: "imported" };
+      }),
+      complete: vi.fn(async (_job, outcome) => ({ status: outcome })),
+    });
+    const provider = { validateSession: vi.fn(async () => true), pullCurrentReports: vi.fn(async () => trio()) };
+    const sessions = { get: vi.fn(async () => ({})), delete: vi.fn() };
+    const engine = new GatewayRunnerEngine({ config: baseConfig(), backend, provider, sessions });
+
+    await expect(engine.runClaimedJob(job())).resolves.toMatchObject({
+      status: "failed",
+      reports: 2,
+      failedPeriods: ["wtd"],
+    });
+    expect(backend.complete).toHaveBeenCalledWith(
+      expect.anything(),
+      "failed",
+      expect.objectContaining({ error: "gateway_partial_report_failure" }),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("aborts upstream work promptly when lease renewal loses the claim", async () => {
+    let providerAborted = false;
+    const backend = fakeBackend({
+      renew: vi.fn(async () => { throw new GatewayBackendError("stale", { status: 409 }); }),
+    });
+    const provider = {
+      validateSession: vi.fn(async () => true),
+      pullCurrentReports: vi.fn(async (_session, { signal }) => new Promise((resolve, reject) => {
+        const onAbort = () => {
+          providerAborted = true;
+          reject(signal.reason ?? new Error("aborted"));
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener("abort", onAbort, { once: true });
+      })),
+    };
+    const sessions = { get: vi.fn(async () => ({})), delete: vi.fn() };
+    const engine = new GatewayRunnerEngine({
+      config: baseConfig({ leaseHeartbeatMs: 5 }),
+      backend,
+      provider,
+      sessions,
+    });
+
+    await expect(engine.runClaimedJob(job())).resolves.toEqual({ status: "stale" });
+    expect(providerAborted).toBe(true);
+    expect(backend.importReport).not.toHaveBeenCalled();
     expect(backend.complete).not.toHaveBeenCalled();
   });
 
@@ -283,6 +567,24 @@ describe("Gateway runner contract", () => {
     expect(feb[0].coverage.periodEnd).toBe("2026-02-28");
     expect(mar[0].coverage.periodEnd).toBe("2026-03-31");
   });
+
+  it("does not apply the short session-validation timeout to a finite report batch", async () => {
+    const provider = {
+      pullCurrentReports: vi.fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        return trio();
+      }),
+    };
+    const engine = new GatewayRunnerEngine({
+      config: baseConfig({ providerTimeoutMs: 5 }),
+      backend: fakeBackend(),
+      provider,
+      sessions: {},
+    });
+
+    await expect(engine.reportsForJob(job(), {}, new AbortController().signal))
+      .resolves.toMatchObject({ reports: expect.arrayContaining(trio()), failures: [] });
+  });
 });
 
 it("serializes the provider week date without substituting the acquisition date", async () => {
@@ -291,4 +593,173 @@ it("serializes the provider week date without substituting the acquisition date"
   await backend.importReport(job(), report("wtd", { periodStart: "2026-09-01", periodEnd: "2026-09-30",
     weekOrdinal: 5, periodFinal: true, weekStart: "2026-09-28" }, "2026-10-05"));
   expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ gatewayWeekStart: "2026-09-28", reportDate: "2026-10-05" });
+});
+
+it("reuses one claimRequestId across internal HTTP retries for a logical claim", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ error: "temporary" }), { status: 503 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, job: null }), { status: 200 }));
+  const backend = new GatewayBackendClient(baseConfig({ requestRetries: 1 }), fetchMock);
+
+  await expect(backend.claim()).resolves.toBeNull();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  const first = JSON.parse(fetchMock.mock.calls[0][1].body);
+  const second = JSON.parse(fetchMock.mock.calls[1][1].body);
+  expect(first.claimRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(second.claimRequestId).toBe(first.claimRequestId);
+});
+
+it("reuses an unresolved claimRequestId when a worker-loop retries after an ambiguous exhausted claim", async () => {
+  const stop = new AbortController();
+  const fetchMock = vi.fn(async (_url, _init) => {
+    if (fetchMock.mock.calls.length <= 2) throw new TypeError("ambiguous claim transport failure");
+    queueMicrotask(() => stop.abort());
+    return new Response(JSON.stringify({ ok: true, job: null }), { status: 200 });
+  });
+  const backend = new GatewayBackendClient(baseConfig({ requestRetries: 1 }), fetchMock);
+  const engine = new GatewayRunnerEngine({
+    config: baseConfig({ workerConcurrency: 1, pollIntervalMs: 1 }),
+    backend,
+    provider: {},
+    sessions: {},
+    logger: { error() {} },
+  });
+
+  await engine.run(stop.signal);
+
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  const claimRequestIds = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).claimRequestId);
+  expect(claimRequestIds[0]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(claimRequestIds[1]).toBe(claimRequestIds[0]);
+  expect(claimRequestIds[2]).toBe(claimRequestIds[0]);
+});
+
+it("keeps unresolved claimRequestIds isolated across concurrent worker loops", async () => {
+  const stop = new AbortController();
+  const claimRequestIds = [];
+  const backend = fakeBackend({
+    claim: vi.fn(async (_signal, claimRequestId) => {
+      claimRequestIds.push(claimRequestId);
+      if (claimRequestIds.length === 2) queueMicrotask(() => stop.abort());
+      return null;
+    }),
+  });
+  const engine = new GatewayRunnerEngine({
+    config: baseConfig({ workerConcurrency: 2, pollIntervalMs: 50 }),
+    backend,
+    provider: {},
+    sessions: {},
+    logger: { error() {} },
+  });
+
+  await engine.run(stop.signal);
+
+  expect(claimRequestIds).toHaveLength(2);
+  expect(claimRequestIds[0]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(claimRequestIds[1]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(claimRequestIds[1]).not.toBe(claimRequestIds[0]);
+});
+
+it("persists canonical XLSX through signed storage without sending the runner bearer to storage", async () => {
+  const bytes = Buffer.from("canonical-xlsx-evidence");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const signedUrl = "https://storage.example.test/signed-upload?token=private-value";
+  const fetchMock = vi.fn(async (url, _init) => {
+    const value = url.toString();
+    if (value.endsWith("/api/gateway/report-jobs/artifacts/register")) {
+      return new Response(JSON.stringify({ ok: true, artifact: { artifactId: "artifact-1", existing: false } }), { status: 200 });
+    }
+    if (value.endsWith("/api/gateway/report-jobs/artifacts/upload-ticket")) {
+      return new Response(JSON.stringify({
+        ok: true,
+        upload: {
+          artifactId: "artifact-1",
+          storagePath: "personal_gateway/person/job/wtd/hash.xlsx",
+          sourceByteCount: bytes.length,
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          alreadyVerified: false,
+          signedUploadUrl: signedUrl,
+        },
+      }), { status: 200 });
+    }
+    if (value === signedUrl) return new Response(null, { status: 200 });
+    if (value.endsWith("/api/gateway/report-jobs/artifacts/upload-confirm")) {
+      return new Response(JSON.stringify({ ok: true, artifact: { artifactId: "artifact-1", alreadyVerified: false } }), { status: 200 });
+    }
+    throw new Error("unexpected request");
+  });
+
+  const backend = new GatewayBackendClient(baseConfig(), fetchMock);
+  const source = report("wtd", {
+    periodStart: "2026-02-01",
+    periodEnd: "2026-02-28",
+    gatewayReportDate: "2026-02-21",
+    weekStart: "2026-02-20",
+    weekOrdinal: 4,
+    periodFinal: true,
+  });
+  source.artifact = {
+    providerType: "http",
+    sourceFileName: "wtd.xlsx",
+    sourceSha256: sha256,
+    sourceByteCount: bytes.length,
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    fileDate: "2026-02-20",
+    rowsSeen: 1,
+    uniqueNpnCount: 1,
+    duplicateNpnValues: 0,
+    rawXlsxBase64: bytes.toString("base64"),
+  };
+
+  await expect(backend.persistArtifact(job(), source)).resolves.toMatchObject({ artifactId: "artifact-1" });
+  const registerCall = fetchMock.mock.calls.find(([url]) => url.toString().endsWith("/api/gateway/report-jobs/artifacts/register"));
+  expect(JSON.parse(registerCall[1].body)).toMatchObject({
+    jobId: "job-1",
+    sessionGeneration: 1,
+    claimToken: "claim-1",
+    periodType: "wtd",
+    providerType: "http",
+    sourceSha256: sha256,
+    sourceFileName: "wtd.xlsx",
+    sourceByteCount: bytes.length,
+    fileDate: "2026-02-20",
+    rowsSeen: 1,
+    uniqueNpnCount: 1,
+    duplicateNpnValues: 0,
+    reportDate: "2026-02-23",
+    gatewayReportDate: "2026-02-21",
+    scorecardPeriodStart: "2026-02-01",
+    scorecardPeriodEnd: "2026-02-28",
+    gatewayWeekStart: "2026-02-20",
+    gatewayWeekOrdinal: 4,
+    gatewayPeriodFinal: true,
+  });
+  const storageCall = fetchMock.mock.calls.find(([url]) => url.toString() === signedUrl);
+  expect(storageCall).toBeTruthy();
+  expect(storageCall[1].headers.authorization).toBeUndefined();
+  expect(storageCall[1].body).toEqual(bytes);
+  const backendCalls = fetchMock.mock.calls.filter(([url]) => url.toString() !== signedUrl);
+  expect(backendCalls.every(([, init]) => init.headers.authorization === "Bearer report-token")).toBe(true);
+});
+
+it("rejects a signed artifact upload outside the configured storage origin without exposing the URL", async () => {
+  const fetchMock = vi.fn();
+  const backend = new GatewayBackendClient(baseConfig(), fetchMock);
+  const disallowedUrl = "https://other-storage.example.test/upload?opaque=private-marker";
+  let caught;
+
+  try {
+    await backend.uploadArtifactBytes(
+      disallowedUrl,
+      Buffer.from("evidence"),
+      "application/octet-stream",
+    );
+  } catch (error) {
+    caught = error;
+  }
+
+  expect(caught).toBeInstanceOf(GatewayBackendError);
+  expect(caught.message).not.toContain(disallowedUrl);
+  expect(caught.message).not.toContain("private-marker");
+  expect(fetchMock).not.toHaveBeenCalled();
 });

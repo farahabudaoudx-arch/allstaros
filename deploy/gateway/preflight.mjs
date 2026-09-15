@@ -94,6 +94,7 @@ if (mode === "runner") {
   const connectToken = secret("GATEWAY_AGENT_CONNECT_TOKEN");
   const reportToken = secret("GATEWAY_AGENT_REPORT_TOKEN");
   ensureDistinct([connectToken, reportToken]);
+  httpsUrl("GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN", { originOnly: true });
 
   const sessionKey = required("GATEWAY_RUNNER_SESSION_KEY");
   if (sessionKey) {
@@ -116,15 +117,28 @@ if (mode === "runner") {
   if (provider && /providers[\\/]fake\.mjs$/i.test(provider)) errors.push("The fake Gateway provider is forbidden in production.");
   if (provider && !existsSync(provider)) errors.push(`Gateway provider module does not exist: ${provider}`);
 
-  const chrome = required("GATEWAY_RUNNER_GATEWAY_CHROME_PATH");
-  if (chrome && !existsSync(chrome)) errors.push(`Chrome executable does not exist: ${chrome}`);
+  if (value("GATEWAY_RUNNER_GATEWAY_HTTP_ENABLED") === "false") {
+    errors.push("GATEWAY_RUNNER_GATEWAY_HTTP_ENABLED=false is no longer supported; the production provider is HTTP-only.");
+  }
+  const helper = value("GATEWAY_RUNNER_GATEWAY_HTTP_HELPER_PATH") || resolve(repoDir, "gateway-http-worker/personal_bridge.py");
+  if (!isAbsolute(helper)) errors.push("GATEWAY_RUNNER_GATEWAY_HTTP_HELPER_PATH must be absolute when configured.");
+  if (!existsSync(helper)) errors.push(`Gateway HTTP helper does not exist: ${helper}`);
 
   secret("GATEWAY_TUNNEL_TOKEN");
   if (value("GATEWAY_RUNNER_TEST_MODE") === "true") errors.push("GATEWAY_RUNNER_TEST_MODE must be unset/false in production.");
-  for (const unsafe of ["GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR", "GATEWAY_LOGIN_EMAIL", "GATEWAY_LOGIN_PASSWORD"]) {
-    if (value(unsafe)) errors.push(`${unsafe} is acceptance-only and must be unset in production.`);
+  for (const obsolete of [
+    "GATEWAY_RUNNER_GATEWAY_CHROME_PATH",
+    "GATEWAY_RUNNER_GATEWAY_HEADLESS",
+    "GATEWAY_RUNNER_GATEWAY_CONNECT_HEADLESS",
+    "GATEWAY_RUNNER_GATEWAY_BROWSER_FALLBACK_ENABLED",
+    "GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR",
+    "GATEWAY_RUNNER_GATEWAY_LEGACY_CDP_PORT",
+    "GATEWAY_LOGIN_EMAIL",
+    "GATEWAY_LOGIN_PASSWORD",
+  ]) {
+    if (value(obsolete)) errors.push(`${obsolete} is obsolete in the HTTP-only runner and must be unset.`);
   }
-  notes.push("Mac runner environment is structurally ready for production startup.");
+  notes.push("Mac HTTP-only runner environment is structurally ready for production startup.");
 }
 
 if (errors.length) {

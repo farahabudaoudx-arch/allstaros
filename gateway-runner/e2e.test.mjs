@@ -63,7 +63,7 @@ function historicalWtd(reportDate, periodStart, periodEnd, weekOrdinal) {
     reportDate,
     csvText: `File Date,Producer\n${reportDate},Historical E2E`,
     sourceFileName: `history-${reportDate}.csv`,
-    coverage: { periodStart, periodEnd, weekOrdinal, periodFinal: true },
+    coverage: { periodStart, periodEnd, gatewayReportDate: reportDate, weekOrdinal, periodFinal: true },
   };
 }
 

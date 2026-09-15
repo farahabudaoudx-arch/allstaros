@@ -21,5 +21,11 @@ if [[ "${GATEWAY_RUNNER_PROVIDER_MODULE:-}" == "auto" ]]; then
   export GATEWAY_RUNNER_PROVIDER_MODULE="$REPO_DIR/gateway-runner/providers/gateway.mjs"
 fi
 
+export GATEWAY_RUNNER_GATEWAY_HTTP_PYTHON="${GATEWAY_RUNNER_GATEWAY_HTTP_PYTHON:-/Library/Application Support/AllStarOSGateway/http-venv/bin/python}"
+export GATEWAY_RUNNER_GATEWAY_HTTP_HELPER_PATH="${GATEWAY_RUNNER_GATEWAY_HTTP_HELPER_PATH:-$REPO_DIR/gateway-http-worker/personal_bridge.py}"
+
 cd "$REPO_DIR"
-exec node gateway-runner/server.mjs
+# LaunchDaemon KeepAlive restarts crashed processes but does not prevent macOS
+# system sleep. Hold an AC/system-idle power assertion for unattended operation;
+# the assertion disappears automatically if this process exits.
+exec /usr/bin/caffeinate -s -i node gateway-runner/server.mjs

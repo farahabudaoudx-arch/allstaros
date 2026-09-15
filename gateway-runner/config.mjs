@@ -23,6 +23,22 @@ function sessionKey(value) {
   return bytes;
 }
 
+function httpsOrigin(value, name) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an HTTPS origin.`);
+  }
+  if (
+    parsed.protocol !== "https:" || parsed.username || parsed.password ||
+    parsed.pathname !== "/" || parsed.search || parsed.hash
+  ) {
+    throw new Error(`${name} must be an HTTPS origin.`);
+  }
+  return parsed.origin;
+}
+
 export function loadRunnerConfig(env = process.env) {
   const backendBaseUrl = new URL(required(env, "GATEWAY_RUNNER_BACKEND_BASE_URL"));
   const callbackOrigins = new Set(
@@ -31,6 +47,7 @@ export function loadRunnerConfig(env = process.env) {
       .map((value) => new URL(value.trim()).origin),
   );
   const testMode = env.GATEWAY_RUNNER_TEST_MODE === "true";
+  const sessionIdleTtlDays = integer(env, "GATEWAY_RUNNER_SESSION_IDLE_TTL_DAYS", 30, 8, 90);
   const providerModule = required(env, "GATEWAY_RUNNER_PROVIDER_MODULE");
   if (providerModule.includes("/providers/fake.mjs") || providerModule.includes("\\providers\\fake.mjs")) {
     if (!testMode) throw new Error("The fake Gateway provider is only allowed in GATEWAY_RUNNER_TEST_MODE.");
@@ -40,8 +57,18 @@ export function loadRunnerConfig(env = process.env) {
     callbackOrigins,
     connectToken: required(env, "GATEWAY_AGENT_CONNECT_TOKEN"),
     reportToken: required(env, "GATEWAY_AGENT_REPORT_TOKEN"),
+    artifactUploadOrigin: httpsOrigin(required(env, "GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN"), "GATEWAY_RUNNER_ARTIFACT_UPLOAD_ORIGIN"),
     sessionKey: sessionKey(required(env, "GATEWAY_RUNNER_SESSION_KEY")),
     sessionDir: required(env, "GATEWAY_RUNNER_SESSION_DIR"),
+    sessionIdleTtlMs: sessionIdleTtlDays * 24 * 60 * 60 * 1000,
+    sessionGcIntervalMs: integer(
+      env,
+      "GATEWAY_RUNNER_SESSION_GC_INTERVAL_MS",
+      6 * 60 * 60 * 1000,
+      testMode ? 50 : 60_000,
+      24 * 60 * 60 * 1000,
+    ),
+    sessionGcBatchSize: integer(env, "GATEWAY_RUNNER_SESSION_GC_BATCH_SIZE", 500, 10, 5000),
     providerModule,
     listenHost: env.GATEWAY_RUNNER_HOST?.trim() || "127.0.0.1",
     listenPort: integer(env, "GATEWAY_RUNNER_PORT", 8788, 1, 65535),

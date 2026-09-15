@@ -6,6 +6,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 import {
+  claimGatewayReportPullJob,
   gatewayReportPullSchedule,
   mintGatewayScheduledReportPullJobs,
 } from "./report-pulls";
@@ -101,6 +102,34 @@ describe("Gateway application report-pull scheduler", () => {
     });
     expect(mocks.rpc).toHaveBeenCalledWith("mint_gateway_monday_report_pull_jobs", {
       p_business_date: "2026-09-28",
+    });
+  });
+
+  it("passes a stable request UUID into the fenced claim RPC", async () => {
+    const claimRequestId = "11111111-1111-4111-8111-111111111111";
+    mocks.rpc.mockResolvedValue({
+      data: [{
+        id: "job-1",
+        person_id: "person-1",
+        pull_kind: "monday",
+        business_date: "2026-09-14",
+        session_generation: 7,
+        session_ref: "opaque-session",
+        attempt_count: 2,
+        claim_token: "claim-token",
+        lease_expires_at: "2026-09-14T12:30:00.000Z",
+      }],
+      error: null,
+    });
+
+    await expect(claimGatewayReportPullJob({ claimRequestId, leaseSeconds: 900 })).resolves.toMatchObject({
+      id: "job-1",
+      personId: "person-1",
+      claimToken: "claim-token",
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("claim_gateway_report_pull_job", {
+      p_claim_request_id: claimRequestId,
+      p_lease_seconds: 900,
     });
   });
 });

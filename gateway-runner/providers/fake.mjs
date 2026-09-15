@@ -17,6 +17,8 @@ export function createProvider(options = {}) {
   const env = options.env ?? process.env;
   const connectDelayMs = Number(env.GATEWAY_RUNNER_FAKE_CONNECT_DELAY_MS ?? options.connectDelayMs ?? 0);
   const connectFails = env.GATEWAY_RUNNER_FAKE_CONNECT_FAIL === "true" || options.connectFails === true;
+  const requirePrompt = env.GATEWAY_RUNNER_FAKE_CONNECT_PROMPT === "true" || options.requirePrompt === true;
+  const requireOtp = env.GATEWAY_RUNNER_FAKE_CONNECT_OTP === "true" || options.requireOtp === true;
   const delay = (ms, signal) => new Promise((resolve, reject) => {
     if (!ms) return resolve();
     if (signal?.aborted) return reject(signal.reason ?? new Error("Aborted"));
@@ -29,17 +31,27 @@ export function createProvider(options = {}) {
   });
   return {
     async connectInteractive({ signal, surface } = {}) {
-      try {
-        await surface?.attach({
-          captureFrame: async () => Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
-          handleInput: async () => undefined,
-        });
-        await delay(Number.isFinite(connectDelayMs) ? Math.max(0, connectDelayMs) : 0, signal);
-        if (connectFails) throw new Error("Synthetic Gateway connection failure.");
-        return { session: { id: options.sessionId ?? "fake-session", alive: true }, verificationWasRequired: false };
-      } finally {
-        surface?.detach?.();
+      let verificationWasRequired = false;
+      if (requirePrompt) {
+        const credentials = await surface?.prompt({ kind: "credentials" });
+        if (!credentials?.email || !credentials?.password) throw new Error("Synthetic Gateway credentials missing.");
+        if (requireOtp) {
+          const otp = await surface?.prompt({ kind: "otp" });
+          if (!otp) throw new Error("Synthetic Gateway OTP missing.");
+          verificationWasRequired = true;
+        }
       }
+      await delay(Number.isFinite(connectDelayMs) ? Math.max(0, connectDelayMs) : 0, signal);
+      if (connectFails) throw new Error("Synthetic Gateway connection failure.");
+      return {
+        session: {
+          version: 2,
+          sessionState: { version: 1, cookies: [] },
+          id: options.sessionId ?? "fake-session",
+          alive: true,
+        },
+        verificationWasRequired,
+      };
     },
     async validateSession(session) {
       return session?.alive !== false;
@@ -62,13 +74,14 @@ export function createProvider(options = {}) {
           coverage: {
             periodStart: monthStart,
             periodEnd: monthEnd,
+            gatewayReportDate: businessDate,
             weekStart: options.weekStart ?? businessDate,
             weekOrdinal: options.weekOrdinal ?? 1,
             periodFinal: options.periodFinal ?? false,
           },
         },
-        { periodType: "mtd", csvText: csv(monthStart), reportDate: businessDate, sourceFileName: `mtd-${businessDate}.csv`, coverage: { periodStart: monthStart, periodEnd: monthEnd } },
-        { periodType: "ytd", csvText: csv(yearStart), reportDate: businessDate, sourceFileName: `ytd-${businessDate}.csv`, coverage: { periodStart: yearStart, periodEnd: `${businessDate.slice(0, 4)}-12-31` } },
+        { periodType: "mtd", csvText: csv(monthStart), reportDate: businessDate, sourceFileName: `mtd-${businessDate}.csv`, coverage: { periodStart: monthStart, periodEnd: monthEnd, gatewayReportDate: businessDate } },
+        { periodType: "ytd", csvText: csv(yearStart), reportDate: businessDate, sourceFileName: `ytd-${businessDate}.csv`, coverage: { periodStart: yearStart, periodEnd: `${businessDate.slice(0, 4)}-12-31`, gatewayReportDate: businessDate } },
       ];
     },
   };
