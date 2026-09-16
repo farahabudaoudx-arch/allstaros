@@ -29,10 +29,10 @@ export async function adminStartOsBuildProvisioning(formData: FormData) {
       detail: { buildId, runId: state.run.id, sourceSha: state.run.source_sha },
     });
     revalidatePath(pathFor(buildId));
-    redirect(`${pathFor(buildId)}?ok=provisioning-started`);
   } catch (error) {
     fail(buildId, error);
   }
+  redirect(`${pathFor(buildId)}?ok=provisioning-started`);
 }
 
 export async function adminRunNextOsBuildProvisioning(formData: FormData) {
@@ -48,8 +48,8 @@ export async function adminRunNextOsBuildProvisioning(formData: FormData) {
       detail: { buildId, runId, status: state.run.status, currentStep: state.run.current_step },
     });
     revalidatePath(pathFor(buildId));
-    redirect(`${pathFor(buildId)}?ok=provisioning-advanced`);
   } catch (error) {
     fail(buildId, error);
   }
+  redirect(`${pathFor(buildId)}?ok=provisioning-advanced`);
 }
