@@ -1,4 +1,4 @@
-﻿-- Ticket #005: per-person Gateway connection lifecycle.
+-- Ticket #005: per-person Gateway connection lifecycle.
 --
 -- This migration intentionally stores only an opaque session reference. It
 -- never stores Gateway usernames, passwords, 2FA codes, cookies, or browser

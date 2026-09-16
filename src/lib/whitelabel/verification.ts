@@ -4,6 +4,7 @@ import type {
   WhitelabelBuildAddition,
   WhitelabelServiceConnection,
 } from "./types";
+import { isWhitelabelLocalPilot, localPilotRuntimeUrlForCanonical } from "@/lib/local-pilot";
 
 export const CURRENT_CUSTOMER_SCHEMA_RELEASE = "20260914004000_whitelabel_content_services";
 
@@ -85,6 +86,9 @@ export async function verifyLiveInstallationVersion(args: {
 }): Promise<LiveVersionEvidence> {
   const fetcher = args.fetcher ?? fetch;
   const osUrl = args.osUrl.replace(/\/+$/, "");
+  const runtimeUrl = isWhitelabelLocalPilot()
+    ? await localPilotRuntimeUrlForCanonical(osUrl)
+    : osUrl;
   const evidence: LiveVersionEvidence["evidence"] = {
     osUrl,
     expectedSha: args.expectedSha,
@@ -93,7 +97,7 @@ export async function verifyLiveInstallationVersion(args: {
     actualSchema: null,
   };
   try {
-    const response = await fetcher(`${osUrl}/api/version`, {
+    const response = await fetcher(`${runtimeUrl}/api/version`, {
       cache: "no-store",
       headers: { accept: "application/json" },
       signal: AbortSignal.timeout(8_000),

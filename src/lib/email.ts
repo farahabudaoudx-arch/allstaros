@@ -99,6 +99,25 @@ export async function sendEmail(
     return { ok: false, error: "Email must include an html or text body." };
   }
 
+  if (process.env.WHITELABEL_LOCAL_PILOT === "1") {
+    const { isWhitelabelLocalPilot, recordLocalPilotEmail } = await import("@/lib/local-pilot");
+    if (!isWhitelabelLocalPilot()) {
+      return { ok: false, error: "Local pilot email mode is unavailable." };
+    }
+    const from = process.env.RESEND_FROM?.trim() || "Local Pilot <no-reply@local-pilot.invalid>";
+    const resolvedReplyTo = replyTo ?? getReplyTo();
+    const id = await recordLocalPilotEmail({
+      from,
+      to,
+      subject,
+      html,
+      text,
+      replyTo: resolvedReplyTo,
+      idempotencyKey,
+    });
+    return { ok: true, id };
+  }
+
   // The SDK's send() is a discriminated union over html / text / react /
   // template, so the body field has to be a concrete string for it to pick the
   // content variant. We've already guaranteed at least one of html/text exists.

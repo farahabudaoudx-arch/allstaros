@@ -1,5 +1,12 @@
 import "server-only";
 
+import {
+  isWhitelabelLocalPilot,
+  localPilotCanonicalAppUrl,
+  patchLocalPilotDeploymentState,
+  readLocalPilotDeploymentState,
+} from "@/lib/local-pilot";
+
 const API = "https://api.vercel.com";
 
 function teamQuery(teamId: string): string {
@@ -34,6 +41,12 @@ export async function upsertVercelEnvironment(params: {
   projectRef: string;
   values: Array<{ key: string; value: string; sensitive?: boolean }>;
 }) {
+  if (isWhitelabelLocalPilot()) {
+    await patchLocalPilotDeploymentState(params.projectRef, {
+      environment: Object.fromEntries(params.values.map((item) => [item.key, item.value])),
+    });
+    return;
+  }
   const response = await request(
     params.token,
     `/v10/projects/${encodeURIComponent(params.projectRef)}/env${teamQuery(params.teamId)}&upsert=true`,
@@ -60,6 +73,17 @@ export async function createVercelGitDeployment(params: {
   repoId: string;
   sourceSha: string;
 }) {
+  if (isWhitelabelLocalPilot()) {
+    const canonical = await localPilotCanonicalAppUrl(params.projectRef);
+    if (!canonical) throw new Error(`Local pilot Vercel project ${params.projectRef} has no canonicalAppUrl.`);
+    const deploymentRef = `local:${params.projectRef}:${params.sourceSha.slice(0, 12)}`;
+    await patchLocalPilotDeploymentState(params.projectRef, {
+      sourceSha: params.sourceSha,
+      deploymentRef,
+      deploymentUrl: canonical,
+    });
+    return { id: deploymentRef, url: canonical, readyState: "READY" };
+  }
   const response = await request(params.token, `/v13/deployments${teamQuery(params.teamId)}`, {
     method: "POST",
     body: JSON.stringify({
@@ -76,6 +100,16 @@ export async function createVercelGitDeployment(params: {
 }
 
 export async function getVercelDeployment(params: { token: string; teamId: string; deploymentRef: string }) {
+  if (isWhitelabelLocalPilot()) {
+    const match = params.deploymentRef.match(/^local:([^:]+):[0-9a-f]+$/i);
+    if (!match) return { id: params.deploymentRef, url: null, readyState: "ERROR" };
+    const state = await readLocalPilotDeploymentState(match[1]);
+    return {
+      id: state.deploymentRef ?? params.deploymentRef,
+      url: state.deploymentUrl,
+      readyState: state.deploymentRef === params.deploymentRef ? "READY" : "ERROR",
+    };
+  }
   const response = await request(
     params.token,
     `/v13/deployments/${encodeURIComponent(params.deploymentRef)}${teamQuery(params.teamId)}`,
@@ -91,6 +125,15 @@ export async function ensureVercelProjectDomain(params: {
   projectRef: string;
   domain: string;
 }) {
+  if (isWhitelabelLocalPilot()) {
+    const canonical = await localPilotCanonicalAppUrl(params.projectRef);
+    const expected = `https://${params.domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+    return {
+      name: params.domain,
+      verified: canonical === expected,
+      verification: canonical === expected ? [] : [{ type: "local_pilot", expected, configured: canonical }],
+    };
+  }
   const project = encodeURIComponent(params.projectRef);
   const domain = encodeURIComponent(params.domain);
   let response = await request(params.token, `/v9/projects/${project}/domains/${domain}${teamQuery(params.teamId)}`);

@@ -7,7 +7,10 @@ const CONTROL_PLANE_PREFIXES = [
   "src/app/admin/os-builds/",
   "src/app/admin/os-updates/",
   "src/components/admin/os-builds/",
+  "src/lib/actions/admin/os-",
   "src/lib/whitelabel/",
+  "docs/whitelabel-assembly-line/",
+  "scripts/whitelabel-local-",
 ] as const;
 
 const CONTROL_PLANE_FILES = new Set([
@@ -15,6 +18,8 @@ const CONTROL_PLANE_FILES = new Set([
   "src/lib/actions/admin/os-updates.ts",
   "src/lib/actions/admin/os-provisioning.ts",
   "src/lib/actions/admin/os-verification.ts",
+  "scripts/build-whitelabel-source-package.mjs",
+  "scripts/start-local-client-demo.ps1",
 ]);
 
 const HIGH_CONFIDENCE_SECRET_PATTERNS = [
@@ -114,11 +119,10 @@ export function inspectSourcePackageZip(bytes: Uint8Array): SourcePackageManifes
   }
   if (
     migrationEntries.some(
-      (name) => /gateway/i.test(name)
-        || /whitelabel_(?:intake|provisioning|verification_handoff|updates_independent_operation)/i.test(name),
+      (name) => /whitelabel_(?:intake|provisioning|verification_handoff|updates_independent_operation)/i.test(name),
     )
   ) {
-    throw new Error("Source package contains a control-plane or Gateway migration.");
+    throw new Error("Source package contains a control-plane migration.");
   }
   return manifest;
 }

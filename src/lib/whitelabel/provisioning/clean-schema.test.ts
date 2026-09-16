@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
@@ -24,7 +24,28 @@ describe("clean customer schema manifest", () => {
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260601000400_producer_leaderboard_seed.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260914001000_whitelabel_intake.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260914003000_whitelabel_provisioning.sql");
-    expect(CLEAN_CUSTOMER_MIGRATIONS.filter((name) => name.includes("gateway"))).toEqual([]);
+    expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260914005000_whitelabel_verification_handoff.sql");
+    expect(CLEAN_CUSTOMER_MIGRATIONS).not.toContain("20260915001000_whitelabel_updates_independent_operation.sql");
+    expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260702000200_gateway_issued_premium.sql");
+    expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260903000200_gateway_connections.sql");
+    expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260905000100_gateway_runner_hardening.sql");
+  });
+
+  it("includes every product migration except explicit demo seeds and control-plane migrations", () => {
+    const excluded = new Set([
+      "20260601000300_producer_sales_seed.sql",
+      "20260601000400_producer_leaderboard_seed.sql",
+      "20260914001000_whitelabel_intake.sql",
+      "20260914003000_whitelabel_provisioning.sql",
+      "20260914005000_whitelabel_verification_handoff.sql",
+      "20260915001000_whitelabel_updates_independent_operation.sql",
+    ]);
+    const migrationDir = path.join(process.cwd(), "supabase", "migrations");
+    const expected = readdirSync(migrationDir)
+      .filter((name) => name.endsWith(".sql") && !excluded.has(name))
+      .sort();
+
+    expect([...CLEAN_CUSTOMER_MIGRATIONS].sort()).toEqual(expected);
   });
 
   it("keeps the live version schema marker pinned to the final customer migration", () => {
@@ -55,6 +76,16 @@ describe("clean customer schema manifest", () => {
       expect(name.includes("producer_sales_seed"), name).toBe(false);
       expect(name.includes("producer_leaderboard_seed"), name).toBe(false);
       expect(sql.length, name).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps customer migration files free of a UTF-8 BOM", () => {
+    for (const name of CLEAN_CUSTOMER_MIGRATIONS) {
+      const bytes = readFileSync(path.join(process.cwd(), "supabase", "migrations", name));
+      expect(
+        bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf,
+        name,
+      ).toBe(false);
     }
   });
 });

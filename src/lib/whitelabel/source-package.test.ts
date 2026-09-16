@@ -27,7 +27,12 @@ describe("source package handoff gate", () => {
     expect(sourcePackagePathAllowed("src/app/admin/os-builds/[id]/page.tsx")).toBe(false);
     expect(sourcePackagePathAllowed("src/app/admin/os-updates/page.tsx")).toBe(false);
     expect(sourcePackagePathAllowed("src/lib/actions/admin/os-updates.ts")).toBe(false);
+    expect(sourcePackagePathAllowed("src/lib/actions/admin/os-builds.test.ts")).toBe(false);
+    expect(sourcePackagePathAllowed("docs/whitelabel-assembly-line/ticket-06.md")).toBe(false);
     expect(sourcePackagePathAllowed("src/lib/whitelabel/provisioning/orchestrator.ts")).toBe(false);
+    expect(sourcePackagePathAllowed("scripts/whitelabel-local-pilot-provision.ts")).toBe(false);
+    expect(sourcePackagePathAllowed("scripts/build-whitelabel-source-package.mjs")).toBe(false);
+    expect(sourcePackagePathAllowed("scripts/start-local-client-demo.ps1")).toBe(false);
     expect(sourcePackagePathAllowed("node_modules/pkg/index.js")).toBe(false);
     expect(sourcePackagePathAllowed(".agents/release-checklist.md")).toBe(false);
     expect(sourcePackagePathAllowed("AGENTS.md")).toBe(false);
@@ -39,7 +44,7 @@ describe("source package handoff gate", () => {
     expect(inspectSourcePackageZip(packageBytes())).toMatchObject({ sourceSha: manifest.sourceSha, secretScan: "passed" });
   });
 
-  it("rejects control-plane/Gateway migrations and literal credentials", () => {
+  it("rejects control-plane migrations and literal credentials", () => {
     const badMigration = packageBytes({ "supabase/migrations/20260914005000_whitelabel_verification_handoff.sql": strToU8("select 1;") });
     expect(() => inspectSourcePackageZip(badMigration)).toThrow(/migrations do not match|control-plane/i);
     const ticketSixMigration = packageBytes({ "supabase/migrations/20260915001000_whitelabel_updates_independent_operation.sql": strToU8("select 1;") });
@@ -48,6 +53,24 @@ describe("source package handoff gate", () => {
     expect(() => inspectSourcePackageZip(secret)).toThrow(/secret scan/i);
     const genericSecret = packageBytes({ "config.ts": strToU8('const apiKey = "abcdefghijklmnopqrstuvwx";') });
     expect(() => inspectSourcePackageZip(genericSecret)).toThrow(/secret scan/i);
+  });
+
+  it("allows Gateway product migrations when the manifest declares them", () => {
+    const gatewayMigration = "20260903000200_gateway_connections.sql";
+    const gatewayManifest = {
+      ...manifest,
+      customerMigrations: [
+        ...manifest.customerMigrations,
+        gatewayMigration,
+      ],
+    };
+    const bytes = zipSync({
+      "WHITELABEL_SOURCE_MANIFEST.json": strToU8(JSON.stringify(gatewayManifest)),
+      "src/app/page.tsx": strToU8("export default function Page(){return null}"),
+      "supabase/migrations/20260914004000_whitelabel_content_services.sql": strToU8("select 1;"),
+      [`supabase/migrations/${gatewayMigration}`]: strToU8("select 1;"),
+    });
+    expect(inspectSourcePackageZip(bytes)).toMatchObject({ customerMigrations: gatewayManifest.customerMigrations });
   });
 
   it("allows obvious Bearer fixtures in tests without weakening high-confidence secret checks", () => {

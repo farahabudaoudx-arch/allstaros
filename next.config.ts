@@ -9,6 +9,14 @@ const uploadSourceMaps = Boolean(sentryAuthToken);
 const deploymentId = process.env.NEXT_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev";
 
 const nextConfig: NextConfig = {
+  // Brand asset uploads are handled by Server Actions. The logo action accepts
+  // files up to 5 MB, so keep the framework body limit slightly above that to
+  // account for multipart/form-data overhead.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
   // Hide the on-screen dev route indicator (bottom-left "N"). Build/runtime
   // errors are still surfaced. (Next 16 removed the old sub-options.)
   devIndicators: false,
@@ -20,10 +28,14 @@ const nextConfig: NextConfig = {
   // deployment instead of submitting server actions from the previous build.
   deploymentId,
   // Ticket 3's provisioning action reads the approved migration allowlist at
-  // runtime. Trace those SQL files into the server bundle for Vercel builds.
-  outputFileTracingIncludes: {
-    "/admin/os-builds/**": ["./supabase/migrations/*.sql"],
-  },
+  // runtime. Only the Assembly Line control plane needs those SQL files traced.
+  ...(process.env.WHITELABEL_ASSEMBLY_LINE_ENABLED === "1"
+    ? {
+        outputFileTracingIncludes: {
+          "/admin/os-builds/**": ["./supabase/migrations/*.sql"],
+        },
+      }
+    : {}),
   // Client + server Sentry.init must share preview/production labels. VERCEL_ENV
   // is not a NEXT_PUBLIC_ var, so stamp it at build time.
   env: {

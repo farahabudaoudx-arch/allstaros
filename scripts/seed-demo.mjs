@@ -29,7 +29,7 @@ if (!url || !serviceKey) {
   process.exit(1);
 }
 
-const BUILDER_EMAIL = "nicholasverge@gmail.com";
+const BUILDER_EMAIL = process.env.DEMO_BUILDER_EMAIL ?? "nicholasverge@gmail.com";
 const DEMO_DOMAIN = "demo.allstar.test";
 
 const admin = createClient(url, serviceKey, {

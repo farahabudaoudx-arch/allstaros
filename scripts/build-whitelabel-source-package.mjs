@@ -34,8 +34,8 @@ try {
   const entries = unzipSync(readFileSync(rawArchive));
   const migrationSet = new Set(customerMigrations);
   const filtered = {};
-  const forbiddenPrefix = ["src/app/admin/os-builds/", "src/app/admin/os-updates/", "src/components/admin/os-builds/", "src/lib/whitelabel/"];
-  const forbiddenFile = new Set(["src/lib/actions/admin/os-builds.ts", "src/lib/actions/admin/os-updates.ts", "src/lib/actions/admin/os-provisioning.ts", "src/lib/actions/admin/os-verification.ts"]);
+  const forbiddenPrefix = ["src/app/admin/os-builds/", "src/app/admin/os-updates/", "src/components/admin/os-builds/", "src/lib/actions/admin/os-", "src/lib/whitelabel/", "docs/whitelabel-assembly-line/", "scripts/whitelabel-local-"];
+  const forbiddenFile = new Set(["src/lib/actions/admin/os-builds.ts", "src/lib/actions/admin/os-updates.ts", "src/lib/actions/admin/os-provisioning.ts", "src/lib/actions/admin/os-verification.ts", "scripts/build-whitelabel-source-package.mjs", "scripts/start-local-client-demo.ps1"]);
   const highConfidenceSecretPatterns = [
     /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
     /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\b/,
@@ -48,7 +48,8 @@ try {
     /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/i,
     /\b(?:api[_ -]?key|secret|token|password)\s*[:=]\s*(["'`])[A-Za-z0-9._~+/=-]{12,}\1/i,
   ];
-  const isText = (name) => /\.(?:[cm]?[jt]sx?|json|md|txt|sql|css|html?|ya?ml|toml|xml|csv|sh|ps1)$/i.test(name);
+  const isText = (name) => /\.(?:[cm]?[jt]sx?|json|md|txt|sql|css|html?|ya?ml|toml|xml|csv|sh|ps1|env)$/i.test(name)
+    || /(?:^|\/)(?:Dockerfile|Procfile|README)$/i.test(name);
 
   for (const [rawName, bytes] of Object.entries(entries)) {
     const name = rawName.replaceAll("\\", "/");
@@ -62,7 +63,6 @@ try {
     if (name.startsWith("supabase/migrations/")) {
       const migrationName = name.slice("supabase/migrations/".length);
       if (!migrationSet.has(migrationName)) continue;
-      if (/gateway/i.test(migrationName)) throw new Error(`Gateway migration leaked into clean customer manifest: ${migrationName}`);
     }
     if (isText(name)) {
       const text = new TextDecoder().decode(bytes);
@@ -86,7 +86,7 @@ try {
   };
   filtered["WHITELABEL_SOURCE_MANIFEST.json"] = strToU8(JSON.stringify(manifest, null, 2) + "\n");
   filtered["CUSTOMER_DATABASE_SETUP.md"] = strToU8(
-    `# Customer database setup\n\n## First installation only\n\nApply the migrations listed in WHITELABEL_SOURCE_MANIFEST.json in order, then perform the clean-customer data reset before creating the initial admin. The clean reset is destructive and must never be used for maintenance updates.\n\n## Managed updates\n\nApply only the missing customer migrations through the incremental update workflow. Preserve the existing installation configuration, content, service connections, and business records. Assembly Line and Gateway migrations are intentionally excluded.\n`,
+    `# Customer database setup\n\n## First installation only\n\nApply the migrations listed in WHITELABEL_SOURCE_MANIFEST.json in order, then perform the clean-customer data reset before creating the initial admin. The clean reset is destructive and must never be used for maintenance updates.\n\n## Managed updates\n\nApply only the missing customer migrations through the incremental update workflow. Preserve the existing installation configuration, content, service connections, and business records. Assembly Line control-plane migrations are intentionally excluded. Gateway product migrations are included when declared by the customer migration manifest.\n`,
   );
   const zipBytes = zipSync(filtered, { level: 6 });
   writeFileSync(output, zipBytes);

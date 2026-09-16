@@ -32,6 +32,39 @@ create table if not exists public.gateway_issued_premium_import (
   finished_at timestamptz
 );
 
+-- Older installations may already have this table from the Scorecards
+-- foundation migration, where the audit timestamp was named `started_at`.
+-- `create table if not exists` does not reconcile an existing table shape, so
+-- make the catch-up migration genuinely idempotent before creating indexes that
+-- depend on `created_at`.
+alter table public.gateway_issued_premium_import
+  add column if not exists created_at timestamptz;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'gateway_issued_premium_import'
+      and column_name = 'started_at'
+  ) then
+    execute $sql$
+      update public.gateway_issued_premium_import
+      set created_at = coalesce(created_at, started_at, now())
+      where created_at is null
+    $sql$;
+  else
+    update public.gateway_issued_premium_import
+    set created_at = now()
+    where created_at is null;
+  end if;
+end $$;
+
+alter table public.gateway_issued_premium_import
+  alter column created_at set default now(),
+  alter column created_at set not null;
+
 create index if not exists gateway_issued_premium_import_period_created_idx
   on public.gateway_issued_premium_import (period_type, created_at desc);
 

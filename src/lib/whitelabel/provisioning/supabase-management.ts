@@ -1,5 +1,12 @@
 import "server-only";
 
+import { Client } from "pg";
+import {
+  isWhitelabelLocalPilot,
+  localPilotProject,
+  localPilotSupabaseApiUrl,
+} from "@/lib/local-pilot";
+
 const API = "https://api.supabase.com/v1";
 
 async function request(token: string, path: string, init?: RequestInit): Promise<Response> {
@@ -41,6 +48,22 @@ export async function assertSupabaseProjectHealthy(params: {
   projectRef: string;
   services?: string[];
 }) {
+  if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    const client = new Client({ connectionString: project.dbUrl });
+    await client.connect();
+    try {
+      await client.query("select 1");
+    } finally {
+      await client.end();
+    }
+    const response = await fetch(`${project.apiUrl.replace(/\/+$/, "")}/auth/v1/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) throw new Error(`Local Supabase auth health returned HTTP ${response.status}.`);
+    return;
+  }
   const response = await request(params.token, `/projects/${encodeURIComponent(params.projectRef)}/health`);
   if (!response.ok) throw new Error(await errorText(response));
   const body = await response.json();
@@ -67,6 +90,17 @@ export async function runSupabaseSql(params: {
   query: string;
   parameters?: unknown[];
 }): Promise<unknown> {
+  if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    const client = new Client({ connectionString: project.dbUrl });
+    await client.connect();
+    try {
+      const result = await client.query(params.query, params.parameters ?? []);
+      return result.rows;
+    } finally {
+      await client.end();
+    }
+  }
   const response = await request(params.token, `/projects/${encodeURIComponent(params.projectRef)}/database/query`, {
     method: "POST",
     body: JSON.stringify({ query: params.query, parameters: params.parameters ?? [] }),
@@ -76,6 +110,10 @@ export async function runSupabaseSql(params: {
 }
 
 export async function getSupabaseProjectKeys(params: { token: string; projectRef: string }) {
+  if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    return { publishableKey: project.publishableKey, secretKey: project.secretKey };
+  }
   const response = await request(
     params.token,
     `/projects/${encodeURIComponent(params.projectRef)}/api-keys?reveal=true`,
@@ -95,6 +133,7 @@ export async function updateSupabaseAuthConfig(params: {
   projectRef: string;
   siteUrl: string;
 }) {
+  if (isWhitelabelLocalPilot()) return;
   const response = await request(params.token, `/projects/${encodeURIComponent(params.projectRef)}/config/auth`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -114,8 +153,11 @@ export async function uploadSupabaseStorageObject(params: {
   contentType: string;
   body: ArrayBuffer;
 }) {
+  const baseUrl = isWhitelabelLocalPilot()
+    ? await localPilotSupabaseApiUrl(params.projectRef)
+    : `https://${params.projectRef}.supabase.co`;
   const response = await fetch(
-    `https://${params.projectRef}.supabase.co/storage/v1/object/${encodeURIComponent(params.bucket)}/${params.objectPath
+    `${baseUrl}/storage/v1/object/${encodeURIComponent(params.bucket)}/${params.objectPath
       .split("/")
       .map(encodeURIComponent)
       .join("/")}`,
@@ -133,5 +175,5 @@ export async function uploadSupabaseStorageObject(params: {
     },
   );
   if (!response.ok) throw new Error(`Customer Storage returned HTTP ${response.status}.`);
-  return `https://${params.projectRef}.supabase.co/storage/v1/object/public/${params.bucket}/${params.objectPath}`;
+  return `${baseUrl}/storage/v1/object/public/${params.bucket}/${params.objectPath}`;
 }

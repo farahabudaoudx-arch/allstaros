@@ -15,6 +15,11 @@ import { verifySupabaseProjectAccess, verifyVercelProjectAccess } from "@/lib/wh
 import { verifyResendSenderAccess } from "@/lib/whitelabel/email-verification";
 import { CURRENT_CUSTOMER_SCHEMA_RELEASE } from "@/lib/whitelabel/verification";
 import {
+  isWhitelabelLocalPilot,
+  localPilotRuntimeUrlForCanonical,
+  localPilotSupabaseApiUrl,
+} from "@/lib/local-pilot";
+import {
   verifyAnthropicAccess,
   verifyBunnyVideoAccess,
   type BunnyLibraryInput,
@@ -82,7 +87,8 @@ function publicAppUrl(build: WhitelabelBuild): string {
   return `https://${build.domain}`;
 }
 
-function customerProjectUrl(projectRef: string): string {
+async function customerProjectUrl(projectRef: string): Promise<string> {
+  if (isWhitelabelLocalPilot()) return localPilotSupabaseApiUrl(projectRef);
   return `https://${projectRef}.supabase.co`;
 }
 
@@ -247,7 +253,7 @@ async function executeValidate(ctx: StepContext): Promise<StepExecutionOutcome> 
   if (!readiness.ready) {
     return { kind: "blocked", message: `Build readiness changed: ${readiness.missing[0]?.label ?? "required intake is incomplete"}.` };
   }
-  if (!process.env.WHITELABEL_VERCEL_GIT_REPO_ID?.trim()) {
+  if (!isWhitelabelLocalPilot() && !process.env.WHITELABEL_VERCEL_GIT_REPO_ID?.trim()) {
     return { kind: "blocked", message: "Assembly Line is missing WHITELABEL_VERCEL_GIT_REPO_ID." };
   }
   return { kind: "succeeded", safeResult: { sourceSha: ctx.run.source_sha, domain: ctx.build.domain } };
@@ -259,6 +265,23 @@ async function executeProviderCheck(ctx: StepContext): Promise<StepExecutionOutc
   const video = service(ctx, "video");
   if (!vercel.account_ref || !vercel.project_ref || !supabase.project_ref) {
     return { kind: "blocked", message: "Vercel or Supabase project references are incomplete." };
+  }
+  if (isWhitelabelLocalPilot()) {
+    await Promise.all([
+      localPilotSupabaseApiUrl(supabase.project_ref),
+      localPilotRuntimeUrlForCanonical(publicAppUrl(ctx.build)),
+    ]);
+    return {
+      kind: "succeeded",
+      safeResult: {
+        vercelProjectRef: vercel.project_ref,
+        supabaseProjectRef: supabase.project_ref,
+        emailDomain: "local-pilot.invalid",
+        aiProvider: "local-pilot",
+        videoProvider: null,
+        localPilot: true,
+      },
+    };
   }
   const [vercelToken, supabaseToken, emailToken, aiToken] = await Promise.all([
     providerCredential(ctx.build.id, "vercel"),
@@ -408,7 +431,10 @@ async function executeInstallationConfig(ctx: StepContext): Promise<StepExecutio
   await runSupabaseSql({
     token,
     projectRef: supabase.project_ref,
-    query: `delete from public.installation_carrier_link;
+    query: `with deleted as (
+        delete from public.installation_carrier_link
+        returning 1
+      )
       insert into public.installation_carrier_link (key, company_key, display_name, portal_url, sort_order, show_in_resources)
       select x.key, x.company_key, x.display_name, x.portal_url, x.sort_order, x.show_in_resources
       from jsonb_to_recordset($1::jsonb) as x(
@@ -437,7 +463,11 @@ async function executeInstallationConfig(ctx: StepContext): Promise<StepExecutio
   await runSupabaseSql({
     token,
     projectRef: supabase.project_ref,
-    query: `delete from public.installation_service_binding where service_kind in ('ai','video');
+    query: `with deleted as (
+        delete from public.installation_service_binding
+        where service_kind in ('ai','video')
+        returning 1
+      )
       insert into public.installation_service_binding (service_kind, provider_key, status, account_ref, configuration, last_checked_at)
       values
         ('ai', $1, 'configured', $2, $3::jsonb, $4::timestamptz),
@@ -476,15 +506,17 @@ async function executeEnvironment(ctx: StepContext): Promise<StepExecutionOutcom
     providerCredential(ctx.build.id, "ai"),
   ]);
   const keys = await getSupabaseProjectKeys({ token: supabaseToken, projectRef: supabase.project_ref });
+  const customerUrl = await customerProjectUrl(supabase.project_ref);
   let cronSecret = await generatedSecret(ctx.build.id, "cron_secret");
   if (!cronSecret) {
     cronSecret = randomBytes(32).toString("base64url");
     await saveGeneratedSecret(ctx.build.id, "cron_secret", cronSecret);
   }
-  const logoUrl = `https://${supabase.project_ref}.supabase.co/storage/v1/object/public/installation-assets/branding/logo`;
+  const logoUrl = `${customerUrl}/storage/v1/object/public/installation-assets/branding/logo`;
   const values = [
       { key: "NEXT_PUBLIC_APP_URL", value: publicAppUrl(ctx.build) },
-      { key: "NEXT_PUBLIC_SUPABASE_URL", value: customerProjectUrl(supabase.project_ref) },
+      { key: "WHITELABEL_ASSEMBLY_LINE_ENABLED", value: "0" },
+      { key: "NEXT_PUBLIC_SUPABASE_URL", value: customerUrl },
       { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", value: keys.publishableKey },
       { key: "SUPABASE_SERVICE_ROLE_KEY", value: keys.secretKey, sensitive: true },
       { key: "CRON_SECRET", value: cronSecret, sensitive: true },
@@ -544,7 +576,7 @@ async function executeDeployment(ctx: StepContext): Promise<StepExecutionOutcome
     if (state === "ERROR" || state === "CANCELED") throw new Error(`Vercel deployment ended in ${state}.`);
     return { kind: "waiting", message: `Vercel deployment is ${state || "still building"}. Continue to poll it.`, externalRef: existing.id, externalUrl: existing.url, safeResult: { readyState: state || null } };
   }
-  const repoId = process.env.WHITELABEL_VERCEL_GIT_REPO_ID?.trim();
+  const repoId = process.env.WHITELABEL_VERCEL_GIT_REPO_ID?.trim() || (isWhitelabelLocalPilot() ? "local-pilot-repo" : "");
   if (!repoId) return { kind: "blocked", message: "Assembly Line is missing WHITELABEL_VERCEL_GIT_REPO_ID." };
   const created = await createVercelGitDeployment({
     token,
@@ -558,7 +590,14 @@ async function executeDeployment(ctx: StepContext): Promise<StepExecutionOutcome
     repoId,
     sourceSha: ctx.run.source_sha,
   });
-  return { kind: created.readyState?.toUpperCase() === "READY" ? "succeeded" : "waiting", message: "Vercel deployment started. Continue provisioning to poll it.", externalRef: created.id, externalUrl: created.url, safeResult: { readyState: created.readyState } };
+  const ready = created.readyState?.toUpperCase() === "READY";
+  return {
+    kind: ready ? "succeeded" : "waiting",
+    message: ready ? undefined : "Vercel deployment started. Continue provisioning to poll it.",
+    externalRef: created.id,
+    externalUrl: created.url,
+    safeResult: { readyState: created.readyState },
+  };
 }
 
 async function executeDomain(ctx: StepContext): Promise<StepExecutionOutcome> {
@@ -577,9 +616,13 @@ async function executeInitialAdmin(ctx: StepContext): Promise<StepExecutionOutco
   if (!supabase.project_ref) return { kind: "blocked", message: "Supabase project reference is missing." };
   const token = await providerCredential(ctx.build.id, "supabase");
   const keys = await getSupabaseProjectKeys({ token, projectRef: supabase.project_ref });
-  const customer = createSupabaseClient(customerProjectUrl(supabase.project_ref), keys.secretKey, {
+  const customer = createSupabaseClient(await customerProjectUrl(supabase.project_ref), keys.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const canonicalAppUrl = publicAppUrl(ctx.build);
+  const inviteAppUrl = isWhitelabelLocalPilot()
+    ? await localPilotRuntimeUrlForCanonical(canonicalAppUrl)
+    : canonicalAppUrl;
   const email = ctx.build.initial_admin_email.trim().toLowerCase();
   const { data: existingPerson, error: personLookupError } = await customer
     .from("person")
@@ -616,10 +659,10 @@ async function executeInitialAdmin(ctx: StepContext): Promise<StepExecutionOutco
     const link = await customer.auth.admin.generateLink({
       type,
       email,
-      options: { redirectTo: `${publicAppUrl(ctx.build)}/auth/callback?next=/welcome` },
+      options: { redirectTo: `${inviteAppUrl}/auth/callback?next=/welcome` },
     });
     if (link.error || !link.data?.properties?.hashed_token) throw new Error("Could not create the initial customer admin setup link.");
-    setupUrl = `${publicAppUrl(ctx.build)}/auth/confirm?token_hash=${encodeURIComponent(link.data.properties.hashed_token)}&type=${type}&next=/welcome`;
+    setupUrl = `${inviteAppUrl}/auth/confirm?token_hash=${encodeURIComponent(link.data.properties.hashed_token)}&type=${type}&next=/welcome`;
     await saveGeneratedSecret(ctx.build.id, "initial_admin_invite_url", setupUrl);
   }
 
@@ -635,7 +678,10 @@ async function executeInitialAdmin(ctx: StepContext): Promise<StepExecutionOutco
 }
 
 async function executeSmokeCheck(ctx: StepContext): Promise<StepExecutionOutcome> {
-  const base = publicAppUrl(ctx.build);
+  const canonical = publicAppUrl(ctx.build);
+  const base = isWhitelabelLocalPilot()
+    ? await localPilotRuntimeUrlForCanonical(canonical)
+    : canonical;
   const [versionResponse, signinResponse] = await Promise.all([
     fetch(`${base}/api/version`, { cache: "no-store", signal: AbortSignal.timeout(15_000) }),
     fetch(`${base}/auth/signin`, { cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15_000) }),

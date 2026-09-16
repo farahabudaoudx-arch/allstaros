@@ -13,7 +13,13 @@ import { InstallationBrandProvider } from "@/lib/installation/brand-context";
 function buildNav(isSuperAdmin: boolean): NavItem[] {
   const nav: NavItem[] = [
     { label: "Dashboard", href: "/admin" },
-    { label: "OS Assembly Line", href: "/admin/os-builds" },
+  ];
+
+  if (process.env.WHITELABEL_ASSEMBLY_LINE_ENABLED === "1") {
+    nav.push({ label: "OS Assembly Line", href: "/admin/os-builds" });
+  }
+
+  nav.push(
     {
       label: "People",
       children: [
@@ -51,7 +57,7 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
         { label: "Login Monitoring", href: "/admin/login-monitoring" },
       ],
     },
-  ];
+  );
 
   if (isSuperAdmin) {
     nav.push({

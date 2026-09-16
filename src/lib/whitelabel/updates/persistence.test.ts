@@ -66,6 +66,17 @@ describe("Ticket 6 update persistence", () => {
     expect(persistenceSource).not.toContain("provisioning/orchestrator");
   });
 
+  it("calls the recovery-version RPC with its current build/install/actor contract", () => {
+    const start = persistenceSource.indexOf('admin.rpc("record_whitelabel_recovery_version"');
+    expect(start).toBeGreaterThan(-1);
+    const call = persistenceSource.slice(start, start + 900);
+    expect(call).toContain("p_build_id: buildId");
+    expect(call).toContain("p_installation_id:");
+    expect(call).toContain("p_actor_id: actorId");
+    expect(call).toContain("p_recovery_run_id: input.recoveryRunId");
+    expect(call).not.toContain("p_update_attempt_id:");
+  });
+
   it("returns the exact operations view contract expected by the Ticket 6 admin UI", () => {
     for (const key of [
       "available",

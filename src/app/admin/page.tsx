@@ -5,11 +5,6 @@ type Section = { name: string; description: string; href: string };
 
 const SECTIONS: Section[] = [
   {
-    name: "OS Assembly Line",
-    description: "Create customer builds, track intake, service access, purchased work, and readiness.",
-    href: "/admin/os-builds",
-  },
-  {
     name: "Builders",
     description: "Manage builders, their downline, bulk add + invite a team.",
     href: "/admin/people/builders",
@@ -84,6 +79,16 @@ function SectionCard({ s }: { s: Section }) {
 export default async function AdminHomePage() {
   const person = await requireAdmin();
   const isSuper = person.is_super_admin;
+  const sections: Section[] = process.env.WHITELABEL_ASSEMBLY_LINE_ENABLED === "1"
+    ? [
+        {
+          name: "OS Assembly Line",
+          description: "Create customer builds, track intake, service access, purchased work, and readiness.",
+          href: "/admin/os-builds",
+        },
+        ...SECTIONS,
+      ]
+    : SECTIONS;
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">
@@ -106,7 +111,7 @@ export default async function AdminHomePage() {
           Operations
         </h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <SectionCard key={s.name} s={s} />
           ))}
         </div>

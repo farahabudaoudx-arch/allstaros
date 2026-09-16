@@ -802,6 +802,14 @@ async function main() {
     }
   }
   {
+    // The current Gateway schema uses partial unique indexes split by source_kind,
+    // so PostgREST cannot target the old bare (person_id, period_type, report_date)
+    // conflict key. Keep this local/preview seed idempotent by replacing only its
+    // own synthetic rows, then inserting against the live schema contract.
+    await admin
+      .from("producer_issued_premium")
+      .delete()
+      .like("gateway_label", `${NOTE}%`);
     const n = need(await countExact("producer_issued_premium"), TARGET.producer_issued_premium);
     if (n > 0) {
       const rows = [];
@@ -830,10 +838,7 @@ async function main() {
           outside_first_leg_cents: randInt(0, 5000000),
         });
       }
-      await insertAll("producer_issued_premium", rows, {
-        upsert: "person_id,period_type,report_date",
-        ignoreDuplicates: true,
-      });
+      await insertAll("producer_issued_premium", rows);
     }
   }
 

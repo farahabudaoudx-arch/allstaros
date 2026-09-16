@@ -720,9 +720,18 @@ export function createUpdateAdminPort(buildId: string, actorId: string): UpdateA
     },
 
     async recordRecoveryVersion(input: RecoveryVersionInput): Promise<string> {
+      const attempt = await admin
+        .from("whitelabel_update_attempt")
+        .select("installation_id")
+        .eq("id", input.updateAttemptId)
+        .eq("build_id", buildId)
+        .maybeSingle();
+      if (attempt.error || !attempt.data) throw new Error("Recovery update attempt could not be resolved for version recording.");
       const { data, error } = await admin.rpc("record_whitelabel_recovery_version", {
+        p_build_id: buildId,
+        p_installation_id: requireString(attempt.data as DbRow, "installation_id", "Recovery update attempt"),
         p_recovery_run_id: input.recoveryRunId,
-        p_update_attempt_id: input.updateAttemptId,
+        p_actor_id: actorId,
         p_source_sha: input.sourceSha,
         p_schema_release: input.schemaRelease,
         p_deployment_ref: input.deploymentRef,
