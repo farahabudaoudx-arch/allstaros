@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { writeAudit } from "@/lib/admin/audit";
 import { isUuid } from "@/lib/whitelabel/validation";
-import { executeNextProvisioningStep, startProvisioning } from "@/lib/whitelabel/provisioning/orchestrator";
+import { executeProvisioningUntilPaused, startProvisioning } from "@/lib/whitelabel/provisioning/orchestrator";
 
 function pathFor(buildId: string): string {
   return `/admin/os-builds/${buildId}`;
@@ -22,11 +22,18 @@ export async function adminStartOsBuildProvisioning(formData: FormData) {
   if (!isUuid(buildId)) redirect("/admin/os-builds?error=Invalid%20build.");
   const sourceSha = String(formData.get("source_sha") ?? "").trim();
   try {
-    const state = await startProvisioning({ buildId, sourceSha, actorId: person.id });
+    const started = await startProvisioning({ buildId, sourceSha, actorId: person.id });
+    const state = await executeProvisioningUntilPaused({ buildId, runId: started.run.id });
     await writeAudit({
       actorId: person.id,
       action: "whitelabel.provisioning.start",
-      detail: { buildId, runId: state.run.id, sourceSha: state.run.source_sha },
+      detail: {
+        buildId,
+        runId: state.run.id,
+        sourceSha: state.run.source_sha,
+        status: state.run.status,
+        currentStep: state.run.current_step,
+      },
     });
     revalidatePath(pathFor(buildId));
   } catch (error) {
@@ -41,7 +48,7 @@ export async function adminRunNextOsBuildProvisioning(formData: FormData) {
   const runId = String(formData.get("run_id") ?? "").trim();
   if (!isUuid(buildId) || !isUuid(runId)) redirect("/admin/os-builds?error=Invalid%20provisioning%20run.");
   try {
-    const state = await executeNextProvisioningStep({ buildId, runId });
+    const state = await executeProvisioningUntilPaused({ buildId, runId });
     await writeAudit({
       actorId: person.id,
       action: "whitelabel.provisioning.advance",

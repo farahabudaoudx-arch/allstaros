@@ -95,8 +95,12 @@ export function ProvisioningPanel({
             <form action={adminRunNextOsBuildProvisioning} className="mt-5">
               <input type="hidden" name="build_id" value={buildId} />
               <input type="hidden" name="run_id" value={state.run.id} />
-              <Button type="submit" variant="primary">Run / retry next step</Button>
-              <p className="mt-2 text-xs text-mute">Long schema work is intentionally split into small idempotent batches. Re-run the same step until it advances.</p>
+              <Button type="submit" variant="primary">
+                {state.run.status === "blocked" || state.run.status === "failed" ? "Retry provisioning" : "Continue provisioning"}
+              </Button>
+              <p className="mt-2 text-xs text-mute">
+                One click continues automatically through every runnable step and stops only when provisioning completes or requires attention.
+              </p>
             </form>
           ) : null}
         </>

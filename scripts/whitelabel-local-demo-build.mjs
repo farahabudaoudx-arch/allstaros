@@ -20,7 +20,7 @@ const result = spawnSync(command, ["run", "build"], {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: project.publishableKey,
     SUPABASE_SERVICE_ROLE_KEY: project.secretKey,
     NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${port}`,
-    WHITELABEL_LOCAL_PILOT: "0",
+    WHITELABEL_LOCAL_PILOT: "1",
     WHITELABEL_ASSEMBLY_LINE_ENABLED: "1",
     DEV_LOGIN_ENABLED: "false",
     DEV_LOGIN_SECRET: process.env.LOCAL_DEMO_LOGIN_SECRET || "local-demo-only",

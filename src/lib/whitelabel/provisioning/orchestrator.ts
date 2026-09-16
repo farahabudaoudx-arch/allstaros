@@ -64,6 +64,7 @@ const CARRIER_SELECT =
   "id, build_id, company_key, display_name, portal_url, sort_order, show_in_resources, created_at, updated_at";
 
 const SCHEMA_BATCH_SIZE = 8;
+const AUTO_ADVANCE_LIMIT = 40;
 
 type Setup = {
   build: WhitelabelBuild;
@@ -756,4 +757,35 @@ export async function executeNextProvisioningStep(params: { buildId: string; run
     ]);
   }
   return loadState(params.runId, params.buildId);
+}
+
+export async function executeProvisioningUntilPaused(params: {
+  buildId: string;
+  runId: string;
+}): Promise<ProvisioningState> {
+  let state = await loadState(params.runId, params.buildId);
+
+  for (let iteration = 0; iteration < AUTO_ADVANCE_LIMIT; iteration += 1) {
+    if (state.run.status === "succeeded" || state.run.status === "cancelled") return state;
+
+    state = await executeNextProvisioningStep(params);
+
+    if (
+      state.run.status === "blocked" ||
+      state.run.status === "failed" ||
+      state.run.status === "succeeded" ||
+      state.run.status === "cancelled"
+    ) {
+      return state;
+    }
+
+    // Schema batching is intentionally idempotent and can continue immediately.
+    // A real deployment poll, however, should not hammer the provider while it is
+    // still building. Local-pilot deployments resolve READY immediately.
+    if (state.run.current_step === "deploy_source") {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  return state;
 }
