@@ -26,8 +26,21 @@ type LocalPilotRegistry = {
   projects: LocalPilotProject[];
 };
 
+function isExplicitLoopbackNextStart(): boolean {
+  if (process.env.WHITELABEL_LOCAL_PILOT_ALLOW_NEXT_START !== "1") return false;
+  if (!process.env.WHITELABEL_LOCAL_PILOT_REGISTRY?.trim()) return false;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!appUrl) return false;
+  try {
+    const url = new URL(appUrl);
+    return url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function assertLocalOnly(): void {
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !isExplicitLoopbackNextStart()) {
     throw new Error("WHITELABEL_LOCAL_PILOT is forbidden in production.");
   }
 }
