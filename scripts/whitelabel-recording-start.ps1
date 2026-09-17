@@ -53,12 +53,14 @@ function Stop-StaleRecordingProcess([int]$Port, [string]$Label) {
   if (-not $listener) { return $false }
   $process = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)" -ErrorAction SilentlyContinue
   $commandLine = [string]$process.CommandLine
+  $repoPattern = [regex]::Escape($repo)
   $owned =
     $commandLine -match "whitelabel-local-pilot-serve\.mjs" -or
     $commandLine -match "whitelabel-local-demo-start\.mjs" -or
     $commandLine -match "whitelabel-recording-proxy\.mjs" -or
     $commandLine -match "customer-a-tls[\\/]proxy\.cjs" -or
-    ($commandLine -match "next(?:\.cmd)?\s+(?:dev|start)" -and $commandLine -match "(?:-p|--port)\s+$Port")
+    ($commandLine -match "next(?:\.cmd)?\s+(?:dev|start)" -and $commandLine -match "(?:-p|--port)\s+$Port") -or
+    ($commandLine -match $repoPattern -and $commandLine -match "next[\\/]dist[\\/]server[\\/]lib[\\/]start-server\.js")
   if (-not $owned) { return $false }
   Write-Host "Replacing stale local $Label process on port $Port..."
   Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue
@@ -245,6 +247,11 @@ function Ensure-ControlRuntime {
 }
 
 function Ensure-CustomerRuntime {
+  if ($script:recordingBuildRebuilt -and (Test-Port $customerPort)) {
+    if (-not (Stop-StaleRecordingProcess $customerPort "customer")) {
+      throw "Port $customerPort is occupied by an unrelated process; cannot activate the current recording customer runtime."
+    }
+  }
   if (-not (Test-Url "http://127.0.0.1:$customerPort/auth/signin")) {
     if ((Test-Port $customerPort) -and -not (Stop-StaleRecordingProcess $customerPort "customer")) {
       throw "Port $customerPort is occupied by an unrelated unhealthy process."
