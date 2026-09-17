@@ -37,4 +37,16 @@ describe("Ticket 5 admin action contracts", () => {
     expect(refreshSection).toContain("verifyLiveInstallationVersion");
     expect(refreshSection).not.toContain('.eq("mode", "manual")');
   });
+
+  it("rethrows Next redirect control-flow before translating action failures", () => {
+    const failSection = source.slice(source.indexOf("function fail("), source.indexOf("function done("));
+    const rethrow = failSection.indexOf("unstable_rethrow(error);");
+    const errorRedirect = failSection.indexOf("redirect(`${path}?error=");
+    expect(source).toContain('import { redirect, unstable_rethrow } from "next/navigation";');
+    expect(rethrow).toBeGreaterThan(-1);
+    expect(rethrow).toBeLessThan(errorRedirect);
+
+    const catches = source.match(/catch \(error\) \{\s*fail\(path, error\);\s*\}/g) ?? [];
+    expect(catches).toHaveLength(8);
+  });
 });

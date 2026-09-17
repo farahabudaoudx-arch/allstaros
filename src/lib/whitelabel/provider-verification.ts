@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isWhitelabelLocalPilot, localPilotProject } from "@/lib/local-pilot";
+
 type FetchLike = typeof fetch;
 
 export type ProviderVerificationResult =
@@ -62,6 +64,32 @@ export async function verifyVercelProjectAccess(
   },
   fetchImpl: FetchLike = fetch,
 ): Promise<ProviderVerificationResult> {
+  if (isWhitelabelLocalPilot()) {
+    try {
+      const project = await localPilotProject(params.projectRef);
+      if (project.accountRef !== params.accountRef) {
+        return {
+          ok: false,
+          error: "Vercel local-pilot project belongs to a different configured account reference.",
+        };
+      }
+      return {
+        ok: true,
+        providerName: "Vercel",
+        accountRef: project.accountRef,
+        accountLabel: "Local Pilot",
+        projectRef: project.projectRef,
+        projectName: project.projectRef,
+        billingUrl: "https://vercel.com/~/usage",
+      };
+    } catch {
+      return {
+        ok: false,
+        error: "Vercel local-pilot project is not registered for this rehearsal.",
+      };
+    }
+  }
+
   const url = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(params.projectRef)}`);
   url.searchParams.set("teamId", params.accountRef);
 
@@ -125,6 +153,32 @@ export async function verifySupabaseProjectAccess(
   },
   fetchImpl: FetchLike = fetch,
 ): Promise<ProviderVerificationResult> {
+  if (isWhitelabelLocalPilot()) {
+    try {
+      const project = await localPilotProject(params.projectRef);
+      if (params.accountRef && params.accountRef !== project.accountRef) {
+        return {
+          ok: false,
+          error: "Supabase local-pilot project belongs to a different configured account reference.",
+        };
+      }
+      return {
+        ok: true,
+        providerName: "Supabase",
+        accountRef: project.accountRef,
+        accountLabel: "Local Pilot",
+        projectRef: project.projectRef,
+        projectName: project.projectRef,
+        billingUrl: `https://supabase.com/dashboard/org/${encodeURIComponent(project.accountRef)}/usage`,
+      };
+    } catch {
+      return {
+        ok: false,
+        error: "Supabase local-pilot project is not registered for this rehearsal.",
+      };
+    }
+  }
+
   const url = `https://api.supabase.com/v1/projects/${encodeURIComponent(params.projectRef)}`;
 
   try {

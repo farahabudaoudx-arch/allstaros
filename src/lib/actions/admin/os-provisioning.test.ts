@@ -33,6 +33,8 @@ describe("OS provisioning admin flow", () => {
     expect(panelSource).toContain("Retry provisioning");
     expect(panelSource).toContain("continues automatically through every runnable step");
     expect(panelSource).not.toContain("Run / retry next step");
+    expect(panelSource).toContain('state.run.status === "succeeded"');
+    expect(panelSource).toContain('"Completed"');
   });
 
   it("forces the local demo onto local-pilot provider adapters", () => {

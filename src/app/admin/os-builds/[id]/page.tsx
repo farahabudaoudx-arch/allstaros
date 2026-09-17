@@ -27,6 +27,7 @@ import {
 } from "@/lib/whitelabel/catalog";
 import { loadOsBuildForAdmin } from "@/lib/whitelabel/admin";
 import { loadProvisioningForAdmin } from "@/lib/whitelabel/provisioning/admin";
+import { isWhitelabelLocalPilot } from "@/lib/local-pilot";
 import type {
   AdditionStatus,
   AdditionType,
@@ -73,11 +74,18 @@ export default async function OsBuildDetailPage({
 }) {
   const { id } = await params;
   const flash = await searchParams;
+  const localPilot = isWhitelabelLocalPilot();
   const [build, provisioning] = await Promise.all([
     loadOsBuildForAdmin(id),
     loadProvisioningForAdmin(id),
   ]);
   if (!build) notFound();
+  const flashMessage =
+    flash.ok === "provisioning-advanced" && provisioning.state?.run.status === "succeeded"
+      ? "Clean provisioning completed successfully."
+      : flash.ok
+        ? (FLASH[flash.ok] ?? "Saved.")
+        : null;
 
   return (
     <PageShell>
@@ -99,7 +107,7 @@ export default async function OsBuildDetailPage({
 
       {flash.ok ? (
         <p className="mt-6 rounded-xl border border-pos/30 bg-pos/[0.08] px-4 py-2.5 text-sm text-pos">
-          {FLASH[flash.ok] ?? "Saved."}
+          {flashMessage}
         </p>
       ) : null}
       {flash.error ? (
@@ -212,7 +220,7 @@ export default async function OsBuildDetailPage({
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           {build.services.map((service) => (
-            <ServiceCard key={service.id} buildId={build.id} service={service} />
+            <ServiceCard key={service.id} buildId={build.id} service={service} localPilot={localPilot} />
           ))}
         </div>
       </section>
@@ -324,9 +332,11 @@ function CarrierCard({ buildId, carrier }: { buildId: string; carrier: Whitelabe
 function ServiceCard({
   buildId,
   service,
+  localPilot,
 }: {
   buildId: string;
   service: WhitelabelServiceConnection;
+  localPilot: boolean;
 }) {
   const catalog = SERVICE_CATALOG[service.service_kind];
   const apiVerifiedProvider = service.service_kind === "vercel" || service.service_kind === "supabase" || service.service_kind === "email" || service.service_kind === "ai" || service.service_kind === "video";
@@ -468,19 +478,25 @@ function ServiceCard({
             <input type="hidden" name="service_kind" value={service.service_kind} />
             <input type="hidden" name="account_ref" value={service.account_ref ?? ""} />
             <input type="hidden" name="project_ref" value={service.project_ref ?? ""} />
-            <Field
-              label={`${catalog.label} temporary access credential`}
-              htmlFor={`${service.id}-provider-credential`}
-              hint="Save the account/project references above first, then run this check."
-            >
-              <Input
-                id={`${service.id}-provider-credential`}
-                name="access_token"
-                type="password"
-                autoComplete="off"
-                required
-              />
-            </Field>
+            {localPilot ? (
+              <p className="rounded-xl border border-hairline bg-card-hi px-4 py-3 text-xs text-subtle">
+                Local rehearsal verifies the saved account/project against the local pilot registry and stores a harmless local credential in Vault automatically.
+              </p>
+            ) : (
+              <Field
+                label={`${catalog.label} temporary access credential`}
+                htmlFor={`${service.id}-provider-credential`}
+                hint="Save the account/project references above first, then run this check."
+              >
+                <Input
+                  id={`${service.id}-provider-credential`}
+                  name="access_token"
+                  type="password"
+                  autoComplete="off"
+                  required
+                />
+              </Field>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Button type="submit" variant="primary">Verify {catalog.label} access</Button>
               {service.last_checked_at ? (
@@ -505,9 +521,15 @@ function ServiceCard({
           </div>
           <form action={adminVerifyOsBuildEmailAccess} className="mt-4">
             <input type="hidden" name="build_id" value={buildId} />
-            <Field label="Resend temporary API key" htmlFor={`${service.id}-resend-credential`}>
-              <Input id={`${service.id}-resend-credential`} name="access_token" type="password" autoComplete="off" required />
-            </Field>
+            {localPilot ? (
+              <p className="rounded-xl border border-hairline bg-card-hi px-4 py-3 text-xs text-subtle">
+                Local rehearsal validates the configured sender fixture without contacting Resend and stores a harmless local Vault credential automatically.
+              </p>
+            ) : (
+              <Field label="Resend temporary API key" htmlFor={`${service.id}-resend-credential`}>
+                <Input id={`${service.id}-resend-credential`} name="access_token" type="password" autoComplete="off" required />
+              </Field>
+            )}
             <Button type="submit" className="mt-4">Check Resend access</Button>
           </form>
         </div>
@@ -520,9 +542,15 @@ function ServiceCard({
           </p>
           <form action={adminVerifyOsBuildAiAccess} className="mt-4">
             <input type="hidden" name="build_id" value={buildId} />
-            <Field label="Anthropic temporary API key" htmlFor={`${service.id}-anthropic-key`}>
-              <Input id={`${service.id}-anthropic-key`} name="access_token" type="password" autoComplete="off" required />
-            </Field>
+            {localPilot ? (
+              <p className="rounded-xl border border-hairline bg-card-hi px-4 py-3 text-xs text-subtle">
+                Local rehearsal verifies the Anthropic fixture without a cloud request and stores a harmless local Vault credential automatically.
+              </p>
+            ) : (
+              <Field label="Anthropic temporary API key" htmlFor={`${service.id}-anthropic-key`}>
+                <Input id={`${service.id}-anthropic-key`} name="access_token" type="password" autoComplete="off" required />
+              </Field>
+            )}
             <Button type="submit" className="mt-4">Verify Anthropic access</Button>
           </form>
         </div>

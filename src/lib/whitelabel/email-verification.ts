@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isWhitelabelLocalPilot } from "@/lib/local-pilot";
+
 type FetchLike = typeof fetch;
 
 export type EmailVerificationResult =
@@ -25,6 +27,16 @@ export async function verifyResendSenderAccess(
 ): Promise<EmailVerificationResult> {
   const domain = senderDomain(params.emailFrom);
   if (!domain) return { ok: false, error: "The configured sender identity does not contain a valid domain." };
+
+  if (isWhitelabelLocalPilot()) {
+    return {
+      ok: true,
+      providerName: "Resend",
+      accountRef: `local-resend-${domain}`,
+      accountLabel: domain,
+      billingUrl: "https://resend.com/domains",
+    };
+  }
 
   try {
     const response = await fetchImpl("https://api.resend.com/domains?limit=100", {

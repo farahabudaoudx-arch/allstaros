@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isWhitelabelLocalPilot } from "@/lib/local-pilot";
+
 type FetchLike = typeof fetch;
 
 export type AiVerificationResult =
@@ -17,6 +19,17 @@ export async function verifyAnthropicAccess(
   apiKey: string,
   fetchImpl: FetchLike = fetch,
 ): Promise<AiVerificationResult> {
+  if (isWhitelabelLocalPilot()) {
+    return {
+      ok: true,
+      providerName: "Anthropic",
+      accountRef: "anthropic",
+      accountLabel: "Anthropic API",
+      billingUrl: "https://console.anthropic.com/settings/billing",
+      configuration: { provider: "anthropic" },
+    };
+  }
+
   try {
     const response = await fetchImpl("https://api.anthropic.com/v1/models?limit=1", {
       method: "GET",

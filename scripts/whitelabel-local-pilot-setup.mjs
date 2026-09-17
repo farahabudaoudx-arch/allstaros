@@ -15,13 +15,13 @@ const stacks = [
   {
     projectRef: "local-customer-a",
     dir: "E:\\LocalPilot\\whitelabel-customer-a",
-    canonicalAppUrl: "https://customer-a.local",
-    runtimeAppUrl: "http://127.0.0.1:3101",
+    canonicalAppUrl: "https://control-a.local",
+    runtimeAppUrl: "http://127.0.0.1:3201",
   },
   {
     projectRef: "local-customer-b",
     dir: "E:\\LocalPilot\\whitelabel-customer-b",
-    canonicalAppUrl: "https://customer-b.local",
+    canonicalAppUrl: "https://customer-a.local",
     runtimeAppUrl: "http://127.0.0.1:3102",
   },
 ];

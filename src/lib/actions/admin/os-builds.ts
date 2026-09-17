@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { writeAudit } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { isWhitelabelLocalPilot } from "@/lib/local-pilot";
 import { SERVICE_CATALOG } from "@/lib/whitelabel/catalog";
 import {
   verifySupabaseProjectAccess,
@@ -65,6 +66,15 @@ function actionDone(path: string, code: string): never {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Invalid form data.";
+}
+
+function verificationCredential(
+  formData: FormData,
+  serviceKind: "vercel" | "supabase" | "email" | "ai",
+  label: string,
+): string {
+  if (isWhitelabelLocalPilot()) return `local-pilot-${serviceKind}-credential`;
+  return requiredText(formData.get("access_token"), label, 4096);
 }
 
 function requiredBuildId(formData: FormData, path = LIST_PATH): string {
@@ -288,7 +298,7 @@ export async function adminVerifyOsBuildEmailAccess(formData: FormData) {
   const path = buildPath(buildId);
   let accessToken: string;
   try {
-    accessToken = requiredText(formData.get("access_token"), "Resend API key", 4096);
+    accessToken = verificationCredential(formData, "email", "Resend API key");
   } catch (error) {
     actionError(path, errorMessage(error));
   }
@@ -367,7 +377,7 @@ export async function adminVerifyOsBuildProviderAccess(formData: FormData) {
     }
     accountRef = safeReference(formData.get("account_ref"), "Account reference");
     projectRef = requiredText(formData.get("project_ref"), "Project reference", 300);
-    accessToken = requiredText(formData.get("access_token"), "Provider access token", 4096);
+    accessToken = verificationCredential(formData, serviceKind, "Provider access token");
     if (serviceKind === "vercel" && !accountRef) {
       throw new Error("Vercel verification needs the customer team/account reference.");
     }
@@ -468,7 +478,7 @@ export async function adminVerifyOsBuildAiAccess(formData: FormData) {
   const path = buildPath(buildId);
   let apiKey: string;
   try {
-    apiKey = requiredText(formData.get("access_token"), "Anthropic API key", 4096);
+    apiKey = verificationCredential(formData, "ai", "Anthropic API key");
   } catch (error) {
     actionError(path, errorMessage(error));
   }

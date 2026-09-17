@@ -5,8 +5,10 @@ const mocks = vi.hoisted(() => ({
   createServiceRoleClient: vi.fn(),
   writeAudit: vi.fn(),
   revalidatePath: vi.fn(),
+  localPilotEnabled: false,
   verifyVercelProjectAccess: vi.fn(),
   verifySupabaseProjectAccess: vi.fn(),
+  verifyResendSenderAccess: vi.fn(),
   verifyAnthropicAccess: vi.fn(),
   verifyBunnyVideoAccess: vi.fn(),
   redirect: vi.fn((url: string) => {
@@ -22,9 +24,13 @@ vi.mock("@/lib/admin/audit", () => ({ writeAudit: mocks.writeAudit }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/local-pilot", () => ({ isWhitelabelLocalPilot: () => mocks.localPilotEnabled }));
 vi.mock("@/lib/whitelabel/provider-verification", () => ({
   verifyVercelProjectAccess: mocks.verifyVercelProjectAccess,
   verifySupabaseProjectAccess: mocks.verifySupabaseProjectAccess,
+}));
+vi.mock("@/lib/whitelabel/email-verification", () => ({
+  verifyResendSenderAccess: mocks.verifyResendSenderAccess,
 }));
 vi.mock("@/lib/whitelabel/content-service-verification", () => ({
   verifyAnthropicAccess: mocks.verifyAnthropicAccess,
@@ -36,6 +42,7 @@ import {
   adminSaveOsBuildService,
   adminUpdateOsBuildAddition,
   adminVerifyOsBuildAiAccess,
+  adminVerifyOsBuildEmailAccess,
   adminVerifyOsBuildProviderAccess,
 } from "./os-builds";
 
@@ -103,6 +110,7 @@ function additionForm() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.localPilotEnabled = false;
   mocks.requireAdmin.mockResolvedValue({ id: "admin-1", is_admin: true, is_super_admin: false });
   mocks.writeAudit.mockResolvedValue(undefined);
   mocks.verifyVercelProjectAccess.mockResolvedValue({
@@ -121,6 +129,13 @@ beforeEach(() => {
     accountLabel: "Anthropic API",
     billingUrl: "https://console.anthropic.com/settings/billing",
     configuration: { provider: "anthropic" },
+  });
+  mocks.verifyResendSenderAccess.mockResolvedValue({
+    ok: true,
+    providerName: "Resend",
+    accountRef: "local-resend-customer-a.local",
+    accountLabel: "customer-a.local",
+    billingUrl: "https://resend.com/domains",
   });
 });
 
@@ -248,6 +263,68 @@ describe("Whitelabel OS build admin action boundary", () => {
     expect(JSON.stringify(mocks.writeAudit.mock.calls)).not.toContain("temporary-provider-credential");
   });
 
+  it("uses a harmless Vault credential for local provider verification without a secret form field", async () => {
+    mocks.localPilotEnabled = true;
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const chain = {
+      error: null,
+      eq: vi.fn(() => chain),
+      select: vi.fn(() => chain),
+      maybeSingle: vi.fn(async () => ({ data: { id: "service-1", account_label: "Local Vercel" }, error: null })),
+    };
+    const admin = {
+      rpc: vi.fn(async () => ({ data: "vault-local-provider", error: null })),
+      from: vi.fn(() => ({
+        select: vi.fn(() => chain),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updatePayloads.push(payload);
+          return chain;
+        }),
+      })),
+    };
+    mocks.createServiceRoleClient.mockReturnValue(admin);
+    mocks.verifyVercelProjectAccess.mockResolvedValueOnce({
+      ok: true,
+      providerName: "Vercel",
+      accountRef: "local",
+      accountLabel: "Local Pilot",
+      projectRef: "local-customer-b",
+      projectName: "local-customer-b",
+      billingUrl: "https://vercel.com/~/usage",
+    });
+
+    const form = new FormData();
+    form.set("build_id", BUILD_ID);
+    form.set("service_kind", "vercel");
+    form.set("account_ref", "local");
+    form.set("project_ref", "local-customer-b");
+
+    await expect(adminVerifyOsBuildProviderAccess(form)).rejects.toThrow(/REDIRECT:/);
+    expect(mocks.verifyVercelProjectAccess).toHaveBeenCalledWith({
+      accessToken: "local-pilot-vercel-credential",
+      accountRef: "local",
+      projectRef: "local-customer-b",
+    });
+    expect(admin.rpc).toHaveBeenCalledWith("store_whitelabel_service_credential", {
+      p_build_id: BUILD_ID,
+      p_service_kind: "vercel",
+      p_secret: "local-pilot-vercel-credential",
+    });
+    expect(JSON.stringify(updatePayloads)).not.toContain("local-pilot-vercel-credential");
+  });
+
+  it("still requires a real provider credential outside local pilot", async () => {
+    const form = new FormData();
+    form.set("build_id", BUILD_ID);
+    form.set("service_kind", "vercel");
+    form.set("account_ref", "team_acme");
+    form.set("project_ref", "acme-os");
+
+    await expect(adminVerifyOsBuildProviderAccess(form)).rejects.toThrow(/access%20token|required/i);
+    expect(mocks.createServiceRoleClient).not.toHaveBeenCalled();
+    expect(mocks.verifyVercelProjectAccess).not.toHaveBeenCalled();
+  });
+
   it("keeps the standard AI credential in Vault while persisting only safe adapter metadata", async () => {
     const eqCalls: EqCall[] = [];
     const updatePayloads: Array<Record<string, unknown>> = [];
@@ -298,6 +375,63 @@ describe("Whitelabel OS build admin action boundary", () => {
     expect(JSON.stringify(mocks.writeAudit.mock.calls)).not.toContain("customer-anthropic-secret");
     expect(eqCalls).toContainEqual(["build_id", BUILD_ID]);
     expect(eqCalls).toContainEqual(["service_kind", "ai"]);
+  });
+
+  it("uses harmless local Vault credentials for Resend and Anthropic without secret inputs", async () => {
+    mocks.localPilotEnabled = true;
+    const storedSecrets: Array<Record<string, unknown>> = [];
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const updateChain = {
+      error: null,
+      eq: vi.fn(() => updateChain),
+    };
+    const buildChain = {
+      eq: vi.fn(() => buildChain),
+      maybeSingle: vi.fn(async () => ({ data: { email_from: "Pilot <notifications@customer-a.local>" }, error: null })),
+    };
+    const serviceChain = {
+      eq: vi.fn(() => serviceChain),
+      maybeSingle: vi.fn(async () => ({ data: { id: "service-1" }, error: null })),
+    };
+    const admin = {
+      rpc: vi.fn(async (_name: string, payload: Record<string, unknown>) => {
+        storedSecrets.push(payload);
+        return { data: "vault-local-secret", error: null };
+      }),
+      from: vi.fn((table: string) => {
+        if (table === "whitelabel_build") return { select: vi.fn(() => buildChain) };
+        if (table === "whitelabel_service_connection") {
+          return {
+            select: vi.fn(() => serviceChain),
+            update: vi.fn((payload: Record<string, unknown>) => {
+              updatePayloads.push(payload);
+              return updateChain;
+            }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      }),
+    };
+    mocks.createServiceRoleClient.mockReturnValue(admin);
+
+    const emailForm = new FormData();
+    emailForm.set("build_id", BUILD_ID);
+    await expect(adminVerifyOsBuildEmailAccess(emailForm)).rejects.toThrow(/REDIRECT:/);
+    expect(mocks.verifyResendSenderAccess).toHaveBeenCalledWith({
+      accessToken: "local-pilot-email-credential",
+      emailFrom: "Pilot <notifications@customer-a.local>",
+    });
+
+    const aiForm = new FormData();
+    aiForm.set("build_id", BUILD_ID);
+    await expect(adminVerifyOsBuildAiAccess(aiForm)).rejects.toThrow(/REDIRECT:/);
+    expect(mocks.verifyAnthropicAccess).toHaveBeenCalledWith("local-pilot-ai-credential");
+    expect(storedSecrets).toEqual(expect.arrayContaining([
+      { p_build_id: BUILD_ID, p_service_kind: "email", p_secret: "local-pilot-email-credential" },
+      { p_build_id: BUILD_ID, p_service_kind: "ai", p_secret: "local-pilot-ai-credential" },
+    ]));
+    expect(JSON.stringify(updatePayloads)).not.toContain("local-pilot-email-credential");
+    expect(JSON.stringify(updatePayloads)).not.toContain("local-pilot-ai-credential");
   });
 
   it("does not report a stale or foreign addition id as successfully deleted", async () => {

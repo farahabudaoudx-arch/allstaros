@@ -1,9 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const localPilot = vi.hoisted(() => ({ enabled: false }));
+vi.mock("@/lib/local-pilot", () => ({
+  isWhitelabelLocalPilot: () => localPilot.enabled,
+}));
 import { verifyResendSenderAccess } from "./email-verification";
 
 describe("Resend customer access verification", () => {
+  it("verifies the local sender fixture without contacting Resend", async () => {
+    localPilot.enabled = true;
+    const fetchMock = vi.fn(async () => {
+      throw new Error("cloud fetch should not run in local pilot");
+    });
+    const result = await verifyResendSenderAccess(
+      { accessToken: "ignored", emailFrom: "Pilot <notifications@customer-a.local>" },
+      fetchMock as typeof fetch,
+    );
+    expect(result).toEqual({
+      ok: true,
+      providerName: "Resend",
+      accountRef: "local-resend-customer-a.local",
+      accountLabel: "customer-a.local",
+      billingUrl: "https://resend.com/domains",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    localPilot.enabled = false;
+  });
+
   it("verifies the configured sender domain and returns safe references only", async () => {
     const fetchMock = vi.fn(async (_input: URL | RequestInfo, init?: RequestInit) => {
       expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer re_private_customer_key");

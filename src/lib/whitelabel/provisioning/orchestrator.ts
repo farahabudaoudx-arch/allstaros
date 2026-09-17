@@ -621,9 +621,10 @@ async function executeInitialAdmin(ctx: StepContext): Promise<StepExecutionOutco
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const canonicalAppUrl = publicAppUrl(ctx.build);
-  const inviteAppUrl = isWhitelabelLocalPilot()
-    ? await localPilotRuntimeUrlForCanonical(canonicalAppUrl)
-    : canonicalAppUrl;
+  // Recording mode exposes the customer through a trusted local TLS proxy at
+  // the real canonical hostname. Keep invitations canonical too so the filmed
+  // activation flow is identical to production instead of leaking :3102 URLs.
+  const inviteAppUrl = canonicalAppUrl;
   const email = ctx.build.initial_admin_email.trim().toLowerCase();
   const { data: existingPerson, error: personLookupError } = await customer
     .from("person")

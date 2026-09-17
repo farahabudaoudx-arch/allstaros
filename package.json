@@ -16,6 +16,8 @@
     "set:passwords": "node --env-file=.env.local scripts/set-passwords.mjs",
     "email:test": "node --env-file=.env.local scripts/send-test-email.mjs",
     "gateway:runner": "node gateway-runner/server.mjs",
+    "recording:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whitelabel-recording-start.ps1",
+    "recording:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whitelabel-recording-start.ps1 -CheckOnly",
     "test:browser:gateway": "playwright test browser-tests/gateway-acceptance.spec.mjs --config=playwright.config.mjs"
   },
   "dependencies": {

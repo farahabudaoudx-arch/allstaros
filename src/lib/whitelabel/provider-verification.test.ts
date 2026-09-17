@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const localPilot = vi.hoisted(() => ({
+  enabled: false,
+  project: vi.fn(),
+}));
+vi.mock("@/lib/local-pilot", () => ({
+  isWhitelabelLocalPilot: () => localPilot.enabled,
+  localPilotProject: localPilot.project,
+}));
 
 import {
   verifySupabaseProjectAccess,
@@ -8,6 +16,31 @@ import {
 } from "./provider-verification";
 
 describe("Whitelabel provider access verification", () => {
+  it("verifies local Vercel and Supabase projects from the rehearsal registry without cloud fetches", async () => {
+    localPilot.enabled = true;
+    localPilot.project.mockResolvedValue({
+      projectRef: "local-customer-b",
+      accountRef: "local",
+    });
+    const fetchMock = vi.fn(async () => {
+      throw new Error("cloud fetch should not run in local pilot");
+    });
+
+    const vercel = await verifyVercelProjectAccess(
+      { accessToken: "ignored", accountRef: "local", projectRef: "local-customer-b" },
+      fetchMock as typeof fetch,
+    );
+    const supabase = await verifySupabaseProjectAccess(
+      { accessToken: "ignored", accountRef: "local", projectRef: "local-customer-b" },
+      fetchMock as typeof fetch,
+    );
+
+    expect(vercel).toMatchObject({ ok: true, providerName: "Vercel", accountRef: "local", projectRef: "local-customer-b" });
+    expect(supabase).toMatchObject({ ok: true, providerName: "Supabase", accountRef: "local", projectRef: "local-customer-b" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    localPilot.enabled = false;
+  });
+
   it("verifies the exact Vercel team/project and returns only safe references", async () => {
     const fetchMock = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
       const url = new URL(String(input));

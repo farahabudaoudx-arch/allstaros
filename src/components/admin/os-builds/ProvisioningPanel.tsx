@@ -67,7 +67,13 @@ export function ProvisioningPanel({
             </div>
             <div className="rounded-xl border border-hairline bg-card-hi p-3">
               <span className="block text-xs uppercase tracking-[0.14em] text-mute">Current step</span>
-              <span className="mt-1 block text-ink">{state.run.current_step ? PROVISIONING_STEP_LABELS[state.run.current_step] : "Not started"}</span>
+              <span className="mt-1 block text-ink">
+                {state.run.current_step
+                  ? PROVISIONING_STEP_LABELS[state.run.current_step]
+                  : state.run.status === "succeeded"
+                    ? "Completed"
+                    : "Not started"}
+              </span>
             </div>
             <div className="rounded-xl border border-hairline bg-card-hi p-3">
               <span className="block text-xs uppercase tracking-[0.14em] text-mute">Deployment</span>
@@ -90,6 +96,23 @@ export function ProvisioningPanel({
               </div>
             ))}
           </div>
+
+          {state.run.status === "succeeded" && view.localInitialAdminSetupUrl ? (
+            <div className="mt-5 rounded-xl border border-accent/25 bg-accent/[0.04] p-4">
+              <h3 className="text-sm font-semibold text-ink">Local recording · initial admin</h3>
+              <p className="mt-1 text-xs text-subtle">
+                Open the customer setup invitation exactly as the customer would after provisioning. This control is available only in the local recording environment.
+              </p>
+              <a
+                href={view.localInitialAdminSetupUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex rounded-full border border-accent/50 px-4 py-2 text-sm font-semibold text-accent transition hover:bg-accent/10"
+              >
+                Open initial admin setup
+              </a>
+            </div>
+          ) : null}
 
           {state.run.status !== "succeeded" && state.run.status !== "cancelled" ? (
             <form action={adminRunNextOsBuildProvisioning} className="mt-5">

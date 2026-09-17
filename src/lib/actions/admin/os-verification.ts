@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/guard";
 import { writeAudit } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -45,6 +45,7 @@ function errorMessage(error: unknown): string {
 }
 
 function fail(path: string, error: unknown): never {
+  unstable_rethrow(error);
   redirect(`${path}?error=${encodeURIComponent(errorMessage(error))}`);
 }
 

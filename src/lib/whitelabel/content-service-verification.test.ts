@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const localPilot = vi.hoisted(() => ({ enabled: false }));
+vi.mock("@/lib/local-pilot", () => ({
+  isWhitelabelLocalPilot: () => localPilot.enabled,
+}));
 
 import {
   verifyAnthropicAccess,
@@ -8,6 +12,22 @@ import {
 } from "./content-service-verification";
 
 describe("Whitelabel content-service verification", () => {
+  it("verifies the local Anthropic fixture without a cloud request", async () => {
+    localPilot.enabled = true;
+    const fetchMock = vi.fn(async () => {
+      throw new Error("cloud fetch should not run in local pilot");
+    });
+    const result = await verifyAnthropicAccess("ignored", fetchMock as typeof fetch);
+    expect(result).toMatchObject({
+      ok: true,
+      providerName: "Anthropic",
+      accountRef: "anthropic",
+      configuration: { provider: "anthropic" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    localPilot.enabled = false;
+  });
+
   it("verifies Anthropic without returning the API key", async () => {
     const fetchMock = vi.fn(async (_input: URL | RequestInfo, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
