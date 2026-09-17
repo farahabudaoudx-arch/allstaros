@@ -7,6 +7,7 @@ const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const uploadSourceMaps = Boolean(sentryAuthToken);
 
 const deploymentId = process.env.NEXT_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev";
+const localRecordingDevOrigin = process.env.WHITELABEL_LOCAL_PILOT === "1" ? ["customer-a.local"] : undefined;
 
 const nextConfig: NextConfig = {
   // Brand asset uploads are handled by Server Actions. The logo action accepts
@@ -20,6 +21,11 @@ const nextConfig: NextConfig = {
   // Hide the on-screen dev route indicator (bottom-left "N"). Build/runtime
   // errors are still surfaced. (Next 16 removed the old sub-options.)
   devIndicators: false,
+  // The recording customer is served through a trusted local HTTPS reverse
+  // proxy while its isolated runtime stays on a loopback Next dev server.
+  // Opt this origin in only for the explicit local-pilot mode so HMR/navigation
+  // never hits Next's cross-origin dev-resource block during a recording.
+  ...(localRecordingDevOrigin ? { allowedDevOrigins: localRecordingDevOrigin } : {}),
   // Next locks the dist dir to one dev server. A second local instance (e.g.
   // side-by-side role previews on another port) sets NEXT_DIST_DIR to get its
   // own build folder. Unset (all normal use and prod builds) means ".next".

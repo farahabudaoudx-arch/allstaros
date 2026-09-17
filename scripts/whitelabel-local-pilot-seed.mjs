@@ -13,7 +13,11 @@ if (!url || !serviceKey || process.env.WHITELABEL_LOCAL_PILOT !== "1") {
 
 const suffix = target.toUpperCase();
 const domain = `customer-${target}.local`;
-const projectRef = `local-customer-${target}`;
+// Recording topology can intentionally map a logical customer name/domain to a
+// different physical local Supabase project (for example customer-a.local ->
+// local-customer-b while local-customer-a hosts the Assembly Line control DB).
+// Keep the historical target-derived default for ordinary local-pilot use.
+const projectRef = process.env.WHITELABEL_LOCAL_TARGET_PROJECT_REF || `local-customer-${target}`;
 const adminEmail = `owner-${target}@allstar.test`;
 const now = new Date().toISOString();
 const client = createClient(url, serviceKey, {

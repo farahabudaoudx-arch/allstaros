@@ -4,6 +4,13 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(path.join(process.cwd(), "src", "lib", "actions", "admin", "os-updates.ts"), "utf8");
 
+function actionSource(name: string): string {
+  const start = source.indexOf(`export async function ${name}`);
+  expect(start, name).toBeGreaterThanOrEqual(0);
+  const next = source.indexOf("\nexport async function ", start + 1);
+  return source.slice(start, next >= 0 ? next : source.length);
+}
+
 describe("Ticket 6 admin update actions", () => {
   it("authorizes every public admin action before constructing the update persistence port", () => {
     const actions = [...source.matchAll(/export async function (admin\w+)\([^]*?\n\}/g)];
@@ -49,5 +56,32 @@ describe("Ticket 6 admin update actions", () => {
 
   it("does not add email or cron execution to Ticket 6 admin actions", () => {
     expect(source).not.toMatch(/resend|sendEmail|cron_secret|scheduleCron/i);
+  });
+
+  it("keeps Operations, Independent, Rejoin, Update, and Recovery success redirects outside catches", () => {
+    const lifecycleActions = [
+      "adminBootstrapOsOperations",
+      "adminTransitionOsMaintenance",
+      "adminEnterOsIndependentOperation",
+      "adminBeginOsCompatibilityRejoin",
+      "adminSyncOsEntitlements",
+      "adminScheduleOsUpdate",
+      "adminAdvanceOsUpdate",
+      "adminStartOsRecovery",
+    ];
+
+    for (const name of lifecycleActions) {
+      const body = actionSource(name);
+      const tryIndex = body.indexOf("try {");
+      const catchIndex = body.lastIndexOf("} catch (error) {");
+      const successRedirectIndex = body.lastIndexOf("done(");
+      const guardIndex = body.indexOf("requireAdmin(");
+
+      expect(guardIndex, `${name}: admin guard`).toBeGreaterThanOrEqual(0);
+      expect(guardIndex, `${name}: guard before try`).toBeLessThan(tryIndex);
+      expect(catchIndex, `${name}: catch`).toBeGreaterThan(tryIndex);
+      expect(successRedirectIndex, `${name}: success redirect`).toBeGreaterThan(catchIndex);
+      expect(body.slice(tryIndex, catchIndex), `${name}: redirect inside try`).not.toContain("done(");
+    }
   });
 });
