@@ -10,6 +10,7 @@
 - Control Plane direct-source implementation: 61f5024aed7e25ca7dc742dc5275eda0dd10343e
 - Control Plane handoff evidence: fdc3b88c5afd59950cbba75e778c8bd54f9e415d
 - Control Plane final local-QA hardening: 2a1cdc1ff4659e94c0c03c904f91eb0d719232be
+- Control Plane final handoff helpers: dcece2bbbb4180ced10d45265c9a7d303b2fe262
 
 All commits above were authored/committed as:
 
@@ -45,6 +46,13 @@ Farahabudaoud-arch <Farahabudaoudx@gmail.com>
 ## Fast QA entry point
 
 In the standalone Control Plane repo run:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-local-supabase-env.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/qa-handoff.ps1
+
+The first command refreshes only the ignored local Supabase URL/keys and prints no credential values. The second command verifies the complete handoff gate, including Docker runtime state and that all six Control Plane migrations are applied.
+
+Or, if `.env.local` is already synchronized, run only:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/qa-handoff.ps1
 
