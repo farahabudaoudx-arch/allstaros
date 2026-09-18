@@ -75,9 +75,8 @@
 
 - Assembly Line control-plane migrations.
 - sample/demo seed migrations.
-- Gateway migrations.
 
-وهذا يمنع أن customer installation تحمل internal control-plane tables أو Gateway-specific infrastructure بالخطأ.
+أما Gateway migrations التي تمثل product runtime مدعومًا للعميل فهي جزء من customer migration manifest بشكل صريح ومختبر. هذا يمنع أن customer installation تحمل internal control-plane tables بالخطأ، وفي نفس الوقت يحافظ على ميزات Gateway عندما تكون جزءًا من Product Baseline المعتمد.
 
 ### 6. لا يتم clone لـ All Star production DB
 
@@ -188,7 +187,7 @@ Ticket 5 أضاف فوق ذلك تحققًا أقوى من `/api/version` للـ
 - provisioning SQL lifecycle.
 - plan ordering.
 - clean migration allowlist.
-- منع control-plane/Gateway migrations من customer schema.
+- منع control-plane/demo migrations من customer schema، مع تصنيف Gateway product migrations صراحةً ضمن customer schema.
 - clean customer data assertions.
 - content/service configuration integration.
 - resume behavior على مستوى orchestration contracts.

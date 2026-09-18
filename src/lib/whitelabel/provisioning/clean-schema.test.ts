@@ -8,6 +8,10 @@ import {
   CLEAN_CUSTOMER_DATA_SQL,
   CLEAN_CUSTOMER_MIGRATIONS,
   CLEANUP_MIGRATION_KEY,
+  CONTROL_PLANE_MIGRATIONS,
+  DEMO_SEED_MIGRATIONS,
+  GATEWAY_CUSTOMER_MIGRATIONS,
+  WHITELABEL_CUSTOMER_MIGRATIONS,
   migrationMarkerSql,
 } from "./clean-schema";
 import { CURRENT_CUSTOMER_SCHEMA_RELEASE } from "../verification";
@@ -29,23 +33,39 @@ describe("clean customer schema manifest", () => {
     expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260702000200_gateway_issued_premium.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260903000200_gateway_connections.sql");
     expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260905000100_gateway_runner_hardening.sql");
+    expect(CLEAN_CUSTOMER_MIGRATIONS).toContain("20260914000100_gateway_report_pull_artifacts.sql");
   });
 
   it("includes every product migration except explicit demo seeds and control-plane migrations", () => {
-    const excluded = new Set([
-      "20260601000300_producer_sales_seed.sql",
-      "20260601000400_producer_leaderboard_seed.sql",
-      "20260914001000_whitelabel_intake.sql",
-      "20260914003000_whitelabel_provisioning.sql",
-      "20260914005000_whitelabel_verification_handoff.sql",
-      "20260915001000_whitelabel_updates_independent_operation.sql",
-    ]);
+    const excluded = new Set<string>([...DEMO_SEED_MIGRATIONS, ...CONTROL_PLANE_MIGRATIONS]);
     const migrationDir = path.join(process.cwd(), "supabase", "migrations");
     const expected = readdirSync(migrationDir)
       .filter((name) => name.endsWith(".sql") && !excluded.has(name))
       .sort();
 
     expect([...CLEAN_CUSTOMER_MIGRATIONS].sort()).toEqual(expected);
+  });
+
+  it("classifies every migration into exactly one ownership bucket", () => {
+    const migrationDir = path.join(process.cwd(), "supabase", "migrations");
+    const files = readdirSync(migrationDir).filter((name) => name.endsWith(".sql")).sort();
+    const customer = new Set<string>(CLEAN_CUSTOMER_MIGRATIONS);
+    const control = new Set<string>(CONTROL_PLANE_MIGRATIONS);
+    const demo = new Set<string>(DEMO_SEED_MIGRATIONS);
+
+    for (const name of files) {
+      const memberships = [customer.has(name), control.has(name), demo.has(name)].filter(Boolean);
+      expect(memberships, name).toHaveLength(1);
+    }
+  });
+
+  it("keeps Gateway and Whitelabel runtime migrations explicitly classified as customer schema", () => {
+    for (const name of GATEWAY_CUSTOMER_MIGRATIONS) {
+      expect(CLEAN_CUSTOMER_MIGRATIONS, name).toContain(name);
+    }
+    for (const name of WHITELABEL_CUSTOMER_MIGRATIONS) {
+      expect(CLEAN_CUSTOMER_MIGRATIONS, name).toContain(name);
+    }
   });
 
   it("keeps the live version schema marker pinned to the final customer migration", () => {

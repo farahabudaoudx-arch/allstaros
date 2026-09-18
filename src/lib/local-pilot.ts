@@ -6,6 +6,7 @@ import path from "node:path";
 export type LocalPilotProject = {
   projectRef: string;
   accountRef: string;
+  role: "control-plane-local" | "customer-local";
   apiUrl: string;
   dbUrl: string;
   publishableKey: string;
@@ -25,6 +26,18 @@ export type LocalPilotDeploymentState = {
 type LocalPilotRegistry = {
   projects: LocalPilotProject[];
 };
+
+function assertLoopbackUrl(value: string, label: string, projectRef: string): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Local pilot project ${projectRef} has an invalid ${label}.`);
+  }
+  if (!["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) {
+    throw new Error(`Local pilot project ${projectRef} has a non-loopback ${label}; refusing local-only access.`);
+  }
+}
 
 function isExplicitLoopbackNextStart(): boolean {
   if (process.env.WHITELABEL_LOCAL_PILOT_ALLOW_NEXT_START !== "1") return false;
@@ -67,7 +80,15 @@ async function loadRegistry(): Promise<LocalPilotRegistry> {
   const raw = await readFile(/* turbopackIgnore: true */ registryPath(), "utf8");
   const parsed = JSON.parse(raw) as Partial<LocalPilotRegistry>;
   if (!Array.isArray(parsed.projects)) throw new Error("Local pilot registry is missing projects[].");
-  return { projects: parsed.projects as LocalPilotProject[] };
+  const projects = parsed.projects as LocalPilotProject[];
+  for (const project of projects) {
+    if (project.role !== "control-plane-local" && project.role !== "customer-local") {
+      throw new Error(`Local pilot project ${project.projectRef ?? "unknown"} is missing a valid explicit role.`);
+    }
+    assertLoopbackUrl(project.apiUrl, "apiUrl", project.projectRef);
+    assertLoopbackUrl(project.dbUrl, "dbUrl", project.projectRef);
+  }
+  return { projects };
 }
 
 export async function localPilotProject(projectRef: string): Promise<LocalPilotProject> {

@@ -12,6 +12,7 @@ const panelSource = readFileSync(
 );
 const buildScript = readFileSync(path.join(process.cwd(), "scripts", "whitelabel-local-demo-build.mjs"), "utf8");
 const startScript = readFileSync(path.join(process.cwd(), "scripts", "whitelabel-local-demo-start.mjs"), "utf8");
+const setupScript = readFileSync(path.join(process.cwd(), "scripts", "whitelabel-local-pilot-setup.mjs"), "utf8");
 
 describe("OS provisioning admin flow", () => {
   it("auto-advances both new and resumed provisioning until the orchestrator pauses", () => {
@@ -40,5 +41,8 @@ describe("OS provisioning admin flow", () => {
   it("forces the local demo onto local-pilot provider adapters", () => {
     expect(buildScript).toContain('WHITELABEL_LOCAL_PILOT: "1"');
     expect(startScript).toContain('WHITELABEL_LOCAL_PILOT: "1"');
+    expect(setupScript).toContain('"WHITELABEL_LOCAL_ONLY=1"');
+    expect(setupScript).toContain('role: "control-plane-local"');
+    expect(setupScript.match(/role: "customer-local"/g)?.length).toBe(2);
   });
 });

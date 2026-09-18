@@ -19,11 +19,12 @@ function localPilotContext() {
   const root = process.env.WHITELABEL_LOCAL_PILOT_ROOT || "E:\\LocalPilot\\whitelabel-pilot";
   const registryPath = process.env.WHITELABEL_LOCAL_PILOT_REGISTRY || path.join(root, "registry.json");
   const registry = JSON.parse(readFileSync(registryPath, "utf8")) as {
-    projects: Array<{ projectRef: string; apiUrl: string; secretKey?: string }>;
+    projects: Array<{ projectRef: string; role?: string; apiUrl: string; secretKey?: string }>;
   };
   const controlProjectRef = process.env.WHITELABEL_LOCAL_CONTROL_PROJECT_REF || "local-control";
   const localControl = registry.projects.find((row) => row.projectRef === controlProjectRef);
   assert(localControl, "Local control-plane registry entry is missing.");
+  assert(localControl.role === "control-plane-local", "Local control-plane registry entry has the wrong role.");
   const envUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || localControl.apiUrl).replace(/\/+$/, "");
   const localUrl = localControl.apiUrl.replace(/\/+$/, "");
   assert(envUrl === localUrl, "Refusing handoff write: current Supabase URL is not the registered local-control project.");

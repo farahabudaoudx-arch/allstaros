@@ -6,6 +6,10 @@ import {
   localPilotProject,
   localPilotSupabaseApiUrl,
 } from "@/lib/local-pilot";
+import {
+  assertLocalWhitelabelMutationTarget,
+  assertRemoteWhitelabelMutationAllowed,
+} from "@/lib/whitelabel/environment-safety";
 
 const API = "https://api.supabase.com/v1";
 
@@ -92,6 +96,12 @@ export async function runSupabaseSql(params: {
 }): Promise<unknown> {
   if (isWhitelabelLocalPilot()) {
     const project = await localPilotProject(params.projectRef);
+    assertLocalWhitelabelMutationTarget({
+      projectRef: params.projectRef,
+      role: project.role,
+      operation: "Supabase SQL mutation",
+      expectedRole: "customer-local",
+    });
     const client = new Client({ connectionString: project.dbUrl });
     await client.connect();
     try {
@@ -101,6 +111,11 @@ export async function runSupabaseSql(params: {
       await client.end();
     }
   }
+  assertRemoteWhitelabelMutationAllowed({
+    provider: "supabase",
+    projectRef: params.projectRef,
+    operation: "Supabase SQL mutation",
+  });
   const response = await request(params.token, `/projects/${encodeURIComponent(params.projectRef)}/database/query`, {
     method: "POST",
     body: JSON.stringify({ query: params.query, parameters: params.parameters ?? [] }),
@@ -133,7 +148,21 @@ export async function updateSupabaseAuthConfig(params: {
   projectRef: string;
   siteUrl: string;
 }) {
-  if (isWhitelabelLocalPilot()) return;
+  if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    assertLocalWhitelabelMutationTarget({
+      projectRef: params.projectRef,
+      role: project.role,
+      operation: "Supabase auth configuration mutation",
+      expectedRole: "customer-local",
+    });
+    return;
+  }
+  assertRemoteWhitelabelMutationAllowed({
+    provider: "supabase",
+    projectRef: params.projectRef,
+    operation: "Supabase auth configuration mutation",
+  });
   const response = await request(params.token, `/projects/${encodeURIComponent(params.projectRef)}/config/auth`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -153,7 +182,23 @@ export async function uploadSupabaseStorageObject(params: {
   contentType: string;
   body: ArrayBuffer;
 }) {
-  const baseUrl = isWhitelabelLocalPilot()
+  const localPilot = isWhitelabelLocalPilot();
+  if (localPilot) {
+    const project = await localPilotProject(params.projectRef);
+    assertLocalWhitelabelMutationTarget({
+      projectRef: params.projectRef,
+      role: project.role,
+      operation: "Supabase Storage mutation",
+      expectedRole: "customer-local",
+    });
+  } else {
+    assertRemoteWhitelabelMutationAllowed({
+      provider: "supabase",
+      projectRef: params.projectRef,
+      operation: "Supabase Storage mutation",
+    });
+  }
+  const baseUrl = localPilot
     ? await localPilotSupabaseApiUrl(params.projectRef)
     : `https://${params.projectRef}.supabase.co`;
   const response = await fetch(

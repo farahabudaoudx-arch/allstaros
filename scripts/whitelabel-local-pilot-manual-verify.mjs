@@ -9,6 +9,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function assertLoopbackUrl(value, label) {
+  const url = new URL(value);
+  assert(["127.0.0.1", "localhost", "[::1]"].includes(url.hostname), `${label} must be loopback-only for the local pilot.`);
+}
+
 async function waitForPerson(client, email) {
   for (let i = 0; i < 40; i += 1) {
     const { data, error } = await client.from("person").select("id, email").ilike("email", email).maybeSingle();
@@ -154,18 +159,30 @@ async function main() {
   const root = process.env.WHITELABEL_LOCAL_PILOT_ROOT || "E:\\LocalPilot\\whitelabel-pilot";
   const registryPath = process.env.WHITELABEL_LOCAL_PILOT_REGISTRY || path.join(root, "registry.json");
   const registry = JSON.parse(readFileSync(registryPath, "utf8"));
-  const controlProjectRef = process.env.WHITELABEL_LOCAL_CONTROL_PROJECT_REF || "local-customer-a";
+  const controlProjectRef = process.env.WHITELABEL_LOCAL_CONTROL_PROJECT_REF || "local-control";
   const controlProject = registry.projects.find((row) => row.projectRef === controlProjectRef);
   assert(controlProject, `Local control-plane registry entry ${controlProjectRef} is required.`);
+  assert(controlProject.role === "control-plane-local", `${controlProjectRef} is not classified as the local control plane.`);
+  assertLoopbackUrl(controlProject.apiUrl, "Control-plane apiUrl");
+  assertLoopbackUrl(controlProject.dbUrl, "Control-plane dbUrl");
   const controlUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || controlProject.apiUrl;
   const controlKey = process.env.SUPABASE_SERVICE_ROLE_KEY || controlProject.secretKey;
   if (!controlUrl || !controlKey) throw new Error("Local control-plane env is incomplete.");
+  assert(
+    controlUrl.replace(/\/+$/, "") === controlProject.apiUrl.replace(/\/+$/, ""),
+    "Refusing manual verification: current Supabase URL is not the registered local-control project.",
+  );
   const targetProjectRef = process.env.WHITELABEL_LOCAL_TARGET_PROJECT_REF || "local-customer-a";
   const isolationProjectRef = process.env.WHITELABEL_LOCAL_ISOLATION_PROJECT_REF
     || (targetProjectRef === "local-customer-a" ? "local-customer-b" : "local-customer-a");
   const customerA = registry.projects.find((row) => row.projectRef === targetProjectRef);
   const customerB = registry.projects.find((row) => row.projectRef === isolationProjectRef);
   assert(customerA && customerB, "Local Customer A/B registry entries are required.");
+  assert(customerA.role === "customer-local" && customerB.role === "customer-local", "Local Customer A/B must be classified as customer-local.");
+  for (const customerProject of [customerA, customerB]) {
+    assertLoopbackUrl(customerProject.apiUrl, `${customerProject.projectRef} apiUrl`);
+    assertLoopbackUrl(customerProject.dbUrl, `${customerProject.projectRef} dbUrl`);
+  }
   const deployment = JSON.parse(readFileSync(path.join(root, "deployments", `${targetProjectRef}.json`), "utf8"));
   const base = customerA.runtimeAppUrl.replace(/\/+$/, "");
   const browserBaseUrl = new URL(base);

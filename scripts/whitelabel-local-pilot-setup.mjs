@@ -8,18 +8,21 @@ const supabase = process.env.SUPABASE_CLI || "supabase";
 const stacks = [
   {
     projectRef: "local-control",
+    role: "control-plane-local",
     dir: "E:\\LocalPilot\\whitelabel-control",
     canonicalAppUrl: "https://control.local",
     runtimeAppUrl: "http://127.0.0.1:3000",
   },
   {
     projectRef: "local-customer-a",
+    role: "customer-local",
     dir: "E:\\LocalPilot\\whitelabel-customer-a",
     canonicalAppUrl: "https://control-a.local",
     runtimeAppUrl: "http://127.0.0.1:3201",
   },
   {
     projectRef: "local-customer-b",
+    role: "customer-local",
     dir: "E:\\LocalPilot\\whitelabel-customer-b",
     canonicalAppUrl: "https://customer-a.local",
     runtimeAppUrl: "http://127.0.0.1:3102",
@@ -42,6 +45,7 @@ const projects = stacks.map((stack) => {
   return {
     projectRef: stack.projectRef,
     accountRef: "local",
+    role: stack.role,
     apiUrl: value.API_URL,
     dbUrl: value.DB_URL,
     publishableKey: value.PUBLISHABLE_KEY,
@@ -66,6 +70,7 @@ const env = [
   "DEV_LOGIN_ENABLED=true",
   "DEV_LOGIN_PASSWORD=allstar-dev-login",
   "WHITELABEL_LOCAL_PILOT=1",
+  "WHITELABEL_LOCAL_ONLY=1",
   `WHITELABEL_LOCAL_PILOT_ROOT=${root}`,
   `WHITELABEL_LOCAL_PILOT_REGISTRY=${registryPath}`,
   `WHITELABEL_SOURCE_SHA=${sourceSha}`,

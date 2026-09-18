@@ -3,9 +3,14 @@ import "server-only";
 import {
   isWhitelabelLocalPilot,
   localPilotCanonicalAppUrl,
+  localPilotProject,
   patchLocalPilotDeploymentState,
   readLocalPilotDeploymentState,
 } from "@/lib/local-pilot";
+import {
+  assertLocalWhitelabelMutationTarget,
+  assertRemoteWhitelabelMutationAllowed,
+} from "@/lib/whitelabel/environment-safety";
 
 const API = "https://api.vercel.com";
 
@@ -42,11 +47,23 @@ export async function upsertVercelEnvironment(params: {
   values: Array<{ key: string; value: string; sensitive?: boolean }>;
 }) {
   if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    assertLocalWhitelabelMutationTarget({
+      projectRef: params.projectRef,
+      role: project.role,
+      operation: "Vercel environment mutation",
+      expectedRole: "customer-local",
+    });
     await patchLocalPilotDeploymentState(params.projectRef, {
       environment: Object.fromEntries(params.values.map((item) => [item.key, item.value])),
     });
     return;
   }
+  assertRemoteWhitelabelMutationAllowed({
+    provider: "vercel",
+    projectRef: params.projectRef,
+    operation: "Vercel environment mutation",
+  });
   const response = await request(
     params.token,
     `/v10/projects/${encodeURIComponent(params.projectRef)}/env${teamQuery(params.teamId)}&upsert=true`,
@@ -74,6 +91,13 @@ export async function createVercelGitDeployment(params: {
   sourceSha: string;
 }) {
   if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    assertLocalWhitelabelMutationTarget({
+      projectRef: params.projectRef,
+      role: project.role,
+      operation: "Vercel deployment",
+      expectedRole: "customer-local",
+    });
     const canonical = await localPilotCanonicalAppUrl(params.projectRef);
     if (!canonical) throw new Error(`Local pilot Vercel project ${params.projectRef} has no canonicalAppUrl.`);
     const deploymentRef = `local:${params.projectRef}:${params.sourceSha.slice(0, 12)}`;
@@ -84,6 +108,11 @@ export async function createVercelGitDeployment(params: {
     });
     return { id: deploymentRef, url: canonical, readyState: "READY" };
   }
+  assertRemoteWhitelabelMutationAllowed({
+    provider: "vercel",
+    projectRef: params.projectRef,
+    operation: "Vercel deployment",
+  });
   const response = await request(params.token, `/v13/deployments${teamQuery(params.teamId)}`, {
     method: "POST",
     body: JSON.stringify({
@@ -126,6 +155,13 @@ export async function ensureVercelProjectDomain(params: {
   domain: string;
 }) {
   if (isWhitelabelLocalPilot()) {
+    const project = await localPilotProject(params.projectRef);
+    assertLocalWhitelabelMutationTarget({
+      projectRef: params.projectRef,
+      role: project.role,
+      operation: "Vercel domain mutation",
+      expectedRole: "customer-local",
+    });
     const canonical = await localPilotCanonicalAppUrl(params.projectRef);
     const expected = `https://${params.domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
     return {
@@ -134,6 +170,11 @@ export async function ensureVercelProjectDomain(params: {
       verification: canonical === expected ? [] : [{ type: "local_pilot", expected, configured: canonical }],
     };
   }
+  assertRemoteWhitelabelMutationAllowed({
+    provider: "vercel",
+    projectRef: params.projectRef,
+    operation: "Vercel domain mutation",
+  });
   const project = encodeURIComponent(params.projectRef);
   const domain = encodeURIComponent(params.domain);
   let response = await request(params.token, `/v9/projects/${project}/domains/${domain}${teamQuery(params.teamId)}`);

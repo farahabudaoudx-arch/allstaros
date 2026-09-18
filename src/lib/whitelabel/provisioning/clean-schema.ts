@@ -73,6 +73,37 @@ export const CLEAN_CUSTOMER_MIGRATIONS = [
   "20260904000600_scorecard_auto_publish.sql",
   "20260905000100_gateway_runner_hardening.sql",
   "20260909000100_live_leaderboard_capabilities.sql",
+  "20260914000100_gateway_report_pull_artifacts.sql",
+  "20260914002000_installation_config.sql",
+  "20260914004000_whitelabel_content_services.sql",
+] as const;
+
+export const CONTROL_PLANE_MIGRATIONS = [
+  "20260914001000_whitelabel_intake.sql",
+  "20260914003000_whitelabel_provisioning.sql",
+  "20260914005000_whitelabel_verification_handoff.sql",
+  "20260915001000_whitelabel_updates_independent_operation.sql",
+] as const;
+
+export const DEMO_SEED_MIGRATIONS = [
+  "20260601000300_producer_sales_seed.sql",
+  "20260601000400_producer_leaderboard_seed.sql",
+] as const;
+
+export const GATEWAY_CUSTOMER_MIGRATIONS = [
+  "20260702000200_gateway_issued_premium.sql",
+  "20260903000200_gateway_connections.sql",
+  "20260903000300_gateway_connection_reminders.sql",
+  "20260904000100_gateway_connection_reminder_fixes.sql",
+  "20260904000200_gateway_report_pull_jobs.sql",
+  "20260904000300_gateway_report_pull_claim_fix.sql",
+  "20260904000400_gateway_report_pull_queue_limits.sql",
+  "20260904000500_gateway_report_pull_fencing.sql",
+  "20260905000100_gateway_runner_hardening.sql",
+  "20260914000100_gateway_report_pull_artifacts.sql",
+] as const;
+
+export const WHITELABEL_CUSTOMER_MIGRATIONS = [
   "20260914002000_installation_config.sql",
   "20260914004000_whitelabel_content_services.sql",
 ] as const;

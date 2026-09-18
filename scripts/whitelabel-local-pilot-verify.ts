@@ -4,6 +4,7 @@ import type {
   WhitelabelBuildAddition,
   WhitelabelServiceConnection,
 } from "@/lib/whitelabel/types";
+import { localPilotProject } from "@/lib/local-pilot";
 
 async function main() {
   const target = (process.argv[2] ?? "a").toLowerCase();
@@ -17,6 +18,14 @@ async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) throw new Error("Local control-plane env is incomplete.");
+  const controlProjectRef = process.env.WHITELABEL_LOCAL_CONTROL_PROJECT_REF || "local-control";
+  const controlProject = await localPilotProject(controlProjectRef);
+  if (controlProject.role !== "control-plane-local") {
+    throw new Error(`Refusing verification: ${controlProjectRef} is not the local control-plane project.`);
+  }
+  if (url.replace(/\/+$/, "") !== controlProject.apiUrl.replace(/\/+$/, "")) {
+    throw new Error("Refusing verification: current Supabase URL is not the registered local-control project.");
+  }
 
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
