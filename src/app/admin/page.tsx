@@ -79,16 +79,7 @@ function SectionCard({ s }: { s: Section }) {
 export default async function AdminHomePage() {
   const person = await requireAdmin();
   const isSuper = person.is_super_admin;
-  const sections: Section[] = process.env.WHITELABEL_ASSEMBLY_LINE_ENABLED === "1"
-    ? [
-        {
-          name: "OS Assembly Line",
-          description: "Create customer builds, track intake, service access, purchased work, and readiness.",
-          href: "/admin/os-builds",
-        },
-        ...SECTIONS,
-      ]
-    : SECTIONS;
+  const sections: Section[] = SECTIONS;
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 md:px-10 md:py-14">

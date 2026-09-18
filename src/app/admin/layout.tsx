@@ -15,10 +15,6 @@ function buildNav(isSuperAdmin: boolean): NavItem[] {
     { label: "Dashboard", href: "/admin" },
   ];
 
-  if (process.env.WHITELABEL_ASSEMBLY_LINE_ENABLED === "1") {
-    nav.push({ label: "OS Assembly Line", href: "/admin/os-builds" });
-  }
-
   nav.push(
     {
       label: "People",

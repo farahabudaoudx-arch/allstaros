@@ -16,8 +16,6 @@
     "set:passwords": "node --env-file=.env.local scripts/set-passwords.mjs",
     "email:test": "node --env-file=.env.local scripts/send-test-email.mjs",
     "gateway:runner": "node gateway-runner/server.mjs",
-    "recording:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whitelabel-recording-start.ps1",
-    "recording:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whitelabel-recording-start.ps1 -CheckOnly",
     "test:browser:gateway": "playwright test browser-tests/gateway-acceptance.spec.mjs --config=playwright.config.mjs"
   },
   "dependencies": {
@@ -35,7 +33,6 @@
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.34.0",
     "next": "16.3.4",
-    "pg": "^8.16.3",
     "playwright": "^1.63.0",
     "posthog-js": "^1.386.6",
     "react": "19.2.4",
@@ -53,7 +50,6 @@
     "@types/canvas-confetti": "^1.9.0",
     "@types/d3-geo": "3.1.1",
     "@types/node": "^20",
-    "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/topojson-client": "3.1.5",
