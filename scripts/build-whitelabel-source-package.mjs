@@ -21,11 +21,25 @@ if (!requestedSha || !output) {
 }
 
 const sourceSha = execFileSync("git", ["rev-parse", "--verify", `${requestedSha}^{commit}`], { encoding: "utf8" }).trim();
-const cleanSchemaSource = execFileSync("git", ["show", `${sourceSha}:src/lib/whitelabel/provisioning/clean-schema.ts`], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 });
-const migrationsBlock = cleanSchemaSource.match(/CLEAN_CUSTOMER_MIGRATIONS\s*=\s*\[([\s\S]*?)\]\s*as const/);
-if (!migrationsBlock) throw new Error("Could not read the clean customer migration manifest from the requested source SHA.");
-const customerMigrations = [...migrationsBlock[1].matchAll(/"([^"]+\.sql)"/g)].map((match) => match[1]);
-if (customerMigrations.length === 0) throw new Error("Clean customer migration manifest is empty.");
+const productManifestRaw = execFileSync(
+  "git",
+  ["show", `${sourceSha}:config/whitelabel-customer-migrations.json`],
+  { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
+);
+const productManifest = JSON.parse(productManifestRaw);
+if (
+  productManifest?.formatVersion !== 1
+  || !Array.isArray(productManifest.customerMigrations)
+  || productManifest.customerMigrations.length === 0
+  || typeof productManifest.schemaRelease !== "string"
+) {
+  throw new Error("Requested Product SHA does not expose a valid Whitelabel customer migration manifest.");
+}
+const customerMigrations = productManifest.customerMigrations;
+const expectedSchemaRelease = customerMigrations.at(-1).replace(/\.sql$/, "");
+if (productManifest.schemaRelease !== expectedSchemaRelease) {
+  throw new Error("Product migration manifest schemaRelease does not match its final migration.");
+}
 
 const temp = mkdtempSync(path.join(tmpdir(), "whitelabel-source-"));
 const rawArchive = path.join(temp, "source.zip");
@@ -75,7 +89,7 @@ try {
     filtered[name] = bytes;
   }
 
-  const schemaRelease = customerMigrations.at(-1).replace(/\.sql$/, "");
+  const schemaRelease = productManifest.schemaRelease;
   const manifest = {
     formatVersion: 1,
     sourceSha,
