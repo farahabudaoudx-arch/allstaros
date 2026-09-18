@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { GatewayBackendError } from "./backend-client.mjs";
 
 export class GatewaySessionExpiredError extends Error {
@@ -85,7 +86,16 @@ function validateReport(report) {
     throw new Error("Gateway provider must return the report acquisition date as YYYY-MM-DD.");
   }
   const coverage = report.coverage;
-  if (!coverage || !validIsoDay(coverage.periodStart) || !validIsoDay(coverage.periodEnd) || coverage.periodEnd < coverage.periodStart) {
+  if (
+    !coverage ||
+    !validIsoDay(coverage.periodStart) ||
+    !validIsoDay(coverage.periodEnd) ||
+    coverage.periodEnd < coverage.periodStart ||
+    !validIsoDay(coverage.gatewayReportDate) ||
+    coverage.gatewayReportDate < coverage.periodStart ||
+    coverage.gatewayReportDate > coverage.periodEnd ||
+    coverage.gatewayReportDate > report.reportDate
+  ) {
     throw new Error("Gateway report is missing explicit covered-period metadata.");
   }
   if (report.periodType === "wtd") {
@@ -97,6 +107,36 @@ function validateReport(report) {
   } else if (coverage.weekOrdinal != null || coverage.periodFinal != null || coverage.weekStart != null) {
     throw new Error("Gateway week metadata is only valid for WTD reports.");
   }
+}
+
+function staleGatewayClaim(error) {
+  return error instanceof GatewayBackendError && error.code === "gateway_report_pull_stale";
+}
+
+const CURRENT_PERIOD_TYPES = ["wtd", "mtd", "ytd"];
+
+function normalizeCurrentPull(pulled) {
+  const reports = Array.isArray(pulled) ? pulled : pulled?.reports;
+  const failures = Array.isArray(pulled) ? [] : pulled?.failures ?? [];
+  if (!Array.isArray(reports) || !Array.isArray(failures)) {
+    throw new GatewayTransientError("Gateway current pull returned an invalid result shape.");
+  }
+  const seen = new Map();
+  for (const report of reports) {
+    const type = report?.periodType;
+    seen.set(type, (seen.get(type) ?? 0) + 1);
+  }
+  for (const failure of failures) {
+    const type = failure?.periodType;
+    seen.set(type, (seen.get(type) ?? 0) + 1);
+  }
+  if (
+    reports.length + failures.length !== CURRENT_PERIOD_TYPES.length ||
+    !CURRENT_PERIOD_TYPES.every((type) => seen.get(type) === 1)
+  ) {
+    throw new GatewayTransientError("Gateway current pull must resolve exactly one WTD, MTD, and YTD outcome.");
+  }
+  return { reports, failures };
 }
 
 export class GatewayRunnerEngine {
@@ -139,7 +179,7 @@ export class GatewayRunnerEngine {
       const result = await this.backend.complete(job, outcome, extra, signal);
       return { acknowledged: true, result };
     } catch (error) {
-      if (error instanceof GatewayBackendError && error.status === 409) return { acknowledged: false, stale: true };
+      if (staleGatewayClaim(error)) return { acknowledged: false, stale: true };
       if (signal?.aborted) return { acknowledged: false, aborted: true, errorCode: "aborted" };
       return { acknowledged: false, errorCode: operationalFailureCode(error) };
     }
@@ -147,31 +187,36 @@ export class GatewayRunnerEngine {
 
   async reportsForJob(job, providerSession, signal) {
     if (job.pullKind === "first_connect") {
-      const reports = await withTimeout(
-        (providerSignal) => this.provider.listHistoricalReports(providerSession, {
-          from: "2026-01-01",
-          through: job.businessDate,
-          signal: providerSignal,
-        }),
-        this.config.providerTimeoutMs,
+      // Historical backfill is a finite sequence of individually bounded exports
+      // and can legitimately exceed the short session-validation timeout. Keep it
+      // fenced by the renewable job lease/cancellation signal instead of applying
+      // one wall-clock timeout to the whole multi-month acquisition.
+      const pulled = await this.provider.listHistoricalReports(providerSession, {
+        from: "2026-01-01",
+        through: job.businessDate,
         signal,
-      );
-      return Array.isArray(reports) ? reports : [];
+      });
+      if (Array.isArray(pulled)) return { reports: pulled, failures: [] };
+      if (!Array.isArray(pulled?.reports) || !Array.isArray(pulled?.failures)) {
+        throw new GatewayTransientError("Gateway historical pull returned an invalid result shape.");
+      }
+      return { reports: pulled.reports, failures: pulled.failures };
     }
-    const reports = await withTimeout(
-      (providerSignal) => this.provider.pullCurrentReports(providerSession, {
-        businessDate: job.businessDate,
-        signal: providerSignal,
-      }),
-      this.config.providerTimeoutMs,
+    // Current exports also own bounded per-request/per-export deadlines (notably
+    // YTD). The renewable lease is the cross-cutting fence and abort source.
+    const pulled = await this.provider.pullCurrentReports(providerSession, {
+      businessDate: job.businessDate,
       signal,
-    );
-    const counts = new Map();
-    for (const report of reports ?? []) counts.set(report.periodType, (counts.get(report.periodType) ?? 0) + 1);
-    if (!["wtd", "mtd", "ytd"].every((type) => counts.get(type) === 1) || (reports ?? []).length !== 3) {
-      throw new GatewayTransientError("Gateway current pull must return exactly one WTD, MTD, and YTD report.");
+    });
+    return normalizeCurrentPull(pulled);
+  }
+
+  async persistAndImportReport(job, report, signal) {
+    validateReport(report);
+    if (report.artifact && typeof this.backend.persistArtifact === "function") {
+      await this.backend.persistArtifact(job, report, signal);
     }
-    return reports;
+    await this.backend.importReport(job, report, signal);
   }
 
   async runClaimedJob(job, parentSignal) {
@@ -180,7 +225,10 @@ export class GatewayRunnerEngine {
     parentSignal?.addEventListener("abort", onAbort, { once: true });
     let stale = false;
     const heartbeatMs = Math.max(20_000, Math.min(60_000, Math.floor(this.config.leaseSeconds * 1000 / 3)));
+    let renewing = false;
     const heartbeat = setInterval(async () => {
+      if (renewing || controller.signal.aborted) return;
+      renewing = true;
       try {
         const result = await this.backend.renew(job, controller.signal);
         if (!result?.ok) {
@@ -188,12 +236,12 @@ export class GatewayRunnerEngine {
           controller.abort(new Error("Gateway job lease is stale."));
         }
       } catch (error) {
-        if (error instanceof GatewayBackendError && error.status === 409) {
-          stale = true;
-          controller.abort(error);
-        }
+        stale = true;
+        controller.abort(error);
+      } finally {
+        renewing = false;
       }
-    }, heartbeatMs);
+    }, this.config.leaseHeartbeatMs ?? heartbeatMs);
     heartbeat.unref?.();
 
     try {
@@ -207,11 +255,46 @@ export class GatewayRunnerEngine {
         );
         if (!valid) throw new GatewaySessionExpiredError();
       }
-      const reports = await this.reportsForJob(job, providerSession, controller.signal);
+      const batch = await this.reportsForJob(job, providerSession, controller.signal);
+      const reports = batch.reports;
+      const periodFailures = [...batch.failures];
+      let successfulReports = 0;
       for (const report of reports) {
         if (controller.signal.aborted) throw controller.signal.reason;
-        validateReport(report);
-        await this.backend.importReport(job, report, controller.signal);
+        try {
+          await this.persistAndImportReport(job, report, controller.signal);
+          successfulReports += 1;
+        } catch (error) {
+          if (staleGatewayClaim(error)) throw error;
+          if (controller.signal.aborted) throw controller.signal.reason;
+          periodFailures.push({
+            periodType: report.periodType,
+            errorCode: operationalFailureCode(error),
+            retryable: retryableJobError(error),
+          });
+        }
+      }
+      if (periodFailures.length > 0) {
+        const needsReconnect = periodFailures.some((failure) =>
+          failure.needsReconnect === true || ["session_expired", "authentication_failed"].includes(failure.errorCode));
+        if (needsReconnect) await this.sessions.delete(job.sessionRef);
+        const retryable = periodFailures.some((failure) => failure.retryable !== false);
+        const outcome = needsReconnect ? "needs_reconnect" : retryable ? "retryable" : "failed";
+        const completion = await this.reportCompletion(job, outcome, {
+          error: needsReconnect
+            ? "gateway_session_expired"
+            : retryable ? "gateway_partial_report_retry" : "gateway_partial_report_failure",
+        }, controller.signal);
+        if (stale) return { status: "stale" };
+        if (completion.stale) return { status: "stale" };
+        if (!completion.acknowledged) {
+          return { status: "completion_unacknowledged", errorCode: completion.errorCode };
+        }
+        return {
+          status: completion.result?.status ?? (needsReconnect ? "needs_reconnect" : retryable ? "queued" : "failed"),
+          reports: successfulReports,
+          failedPeriods: [...new Set(periodFailures.map((failure) => failure.periodType))],
+        };
       }
       if (stale) return { status: "stale" };
       const completion = await this.reportCompletion(job, "succeeded", {
@@ -221,9 +304,9 @@ export class GatewayRunnerEngine {
       if (!completion.acknowledged) {
         return { status: parentSignal?.aborted ? "aborted" : "completion_unacknowledged", errorCode: completion.errorCode };
       }
-      return { status: completion.result?.status ?? "succeeded", reports: reports.length };
+      return { status: completion.result?.status ?? "succeeded", reports: successfulReports };
     } catch (error) {
-      if (stale || (error instanceof GatewayBackendError && error.status === 409)) return { status: "stale" };
+      if (stale || staleGatewayClaim(error)) return { status: "stale" };
       if (parentSignal?.aborted) return { status: "aborted" };
       if (error instanceof GatewaySessionExpiredError) {
         await this.sessions.delete(job.sessionRef);
@@ -258,17 +341,19 @@ export class GatewayRunnerEngine {
   async workerLoop(signal) {
     this.runningWorkers += 1;
     const failureBackoffMs = Math.min(30_000, Math.max(250, this.config.pollIntervalMs));
+    let unresolvedClaimRequestId = randomUUID();
     try {
       while (!signal.aborted) {
         let job;
         try {
-          job = await this.backend.claim(signal);
+          job = await this.backend.claim(signal, unresolvedClaimRequestId);
         } catch (error) {
           if (signal.aborted) break;
           this.recordWorkerFailure(error, "claim");
           await sleep(failureBackoffMs, signal).catch(() => undefined);
           continue;
         }
+        unresolvedClaimRequestId = randomUUID();
         if (!job) {
           await sleep(this.config.pollIntervalMs, signal).catch(() => undefined);
           continue;

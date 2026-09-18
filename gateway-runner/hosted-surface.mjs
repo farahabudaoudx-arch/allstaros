@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 
 const TERMINAL = new Set(["connected", "error", "cancelled"]);
+const PROMPT_KINDS = new Set(["credentials", "otp", "phone", "email"]);
 const MAX_INPUT_BYTES = 8 * 1024;
 const TERMINAL_RETENTION_MS = 5 * 60_000;
 
@@ -18,11 +19,6 @@ function json(res, status, body) {
     "x-content-type-options": "nosniff",
   });
   res.end(JSON.stringify(body));
-}
-
-function empty(res, status) {
-  res.writeHead(status, { "cache-control": "no-store" });
-  res.end();
 }
 
 async function readJson(req) {
@@ -56,7 +52,6 @@ function pageHtml(session) {
   const token = JSON.stringify(session.token);
   const csp = [
     "default-src 'none'",
-    "img-src 'self' blob:",
     `script-src 'nonce-${nonce}'`,
     `style-src 'nonce-${nonce}'`,
     "connect-src 'self'",
@@ -72,39 +67,27 @@ function pageHtml(session) {
   <title>Connect Gateway</title>
   <style nonce="${nonce}">
     :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0c0d0f;color:#f5f5f5}
-    *{box-sizing:border-box} body{margin:0;background:#0c0d0f;color:#f5f5f5}
-    main{width:min(1180px,100%);margin:0 auto;padding:20px}
-    h1{font-size:22px;margin:0 0 6px} p{color:#b7bbc3;line-height:1.45;margin:0 0 14px}
-    #status{border:1px solid #2c3037;background:#15171b;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}
-    #viewport{position:relative;background:#050506;border:1px solid #2c3037;border-radius:12px;overflow:hidden;min-height:220px;display:flex;align-items:center;justify-content:center}
-    #frame{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain;user-select:none;-webkit-user-drag:none;touch-action:manipulation;cursor:default}
-    #placeholder{color:#8b9099;padding:80px 20px;text-align:center}
-    .keyboard{margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    #keys{flex:1;min-width:220px;border:1px solid #343840;background:#111318;color:#fff;border-radius:9px;padding:11px 12px;font-size:16px;outline:none}
-    #keys:focus{border-color:#6f7785}
-    button{border:1px solid #343840;background:#191c21;color:#fff;border-radius:9px;padding:10px 13px;font:inherit;cursor:pointer}
-    button:hover{background:#23272e} button:disabled{opacity:.45;cursor:not-allowed}
-    .privacy{font-size:12px;color:#8f949d;margin-top:10px}
+    *{box-sizing:border-box}body{margin:0;background:#0c0d0f;color:#f5f5f5}
+    main{width:min(520px,100%);margin:0 auto;padding:28px 18px}
+    h1{font-size:24px;margin:0 0 8px}p{color:#b7bbc3;line-height:1.5;margin:0 0 16px}
+    #status{border:1px solid #2c3037;background:#15171b;border-radius:12px;padding:12px 14px;margin:16px 0;font-size:14px}
+    form{border:1px solid #2c3037;background:#111318;border-radius:14px;padding:18px;display:grid;gap:12px}
+    label{display:grid;gap:6px;font-size:13px;color:#d7d9de}
+    input{width:100%;border:1px solid #343840;background:#090a0d;color:#fff;border-radius:9px;padding:12px;font:inherit;outline:none}
+    input:focus{border-color:#747d8c}
+    button{border:1px solid #343840;background:#f3f4f6;color:#111;border-radius:9px;padding:11px 14px;font:inherit;font-weight:650;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .privacy{font-size:12px;color:#8f949d;margin-top:12px}
     .hidden{display:none!important}
-    @media(max-width:640px){main{padding:12px}#frame{max-height:62vh}.keyboard{position:sticky;bottom:0;background:#0c0d0f;padding:8px 0 env(safe-area-inset-bottom)}}
   </style>
 </head>
 <body>
 <main>
   <h1>Connect Gateway</h1>
-  <p>Sign in inside the secure hosted browser below. All Star OS receives only a connection reference, not your Gateway password or verification code.</p>
-  <div id="status" role="status">Opening Gateway…</div>
-  <div id="viewport">
-    <div id="placeholder">Starting the secure Gateway browser…</div>
-    <img id="frame" class="hidden" alt="Gateway sign-in browser" draggable="false">
-  </div>
-  <div class="keyboard">
-    <input id="keys" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Gateway keyboard" placeholder="Click a Gateway field, then type here">
-    <button type="button" data-key="Tab">Tab</button>
-    <button type="button" data-key="Enter">Enter</button>
-    <button type="button" data-key="Backspace">Backspace</button>
-  </div>
-  <p class="privacy">Keyboard input is forwarded to the active Gateway browser session and is not saved by this page.</p>
+  <p>Enter your Gateway sign-in details here. They are sent only to this secure Gateway runner session and are never sent to All Star OS.</p>
+  <div id="status" role="status">Preparing secure Gateway sign-in…</div>
+  <form id="prompt" class="hidden" autocomplete="off"></form>
+  <p class="privacy">Credentials and verification values are forwarded only for the active Gateway sign-in step and are not stored by this page.</p>
 </main>
 <script nonce="${nonce}">
 (() => {
@@ -112,112 +95,116 @@ function pageHtml(session) {
   const token = ${token};
   const base = '/connect/session/' + encodeURIComponent(sessionId);
   const statusEl = document.getElementById('status');
-  const frame = document.getElementById('frame');
-  const placeholder = document.getElementById('placeholder');
-  const keys = document.getElementById('keys');
+  const form = document.getElementById('prompt');
   let terminal = false;
-  let frameUrl = null;
-  let frameBusy = false;
-  let inputBusy = Promise.resolve();
+  let activePromptId = null;
+  let submitting = false;
   history.replaceState(null, '', '/connect/session/' + encodeURIComponent(sessionId));
 
   const headers = () => ({ authorization: 'Bearer ' + token });
-  async function send(action) {
-    if (terminal) return;
-    inputBusy = inputBusy.then(() => fetch(base + '/input', {
-      method: 'POST', headers: { ...headers(), 'content-type': 'application/json' }, body: JSON.stringify(action), cache: 'no-store'
-    })).catch(() => undefined);
-    return inputBusy;
+  function input(name, type, label, autocomplete, inputmode) {
+    const wrapper = document.createElement('label');
+    wrapper.textContent = label;
+    const field = document.createElement('input');
+    field.name = name;
+    field.type = type;
+    field.required = true;
+    field.autocomplete = autocomplete;
+    if (inputmode) field.inputMode = inputmode;
+    wrapper.appendChild(field);
+    form.appendChild(wrapper);
+    return field;
   }
-  async function pollFrame() {
-    if (terminal || frameBusy) return;
-    frameBusy = true;
+  function renderPrompt(prompt) {
+    if (!prompt || prompt.id === activePromptId) return;
+    activePromptId = prompt.id;
+    submitting = false;
+    form.replaceChildren();
+    if (prompt.kind === 'credentials') {
+      input('email', 'email', 'Gateway email', 'off', 'email');
+      input('password', 'password', 'Gateway password', 'new-password');
+      statusEl.textContent = 'Enter your Gateway email and password.';
+    } else if (prompt.kind === 'otp') {
+      input('value', 'text', 'Verification code', 'one-time-code', 'numeric');
+      statusEl.textContent = 'Enter the verification code requested by Gateway.';
+    } else if (prompt.kind === 'phone') {
+      input('value', 'tel', 'Phone number', 'off', 'tel');
+      statusEl.textContent = 'Gateway requires a phone number to finish verification setup.';
+    } else if (prompt.kind === 'email') {
+      input('value', 'email', 'Verification email', 'off', 'email');
+      statusEl.textContent = 'Gateway requires an email address to finish verification setup.';
+    } else {
+      form.classList.add('hidden');
+      return;
+    }
+    const submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.textContent = 'Continue';
+    form.appendChild(submit);
+    form.classList.remove('hidden');
+    form.querySelector('input')?.focus();
+  }
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (terminal || submitting || !activePromptId) return;
+    submitting = true;
+    const data = new FormData(form);
+    const body = { promptId: activePromptId };
+    if (form.elements.email && form.elements.password) {
+      body.email = String(data.get('email') || '');
+      body.password = String(data.get('password') || '');
+    } else {
+      body.value = String(data.get('value') || '');
+    }
+    form.querySelectorAll('button,input').forEach((element) => { element.disabled = true; });
+    statusEl.textContent = 'Submitting securely to Gateway…';
     try {
-      const response = await fetch(base + '/frame', { headers: headers(), cache: 'no-store' });
-      if (response.status === 200) {
-        const blob = await response.blob();
-        const next = URL.createObjectURL(blob);
-        const old = frameUrl;
-        frameUrl = next;
-        frame.src = next;
-        frame.classList.remove('hidden');
-        placeholder.classList.add('hidden');
-        if (old) setTimeout(() => URL.revokeObjectURL(old), 1000);
-      }
-    } catch {}
-    finally { frameBusy = false; }
-  }
+      const response = await fetch(base + '/prompt', {
+        method: 'POST',
+        headers: { ...headers(), 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('prompt');
+      form.reset();
+      form.replaceChildren();
+      form.classList.add('hidden');
+      activePromptId = null;
+      submitting = false;
+    } catch {
+      submitting = false;
+      statusEl.textContent = 'That sign-in step could not be submitted. Please try again.';
+      form.querySelectorAll('button,input').forEach((element) => { element.disabled = false; });
+    }
+  });
   async function pollStatus() {
     if (terminal) return;
     try {
       const response = await fetch(base + '/status', { headers: headers(), cache: 'no-store' });
       if (!response.ok) throw new Error('status');
       const data = await response.json();
-      if (data.status === 'starting') statusEl.textContent = 'Opening Gateway…';
-      if (data.status === 'interactive') statusEl.textContent = 'Gateway is ready. Sign in and complete verification only if Gateway asks.';
+      if (data.prompt) renderPrompt(data.prompt);
+      else if (data.status === 'starting' && !submitting) statusEl.textContent = 'Contacting Gateway…';
       if (data.status === 'connected') {
         terminal = true;
+        form.replaceChildren();
+        form.classList.add('hidden');
         statusEl.textContent = 'Gateway connected. Returning to All Star OS…';
-        keys.disabled = true;
-        document.querySelectorAll('button[data-key]').forEach((button) => { button.disabled = true; });
-        setTimeout(() => { location.replace(data.returnUrl); }, 900);
+        setTimeout(() => { location.replace(data.returnUrl); }, 700);
       }
       if (data.status === 'error' || data.status === 'cancelled') {
         terminal = true;
+        form.replaceChildren();
+        form.classList.add('hidden');
         statusEl.textContent = data.message || 'Gateway connection could not be completed.';
-        keys.disabled = true;
-        document.querySelectorAll('button[data-key]').forEach((button) => { button.disabled = true; });
-        if (data.returnUrl) setTimeout(() => { location.replace(data.returnUrl); }, 2500);
+        if (data.returnUrl) setTimeout(() => { location.replace(data.returnUrl); }, 2200);
       }
     } catch {
-      statusEl.textContent = 'The hosted Gateway browser is temporarily unreachable.';
+      if (!submitting) statusEl.textContent = 'The secure Gateway sign-in session is temporarily unreachable.';
     }
   }
-
-  frame.addEventListener('pointerdown', (event) => {
-    if (terminal || !frame.naturalWidth || !frame.naturalHeight) return;
-    event.preventDefault();
-    const rect = frame.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * frame.naturalWidth / rect.width;
-    const y = (event.clientY - rect.top) * frame.naturalHeight / rect.height;
-    send({ type: 'click', x, y });
-    keys.focus({ preventScroll: true });
-  });
-  frame.addEventListener('wheel', (event) => {
-    if (terminal) return;
-    event.preventDefault();
-    send({ type: 'scroll', deltaY: Math.max(-1200, Math.min(1200, event.deltaY)) });
-  }, { passive: false });
-
-  keys.addEventListener('beforeinput', (event) => {
-    if (terminal) return;
-    if (event.inputType === 'insertText' && event.data) {
-      event.preventDefault();
-      send({ type: 'text', text: event.data });
-    }
-  });
-  keys.addEventListener('paste', (event) => {
-    if (terminal) return;
-    event.preventDefault();
-    const text = event.clipboardData?.getData('text') || '';
-    if (text) send({ type: 'text', text });
-  });
-  keys.addEventListener('keydown', (event) => {
-    if (terminal) return;
-    const special = new Set(['Enter','Tab','Backspace','Delete','Escape','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End']);
-    if (special.has(event.key)) {
-      event.preventDefault();
-      send({ type: 'key', key: event.key });
-    }
-  });
-  document.querySelectorAll('button[data-key]').forEach((button) => {
-    button.addEventListener('click', () => { send({ type: 'key', key: button.dataset.key }); keys.focus({ preventScroll: true }); });
-  });
-
-  setInterval(pollFrame, 450);
-  setInterval(pollStatus, 500);
+  setInterval(pollStatus, 400);
   pollStatus();
-  pollFrame();
 })();
 </script>
 </body>
@@ -225,10 +212,22 @@ function pageHtml(session) {
   return { html, csp };
 }
 
+function promptValue(kind, body) {
+  if (!body || typeof body !== "object") throw new Error("invalid_prompt_input");
+  if (kind === "credentials") {
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    if (!email || email.length > 320 || !password || password.length > 4096) throw new Error("invalid_prompt_input");
+    return { email, password };
+  }
+  const value = typeof body.value === "string" ? body.value.trim() : "";
+  if (!value || value.length > 2048) throw new Error("invalid_prompt_input");
+  return value;
+}
+
 export class HostedSurfaceManager {
-  constructor({ maxSessions = 2, logger = console } = {}) {
+  constructor({ maxSessions = 2 } = {}) {
     this.maxSessions = maxSessions;
-    this.logger = logger;
     this.sessions = new Map();
     this.stateIndex = new Map();
   }
@@ -252,7 +251,8 @@ export class HostedSurfaceManager {
       status: "starting",
       message: null,
       returnUrl: null,
-      controller: null,
+      prompt: null,
+      pendingPrompt: null,
       abort: controller,
       timer: null,
       cleanupTimer: null,
@@ -271,19 +271,32 @@ export class HostedSurfaceManager {
     this.stateIndex.set(state, id);
 
     const surface = {
-      attach: async (interactiveController) => {
-        if (TERMINAL.has(session.status) || controller.signal.aborted) throw controller.signal.reason ?? new Error("Connection closed.");
-        if (
-          typeof interactiveController?.captureFrame !== "function" ||
-          typeof interactiveController?.handleInput !== "function"
-        ) {
-          throw new Error("Gateway provider supplied an invalid hosted-browser controller.");
+      prompt: ({ kind } = {}) => {
+        if (!PROMPT_KINDS.has(kind)) return Promise.reject(new Error("invalid_gateway_prompt"));
+        if (TERMINAL.has(session.status) || controller.signal.aborted) {
+          return Promise.reject(controller.signal.reason ?? new Error("Connection closed."));
         }
-        session.controller = interactiveController;
+        if (session.pendingPrompt) return Promise.reject(new Error("gateway_prompt_already_pending"));
+        const promptId = randomBytes(18).toString("base64url");
+        session.prompt = { id: promptId, kind };
         session.status = "interactive";
-      },
-      detach: () => {
-        session.controller = null;
+        return new Promise((resolve, reject) => {
+          const onAbort = () => {
+            if (session.pendingPrompt?.id !== promptId) return;
+            session.pendingPrompt = null;
+            session.prompt = null;
+            reject(controller.signal.reason ?? new Error("Connection closed."));
+          };
+          controller.signal.addEventListener("abort", onAbort, { once: true });
+          session.pendingPrompt = {
+            id: promptId,
+            kind,
+            resolve: (value) => {
+              controller.signal.removeEventListener("abort", onAbort);
+              resolve(value);
+            },
+          };
+        });
       },
     };
 
@@ -303,7 +316,8 @@ export class HostedSurfaceManager {
           session.returnUrl = returnToApp(callbackUrl, "error");
         }
       } finally {
-        session.controller = null;
+        session.prompt = null;
+        session.pendingPrompt = null;
         this.scheduleCleanup(session);
       }
     });
@@ -339,7 +353,7 @@ export class HostedSurfaceManager {
   }
 
   async handle(req, res, url) {
-    const match = /^\/connect\/session\/([A-Za-z0-9_-]+)\/(status|frame|input|cancel)$/.exec(url.pathname);
+    const match = /^\/connect\/session\/([A-Za-z0-9_-]+)\/(status|prompt|cancel)$/.exec(url.pathname);
     if (!match) return false;
     const session = this.authorize(req, match[1]);
     if (!session) {
@@ -352,36 +366,27 @@ export class HostedSurfaceManager {
         status: session.status,
         message: session.message,
         returnUrl: session.returnUrl,
+        prompt: session.prompt,
       });
       return true;
     }
-    if (action === "frame" && req.method === "GET") {
-      if (!session.controller || TERMINAL.has(session.status)) {
-        empty(res, 204);
-        return true;
-      }
-      try {
-        const frame = await session.controller.captureFrame();
-        res.writeHead(200, {
-          "content-type": "image/jpeg",
-          "content-length": String(frame.length),
-          "cache-control": "no-store",
-          "x-content-type-options": "nosniff",
-        });
-        res.end(frame);
-      } catch {
-        empty(res, 204);
-      }
-      return true;
-    }
-    if (action === "input" && req.method === "POST") {
-      if (!session.controller || session.status !== "interactive") {
-        json(res, 409, { error: "browser_not_ready" });
+    if (action === "prompt" && req.method === "POST") {
+      const pending = session.pendingPrompt;
+      if (!pending || session.status !== "interactive") {
+        json(res, 409, { error: "prompt_not_ready" });
         return true;
       }
       try {
         const body = await readJson(req);
-        await session.controller.handleInput(body);
+        if (!secureEqual(typeof body?.promptId === "string" ? body.promptId : "", pending.id)) {
+          json(res, 409, { error: "prompt_mismatch" });
+          return true;
+        }
+        const value = promptValue(pending.kind, body);
+        session.pendingPrompt = null;
+        session.prompt = null;
+        session.status = "starting";
+        pending.resolve(value);
         json(res, 200, { ok: true });
       } catch {
         json(res, 400, { error: "invalid_input" });
@@ -393,6 +398,8 @@ export class HostedSurfaceManager {
       session.status = "cancelled";
       session.message = "Gateway connection was cancelled.";
       session.returnUrl = returnToApp(session.callbackUrl, "error");
+      session.prompt = null;
+      session.pendingPrompt = null;
       this.scheduleCleanup(session);
       json(res, 200, { ok: true });
       return true;
@@ -406,4 +413,10 @@ export class HostedSurfaceManager {
   }
 }
 
-export const __test = { secureEqual, returnToApp, MAX_INPUT_BYTES, TERMINAL_RETENTION_MS };
+export const __test = {
+  secureEqual,
+  returnToApp,
+  promptValue,
+  MAX_INPUT_BYTES,
+  TERMINAL_RETENTION_MS,
+};

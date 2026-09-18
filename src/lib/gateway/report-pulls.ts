@@ -171,11 +171,15 @@ export function gatewayReportImportErrorStatus(error: unknown): 400 | 409 | 500 
 }
 
 export async function claimGatewayReportPullJob(
-  leaseSeconds = 1200,
+  args: {
+    claimRequestId: string;
+    leaseSeconds?: number;
+  },
 ): Promise<ClaimedGatewayReportPullJob | null> {
   const service = createServiceRoleClient();
   const { data, error } = await service.rpc("claim_gateway_report_pull_job", {
-    p_lease_seconds: leaseSeconds,
+    p_claim_request_id: args.claimRequestId,
+    p_lease_seconds: args.leaseSeconds ?? 1200,
   });
   if (error) throw new Error(`Unable to claim Gateway report pull: ${error.message}`);
 

@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 const baseSql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260903000300_gateway_connection_reminders.sql"),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const fixSql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260904000100_gateway_connection_reminder_fixes.sql"),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const sql = `${baseSql}\n${fixSql}`;
 
 describe("Gateway reminder SQL boundary", () => {

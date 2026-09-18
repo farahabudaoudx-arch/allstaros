@@ -107,7 +107,7 @@ The default Turbopack build command cannot run in this linked worktree because `
 
 ## External integration boundary
 
-This section described the state at the time Ticket #005 was originally validated. It is superseded by the 2026-09-05 Gateway production work.
+This section described the state at the time Ticket #005 was originally validated. Its browser/Chrome deployment notes are superseded by the current HTTP-only Gateway production handoff in `docs/gateway-production-handoff.md`.
 
 The repository now contains the real external runner contract and Mac/Chrome Gateway provider. Production hosted login requires:
 

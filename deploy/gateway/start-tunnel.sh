@@ -18,4 +18,4 @@ set +a
 # cloudflared supports TUNNEL_TOKEN directly. Keep the token out of argv/process listings.
 export TUNNEL_TOKEN="$GATEWAY_TUNNEL_TOKEN"
 unset GATEWAY_TUNNEL_TOKEN
-exec cloudflared tunnel --no-autoupdate run
+exec /usr/bin/caffeinate -s -i cloudflared tunnel --no-autoupdate run

@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { loadRunnerConfig, assertAllowedCallback } from "./config.mjs";
@@ -37,15 +38,50 @@ function respondHostedPage(res, html, csp) {
   res.end(html);
 }
 
+function authorizedControlRequest(req, token) {
+  const authorization = req.headers.authorization ?? "";
+  const supplied = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const expectedBytes = Buffer.from(token);
+  const suppliedBytes = Buffer.from(supplied);
+  return expectedBytes.length === suppliedBytes.length && timingSafeEqual(expectedBytes, suppliedBytes);
+}
+
+async function readJsonBody(req, maxBytes = 4096) {
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > maxBytes) throw new Error("request_too_large");
+    chunks.push(chunk);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new Error("invalid_json");
+  }
+}
+
 export async function startGatewayRunner(env = process.env) {
   const config = loadRunnerConfig(env);
   const provider = await loadProvider(config.providerModule, env);
-  const sessions = new EncryptedSessionStore({ dir: config.sessionDir, key: config.sessionKey });
+  const sessions = new EncryptedSessionStore({
+    dir: config.sessionDir,
+    key: config.sessionKey,
+    idleTtlMs: config.sessionIdleTtlMs,
+    gcBatchSize: config.sessionGcBatchSize,
+  });
   await sessions.init();
+  await sessions.gcIdle();
   const backend = new GatewayBackendClient(config);
   const engine = new GatewayRunnerEngine({ config, backend, provider, sessions });
   const surfaces = new HostedSurfaceManager({ maxSessions: config.connectConcurrency });
   const stop = new AbortController();
+  const sessionGc = setInterval(() => {
+    sessions.gcIdle().catch(() => {
+      console.error("[gateway-runner] Encrypted session cleanup failed.");
+    });
+  }, config.sessionGcIntervalMs);
+  sessionGc.unref?.();
   let workerPoolFatal = false;
   const workers = engine.run(stop.signal).catch(() => {
     workerPoolFatal = true;
@@ -55,6 +91,16 @@ export async function startGatewayRunner(env = process.env) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+      if (req.method === "POST" && url.pathname === "/control/session/revoke") {
+        if (!authorizedControlRequest(req, config.connectToken)) return respond(res, 403, "Unauthorized");
+        const payload = await readJsonBody(req).catch(() => null);
+        const sessionRef = typeof payload?.sessionRef === "string" ? payload.sessionRef : "";
+        if (!/^gw_[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionRef)) {
+          return respond(res, 400, "Invalid request");
+        }
+        await sessions.delete(sessionRef);
+        return respond(res, 200, JSON.stringify({ ok: true }), "application/json; charset=utf-8");
+      }
       if (req.method === "GET" && url.pathname === "/health") {
         const health = engine.health();
         const ok = health.ok && !workerPoolFatal;
@@ -124,6 +170,7 @@ export async function startGatewayRunner(env = process.env) {
 
   server.listen(config.listenPort, config.listenHost);
   const close = async () => {
+    clearInterval(sessionGc);
     surfaces.closeAll();
     stop.abort();
     await new Promise((resolve) => server.close(resolve));

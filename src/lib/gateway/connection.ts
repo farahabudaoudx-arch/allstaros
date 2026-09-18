@@ -24,9 +24,64 @@ type PendingRequestRow = {
 };
 
 const CONNECT_TTL_MINUTES = 10;
+const RUNNER_REVOCATION_TIMEOUT_MS = 3_000;
 
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function runnerRevocationConfig() {
+  const hosted = process.env.GATEWAY_HOSTED_CONNECT_URL?.trim();
+  const token = process.env.GATEWAY_AGENT_CONNECT_TOKEN?.trim();
+  if (!hosted || !token) return null;
+  try {
+    const configured = new URL(hosted);
+    if (configured.protocol !== "https:" || configured.username || configured.password) return null;
+    return {
+      url: new URL("/control/session/revoke", configured.origin).toString(),
+      token,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function revokeGatewayRunnerSession(sessionRef: string): Promise<boolean> {
+  if (!sessionRef || sessionRef.length > 2048) return false;
+  const config = runnerRevocationConfig();
+  if (!config) return false;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RUNNER_REVOCATION_TIMEOUT_MS);
+  try {
+    const response = await fetch(config.url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ sessionRef }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadStoredSessionRef(
+  service: ReturnType<typeof createServiceRoleClient>,
+  personId: string,
+): Promise<string | null> {
+  const { data, error } = await service
+    .from("gateway_connection")
+    .select("session_ref")
+    .eq("person_id", personId)
+    .maybeSingle();
+  if (error) return null;
+  return typeof data?.session_ref === "string" && data.session_ref ? data.session_ref : null;
 }
 
 function safeGeneration(value: number | string | null | undefined) {
@@ -161,13 +216,20 @@ export async function completeGatewayConnectRequest(
   if (!state || !sessionRef) throw new Error("Invalid Gateway connection completion.");
   const service = createServiceRoleClient();
   const stateHash = sha256(state);
+  let requestPersonId: string | null = null;
+  let previousSessionRef: string | null = null;
+
+  const { data: pending, error: pendingError } = await service
+    .from("gateway_connect_request")
+    .select("person_id, status, expires_at")
+    .eq("state_hash", stateHash)
+    .maybeSingle();
+  if (!pendingError && pending && typeof pending.person_id === "string") {
+    requestPersonId = pending.person_id;
+    previousSessionRef = await loadStoredSessionRef(service, requestPersonId);
+  }
 
   if (expectedPersonId) {
-    const { data: pending, error: pendingError } = await service
-      .from("gateway_connect_request")
-      .select("person_id, status, expires_at")
-      .eq("state_hash", stateHash)
-      .maybeSingle();
     if (
       pendingError ||
       !pending ||
@@ -186,6 +248,9 @@ export async function completeGatewayConnectRequest(
   if (error || typeof data !== "string") {
     throw new Error("Unable to complete Gateway connection.");
   }
+  if (previousSessionRef && previousSessionRef !== sessionRef) {
+    await revokeGatewayRunnerSession(previousSessionRef);
+  }
   return data;
 }
 
@@ -200,10 +265,12 @@ export async function failGatewayConnectRequest(state: string, errorCode: string
 
 export async function disconnectGatewayForPerson(personId: string) {
   const service = createServiceRoleClient();
+  const previousSessionRef = await loadStoredSessionRef(service, personId);
   const { error } = await service.rpc("disconnect_gateway_connection", {
     p_person_id: personId,
   });
   if (error) throw new Error("Unable to disconnect Gateway right now.");
+  if (previousSessionRef) await revokeGatewayRunnerSession(previousSessionRef);
 }
 
 export async function dismissGatewayPromptForPerson(personId: string) {

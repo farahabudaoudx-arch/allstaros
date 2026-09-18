@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
+import { PassThrough, Writable } from "node:stream";
+import { describe, expect, it, vi } from "vitest";
 import { strToU8, zipSync } from "fflate";
-import { __test } from "./gateway.mjs";
+import { createProvider, __test } from "./gateway.mjs";
 
 function minimalWorkbook(rows) {
   const shared = [];
@@ -28,116 +31,356 @@ function minimalWorkbook(rows) {
   }));
 }
 
-describe("real Gateway provider evidence helpers", () => {
-  it("keeps legacy Chrome profile compatibility opt-in for acceptance", () => {
-    const config = __test.providerConfig({
-      GATEWAY_RUNNER_GATEWAY_LEGACY_PROFILE_DIR: "/tmp/gateway-profile",
-      GATEWAY_RUNNER_GATEWAY_LEGACY_CDP_PORT: "9224",
-    });
-    expect(config.legacyProfileDir).toBe("/tmp/gateway-profile");
-    expect(config.legacyCdpPort).toBe(9224);
-    expect(__test.providerConfig({}).legacyProfileDir).toBeNull();
-  });
+const REPORT_HEADERS = [
+  "File Date", "Producer", "Producer NPN", "Email", "Upline", "Upline NPN", "Agency",
+  "All Lines Personal", "All Lines Team", "1st Leg Producer", "1st Leg NPN", "1st Leg %", "Outside 1st Leg",
+];
 
-  it("uses configured client login credentials only when both values are present", () => {
-    const configured = {
-      GATEWAY_LOGIN_EMAIL: "  client@example.com  ",
-      GATEWAY_LOGIN_PASSWORD: "configured-value",
-    };
-    expect(__test.gatewayLoginCredentials(configured)).toBeNull();
-    expect(__test.gatewayLoginCredentials(configured, true)).toEqual({
-      email: "client@example.com",
-      password: "configured-value",
-    });
-    expect(__test.gatewayLoginCredentials({ GATEWAY_LOGIN_EMAIL: "client@example.com" }, true)).toBeNull();
-    expect(__test.gatewayLoginCredentials({ GATEWAY_LOGIN_PASSWORD: "configured-value" }, true)).toBeNull();
-  });
+function helperReport(periodType, fileDate, coverage, reportDate = "2026-02-23") {
+  const workbook = minimalWorkbook([
+    REPORT_HEADERS,
+    [fileDate, `Producer ${periodType}`, 999000001, `${periodType}@example.invalid`, "Upline", 1, "Agency", 100, 250, "Leg", 2, 0.2, 50],
+  ]);
+  const parsed = __test.workbookToGatewayCsv(workbook);
+  return {
+    periodType,
+    reportDate,
+    csvText: "ignored-helper-csv",
+    sourceFileName: `${periodType}.csv`,
+    gatewayLabel: periodType.toUpperCase(),
+    coverage,
+    artifact: {
+      sourceSha256: parsed.sha256,
+      sourceByteCount: parsed.byteCount,
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      fileDate: parsed.fileDate,
+      rowsSeen: parsed.rowCount,
+      uniqueNpnCount: parsed.uniqueNpnCount,
+      duplicateNpnValues: parsed.duplicateNpnValues,
+      rawXlsxBase64: workbook.toString("base64"),
+    },
+  };
+}
 
-  it("matches the proven client routes for current versus historical WTD", () => {
-    const config = { statsBaseUrl: new URL("https://stats.uppatop.com") };
-    expect(__test.periodUrl(config, "wtd", "abc-123", "2026-08-28", true)).toBe(
-      "https://stats.uppatop.com/ipreport/abc-123",
-    );
-    expect(__test.periodUrl(config, "wtd", "abc-123", "2026-08-28")).toBe(
-      "https://stats.uppatop.com/ipreport/abc-123/2026-08-28",
-    );
-    expect(__test.periodUrl(config, "mtd", "abc-123", "2026-08-28", true)).toBe(
-      "https://stats.uppatop.com/ipreport_mtd/abc-123/2026-08-28",
-    );
-  });
-  it("derives covered-month identity and marks the highest Gateway Week N in that month as final", () => {
-    const entries = __test.normalizeWeeklyEntries([
-      { date: "2026-08-07", weekOrdinal: 1, monthId: "August-2026" },
-      { date: "2026-08-28", weekOrdinal: 4, monthId: "August-2026" },
-      { date: "2026-07-28", weekOrdinal: 4, monthId: "July-2026" },
-      { date: "2026-07-31", weekOrdinal: 5, monthId: "July-2026" },
-      { date: "2026-09-30", weekOrdinal: 5, monthId: "September-2026" },
-    ]);
-    expect(entries.find((entry) => entry.date === "2026-08-28")).toMatchObject({
-      periodStart: "2026-08-01",
-      periodEnd: "2026-08-31",
+function helperTrio() {
+  return [
+    helperReport("wtd", "2026-02-23", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      gatewayReportDate: "2026-02-23",
+      weekStart: "2026-02-23",
       weekOrdinal: 4,
       periodFinal: true,
-    });
-    expect(entries.find((entry) => entry.date === "2026-07-28")?.periodFinal).toBe(false);
-    expect(entries.find((entry) => entry.date === "2026-07-31")?.periodFinal).toBe(true);
-    expect(entries.find((entry) => entry.date === "2026-09-30")).toMatchObject({
-      periodStart: "2026-09-01",
-      periodEnd: "2026-09-30",
-      periodFinal: true,
-    });
+    }),
+    helperReport("mtd", "2026-02-01", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      gatewayReportDate: "2026-02-23",
+    }),
+    helperReport("ytd", "2026-01-01", {
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      gatewayReportDate: "2026-02-23",
+    }),
+  ];
+}
+
+const newSession = {
+  version: 2,
+  sessionState: { version: 1, cookies: [{ name: "sid", value: "person-a" }] },
+};
+const legacySession = {
+  version: 1,
+  storageState: { cookies: [{ name: "sid", value: "legacy-person" }], origins: [] },
+};
+
+describe("HTTP-only Gateway provider", () => {
+  it("contains no Playwright, Chromium, hosted-browser, or report-browser runtime path", () => {
+    const source = readFileSync(new URL("./gateway.mjs", import.meta.url), "utf8");
+    for (const forbidden of [
+      "playwright",
+      "chromium",
+      "browserBackground",
+      "hostedBrowserController",
+      "captureFrame",
+      "recoverPartialWithBrowser",
+      "withBrowser(",
+    ]) expect(source.toLowerCase()).not.toContain(forbidden.toLowerCase());
   });
 
-  it("backfills every WTD but only closed-month MTD/YTD plus the current open month snapshot", () => {
-    const entries = __test.normalizeWeeklyEntries([
-      { date: "2026-07-28", weekOrdinal: 4, monthId: "July-2026" },
-      { date: "2026-07-31", weekOrdinal: 5, monthId: "July-2026" },
-      { date: "2026-08-07", weekOrdinal: 1, monthId: "August-2026" },
-      { date: "2026-08-28", weekOrdinal: 4, monthId: "August-2026" },
-    ]);
-    const plan = __test.historicalPlan(entries, "2026-07-01", "2026-09-05");
-    expect(plan.map(({ periodType, entry }) => `${entry.date}:${periodType}`)).toEqual([
-      "2026-07-28:wtd",
-      "2026-07-31:wtd",
-      "2026-07-31:mtd",
-      "2026-07-31:ytd",
-      "2026-08-07:wtd",
-      "2026-08-28:wtd",
-      "2026-08-28:mtd",
-      "2026-08-28:ytd",
-    ]);
+  it("keeps provider configuration limited to the one-shot HTTP helper", () => {
+    expect(__test.providerConfig({
+      GATEWAY_RUNNER_GATEWAY_HTTP_PYTHON: "python3",
+      GATEWAY_RUNNER_GATEWAY_HTTP_HELPER_PATH: "/tmp/bridge.py",
+    })).toEqual({ httpPythonPath: "python3", httpHelperPath: "/tmp/bridge.py" });
   });
 
-  it("converts the observed Gateway workbook shape to importer CSV and preserves File Date evidence", () => {
-    const headers = [
-      "File Date", "Producer", "Producer NPN", "Email", "Upline", "Upline NPN", "Agency",
-      "All Lines Personal", "All Lines Team", "1st Leg Producer", "1st Leg NPN", "1st Leg %", "Outside 1st Leg",
-    ];
+  it("converts canonical Gateway workbook evidence and preserves File Date", () => {
     const workbook = minimalWorkbook([
-      headers,
+      REPORT_HEADERS,
       [46256, "Acceptance Producer", 999000001, "acceptance@example.invalid", "Upline", 1, "Agency", 100, 250, "Leg", 2, 0.2, 50],
     ]);
     const parsed = __test.workbookToGatewayCsv(workbook);
     expect(parsed.fileDate).toBe("2026-08-22");
     expect(parsed.rowCount).toBe(1);
     expect(parsed.csvText).toContain("8/22/2026,Acceptance Producer,999000001");
-    expect(parsed.csvText).toContain("$100.00,$250.00,Leg,2,20.00%,$50.00");
   });
 
-  it("normalizes Gateway date strings and Excel serial dates without using the download filename", () => {
-    expect(__test.normalizeGatewayDate("08/01/2026")).toBe("2026-08-01");
-    expect(__test.normalizeGatewayDate(46256)).toBe("2026-08-22");
+  it("connects without 2FA using one credentials prompt and returns the generic HTTP session", async () => {
+    const httpHelper = vi.fn(async (request) => {
+      expect(request).toEqual({
+        operation: "connect_begin",
+        email: "member@example.invalid",
+        password: "private-password",
+      });
+      return { ok: true, status: "connected", session: newSession };
+    });
+    const surface = { prompt: vi.fn(async () => ({ email: "member@example.invalid", password: "private-password" })) };
+    const provider = createProvider({ httpHelper, env: {} });
+
+    await expect(provider.connectInteractive({ surface })).resolves.toEqual({
+      session: newSession,
+      verificationWasRequired: false,
+    });
+    expect(surface.prompt).toHaveBeenCalledTimes(1);
+    expect(surface.prompt).toHaveBeenCalledWith({ kind: "credentials" });
   });
 
-  it("fails closed when MTD/YTD workbook File Date disagrees with Gateway coverage", () => {
-    const entry = { periodStart: "2026-08-01" };
-    expect(() => __test.assertAggregateEvidence("mtd", entry, "2026-08-01")).not.toThrow();
-    expect(() => __test.assertAggregateEvidence("mtd", entry, "2026-08-02")).toThrow(
-      "Gateway MTD File Date does not match the covered month.",
-    );
-    expect(() => __test.assertAggregateEvidence("ytd", entry, "2026-01-01")).not.toThrow();
-    expect(() => __test.assertAggregateEvidence("ytd", entry, "2025-01-01")).toThrow(
-      "Gateway YTD File Date does not match the covered year.",
-    );
+  it("keeps 2FA challenge state provider-local while prompting only for the OTP value", async () => {
+    const opaqueState = { version: 1, token: "private-challenge-token", phase: "otp_required" };
+    const httpHelper = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: "otp_required", state: opaqueState })
+      .mockResolvedValueOnce({ ok: true, status: "connected", session: newSession });
+    const surface = { prompt: vi.fn()
+      .mockResolvedValueOnce({ email: "member@example.invalid", password: "private-password" })
+      .mockResolvedValueOnce("123456") };
+    const provider = createProvider({ httpHelper, env: {} });
+
+    await expect(provider.connectInteractive({ surface })).resolves.toMatchObject({ verificationWasRequired: true });
+    expect(surface.prompt.mock.calls).toEqual([
+      [{ kind: "credentials" }],
+      [{ kind: "otp" }],
+    ]);
+    expect(JSON.stringify(surface.prompt.mock.calls)).not.toContain("private-challenge-token");
+    expect(httpHelper.mock.calls[1][0]).toEqual({
+      operation: "connect_step",
+      state: opaqueState,
+      action: "verify",
+      code: "123456",
+    });
+  });
+
+  it("drives phone then email setup entirely through HTTP connect steps", async () => {
+    const phoneSetup = { id: "phone-state" };
+    const phoneOtp = { id: "phone-otp-state" };
+    const emailSetup = { id: "email-state" };
+    const emailOtp = { id: "email-otp-state" };
+    const httpHelper = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: "setup_phone", state: phoneSetup })
+      .mockResolvedValueOnce({ ok: true, status: "otp_required", state: phoneOtp })
+      .mockResolvedValueOnce({ ok: true, status: "setup_email", state: emailSetup })
+      .mockResolvedValueOnce({ ok: true, status: "otp_required", state: emailOtp })
+      .mockResolvedValueOnce({ ok: true, status: "connected", session: newSession });
+    const surface = { prompt: vi.fn()
+      .mockResolvedValueOnce({ email: "member@example.invalid", password: "private-password" })
+      .mockResolvedValueOnce("+15555550123")
+      .mockResolvedValueOnce("111111")
+      .mockResolvedValueOnce("verify@example.invalid")
+      .mockResolvedValueOnce("222222") };
+    const provider = createProvider({ httpHelper, env: {} });
+
+    await expect(provider.connectInteractive({ surface })).resolves.toMatchObject({ verificationWasRequired: true });
+    expect(surface.prompt.mock.calls.map(([prompt]) => prompt.kind)).toEqual([
+      "credentials", "phone", "otp", "email", "otp",
+    ]);
+    expect(httpHelper.mock.calls.slice(1).map(([request]) => request)).toEqual([
+      { operation: "connect_step", state: phoneSetup, action: "continue", value: "+15555550123" },
+      { operation: "connect_step", state: phoneOtp, action: "verify", code: "111111" },
+      { operation: "connect_step", state: emailSetup, action: "continue", value: "verify@example.invalid" },
+      { operation: "connect_step", state: emailOtp, action: "verify", code: "222222" },
+    ]);
+  });
+
+  it("keeps the signed hosted session alive and re-prompts a rejected OTP", async () => {
+    const firstState = { id: "challenge-1" };
+    const retryState = { id: "challenge-retry" };
+    const httpHelper = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: "otp_required", state: firstState })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: "otp_required",
+        state: retryState,
+        failures: [{ errorCode: "authentication_failed", retryable: false, needsReconnect: false }],
+      })
+      .mockResolvedValueOnce({ ok: true, status: "connected", session: newSession });
+    const surface = { prompt: vi.fn()
+      .mockResolvedValueOnce({ email: "member@example.invalid", password: "private-password" })
+      .mockResolvedValueOnce("111111")
+      .mockResolvedValueOnce("222222") };
+    const provider = createProvider({ httpHelper, env: {} });
+
+    await expect(provider.connectInteractive({ surface })).resolves.toMatchObject({ session: newSession });
+    expect(surface.prompt.mock.calls.map(([prompt]) => prompt.kind)).toEqual(["credentials", "otp", "otp"]);
+    expect(httpHelper.mock.calls[2][0]).toMatchObject({ state: retryState, code: "222222" });
+  });
+
+  it("uses sessionState for new sessions and storageState only for legacy encrypted sessions", async () => {
+    const httpHelper = vi.fn(async () => ({ ok: true, reports: helperTrio(), failures: [] }));
+    const provider = createProvider({ httpHelper, env: {} });
+
+    await provider.pullCurrentReports(newSession, { businessDate: "2026-02-23" });
+    await provider.pullCurrentReports(legacySession, { businessDate: "2026-02-23" });
+
+    expect(httpHelper.mock.calls[0][0]).toMatchObject({ operation: "current", sessionState: newSession.sessionState });
+    expect(httpHelper.mock.calls[0][0]).not.toHaveProperty("storageState");
+    expect(httpHelper.mock.calls[1][0]).toMatchObject({ operation: "current", storageState: legacySession.storageState });
+    expect(httpHelper.mock.calls[1][0]).not.toHaveProperty("sessionState");
+  });
+
+  it("preserves HTTP current partial semantics without any alternate runtime fallback", async () => {
+    const httpHelper = vi.fn(async () => ({
+      ok: true,
+      reports: helperTrio().slice(0, 2),
+      failures: [{ periodType: "ytd", errorCode: "transport_failure", retryable: true, needsReconnect: false }],
+    }));
+    const provider = createProvider({ httpHelper, env: {} });
+
+    const result = await provider.pullCurrentReports(newSession, { businessDate: "2026-02-23" });
+    expect(result.provider).toBe("http");
+    expect(result.reports.map((item) => item.periodType)).toEqual(["wtd", "mtd"]);
+    expect(result.reports.every((item) => item.artifact.providerType === "http")).toBe(true);
+    expect(result.failures).toEqual([{
+      periodType: "ytd",
+      errorCode: "transport_failure",
+      retryable: true,
+      needsReconnect: false,
+    }]);
+    expect(httpHelper).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed when the HTTP helper itself fails instead of invoking a browser fallback", async () => {
+    const provider = createProvider({
+      httpHelper: vi.fn(async () => { throw new Error("helper unavailable"); }),
+      env: {},
+    });
+    await expect(provider.pullCurrentReports(newSession, { businessDate: "2026-02-23" }))
+      .rejects.toThrow("helper unavailable");
+  });
+
+  it("pages historical HTTP acquisition and preserves each immutable earlier snapshot", async () => {
+    const first = helperReport("wtd", "2026-02-16", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      gatewayReportDate: "2026-02-20",
+      weekStart: "2026-02-16",
+      weekOrdinal: 3,
+      periodFinal: false,
+    });
+    const second = helperReport("wtd", "2026-02-23", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      gatewayReportDate: "2026-02-23",
+      weekStart: "2026-02-23",
+      weekOrdinal: 4,
+      periodFinal: true,
+    });
+    const offsets = [];
+    const httpHelper = vi.fn(async (payload) => {
+      offsets.push(payload.historicalOffset);
+      if (payload.historicalOffset === 0) return { ok: true, reports: [first], failures: [], nextHistoricalOffset: 1 };
+      return { ok: true, reports: [second], failures: [], nextHistoricalOffset: null };
+    });
+    const provider = createProvider({ httpHelper, env: {} });
+
+    const result = await provider.listHistoricalReports(newSession, { from: "2026-01-01", through: "2026-02-23" });
+    expect(offsets).toEqual([0, 1]);
+    expect(result.reports.map((item) => item.coverage.gatewayReportDate)).toEqual(["2026-02-20", "2026-02-23"]);
+    expect(result.failures).toEqual([]);
+  });
+
+  it("preserves earlier historical pages when the personal HTTP session expires on a later page", async () => {
+    const first = helperReport("wtd", "2026-02-16", {
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      gatewayReportDate: "2026-02-20",
+      weekStart: "2026-02-16",
+      weekOrdinal: 3,
+      periodFinal: false,
+    });
+    const httpHelper = vi.fn(async (payload) => payload.historicalOffset === 0
+      ? { ok: true, reports: [first], failures: [], nextHistoricalOffset: 1 }
+      : {
+          ok: false,
+          reports: [],
+          failures: [{ errorCode: "authentication_failed", retryable: false, needsReconnect: true }],
+        });
+    const provider = createProvider({ httpHelper, env: {} });
+
+    const result = await provider.listHistoricalReports(newSession, { from: "2026-01-01", through: "2026-02-23" });
+    expect(result.reports).toHaveLength(1);
+    expect(result.reports[0].coverage.gatewayReportDate).toBe("2026-02-20");
+    expect(result.failures).toEqual([{
+      periodType: "historical",
+      errorCode: "authentication_failed",
+      retryable: false,
+      needsReconnect: true,
+    }]);
+  });
+
+  it("parses connect responses without requiring report arrays", () => {
+    expect(__test.parseHelperResponse(JSON.stringify({
+      ok: true,
+      status: "otp_required",
+      state: { id: "opaque" },
+    }))).toEqual({ ok: true, status: "otp_required", state: { id: "opaque" } });
+    expect(() => __test.reportHelperPayload({ ok: true, status: "otp_required" })).toThrow();
+  });
+
+  it("passes generic session state through stdin while stripping secrets from helper environment and errors", async () => {
+    let privateInput = "";
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.stdin = new Writable({
+      write(chunk, _encoding, callback) {
+        privateInput += chunk.toString();
+        callback();
+      },
+    });
+    child.kill = vi.fn();
+    const spawnImpl = vi.fn(() => {
+      queueMicrotask(() => {
+        child.stderr.end("private-stderr-marker");
+        child.stdout.end("not-json");
+        child.emit("close", 1);
+      });
+      return child;
+    });
+    const config = __test.providerConfig({ GATEWAY_RUNNER_GATEWAY_HTTP_PYTHON: "python" });
+    let caught;
+    try {
+      await __test.runHttpHelperProcess(config, {
+        operation: "validate",
+        sessionState: { cookies: [{ name: "sid", value: "personal-cookie-marker" }] },
+      }, {
+        spawnImpl,
+        env: {
+          PATH: "safe-path",
+          GATEWAY_LOGIN_EMAIL: "should-not-inherit@example.invalid",
+          GATEWAY_LOGIN_PASSWORD: "should-not-inherit-password",
+          GATEWAY_AGENT_REPORT_TOKEN: "should-not-inherit-token",
+          GATEWAY_RUNNER_SESSION_KEY: "should-not-inherit-key",
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught.message).not.toContain("private-stderr-marker");
+    const [, , spawnOptions] = spawnImpl.mock.calls[0];
+    expect(spawnOptions.env).toEqual({ PATH: "safe-path" });
+    expect(JSON.stringify(spawnImpl.mock.calls)).not.toContain("personal-cookie-marker");
+    expect(privateInput).toContain("personal-cookie-marker");
   });
 });
