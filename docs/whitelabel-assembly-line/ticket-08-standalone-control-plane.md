@@ -2,7 +2,7 @@
 
 ## Standalone Control Plane
 
-**Status:** Standalone repo extraction implemented and pushed; independent hosted Vercel/Supabase environment still pending.
+**Status:** Standalone repo + independent local Docker Control Plane DB implemented and validated; hosted Control Plane deployment remains optional/pending for post-handoff ops.
 
 ## القرار
 
@@ -121,19 +121,25 @@ Customer/Product DB:
 
 - ESLint: **PASS**.
 - TypeScript: **PASS**.
-- Standalone Control Plane tests: **6/6 PASS**.
+- Standalone Control Plane full test suite: **38/38 PASS** after direct-source/update/recovery hardening.
 - Default Next.js 16 Turbopack production build: **PASS**.
 - Production dependency audit: **0 vulnerabilities** with `npm audit --omit=dev`.
+- Dedicated Docker Supabase Control Plane stack is isolated on the 5462x port range and has the Control Plane-only migrations applied.
 - No Control Plane migration applied to AllStar Preview/Production.
 - No customer production provisioning performed.
 
-### Remaining before Ticket 8 is fully closed
+### Current environment decision
 
-- Create/configure the dedicated hosted Supabase project for Control Plane state/auth/storage/Vault.
-- Apply only this standalone repo's Control Plane migrations there.
-- Create the first authorized Control Plane operator.
-- Create/configure the independent Vercel project and secrets.
-- Deploy the standalone Control Plane and run hosted auth/OS Builds/OS Updates smoke tests.
+For the current handoff, Control Plane state/auth/storage runs on the dedicated **local Docker Supabase** stack. A hosted Supabase Control Plane project is not required for the current developer QA path.
+
+Remaining operational deployment work, if/when the team wants the Control Plane itself hosted:
+
+- create/configure the independent Control Plane Vercel project and secrets;
+- decide whether Control Plane state remains local-only or is promoted to a separately approved hosted database later;
+- create/verify the first operator for the chosen runtime environment;
+- run hosted auth/OS Builds/OS Updates smoke tests.
+
+These hosted-ops steps do not change the extracted repository/runtime boundary and must not use the customer Preview/Production database.
 
 ## خارج النطاق
 

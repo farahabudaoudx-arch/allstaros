@@ -2,7 +2,7 @@
 
 ## Real Vercel Integration
 
-**Status:** In progress — real project lifecycle/environment/cleanup proven; exact-SHA deployment blocked on Vercel GitHub Login Connection.
+**Status:** Implementation complete for direct-source Vercel lifecycle; developer-2 provider QA pending.
 
 ## الهدف
 
@@ -113,19 +113,61 @@ Disposable lifecycle proof:
 - Confirmed the project subsequently returned 404 (cleanup proof).
 - No customer/production Vercel project was modified.
 
-### Current blocker for exact-SHA deployment
+### Exact-SHA direct-source proof
 
-The real Git-linked project creation request for `farahabudaoudx-arch/allstaros` was rejected by Vercel with:
+The Git-linked path was intentionally bypassed after Vercel rejected repository linking because the account had no GitHub Login Connection. Ticket 09 permits either Git source association **or an exact-SHA deployment path**, so the Control Plane now uses the latter by default.
 
-`Failed to link farahabudaoudx-arch/allstaros. You need to add a Login Connection to your GitHub account first.`
+Provider proof:
 
-Therefore the remaining Ticket 09 gate is to connect GitHub as a Vercel Login Connection with access to the Product repository. Once connected:
+- Product source commit:
+  `98842f7991e1cb77c1821024746d7cad4e6565a5`.
+- Disposable project:
+  `allstar-ticket09-direct-20260918`.
+- The project was created without a Git integration.
+- The Product source snapshot was uploaded directly to Vercel.
+- Vercel recorded the exact Product SHA and direct-source metadata.
+- The proof deployment reached **READY**.
+- The account used for proof is a Hobby plan and the Product contains cron schedules that Hobby rejects. The successful provider proof therefore used an explicit `proof-no-crons` deployment profile that changes only deployment-time Vercel cron configuration.
+- `proof-no-crons` is marked `sourceByteExact=false` and is forbidden from canonical handoff, managed update, or recovery.
+- The normal/default `full` profile is byte-exact.
 
-1. create the disposable Git-linked project;
-2. configure sandbox environment values;
-3. create deployment pinned to exact Product SHA `249e47bf6ca5553c24edb420def3fd8294114426`;
-4. poll to READY/ERROR and capture safe evidence;
-5. exercise domain attach/verification hook if a sandbox domain is available;
-6. delete the disposable project.
+### Control Plane direct-source implementation
 
-Ticket 09 remains **not complete** until the exact-SHA deployment reaches the acceptance gate.
+The standalone Control Plane now:
+
+1. downloads the GitHub Product archive at an exact 40-character SHA;
+2. excludes secret environment files from the deployment set;
+3. hashes source files with SHA-1 to match the Vercel file API;
+4. creates the Vercel deployment manifest;
+5. handles `missing_files` by uploading only requested digests through `/v2/files`;
+6. creates the deployment through `/v13/deployments`;
+7. reconciles retries by deterministic lifecycle identity + source SHA + profile + Product repository provenance before creating a new deployment;
+8. sets `INSTALLATION_SOURCE_SHA`, `INSTALLATION_SCHEMA_RELEASE`, and a lifecycle-specific `NEXT_DEPLOYMENT_ID`;
+9. uses the same direct-source adapter for initial provisioning, managed update, and recovery.
+
+Git-linked deployment remains optional only when explicitly enabled. A Vercel GitHub Login Connection is no longer required for the default remote provisioning path.
+
+### Final implementation validation before developer-2 QA
+
+- Standalone TypeScript: **PASS**.
+- Full standalone Vitest suite: **38/38 PASS**.
+- ESLint: **PASS**.
+- Default Next.js 16 Turbopack production build: **PASS**.
+- Production dependency audit: **0 vulnerabilities**.
+- Retry reconciliation has dedicated tests.
+- Managed update + recovery direct-source behavior has restored regression coverage.
+- Canonical handoff has an explicit guard against non-byte-exact proof deployments.
+
+Developer-2 should repeat the disposable-provider run from the standalone Control Plane adapter and verify runtime `/api/version` from a network path that can reach the Vercel deployment. This is QA/handoff verification, not an architectural blocker.
+
+### Disposable resource cleanup proof
+
+After the direct-source READY proof:
+
+- inspected `allstar-ticket09-direct-20260918` and confirmed project ID `prj_KLEWpBemSztibnX2FA1lIxb6RqWT`;
+- deleted that exact disposable project through Vercel CLI;
+- Vercel reported successful permanent project removal, including its disposable deployments;
+- a follow-up project listing returned **No projects found** for the test scope;
+- the local `.vercel` link/proof directory in the Product worktree was removed afterward.
+
+No customer or production Vercel project was deleted or modified by this cleanup.
