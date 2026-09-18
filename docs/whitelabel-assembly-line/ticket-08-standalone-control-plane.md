@@ -124,7 +124,7 @@ Customer/Product DB:
 - Standalone Control Plane full test suite: **38/38 PASS** after direct-source/update/recovery hardening.
 - Default Next.js 16 Turbopack production build: **PASS**.
 - Production dependency audit: **0 vulnerabilities** with `npm audit --omit=dev`.
-- Dedicated Docker Supabase Control Plane stack is isolated on the 5462x port range and has the Control Plane-only migrations applied.
+- Dedicated Docker Supabase Control Plane stack is isolated on the 5472x port range and has the Control Plane-only migrations applied.
 - No Control Plane migration applied to AllStar Preview/Production.
 - No customer production provisioning performed.
 
