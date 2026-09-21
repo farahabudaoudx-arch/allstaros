@@ -410,25 +410,37 @@ class FakeQuery {
   }
 }
 
+class FakePopulationRpcQuery {
+  constructor(private rows: Array<Record<string, unknown>>) {}
+
+  order() { return this; }
+
+  async range(from: number, to: number) {
+    const rows = [...this.rows].sort((left, right) =>
+      String(left.person_id).localeCompare(String(right.person_id)));
+    return { data: rows.slice(from, to + 1), error: null };
+  }
+}
+
 function fakeClient(state: FakeState) {
   return {
     from(table: string) {
       return new FakeQuery(table, state);
     },
-    async rpc(name: string, args: Record<string, unknown>) {
+    rpc(name: string, args: Record<string, unknown>) {
       if (name === "scorecard_population_context") {
-        return { data: state.context, error: null };
+        return new FakePopulationRpcQuery(state.context);
       }
       if (name === "publish_gateway_eligible_scorecard_population") {
         state.publishCalls.push(args);
-        return {
+        return Promise.resolve({
           data: [{
             run_id: String(args.p_run_id),
             snapshot_count: Array.isArray(args.p_snapshots) ? args.p_snapshots.length : 0,
             existing: false,
           }],
           error: null,
-        };
+        });
       }
       throw new Error(`Unexpected RPC ${name}`);
     },
@@ -457,6 +469,39 @@ describe("automatic Scorecard period candidates", () => {
 });
 
 describe("automatic Scorecard orchestration", () => {
+  it("loads the full frozen population when the target is beyond the PostgREST 1000-row page", async () => {
+    const state = fakeState();
+    const target = state.context[0];
+    state.context = [
+      ...Array.from({ length: 1000 }, (_, index) => ({
+        ...target,
+        person_id: `inactive-${String(index).padStart(4, "0")}`,
+        full_name: `Inactive ${index}`,
+        email: `inactive-${index}@example.com`,
+        active_at_period_end: false,
+        producer_at_period_end: false,
+      })),
+      target,
+    ];
+    addMatchedEvidence(state, "2026-08-01", "2026-08-31");
+    harness.service = fakeClient(state);
+
+    const result = await processCompletedScorecardPeriods({ now: "2026-09-04T18:00:00.000Z" });
+
+    expect(result).toMatchObject({ evaluated: 1, published: 1, existing: 0, skipped: 0 });
+    expect(state.publishCalls).toHaveLength(1);
+    expect(state.publishCalls[0].p_producer_metrics).toHaveLength(1);
+    expect(state.publishCalls[0].p_source_manifest).toMatchObject({
+      memberDecisions: expect.arrayContaining([
+        expect.objectContaining({
+          personId: "producer-1",
+          cardType: "producer",
+          status: "eligible",
+        }),
+      ]),
+    });
+  });
+
   it("publishes one complete month through one atomic population RPC", async () => {
     const state = fakeState();
     addMatchedEvidence(state, "2026-08-01", "2026-08-31");
