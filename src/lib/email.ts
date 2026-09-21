@@ -1,5 +1,6 @@
-// Email sending — server-only. Sends transactional email (notifications,
-// receipts, alerts) through Resend.
+// Email sending — server-only. Production sends transactional email through
+// Resend. Local disposable-customer validation can explicitly opt into Mailpit
+// so invites/resets are captured on-device instead of leaving the machine.
 //
 // Configured with two env vars (see .env.example):
 //   RESEND_API_KEY — secret API key from the Resend dashboard (API Keys page)
@@ -19,6 +20,46 @@ import { Resend } from "resend";
 import { installationReplyToEmail } from "@/lib/installation/runtime";
 
 let client: Resend | null = null;
+
+type MailpitAddress = {
+  Email: string;
+  Name?: string;
+};
+
+function parseAddress(value: string): MailpitAddress {
+  const trimmed = value.trim();
+  const named = trimmed.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  if (named) {
+    return {
+      Email: named[2].trim(),
+      ...(named[1].trim() ? { Name: named[1].trim().replace(/^"|"$/g, "") } : {}),
+    };
+  }
+  return { Email: trimmed };
+}
+
+function getMailpitUrl(): string {
+  const raw = process.env.MAILPIT_URL?.trim();
+  if (!raw) {
+    throw new Error(
+      "MAILPIT_URL is not set — local Mailpit email transport cannot send.",
+    );
+  }
+  const url = new URL(raw);
+  const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  if (!loopbackHosts.has(url.hostname)) {
+    throw new Error("MAILPIT_URL must point to a loopback-only local Mailpit instance.");
+  }
+  return url.toString().replace(/\/$/, "");
+}
+
+function getMailpitFrom(): MailpitAddress {
+  const from =
+    process.env.MAILPIT_FROM?.trim() ||
+    process.env.RESEND_FROM?.trim() ||
+    "Local Customer OS <no-reply@local.test>";
+  return parseAddress(from);
+}
 
 /** Lazily construct the Resend client so a missing key only errors when we
  * actually try to send — not at import time (which would break builds/tests
@@ -83,8 +124,51 @@ export type SendEmailResult =
   | { ok: true; id: string }
   | { ok: false; error: string };
 
+async function sendWithMailpit(
+  params: SendEmailParams,
+): Promise<SendEmailResult> {
+  const { to, subject, html, text, replyTo, attachments, idempotencyKey } = params;
+  const recipients = (Array.isArray(to) ? to : [to]).map(parseAddress);
+  const effectiveReplyTo = replyTo ?? getReplyTo();
+
+  const response = await fetch(`${getMailpitUrl()}/api/v1/send`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      From: getMailpitFrom(),
+      To: recipients,
+      ReplyTo: effectiveReplyTo ? [parseAddress(effectiveReplyTo)] : undefined,
+      Subject: subject,
+      HTML: html,
+      Text: text,
+      Headers: idempotencyKey
+        ? { "X-Idempotency-Key": idempotencyKey }
+        : undefined,
+      Attachments: attachments?.length
+        ? attachments.map((attachment) => ({
+            Filename: attachment.filename,
+            Content: attachment.content.toString("base64"),
+            ContentType: attachment.contentType,
+          }))
+        : undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = (await response.text()).trim();
+    return {
+      ok: false,
+      error: `Mailpit send failed (${response.status})${detail ? `: ${detail}` : ""}`,
+    };
+  }
+
+  const payload = (await response.json()) as { ID?: string };
+  return { ok: true, id: payload.ID ?? "mailpit" };
+}
+
 /**
- * Send a transactional email through Resend.
+ * Send a transactional email. Production always uses Resend. A non-production
+ * runtime may explicitly select Mailpit with EMAIL_TRANSPORT=mailpit.
  *
  * Non-throwing: returns `{ ok: false, error }` on failure so callers can treat
  * email as best-effort (the same way the recruit-invite flows do) rather than
@@ -105,6 +189,13 @@ export async function sendEmail(
   const body = html !== undefined ? { html, text } : { text: text as string };
 
   try {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.EMAIL_TRANSPORT?.trim().toLowerCase() === "mailpit"
+    ) {
+      return await sendWithMailpit(params);
+    }
+
     const { data, error } = await getClient().emails.send({
       from: getFrom(),
       to,
