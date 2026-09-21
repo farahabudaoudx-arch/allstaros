@@ -130,3 +130,14 @@ Then run:
 3. propagation/domain verification;
 4. runtime identity check through the new subdomain;
 5. DNS + Vercel disposable-resource cleanup.
+
+## Customer-domain provider decision — 21/09/2026
+
+For customer-owned production domains, the expected default provider path is
+now **Namecheap through the official Namecheap MCP connector**. Cloudflare
+remains the existing in-process API adapter and dedicated-zone sandbox path.
+
+The customer-domain model is intentionally provider-neutral: the Product does
+not depend on Namecheap, and the Control Plane stores only safe provider/zone/
+record references. Namecheap MCP operations must use read-before-write,
+conflict checks, and non-forced writes.
