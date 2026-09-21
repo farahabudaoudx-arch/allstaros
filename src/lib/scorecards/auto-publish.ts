@@ -184,11 +184,18 @@ async function loadPopulationContext(
   service: SupabaseClient,
   periodEnd: string,
 ): Promise<PopulationContextRow[]> {
-  const { data, error } = await service.rpc("scorecard_population_context", {
-    p_period_end: periodEnd,
-  });
-  if (error) throw new Error(`Unable to load frozen Scorecard population: ${error.message}`);
-  return (data ?? []) as PopulationContextRow[];
+  return loadAllPages<PopulationContextRow>(async (from, to) => {
+    const result = await service
+      .rpc("scorecard_population_context", {
+        p_period_end: periodEnd,
+      })
+      .order("person_id", { ascending: true })
+      .range(from, to);
+    return result as {
+      data: PopulationContextRow[] | null;
+      error: { message: string } | null;
+    };
+  }, "frozen Scorecard population");
 }
 
 async function loadConnections(service: SupabaseClient): Promise<ConnectionRow[]> {

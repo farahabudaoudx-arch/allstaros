@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const sql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260914000100_gateway_report_pull_artifacts.sql"),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 
 function functionBody(name: string) {
   const start = sql.indexOf(`create or replace function public.${name}`);

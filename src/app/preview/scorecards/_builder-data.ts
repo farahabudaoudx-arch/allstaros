@@ -190,7 +190,13 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
       .eq("report_date", protectedFixture.period.end),
     guardedSource(
       "Builder population",
-      service.from("person").select("id, upline_id, status, is_builder, npn, npn_status, npn_verified_at"),
+      fetchAllRows<PersonRow>((from, to) =>
+        service
+          .from("person")
+          .select("id, upline_id, status, is_builder, npn, npn_status, npn_verified_at")
+          .order("id", { ascending: true })
+          .range(from, to),
+      ),
     ),
     service
       .from("gateway_issued_premium_import")
@@ -229,12 +235,11 @@ async function loadLiveBuilderMetric(): Promise<BuilderScorecardView["metric"]> 
   if (currentResult.error) throw new Error(`Unable to load July Builder Team IP: ${currentResult.error.message}`);
   if (priorResult.error) throw new Error(`Unable to load June Builder Team IP: ${priorResult.error.message}`);
   if (leaderboardResult.error) throw new Error(`Unable to load the July Builder leaderboard: ${leaderboardResult.error.message}`);
-  if (peopleResult.error) throw new Error(`Unable to load the Builder population: ${peopleResult.error.message}`);
   if (writerReportDatesResult.error) throw new Error(`Unable to load the active-writer window: ${writerReportDatesResult.error.message}`);
   if (priorWriterReportDatesResult.error) throw new Error(`Unable to load the previous active-writer window: ${priorWriterReportDatesResult.error.message}`);
 
   const currentRows = (currentResult.data ?? []) as TeamIpRow[];
-  const people = (peopleResult.data ?? []) as PersonRow[];
+  const people = peopleResult;
   const licenseCandidates = people.map((person) => ({
     personId: person.id,
     npn: person.npn,
