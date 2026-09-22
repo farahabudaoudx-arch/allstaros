@@ -1,5 +1,7 @@
 # Whitelabel OS Assembly Line — Phase 2 Roadmap
 
+> **Developer note — numbering:** This document's technical Ticket 07–12 numbering is not the same as the client/user Roadmap Task 01–13 numbering. For the authoritative developer explanation and status of Roadmap Tasks 01–08, including why each task exists, evidence/commits, verification steps, and done criteria, see [`roadmap-tasks-01-08-developer-handoff.md`](./roadmap-tasks-01-08-developer-handoff.md).
+
 ## القرار المعتمد
 
 هذه المرحلة تثبت فصل **Product Baseline** عن **White Label** حتى لا يصبح حصول العميل على Leaderboard أو Scorecards أو أي feature عامة مشروطًا بأخذ Whitelabel معها.

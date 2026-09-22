@@ -1,5 +1,7 @@
 # White Label Assembly Line — Developer 2 QA Handoff — 18/09/2026
 
+> **Scope note:** The Ticket 01–12 table below is the technical implementation ticket sequence, not the client/user Roadmap Task 01–13 sequence. For the current Roadmap Tasks 01–08 status and the developer-facing **Why / Goal / What changed / Evidence / How to verify / Done criteria** mapping, use [`roadmap-tasks-01-08-developer-handoff.md`](./roadmap-tasks-01-08-developer-handoff.md).
+
 ## Repositories / commits
 
 - Product repository: farahabudaoudx-arch/allstaros
