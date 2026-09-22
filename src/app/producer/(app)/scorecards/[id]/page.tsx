@@ -1,8 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { ScorecardSnapshotDetail } from "@/components/scorecards/ScorecardSnapshotDetail";
 import { getCurrentPerson } from "@/lib/auth";
-import { loadGatewayConnectionState } from "@/lib/gateway/connection";
-import { scorecardLookbackVisible } from "@/lib/scorecards/gateway-visibility";
 import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
 import {
   builderScorecardPayload,
@@ -41,8 +39,6 @@ export default async function ScorecardDetailPage({ params }: { params: Promise<
   }
   if (!data) notFound();
   const snapshot = data as ScorecardSnapshotRow & { person_id: string };
-  const ownerConnection = await loadGatewayConnectionState(snapshot.person_id);
-  if (!scorecardLookbackVisible(ownerConnection)) notFound();
 
   const published = requirePublishedScorecardSnapshotPayload({
     id: snapshot.id,

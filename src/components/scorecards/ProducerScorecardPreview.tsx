@@ -579,7 +579,7 @@ function TrackingConsistencyCalendar({
             <p className="text-[clamp(3rem,8vw,6rem)] font-semibold leading-none tabular-nums text-ink">{scoredLoggedDays}</p>
             <span className="pb-1"><StarScale value={rating} label="Tracking Consistency" /></span>
           </div>
-          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Logged days in this period · all seven weekdays count</p>
+          <p className="tracking-summary mt-3 text-base text-subtle sm:text-lg">Logged days in this period · Monday–Saturday only</p>
         </div>
         <div className="tracking-legend flex gap-5 text-sm text-subtle" aria-label="Calendar status legend">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-pos" aria-hidden="true" />Logged</span>

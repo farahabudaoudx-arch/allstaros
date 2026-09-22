@@ -43,14 +43,14 @@ function entry(overrides: Partial<ScorecardArchiveEntry>): ScorecardArchiveEntry
 }
 
 describe("Scorecard Gateway visibility gates", () => {
-  it("hides look-back for never-connected people and keeps published cards after disconnect", () => {
-    expect(scorecardLookbackVisible(EMPTY_GATEWAY_CONNECTION_STATE)).toBe(false);
+  it("keeps published look-back visible even when a person never connected Gateway", () => {
+    expect(scorecardLookbackVisible(EMPTY_GATEWAY_CONNECTION_STATE)).toBe(true);
     expect(scorecardLookbackVisible(state({ status: "disconnected", everConnected: true }))).toBe(true);
     expect(scorecardLookbackVisible(state({ status: "connected", connected: true, everConnected: true }))).toBe(true);
     expect(scorecardLookbackVisible(UNAVAILABLE_GATEWAY_CONNECTION_STATE)).toBe(true);
   });
 
-  it("drops leftover agency snapshots for never-connected people without touching connected history", () => {
+  it("does not hide authorized published snapshots because Gateway is disconnected or absent", () => {
     const jake = entry({ personId: "jake", memberName: "Jake" });
     const sarah = entry({
       id: "card-2",
@@ -66,7 +66,7 @@ describe("Scorecard Gateway visibility gates", () => {
         ["sarah", state({ status: "disconnected", everConnected: true })],
       ]),
     );
-    expect(visible.map((row) => row.personId)).toEqual(["sarah"]);
+    expect(visible.map((row) => row.personId)).toEqual(["jake", "sarah"]);
   });
 
   it("announces an uncreated due card after disconnect, not for never-connected people", () => {

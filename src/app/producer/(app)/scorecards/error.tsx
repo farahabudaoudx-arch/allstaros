@@ -4,10 +4,10 @@ import { useEffect } from "react";
 
 export default function ScorecardsError({
   error,
-  unstable_retry,
+  reset,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  reset: () => void;
 }) {
   useEffect(() => {
     console.error(error);
@@ -21,7 +21,7 @@ export default function ScorecardsError({
         <p className="mt-3 max-w-xl text-sm leading-6 text-subtle">
           We couldn’t retrieve the latest Gateway reports. Try again; if the problem continues, report it from the app footer.
         </p>
-        <button type="button" onClick={() => unstable_retry()} className="mt-6 rounded-xl border border-hairline bg-card-hi px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-accent">
+        <button type="button" onClick={() => reset()} className="mt-6 rounded-xl border border-hairline bg-card-hi px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-accent">
           Try again
         </button>
       </div>

@@ -53,10 +53,11 @@ describe("Gateway connection UI semantics", () => {
     expect(issued).not.toContain("if (gatewayConnection.connected)");
   });
 
-  it("gates Scorecards by personal Gateway connection without showing in-progress unpublished cards", () => {
+  it("keeps Scorecards usable without personal Gateway and exposes an in-progress current card", () => {
     expect(scorecards).toContain("filterScorecardArchiveByGatewayConnection");
     expect(scorecards).toContain("GATEWAY_NEVER_CONNECTED_COPY");
     expect(scorecards).toContain("GATEWAY_SCORECARD_NOT_CREATED_COPY");
-    expect(scorecards).not.toContain("in_progress");
+    expect(scorecards).toContain("/producer/scorecards/current");
+    expect(scorecards).toContain("In progress");
   });
 });

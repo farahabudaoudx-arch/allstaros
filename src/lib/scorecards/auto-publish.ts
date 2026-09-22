@@ -53,12 +53,6 @@ type PopulationContextRow = {
   builder_at_period_end: boolean;
 };
 
-type ConnectionRow = {
-  person_id: string;
-  first_connected_at: string | null;
-  status: string;
-};
-
 type AutoPublishLedgerRow = {
   period_kind: ScorecardPeriod["kind"];
   period_start: string;
@@ -196,17 +190,6 @@ async function loadPopulationContext(
       error: { message: string } | null;
     };
   }, "frozen Scorecard population");
-}
-
-async function loadConnections(service: SupabaseClient): Promise<ConnectionRow[]> {
-  return loadAllPages<ConnectionRow>(async (from, to) => {
-    const result = await service
-      .from("gateway_connection")
-      .select("person_id, first_connected_at, status")
-      .order("person_id", { ascending: true })
-      .range(from, to);
-    return result as { data: ConnectionRow[] | null; error: { message: string } | null };
-  }, "Gateway connection history");
 }
 
 async function loadGatewayEvidence(
@@ -500,10 +483,7 @@ async function processPeriod(
   const reportStart = frozenBuilders.length > 0
     ? earlierDate(period.start, sixWeekStart(period.end))
     : period.start;
-  const [{ imports, premiumRows }, connections] = await Promise.all([
-    loadGatewayEvidence(service, reportStart, period.end),
-    loadConnections(service),
-  ]);
+  const { imports, premiumRows } = await loadGatewayEvidence(service, reportStart, period.end);
   const requirements = gatewayPeriodRequirements(imports, period, { ongoingOnly: true });
   if (!requirements.ready) {
     return {
@@ -520,45 +500,19 @@ async function processPeriod(
       .filter((person) => person.active_at_period_end && (person.producer_at_period_end || person.builder_at_period_end))
       .map((person) => person.person_id),
   )];
-  const connectionsByPerson = new Map(connections.map((row) => [row.person_id, row]));
-  const memberEvidence = summarizePersonalGatewayEvidence({
-    personIds: frozenPersonIds,
-    requiredWeeks: requirements.requiredWeeks,
-    imports,
-    premiumRows,
-  });
   const decisions: MemberDecision[] = [];
-  const baseEligibilityReason = (personId: string): string | null => {
-    const connection = connectionsByPerson.get(personId);
-    const firstConnectedDate = chicagoDateOfInstant(connection?.first_connected_at);
-    if (!firstConnectedDate || firstConnectedDate > period.end) {
-      return "Personal Gateway was not connected by this period end.";
-    }
-    if (connection?.status !== "connected") {
-      return "Personal Gateway is not currently connected.";
-    }
-    const evidence = memberEvidence.byPerson.get(personId);
-    if (!evidence?.finalWeekReady) {
-      return "The person's final Gateway week is unresolved.";
-    }
-    return null;
-  };
   for (const producer of frozenProducers) {
-    const reason = baseEligibilityReason(producer.person_id);
     decisions.push({
       personId: producer.person_id,
       cardType: "producer",
-      status: reason ? "excluded" : "eligible",
-      ...(reason ? { reason } : {}),
+      status: "eligible",
     });
   }
   for (const builder of frozenBuilders) {
-    const reason = baseEligibilityReason(builder.person_id);
     decisions.push({
       personId: builder.person_id,
       cardType: "builder",
-      status: reason ? "excluded" : "eligible",
-      ...(reason ? { reason } : {}),
+      status: "eligible",
     });
   }
 

@@ -56,6 +56,7 @@ export function countProducerTrackingDays(loggedDates: Iterable<string> | null |
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) continue;
     const date = new Date(`${dateText}T00:00:00Z`);
     if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== dateText) continue;
+    if (date.getUTCDay() === 0) continue;
     counted.add(dateText);
   }
   return counted.size;
@@ -84,12 +85,14 @@ export function createProducerStarSummary(input: {
     trackingConsistency: producerTrackingStars(input.trackingLoggedDays, periodKind),
     leadSpend: producerLeadSpendStars(input.leadSpendCents, periodKind),
   };
+  const weighted =
+    0.5 * ratings.issuedIp +
+    0.25 * ratings.trackingConsistency +
+    0.25 * ratings.leadSpend;
+  const overall = weighted % 1 === 0.5 ? Math.ceil(weighted) : weighted;
   return {
     ratings,
-    overall:
-      0.5 * ratings.issuedIp +
-      0.25 * ratings.trackingConsistency +
-      0.25 * ratings.leadSpend,
+    overall,
   };
 }
 

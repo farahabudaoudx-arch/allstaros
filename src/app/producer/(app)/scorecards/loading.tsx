@@ -15,7 +15,7 @@ export default function ScorecardsLoading() {
         </div>
         <div className="h-64 animate-pulse bg-card" />
       </div>
-      <span className="sr-only">Loading your monthly Producer Scorecard</span>
+      <span className="sr-only">Loading your Scorecards</span>
     </main>
   );
 }

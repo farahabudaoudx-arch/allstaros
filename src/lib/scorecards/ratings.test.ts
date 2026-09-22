@@ -69,16 +69,16 @@ describe("Producer Scorecard fixed star ratings", () => {
     ])).toBe(2);
   });
 
-  it("counts Sunday-only tracking logs like every other weekday", () => {
+  it("does not count Sunday tracking logs", () => {
     expect(countProducerTrackingDays([
       "2026-08-02",
       "2026-08-09",
       "2026-08-16",
       "2026-08-23",
-    ])).toBe(4);
+    ])).toBe(0);
   });
 
-  it("counts Sundays, deduplicates dates, and ignores invalid dates", () => {
+  it("counts Monday-Saturday dates, deduplicates dates, and ignores Sundays and invalid dates", () => {
     expect(countProducerTrackingDays([
       "2026-08-01",
       "2026-08-02",
@@ -86,10 +86,10 @@ describe("Producer Scorecard fixed star ratings", () => {
       "2026-08-09",
       "2026-08-03",
       "not-a-date",
-    ])).toBe(4);
+    ])).toBe(2);
   });
 
-  it("moves from 23 tracked days / 4 stars to 24 / 5 stars when a Sunday log is added", () => {
+  it("does not move from 23 tracked days / 4 stars when a Sunday log is added", () => {
     const nonSundayDates: string[] = [];
     for (let day = 1; day <= 31 && nonSundayDates.length < 23; day += 1) {
       const date = `2026-08-${String(day).padStart(2, "0")}`;
@@ -99,8 +99,8 @@ describe("Producer Scorecard fixed star ratings", () => {
     expect(producerTrackingStars(countProducerTrackingDays(nonSundayDates))).toBe(4);
 
     const withSunday = [...nonSundayDates, "2026-08-02"];
-    expect(countProducerTrackingDays(withSunday)).toBe(24);
-    expect(producerTrackingStars(countProducerTrackingDays(withSunday))).toBe(5);
+    expect(countProducerTrackingDays(withSunday)).toBe(23);
+    expect(producerTrackingStars(countProducerTrackingDays(withSunday))).toBe(4);
   });
 
   it("treats missing tracking-date collections as zero days", () => {
@@ -137,10 +137,15 @@ describe("Producer Scorecard fixed star ratings", () => {
       trackingLoggedDays: 24,
       leadSpendCents: 1_000_000,
     }).overall).toBe(3);
+    expect(createProducerStarSummary({
+      issuedIpCents: 4_000_000,
+      trackingLoggedDays: 0,
+      leadSpendCents: 0,
+    }).overall).toBe(3);
   });
 
   it("weights the three Producer metrics at 50%, 25%, and 25% independently", () => {
-    expect(createProducerStarSummary({ issuedIpCents: 4_000_000 }).overall).toBe(2.5);
+    expect(createProducerStarSummary({ issuedIpCents: 4_000_000 }).overall).toBe(3);
     expect(createProducerStarSummary({ trackingLoggedDays: 24 }).overall).toBe(1.25);
     expect(createProducerStarSummary({ leadSpendCents: 1_000_000 }).overall).toBe(1.25);
   });

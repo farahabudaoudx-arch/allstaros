@@ -9,6 +9,7 @@ import {
 } from "@/lib/scorecards/gateway-visibility";
 import { requirePublishedScorecardSnapshotPayload } from "@/lib/scorecards/published-snapshot";
 import { candidateClosedPeriods } from "@/lib/scorecards/auto-publish";
+import { currentMonthlyPeriod } from "@/lib/scorecards/source";
 import { createClient } from "@/lib/supabase/server";
 import { loadGatewayConnectionState, loadGatewayConnectionStates } from "@/lib/gateway/connection";
 import {
@@ -19,6 +20,14 @@ import {
 } from "@/lib/gateway/connection-types";
 
 export const dynamic = "force-dynamic";
+
+const PERIOD_TABS = [
+  { kind: "monthly", label: "Monthly" },
+  { kind: "quarterly", label: "Quarterly" },
+  { kind: "annual", label: "Yearly" },
+] as const;
+
+type ArchivePeriodKind = (typeof PERIOD_TABS)[number]["kind"];
 
 type SnapshotRow = {
   id: string;
@@ -59,6 +68,72 @@ function ScorecardsLoadError() {
   );
 }
 
+function selectedPeriodKind(value: string | undefined): ArchivePeriodKind {
+  return PERIOD_TABS.some((tab) => tab.kind === value)
+    ? value as ArchivePeriodKind
+    : "monthly";
+}
+
+function PeriodTabs({ selected }: { selected: ArchivePeriodKind }) {
+  return (
+    <nav aria-label="Scorecard period" className="mt-8 flex flex-wrap gap-2">
+      {PERIOD_TABS.map((tab) => {
+        const active = tab.kind === selected;
+        return (
+          <Link
+            key={tab.kind}
+            href={`/producer/scorecards?period=${tab.kind}`}
+            aria-current={active ? "page" : undefined}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+              active
+                ? "border-accent bg-accent text-black"
+                : "border-hairline bg-card text-ink hover:border-accent"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function CurrentProducerCard({
+  memberName,
+  periodLabel,
+}: {
+  memberName: string;
+  periodLabel: string;
+}) {
+  return (
+    <section aria-labelledby="current-scorecard">
+      <h2 id="current-scorecard" className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+        {periodLabel}
+      </h2>
+      <Link
+        href="/producer/scorecards/current"
+        className="mt-4 block rounded-xl border border-accent/60 bg-card p-5 transition-colors hover:border-accent hover:bg-card-hi sm:p-6"
+      >
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="break-words text-xl font-semibold leading-tight text-ink">Producer Scorecard</h3>
+              <span className="rounded-full border border-accent/50 bg-accent/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+                In progress
+              </span>
+            </div>
+            <p className="mt-2 break-words text-base font-medium leading-6 text-ink">{memberName}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-subtle">
+              Live numbers update as tracking, lead spend, and Gateway reports arrive. Published Scorecards remain frozen.
+            </p>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-accent">Open live card</span>
+        </div>
+      </Link>
+    </section>
+  );
+}
+
 function viewerScorecardsNotice(
   state: GatewayConnectionState,
   duePeriodMissing: boolean,
@@ -78,9 +153,14 @@ function viewerScorecardsNotice(
   return null;
 }
 
-export default async function ScorecardsPage() {
+export default async function ScorecardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const person = await getCurrentPerson();
   if (!person) redirect("/auth/signin?next=/producer/scorecards");
+  const selectedPeriod = selectedPeriodKind((await searchParams).period);
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -125,6 +205,7 @@ export default async function ScorecardsPage() {
   }
 
   const allEntries = [...latest.values()];
+  const currentPeriod = currentMonthlyPeriod();
   const personIds = [...new Set([person.id, ...allEntries.map((entry) => entry.personId)])];
   const [viewerConnection, connectionStates] = await Promise.all([
     loadGatewayConnectionState(person.id),
@@ -133,19 +214,36 @@ export default async function ScorecardsPage() {
   connectionStates.set(person.id, viewerConnection);
 
   const visibleEntries = filterScorecardArchiveByGatewayConnection(allEntries, connectionStates);
+  const selectedEntries = visibleEntries.filter((entry) => entry.periodKind === selectedPeriod);
   const duePeriod = candidateClosedPeriods(new Date())[0];
-  const placeholders = uncreatedScorecardPlaceholders({
-    duePeriod,
-    entries: visibleEntries,
-    states: connectionStates,
-  });
-  const groups = groupScorecardArchive(visibleEntries);
+  const placeholders = selectedPeriod === "monthly"
+    ? uncreatedScorecardPlaceholders({
+        duePeriod,
+        entries: visibleEntries,
+        states: connectionStates,
+      })
+    : [];
+  const groups = groupScorecardArchive(selectedEntries);
   const ownPublished = visibleEntries.filter((entry) => entry.personId === person.id);
   const duePeriodMissing = !ownPublished.some(
     (entry) => entry.periodKind === duePeriod.kind && entry.periodStart === duePeriod.start,
   );
   const notice = viewerScorecardsNotice(viewerConnection, duePeriodMissing);
-  const neverConnectedEmpty = !viewerConnection.everConnected && visibleEntries.length === 0;
+  const currentProducerPublished = ownPublished.some(
+    (entry) =>
+      entry.cardType === "producer" &&
+      entry.periodKind === "monthly" &&
+      entry.periodStart === currentPeriod.start,
+  );
+  const showCurrentProducer =
+    selectedPeriod === "monthly" &&
+    (person.is_producer || person.is_builder) &&
+    !currentProducerPublished;
+  const neverConnectedEmpty =
+    !viewerConnection.everConnected &&
+    selectedEntries.length === 0 &&
+    placeholders.length === 0 &&
+    !showCurrentProducer;
   const dueGroupKey = `${duePeriod.kind}:${duePeriod.start}`;
   const dueGroupExists = groups.some((group) => group.key === dueGroupKey);
   const leadingPlaceholders = dueGroupExists ? [] : placeholders;
@@ -154,8 +252,9 @@ export default async function ScorecardsPage() {
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-10 md:py-12">
       <h1 className="text-4xl font-semibold tracking-[-0.035em] text-ink md:text-5xl">Scorecards</h1>
       <p className="mt-3 max-w-2xl text-base leading-7 text-subtle">
-        Published Producer and Builder reports you are authorized to view, preserved exactly as they were validated.
+        Current and published Producer and Builder reports you are authorized to view. Published Scorecards stay frozen.
       </p>
+      <PeriodTabs selected={selectedPeriod} />
 
       {notice ? (
         <section className="mt-6 rounded-2xl border border-hairline bg-card px-5 py-4">
@@ -176,13 +275,16 @@ export default async function ScorecardsPage() {
           <h2 className="text-2xl font-semibold text-ink">No Scorecards to look back at</h2>
           <p className="mt-3 text-base leading-7 text-subtle">{GATEWAY_NEVER_CONNECTED_COPY}</p>
         </div>
-      ) : groups.length === 0 && placeholders.length === 0 ? (
+      ) : groups.length === 0 && placeholders.length === 0 && !showCurrentProducer ? (
         <div className="mt-10 border-l-2 border-accent pl-5">
-          <h2 className="text-2xl font-semibold text-ink">No published Scorecards yet</h2>
-          <p className="mt-3 text-base leading-7 text-subtle">Completed reports will appear here after the full organization dataset passes validation.</p>
+          <h2 className="text-2xl font-semibold text-ink">No {PERIOD_TABS.find((tab) => tab.kind === selectedPeriod)!.label} Scorecards yet</h2>
+          <p className="mt-3 text-base leading-7 text-subtle">Completed reports will appear here after the period closes and validation passes.</p>
         </div>
       ) : (
         <div className="mt-12 space-y-12">
+          {showCurrentProducer ? (
+            <CurrentProducerCard memberName={person.full_name} periodLabel={currentPeriod.label} />
+          ) : null}
           {leadingPlaceholders.length > 0 ? (
             <section aria-labelledby="uncreated-scorecards">
               <h2 id="uncreated-scorecards" className="text-2xl font-semibold tracking-[-0.02em] text-ink">

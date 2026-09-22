@@ -6,12 +6,12 @@ import type { ScorecardArchiveEntry } from "./archive";
 import type { ScorecardPeriod } from "./period";
 
 /**
- * Never-connected people have no Scorecards to look back at — including leftover
- * agency-scrape snapshots. Published cards from a later personal connection stay.
+ * Published Scorecards are account artifacts, not a live Gateway-connection
+ * view. A missing personal Gateway row scores issued paid as zero, but it does
+ * not hide an otherwise-authorized published card.
  */
-export function scorecardLookbackVisible(state: GatewayConnectionState) {
-  if (state.status === "unavailable") return true;
-  return state.everConnected;
+export function scorecardLookbackVisible(_state: GatewayConnectionState) {
+  return true;
 }
 
 export function shouldAnnounceUncreatedScorecard(args: {

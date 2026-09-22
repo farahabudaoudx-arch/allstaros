@@ -529,7 +529,7 @@ describe("automatic Scorecard orchestration", () => {
     expect(state.publishCalls[0]).not.toHaveProperty("p_people");
   });
 
-  it("publishes an eligible producer without letting another member's missing weeks block them", async () => {
+  it("publishes a producer with zero IP even when that person has no personal Gateway rows", async () => {
     const state = fakeState();
     state.context.push({
       ...state.context[0],
@@ -550,11 +550,11 @@ describe("automatic Scorecard orchestration", () => {
 
     expect(result.published).toBe(1);
     expect(state.publishCalls).toHaveLength(1);
-    expect(state.publishCalls[0].p_producer_metrics).toHaveLength(1);
+    expect(state.publishCalls[0].p_producer_metrics).toHaveLength(2);
     expect(state.publishCalls[0].p_source_manifest).toMatchObject({
       memberDecisions: expect.arrayContaining([
         expect.objectContaining({ personId: "producer-1", cardType: "producer", status: "eligible" }),
-        expect.objectContaining({ personId: "producer-2", cardType: "producer", status: "excluded" }),
+        expect.objectContaining({ personId: "producer-2", cardType: "producer", status: "eligible" }),
       ]),
     });
   });
@@ -741,7 +741,7 @@ describe("automatic Scorecard orchestration", () => {
     expect(result.periods[0].memberDecisions).toEqual(expect.arrayContaining([
       expect.objectContaining({ personId: "producer-1", cardType: "producer", status: "eligible" }),
       expect.objectContaining({ personId: "producer-1", cardType: "builder", status: "eligible" }),
-      expect.objectContaining({ personId: "producer-excluded", cardType: "producer", status: "excluded" }),
+      expect.objectContaining({ personId: "producer-excluded", cardType: "producer", status: "eligible" }),
     ]));
     expect(state.publishCalls).toHaveLength(1);
     const publishCall = state.publishCalls[0] as {
@@ -756,7 +756,7 @@ describe("automatic Scorecard orchestration", () => {
       }>;
       p_source_manifest: { gatewayReportIds: string[] };
     };
-    expect(publishCall.p_producer_metrics).toHaveLength(1);
+    expect(publishCall.p_producer_metrics).toHaveLength(2);
     expect(publishCall.p_builder_metrics).toHaveLength(1);
     const builderCoverage = publishCall.p_builder_metrics[0].sourceCoverage;
     expect(builderCoverage.activeWriterReportKeys).toHaveLength(6);
@@ -823,7 +823,8 @@ describe("automatic Scorecard orchestration", () => {
     expect(boundaryResult.periods[0]).toMatchObject({ status: "published" });
     expect(boundaryResult.periods[0].memberDecisions).toContainEqual(expect.objectContaining({
       personId: "producer-1", cardType: "builder", status: "excluded", reason: expect.stringContaining("Active Direct coverage") }));
-    expect(boundaryState.publishCalls[0]).toMatchObject({ p_builder_metrics: [], p_producer_metrics: [expect.anything()] });
+    expect(boundaryState.publishCalls[0].p_builder_metrics).toEqual([]);
+    expect(boundaryState.publishCalls[0].p_producer_metrics).toHaveLength(2);
 
   });
 });
