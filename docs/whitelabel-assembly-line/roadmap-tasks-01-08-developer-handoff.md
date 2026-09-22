@@ -28,11 +28,12 @@ Do not infer roadmap status from a technical ticket number. Use the status below
 | 07 — Validate Customer Core Features | **CLOSED** |
 | 08 — Set Up Customer Domain Model | **CLOSED** |
 
-Current Product branch evidence:
+Product branch evidence at handoff:
 
-- `origin/dev` = `6436d572d34fc11c2684d17fb6a1bb1e267aa48d`
-- `origin/feat/whitelabel-phase2-isolation` = `f0d396abba6741ae96ac4f6cae6bb18d20f77c62`
-- White-Label work is still isolated from `dev`.
+- `origin/dev` was verified at `6436d572d34fc11c2684d17fb6a1bb1e267aa48d`.
+- The White-Label implementation/domain-documentation anchor before this handoff document is `f0d396abba6741ae96ac4f6cae6bb18d20f77c62` on `origin/feat/whitelabel-phase2-isolation`.
+- Later handoff-only documentation commits may sit on top of that anchor; resolve the branch's live head with `git ls-remote origin refs/heads/feat/whitelabel-phase2-isolation` instead of treating this document as a self-referential branch pointer.
+- White-Label work remains isolated from `dev`.
 
 Roadmap Task 09 has **not** started. Roadmap Task 03 remains gated until explicit approval for the real Preview promotion.
 
@@ -131,9 +132,11 @@ Recorded QA at Task 02 close:
 - production build: **PASS**
 - migration manifest checks: **PASS**
 
-Later approved White-Label work continued on the isolated branch. Its currently verified remote head is:
+Later approved White-Label work continued on the isolated branch. The implementation/domain-documentation anchor immediately before this developer handoff file was added is:
 
 `f0d396abba6741ae96ac4f6cae6bb18d20f77c62`
+
+Do not treat that SHA as a permanent branch-head pointer; later handoff/documentation commits may sit on top of it.
 
 ## How to verify
 
@@ -181,9 +184,11 @@ The current isolated White-Label Product branch is:
 
 `origin/feat/whitelabel-phase2-isolation`
 
-Current verified head:
+Functional/domain-documentation anchor before the roadmap handoff document:
 
 `f0d396abba6741ae96ac4f6cae6bb18d20f77c62`
+
+Resolve the current review-branch head dynamically before promotion.
 
 Technical execution detail is documented in:
 
